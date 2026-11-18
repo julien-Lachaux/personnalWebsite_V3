@@ -13,8 +13,12 @@ stable) est téléchargé par pnpm (`.npmrc`, `use-node-version`), rien d'autre 
 pnpm install                       # 1. dépendances + hook pre-commit
 cp .env.example apps/api/.env      # 2. configuration locale de l'API (jamais commitée)
 pnpm db:up                         # 3. PostgreSQL 16 de dev (docker compose)
+pnpm db:migrate && pnpm db:seed    # 3 bis. schéma et contenu du CV (SQL de db/, rejouables)
 pnpm dev                           # 4. compile les contrats puis API en watch : http://localhost:3000/api/v1
 ```
+
+`pnpm db:reset` recrée le schéma de la base de dev puis rejoue migrations et seeds (refusé avec
+`NODE_ENV=production`).
 
 Vérifier :
 
