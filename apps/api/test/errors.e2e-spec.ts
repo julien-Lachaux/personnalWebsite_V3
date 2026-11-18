@@ -183,14 +183,20 @@ describe('Erreurs au format RFC 9457 (problem+json)', () => {
   });
 
   describe('erreurs levées par Fastify avant le routage', () => {
-    // BUG-1 : une URL à pourcentage invalide est rejetée par Fastify (FST_ERR_BAD_URL) AVANT
-    // le filtre Nest : corps `application/json` {statusCode, code, error, message}, sans
-    // en-têtes de sécurité (helmet). Attendu : problem+json 400. Piste : `frameworkErrors`
-    // du FastifyAdapter dans create-app.ts.
-    it.fails('BUG-1 : une URL mal encodée (/api/v1/%zz) répond en problem+json', async () => {
+    // BUG-1 (corrigé) : une URL à pourcentage invalide est rejetée par Fastify (FST_ERR_BAD_URL)
+    // avant le filtre Nest et helmet ; `frameworkErrors` (create-app.ts) la rend en problem+json.
+    it('BUG-1 : une URL mal encodée (/api/v1/%zz) répond en problem+json avec des en-têtes de sécurité', async () => {
       const response = await app.inject({ method: 'GET', url: '/api/v1/%zz' });
 
       expectProblem(response, 400);
+      expect(response.headers['x-content-type-options']).toBe('nosniff');
+      expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
+    });
+
+    it('une URL mal encodée sur une autre route et avec un octet invalide (%E0%A4%A) : même réponse', async () => {
+      for (const url of ['/api/v1/%E0%A4%A', '/%', '/api/v1/profile%zz']) {
+        expectProblem(await app.inject({ method: 'GET', url }), 400);
+      }
     });
 
     it('une URL mal encodée répond tout de même 400 sans pile ni chemin', async () => {

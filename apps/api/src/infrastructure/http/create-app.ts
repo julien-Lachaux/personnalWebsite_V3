@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit';
 import { type LoggerService, type LogLevel } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
+import { type FastifyError, type FastifyReply, type FastifyRequest } from 'fastify';
 
 import { loadEnv } from '../config/env.js';
 import { AppModule } from './app.module.js';
@@ -17,6 +18,14 @@ export const GLOBAL_PREFIX = 'api/v1';
  * 413 un corps volumineux (y compris sur une route inconnue) avant de le lire en mémoire.
  */
 export const MAX_BODY_BYTES = 1024;
+
+/** En-têtes de sécurité des réponses que helmet ne voit pas (erreurs levées avant le routage). */
+const FRAMEWORK_ERROR_HEADERS = {
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'SAMEORIGIN',
+  'referrer-policy': 'no-referrer',
+  'cross-origin-resource-policy': 'same-origin',
+} as const;
 
 /** Durée maximale de réception d'une requête complète (en-têtes et corps), en ms. */
 export const REQUEST_TIMEOUT_MS = 10_000;
@@ -42,6 +51,11 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
       // la limite (base figée) ne retient pas indéfiniment une connexion ; le second donne un 503.
       requestTimeout: REQUEST_TIMEOUT_MS,
       handlerTimeout: env.HANDLER_TIMEOUT_MS,
+      // Erreurs que Fastify lève avant le routage (URL à pourcentage invalide…) : elles échappent
+      // au filtre Nest et à helmet, d'où ce rendu problem+json et ces en-têtes minimaux.
+      frameworkErrors: (error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
+        sendProblem(error, request, reply, FRAMEWORK_ERROR_HEADERS);
+      },
     }),
     { logger: options.logger ?? ['error', 'warn', 'log'] },
   );
