@@ -1,0 +1,24 @@
+# Caddy obtient et renouvelle seul le certificat TLS de {$SITE_DOMAIN}.
+# (`SITE_DOMAIN=localhost` donne un certificat interne auto-signé pour l'essai local.)
+{$SITE_DOMAIN} {
+	encode gzip zstd
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "SAMEORIGIN"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Tant que le front n'existe pas : page statique minimale.
+	handle {
+		root * /srv/placeholder
+		file_server
+	}
+}

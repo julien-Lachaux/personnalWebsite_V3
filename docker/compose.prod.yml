@@ -1,0 +1,100 @@
+# Production : Caddy (TLS automatique) devant l'API, PostgreSQL privé.
+# Seul `caddy` publie des ports (80/443) ; l'API et la base ne sont joignables que sur le réseau interne.
+# Lancement (depuis la racine du dépôt) :
+#   docker compose -f docker/compose.prod.yml --env-file docker/.env.prod up -d --build
+# Variables : voir docker/.env.prod.example (le vrai .env.prod n'est jamais commité).
+
+name: siteperso-v3-prod
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?SITE_DOMAIN requis}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./placeholder:/srv/placeholder:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    networks:
+      - internal
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api.Dockerfile
+    image: siteperso-api:prod
+    restart: unless-stopped
+    expose:
+      - '3000'
+    environment:
+      DATABASE_URL: postgres://siteperso:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}@postgres:5432/siteperso
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN requis}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      # Obligatoire derrière Caddy : sinon tout le trafic partage le quota de l'IP du proxy.
+      TRUST_PROXY: 'true'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # Applique les migrations puis les seeds (runner du lot 1 : db/migrations, db/seeds), puis s'arrête.
+  migrate:
+    image: siteperso-api:prod
+    pull_policy: never
+    restart: 'no'
+    command: ['sh', '-c', 'node dist/cli/migrate.js && node dist/cli/seed.js']
+    environment:
+      DATABASE_URL: postgres://siteperso:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}@postgres:5432/siteperso
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN requis}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: siteperso
+      POSTGRES_USER: siteperso
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U siteperso -d siteperso']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks:
+      - internal
+
+  # `web` : service réservé au futur front (apps/web, différé). Tant qu'il n'existe pas, Caddy sert
+  # docker/placeholder/index.html. Exemple à activer le moment venu :
+  # web:
+  #   image: siteperso-web:prod
+  #   restart: unless-stopped
+  #   expose:
+  #     - '3001'
+  #   networks:
+  #     - internal
+
+networks:
+  internal:
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
