@@ -96,9 +96,7 @@ describe('createOpenApiDocument', () => {
     for (const path of expectedPaths) {
       const responses = document.paths?.[path]?.get?.responses ?? {};
       const expected =
-        path === '/health'
-          ? ['200', '429', '500', '503']
-          : ['200', '400', '404', '429', '500'];
+        path === '/health' ? ['200', '429', '500', '503'] : ['200', '400', '404', '429', '500'];
       expect(Object.keys(responses).sort()).toEqual(expected);
       for (const status of expected.filter((code) => code !== '200')) {
         expect(responses[status]).toMatchObject({
