@@ -78,6 +78,34 @@ async function ensureMigrationsTable(sql: Sql): Promise<void> {
     )`;
 }
 
+/**
+ * Refuse une migration déjà appliquée que le disque ne retrouve plus ou sous un autre nom :
+ * fichier supprimé, ou renommé (même version, `name` différent). Les deux trahissent un dépôt
+ * qui diverge de la base (mauvaise branche, historique réécrit) ; continuer appliquerait les
+ * migrations suivantes sur un schéma que le dépôt ne décrit plus.
+ */
+function assertAppliedMatchDisk(
+  applied: readonly { version: string; name: string }[],
+  files: readonly SqlFile[],
+): void {
+  const byVersion = new Map(files.map((file) => [file.version, file.name]));
+  for (const row of applied) {
+    const onDisk = byVersion.get(row.version);
+    if (onDisk === undefined) {
+      throw new Error(
+        `Migration ${row.name} (version ${row.version}) appliquée en base mais absente du disque : ` +
+          'le dépôt ne correspond pas à la base (fichier supprimé, mauvaise branche ?).',
+      );
+    }
+    if (onDisk !== row.name) {
+      throw new Error(
+        `Migration ${row.version} renommée : appliquée sous le nom ${row.name}, présente sous le nom ` +
+          `${onDisk}. Une migration appliquée ne se renomme jamais.`,
+      );
+    }
+  }
+}
+
 /** Applique les migrations en attente et vérifie les checksums des migrations déjà appliquées. */
 export async function runMigrations(options: MigrationsOptions): Promise<MigrationsResult> {
   const files = await listSqlFiles(options.directory);
@@ -87,8 +115,9 @@ export async function runMigrations(options: MigrationsOptions): Promise<Migrati
     await sql`select pg_advisory_lock(${MIGRATIONS_LOCK_KEY})`;
     try {
       await ensureMigrationsTable(sql);
-      const rows = await sql<{ version: string; checksum: string }[]>`
-        select version, checksum from schema_migrations`;
+      const rows = await sql<{ version: string; name: string; checksum: string }[]>`
+        select version, name, checksum from schema_migrations order by version`;
+      assertAppliedMatchDisk(rows, files);
       const appliedChecksums = new Map(rows.map((row) => [row.version, row.checksum]));
 
       for (const file of files) {

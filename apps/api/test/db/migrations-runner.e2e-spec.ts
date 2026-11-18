@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -72,5 +72,28 @@ describe('runner de migrations (base de test)', () => {
     await writeFile(file, 'create table t_first (id int, extra int);');
 
     await expect(runMigrations({ databaseUrl, directory, log })).rejects.toThrow(/checksum/i);
+  });
+
+  it('refuse une migration appliquée puis renommée', async () => {
+    await writeFile(join(directory, '0001_first.sql'), 'create table t_first (id int);');
+    await runMigrations({ databaseUrl, directory, log });
+
+    await rename(join(directory, '0001_first.sql'), join(directory, '0001_renamed.sql'));
+
+    await expect(runMigrations({ databaseUrl, directory, log })).rejects.toThrow(
+      /0001 renommée.*0001_first.*0001_renamed/,
+    );
+  });
+
+  it('refuse une migration appliquée puis supprimée du disque', async () => {
+    await writeFile(join(directory, '0001_first.sql'), 'create table t_first (id int);');
+    await writeFile(join(directory, '0002_second.sql'), 'create table t_second (id int);');
+    await runMigrations({ databaseUrl, directory, log });
+
+    await rm(join(directory, '0001_first.sql'));
+
+    await expect(runMigrations({ databaseUrl, directory, log })).rejects.toThrow(
+      /0001_first.*absente du disque/,
+    );
   });
 });
