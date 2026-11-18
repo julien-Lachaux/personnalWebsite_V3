@@ -72,4 +72,12 @@ describe('loadEnv', () => {
   it('refuse une configuration sans CORS_ORIGIN', () => {
     expect(() => loadEnv({ DATABASE_URL: valid.DATABASE_URL })).toThrow(/CORS_ORIGIN/);
   });
+
+  it('fixe des délais par défaut : requête SQL 5 s, requête HTTP 10 s', () => {
+    const env = loadEnv(valid);
+
+    expect(env.DB_STATEMENT_TIMEOUT_MS).toBe(5000);
+    expect(env.HANDLER_TIMEOUT_MS).toBe(10_000);
+    expect(() => loadEnv({ ...valid, HANDLER_TIMEOUT_MS: '0' })).toThrow(/HANDLER_TIMEOUT_MS/);
+  });
 });

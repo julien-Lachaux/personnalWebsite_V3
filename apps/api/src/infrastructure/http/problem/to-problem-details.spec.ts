@@ -147,4 +147,18 @@ describe('toProblemDetails', () => {
       });
     });
   });
+
+  it('traduit le dépassement de délai de Fastify (FST_ERR_HANDLER_TIMEOUT) en 503 sans détail interne', () => {
+    const timeout = Object.assign(new Error('Request timed out'), {
+      code: 'FST_ERR_HANDLER_TIMEOUT',
+      statusCode: 503,
+    });
+
+    expect(toProblemDetails(timeout, '/api/v1/cv')).toMatchObject({
+      status: 503,
+      title: 'Service Unavailable',
+      instance: '/api/v1/cv',
+    });
+    expect(JSON.stringify(toProblemDetails(timeout, '/api/v1/cv'))).not.toContain('timed out');
+  });
 });

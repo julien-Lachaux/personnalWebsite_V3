@@ -60,6 +60,12 @@ export const EnvSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(100),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
   /**
+   * Délais (ms) qui évitent qu'une base figée bloque toutes les requêtes : durée maximale d'une
+   * requête SQL (`statement_timeout`) et d'une requête HTTP de bout en bout (503 au-delà).
+   */
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(100).default(5000),
+  HANDLER_TIMEOUT_MS: z.coerce.number().int().min(100).default(10_000),
+  /**
    * Proxys de confiance pour lire l'IP du client dans `X-Forwarded-For` (sinon le rate limiting
    * verrait l'IP du proxy). `false` (défaut) : aucun. Sinon une liste d'IP, de CIDR ou de plages
    * nommées (`uniquelocal` = réseaux privés, pour Caddy sur le réseau Docker interne) séparés par

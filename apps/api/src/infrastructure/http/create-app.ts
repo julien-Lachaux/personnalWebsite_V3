@@ -18,6 +18,9 @@ export const GLOBAL_PREFIX = 'api/v1';
  */
 export const MAX_BODY_BYTES = 1024;
 
+/** Durée maximale de réception d'une requête complète (en-têtes et corps), en ms. */
+export const REQUEST_TIMEOUT_MS = 10_000;
+
 export interface CreateAppOptions {
   /** Logger Nest ; `false` pour couper les logs (tests). */
   logger?: LoggerService | LogLevel[] | false;
@@ -32,7 +35,14 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
   const env = loadEnv();
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ trustProxy: env.TRUST_PROXY, bodyLimit: MAX_BODY_BYTES }),
+    new FastifyAdapter({
+      trustProxy: env.TRUST_PROXY,
+      bodyLimit: MAX_BODY_BYTES,
+      // Délais : une requête qui n'arrive pas en entier (client lent) ou dont le traitement dépasse
+      // la limite (base figée) ne retient pas indéfiniment une connexion ; le second donne un 503.
+      requestTimeout: REQUEST_TIMEOUT_MS,
+      handlerTimeout: env.HANDLER_TIMEOUT_MS,
+    }),
     { logger: options.logger ?? ['error', 'warn', 'log'] },
   );
 
