@@ -49,7 +49,7 @@ exclus).
 ```
 apps/api/             API NestJS sur Fastify : src/domain, src/application, src/infrastructure
 packages/contracts/   schémas Zod partagés et génération OpenAPI (dist/openapi.json)
-db/migrations/        SQL manuel NNNN_description.sql (runner au lot 1)
+db/migrations/        SQL manuel NNNN_description.sql (runner : apps/api/src/infrastructure/db)
 db/seeds/             contenu SQL idempotent
 docker-compose.yml    postgres (dev, :5432) et postgres-test (:5433, tmpfs)
 docs/                 état des lieux V2, modèle de données, stack, organisation
