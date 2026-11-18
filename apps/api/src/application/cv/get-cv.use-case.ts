@@ -1,7 +1,6 @@
 import {
   type Certification,
   type Cv,
-  CvSchema,
   type Education,
   type Experience,
   type Language,
@@ -42,7 +41,7 @@ export class GetCvUseCase {
 
   /**
    * Exécute les 10 cas d'usage en parallèle. Une seule erreur fait échouer l'ensemble : jamais de
-   * réponse partielle. Le résultat est validé par `CvSchema` (strict).
+   * réponse partielle. La validation stricte par `CvSchema` est faite une fois, par le controller.
    */
   async execute(locale: Locale): Promise<Cv> {
     const [
@@ -69,7 +68,7 @@ export class GetCvUseCase {
       this.listLanguages.execute(locale),
     ]);
 
-    return CvSchema.parse({
+    return {
       locale,
       profile,
       socialLinks,
@@ -81,6 +80,6 @@ export class GetCvUseCase {
       certifications,
       education,
       languages,
-    });
+    };
   }
 }

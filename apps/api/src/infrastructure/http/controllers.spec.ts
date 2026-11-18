@@ -72,6 +72,14 @@ describe.each(LIST_CONTROLLERS)('%s', (_name, Controller) => {
     },
   );
 
+  it('répond le même message pour une langue invalide, sur toutes les routes de contenu', async () => {
+    const controller = new Controller(useCase([]) as never);
+
+    await expect(controller.list({ lang: 'de' })).rejects.toThrow(
+      'Paramètre « lang » invalide : valeurs acceptées fr, en.',
+    );
+  });
+
   it('refuse de renvoyer une réponse hors contrat (ZodError, jamais la donnée)', async () => {
     const controller = new Controller(useCase([{ champInattendu: true }]) as never);
 
