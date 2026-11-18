@@ -12,10 +12,6 @@ function toImage(path: string | null, alt: string | null): Image | null {
 }
 
 function toDto(project: Project): ProjectDto {
-  if (project.year === null) {
-    // Le contrat exige une année alors que le SQL l'autorise nulle : donnée incomplète.
-    throw new Error(`Le projet « ${project.slug} » n'a pas d'année : le contrat l'exige.`);
-  }
   return {
     slug: project.slug,
     url: project.url,

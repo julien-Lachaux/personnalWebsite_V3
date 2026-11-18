@@ -96,11 +96,11 @@ describe('ListProjectsUseCase', () => {
     expect(noAlt?.imageMobile).toBeNull();
   });
 
-  it('refuse un projet sans année plutôt que de renvoyer un contrat invalide', async () => {
+  it('renvoie une année nulle telle quelle (contrat nullable)', async () => {
     const repository = new InMemoryProjectsRepository([project({ year: null })]);
 
-    await expect(new ListProjectsUseCase(repository).execute('fr')).rejects.toThrow(
-      /site-perso.*année/,
-    );
+    const [result] = await new ListProjectsUseCase(repository).execute('fr');
+
+    expect(ProjectSchema.parse(result).year).toBeNull();
   });
 });

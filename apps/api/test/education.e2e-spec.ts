@@ -50,10 +50,10 @@ describe('GET /api/v1/education', () => {
     const autodidacte = education.find((item) => item.slug === 'autodidacte');
     expect(autodidacte?.yearEnd).toBeNull();
     expect(autodidacte?.yearStart).toBe(2015);
-    // `openclassrooms-integrateur-web` n'a pas de description en base : chaîne vide dans le contrat.
+    // `openclassrooms-integrateur-web` n'a pas de description en base : null dans le contrat.
     expect(
       education.find((item) => item.slug === 'openclassrooms-integrateur-web')?.description,
-    ).toBe('');
+    ).toBeNull();
   });
 
   it('?lang=en renvoie les textes anglais', async () => {

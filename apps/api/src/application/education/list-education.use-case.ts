@@ -11,8 +11,7 @@ function toDto(education: Education): EducationDto {
     yearEnd: education.yearEnd,
     url: education.url,
     title: education.title,
-    // Le contrat exige une chaîne alors que le SQL autorise une description absente.
-    description: education.description ?? '',
+    description: education.description,
   };
 }
 
