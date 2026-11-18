@@ -31,11 +31,12 @@ FROM node:${NODE_VERSION}-alpine AS runtime
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000
-WORKDIR /app
+# Disposition /repo/apps/api + /repo/db : les CLI (migrate, seed) résolvent db/ depuis dist/cli/ vers la racine du dépôt.
+WORKDIR /repo/apps/api
 COPY --from=prune --chown=node:node /out/node_modules ./node_modules
 COPY --from=build --chown=node:node /repo/apps/api/dist ./dist
 COPY --from=build --chown=node:node /repo/apps/api/package.json ./package.json
-COPY --chown=node:node db ./db
+COPY --chown=node:node db /repo/db
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \

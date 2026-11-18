@@ -61,3 +61,36 @@ bout en bout) est donc partiellement faite, voir « Non fait ».
 - Rejouer L5-02/L5-03/L5-05 après fusion du lot 1 (runner) puis du lot 3 (`/api/v1/cv`).
 - Cette CI n'a pas pu être exécutée sur GitHub (pas de push) ; seul actionlint et l'équivalent local l'ont
   validée.
+
+## Vérification finale (L5-05, branche `lot/5bis-verification`)
+
+Rejouée sur `v3/backend` (lots 0 à 3 et 5 fusionnés), projet Docker `siteperso-v3-prod-check`, ports hôte
+18080/18443 (8080 est pris par un autre conteneur de la machine ; 80/443 jamais utilisés).
+
+- **L5-01** : `docker build` passe ; `id -u` = 1000 ; ni `src`, ni `.env`, ni `pnpm` ; image 215 Mo (< 300 Mo).
+- **L5-02** : `config` passe ; migrate puis seed (5 migrations exécutées, seeds rejoués), puis en HTTPS via Caddy
+  (`curl -k`) : `/api/v1/health`, `/api/v1/cv?lang=en` (contenu EN) et `/api/v1/docs.json` = 200 ; `/` sert le
+  placeholder. En-têtes : HSTS, nosniff, referrer-policy, X-Frame-Options, Permissions-Policy présents ; pas
+  d'en-tête `Server` ; `x-ratelimit-*` présents. `down -v` : aucun conteneur, volume ni réseau résiduel
+  (`docker ps -a | grep siteperso-v3-prod` vide).
+- **L5-03** : `first-install.sh` rejoué SANS `DRY_RUN` en local (`DEPLOY_DIR` temporaire, `COMPOSE_PROJECT_NAME`
+  surchargé, `HTTP_PORT`/`HTTPS_PORT` dans `.env.prod`) : 1re exécution code 10, 2e code 0 (API healthy, pile
+  visible), 3e idempotente code 0 ; `backup.sh` produit un dump gzip valide (25 `CREATE TABLE`). `update.sh`
+  non rejoué (il fait `git pull` sur le dépôt courant). `bash -n` et shellcheck passent.
+- **L5-04** : actionlint passe ; un seul bloc `permissions:` ; aucun secret ni push d'image ; équivalent local
+  vert (`pnpm format:check`, `pnpm check` : 107 e2e verts, build de l'image).
+
+### Bugs trouvés et corrigés
+
+1. **Service `migrate` en échec en production** (`ENOENT: scandir '/db/migrations'`) : les CLI résolvent `db/`
+   quatre niveaux au-dessus de `dist/cli/`, or l'image placait `dist` dans `/app`. Corrigé dans
+   `docker/api.Dockerfile` (disposition `/repo/apps/api` + `/repo/db`).
+2. **Ports 80/443 codés en dur** dans `compose.prod.yml`, essai local impossible sans conflit : variables
+   `HTTP_PORT` / `HTTPS_PORT` (défauts inchangés), documentées dans `.env.prod.example` et `docs/deploiement.md`.
+
+### Points ouverts
+
+- `docker/.env.prod.example` reste ignoré par `.gitignore` (ajout forcé) : ligne `!.env.prod.example` à ajouter
+  par l'orchestrateur.
+- CI GitHub non exécutée sur GitHub (pas de push).
+- Certificat Caddy de production (ACME) non testé : seul le certificat interne `localhost` l'a été.
