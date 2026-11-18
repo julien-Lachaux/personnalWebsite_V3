@@ -1,7 +1,8 @@
-import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
-import { type Education, EducationSchema, LocaleQuerySchema } from '@siteperso/contracts';
+import { Controller, Get, Query } from '@nestjs/common';
+import { type Education, EducationSchema } from '@siteperso/contracts';
 
 import { ListEducationUseCase } from '../../../application/education/list-education.use-case.js';
+import { parseLocaleQuery } from '../common/locale-query.js';
 
 /** Ressource « formation » : `GET /api/v1/education?lang=fr|en`. */
 @Controller('education')
@@ -10,13 +11,8 @@ export class EducationController {
 
   @Get()
   async list(@Query() query: unknown): Promise<Education[]> {
-    const parsed = LocaleQuerySchema.safeParse(query);
-    if (!parsed.success) {
-      throw new BadRequestException(
-        'Paramètre « lang » invalide : valeurs permises « fr » ou « en ».',
-      );
-    }
+    const locale = parseLocaleQuery(query);
     // Validation stricte de la réponse avant envoi : un écart avec le contrat donne un 500.
-    return EducationSchema.array().parse(await this.listEducation.execute(parsed.data.lang));
+    return EducationSchema.array().parse(await this.listEducation.execute(locale));
   }
 }

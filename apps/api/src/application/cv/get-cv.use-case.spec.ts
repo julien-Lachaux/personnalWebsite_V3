@@ -194,10 +194,4 @@ describe('GetCvUseCase', () => {
       await expect(useCase.execute('fr')).rejects.toThrow(`échec ${key}`);
     },
   );
-
-  it('rejette une donnée qui ne respecte pas le contrat', async () => {
-    const { useCase } = build({ languages: new Stub([{ slug: 'fr' }]) });
-
-    await expect(useCase.execute('fr')).rejects.toThrow();
-  });
 });

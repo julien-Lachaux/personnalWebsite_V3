@@ -1,5 +1,9 @@
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { type Sql } from 'postgres';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { runSeeds } from '../../src/infrastructure/db/seeds-runner.js';
 import {
@@ -45,6 +49,18 @@ async function countRows(sql: Sql, tables: string[]): Promise<Record<string, num
   return counts;
 }
 
+/** Empreinte md5 du contenu de chaque table (lignes triées), pour comparer deux états de la base. */
+async function snapshot(sql: Sql, tables: string[]): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
+  for (const table of tables) {
+    const rows = await sql<{ hash: string }[]>`
+      select md5(coalesce(string_agg(t::text, '|' order by t::text), '')) as hash
+      from ${sql(table)} t`;
+    result[table] = rows[0]?.hash ?? '';
+  }
+  return result;
+}
+
 describe('seeds SQL (base de test)', () => {
   let sql: Sql;
 
@@ -71,6 +87,20 @@ describe('seeds SQL (base de test)', () => {
     expect(await countRows(sql, tables)).toEqual(before);
     expect(before['experiences']).toBe(8);
     expect(before['profile']).toBe(1);
+  });
+
+  it('sont idempotents : un second passage laisse le contenu de chaque table identique (md5)', async () => {
+    const tables = await tableNames(sql);
+    const before = await snapshot(sql, tables);
+
+    await runSeeds({
+      databaseUrl: testDatabaseUrl(),
+      directory: seedsDirectory,
+      migrationsDirectory,
+      log: () => undefined,
+    });
+
+    expect(await snapshot(sql, tables)).toEqual(before);
   });
 
   it('donnent une traduction fr à chaque entité publiée', async () => {
@@ -142,5 +172,146 @@ describe('seeds SQL (base de test)', () => {
         where ${sql(column)} is not null and ${sql(column)} not like 'https://%'`;
       expect({ table, column, invalid: rows[0]?.count }).toEqual({ table, column, invalid: 0 });
     }
+  });
+});
+
+describe('convergence de la base vers les seeds', () => {
+  let sql: Sql;
+  let workDirectory: string;
+  const run = (directory: string, log: (line: string) => void = () => undefined) =>
+    runSeeds({ databaseUrl: testDatabaseUrl(), directory, migrationsDirectory, log });
+
+  /** Copie les seeds dans un dossier temporaire en appliquant `edit` au contenu d'un fichier. */
+  async function seedsWith(file: string, edit: (content: string) => string): Promise<string> {
+    const directory = join(workDirectory, 'seeds');
+    await rm(directory, { recursive: true, force: true });
+    await cp(seedsDirectory, directory, { recursive: true });
+    const path = join(directory, file);
+    await writeFile(path, edit(await readFile(path, 'utf8')));
+    return directory;
+  }
+
+  beforeEach(async () => {
+    await resetTestDatabase();
+    sql = openTestSql();
+    workDirectory = await mkdtemp(join(tmpdir(), 'siteperso-seeds-'));
+  });
+
+  afterEach(async () => {
+    await sql.end({ timeout: 5 });
+    await rm(workDirectory, { recursive: true, force: true });
+  });
+
+  it('supprime une liaison compétence ajoutée à la main et absente des seeds', async () => {
+    await sql`
+      insert into experience_skills (experience_id, skill_id)
+      select e.id, s.id from experiences e, skills s where e.slug = 'nopillo' and s.slug = 'php'`;
+
+    const lines: string[] = [];
+    await run(seedsDirectory, (line) => lines.push(line));
+
+    const rows = await sql`
+      select 1 from experience_skills es
+      join experiences e on e.id = es.experience_id join skills s on s.id = es.skill_id
+      where e.slug = 'nopillo' and s.slug = 'php'`;
+    expect(rows).toHaveLength(0);
+    expect(lines.join('\n')).toContain('experience_skills : 1 ligne(s) absente(s) des seeds');
+  });
+
+  it('supprime une liaison et une traduction retirées d’un fichier de seed', async () => {
+    const directory = await seedsWith('0004_experiences.sql', (content) =>
+      content
+        .replace("  ('nopillo', 'docker', 6),\n", '')
+        .replace(
+          /insert into experiences_translations[^;]*'en',\s*'Senior Software Engineer'[\s\S]*?where p\.slug = 'nopillo'\s*on conflict[^;]*;/,
+          '',
+        ),
+    );
+
+    await run(directory);
+
+    const links = await sql`
+      select 1 from experience_skills es join experiences e on e.id = es.experience_id
+      join skills s on s.id = es.skill_id where e.slug = 'nopillo' and s.slug = 'docker'`;
+    expect(links).toHaveLength(0);
+    const translations = await sql<{ locale: string }[]>`
+      select locale from experiences_translations t join experiences e on e.id = t.experience_id
+      where e.slug = 'nopillo' order by 1`;
+    expect(translations.map((row) => row.locale)).toEqual(['fr']);
+  });
+
+  it('refuse une instruction de seed qui ne touche aucune ligne (slug inconnu) et ne change rien', async () => {
+    const tables = await tableNames(sql);
+    const before = await snapshot(sql, tables);
+    const broken = await seedsWith('0002_social_links.sql', (content) =>
+      content.replaceAll("where p.slug = 'linkedin'", "where p.slug = 'linkedinn'"),
+    );
+
+    await expect(run(broken)).rejects.toThrow(
+      /0002_social_links : une instruction n'a touché aucune ligne/,
+    );
+    expect(await snapshot(sql, tables)).toEqual(before);
+  });
+
+  it('refuse un slug inconnu dans une liste de liaisons, même si les autres lignes existent', async () => {
+    const tables = await tableNames(sql);
+    const before = await snapshot(sql, tables);
+    const broken = await seedsWith('0004_experiences.sql', (content) =>
+      content.replace("('nopillo', 'elysia', 2)", "('nopillo', 'elysiaa', 2)"),
+    );
+
+    await expect(run(broken)).rejects.toThrow(/null value|not-null/i);
+    expect(await snapshot(sql, tables)).toEqual(before);
+  });
+
+  it('arrête le déploiement si une ligne publiée n’a pas de traduction fr, sans rien appliquer', async () => {
+    const tables = await tableNames(sql);
+    const before = await snapshot(sql, tables);
+    const directory = await seedsWith('0002_social_links.sql', (content) => content);
+    await writeFile(
+      join(directory, '0099_sans_fr.sql'),
+      `insert into experiences (slug, kind, company, date_start)
+       values ('qa-sans-fr', 'freelance', 'Société', '2020-01-01')
+       on conflict (slug) do update set company = excluded.company;
+       insert into experiences_translations (experience_id, locale, job_title, summary)
+       select id, 'en', 'Job', 'Summary' from experiences where slug = 'qa-sans-fr'
+       on conflict (experience_id, locale) do update set job_title = excluded.job_title;`,
+    );
+
+    await expect(run(directory)).rejects.toThrow(
+      /Traduction fr manquante.*experiences\/qa-sans-fr/,
+    );
+    expect(await snapshot(sql, tables)).toEqual(before);
+  });
+
+  it('signale sans la supprimer une entité absente des seeds', async () => {
+    await sql`
+      insert into certifications (slug, issuer, year) values ('qa-retiree', 'Organisme', 2020)`;
+    await sql`
+      insert into certifications_translations (certification_id, locale, name)
+      select id, 'fr', 'Retirée' from certifications where slug = 'qa-retiree'`;
+
+    const lines: string[] = [];
+    await run(seedsDirectory, (line) => lines.push(line));
+
+    expect(
+      lines.some(
+        (line) => line.includes('ATTENTION certifications') && line.includes('qa-retiree'),
+      ),
+    ).toBe(true);
+    const rows = await sql`select 1 from certifications where slug = 'qa-retiree'`;
+    expect(rows).toHaveLength(1);
+  });
+
+  it('ne touche pas aux tables que les seeds ne mentionnent pas (projets sans seed)', async () => {
+    await sql`insert into projects (slug) values ('qa-projet-main')`;
+    await sql`
+      insert into projects_translations (project_id, locale, title, description)
+      select id, 'fr', 'Projet', 'Description' from projects where slug = 'qa-projet-main'`;
+
+    await run(seedsDirectory);
+
+    const rows = await sql`select 1 from projects_translations`;
+    expect(rows).toHaveLength(1);
   });
 });

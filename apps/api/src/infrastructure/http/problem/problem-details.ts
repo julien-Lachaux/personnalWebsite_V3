@@ -35,6 +35,15 @@ function statusCodeOf(exception: unknown): number | undefined {
   return undefined;
 }
 
+function hasCode(exception: unknown, code: string): boolean {
+  return (
+    typeof exception === 'object' &&
+    exception !== null &&
+    'code' in exception &&
+    exception.code === code
+  );
+}
+
 /** Extrait le message lisible d'une réponse d'HttpException (chaîne ou objet Nest). */
 function detailOf(exception: HttpException): string | undefined {
   const response = exception.getResponse();
@@ -65,6 +74,9 @@ export function toProblemDetails(exception: unknown, instance: string): ProblemD
   }
   if (exception instanceof EntityNotFoundError) {
     return problem(404, exception.message, instance);
+  }
+  if (hasCode(exception, 'FST_ERR_HANDLER_TIMEOUT')) {
+    return problem(503, 'Le traitement de la requête a dépassé le délai imparti.', instance);
   }
   const fastifyStatus = statusCodeOf(exception);
   if (fastifyStatus !== undefined && fastifyStatus < 500) {

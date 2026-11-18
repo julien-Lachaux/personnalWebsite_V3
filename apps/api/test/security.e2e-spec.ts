@@ -1,8 +1,11 @@
+import { Readable } from 'node:stream';
+
 import { type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { ENDPOINTS } from './support/endpoints.js';
 import { expectProblem } from './support/problem.js';
+import { resetTestDatabase } from './support/database.js';
 import { ALLOWED_ORIGIN, startTestApp } from './support/test-app.js';
 
 /** Variables d'environnement lues par `createApp` : posées avant `startTestApp`, restaurées après. */
@@ -41,6 +44,7 @@ describe('En-têtes de sécurité', () => {
 
   beforeAll(async () => {
     process.env['RATE_LIMIT_MAX'] = '100000';
+    await resetTestDatabase();
     app = await startTestApp();
   });
 
@@ -102,6 +106,7 @@ describe('CORS', () => {
 
   beforeAll(async () => {
     process.env['RATE_LIMIT_MAX'] = '100000';
+    await resetTestDatabase();
     app = await startTestApp();
   });
 
@@ -243,16 +248,84 @@ describe('Rate limiting sur les routes de contenu', () => {
     });
   });
 
-  // BUG-3 : les routes inconnues (404) ne sont pas comptées par @fastify/rate-limit, qui ne
-  // s'accroche qu'aux routes déclarées : un client peut les marteler sans jamais recevoir de 429.
-  // Impact faible (réponse minuscule, aucun accès base), mais le quota « global » ne l'est pas.
-  it.fails('BUG-3 : les requêtes 404 consomment aussi le quota par IP', async () => {
+  // Les routes inconnues (404) et les préflights consomment le quota : un hook `onRequest` racine
+  // (create-app.ts) remplace l'accroche par route de @fastify/rate-limit (ex-BUG-3).
+  it('BUG-3 : les requêtes 404 consomment aussi le quota par IP', async () => {
     await withEnv({ RATE_LIMIT_MAX: String(MAX) }, async (app) => {
-      for (let count = 0; count < MAX + 2; count += 1) {
-        await app.inject({ method: 'GET', url: '/api/v1/inconnu' });
+      for (let count = 0; count < MAX; count += 1) {
+        expectProblem(await app.inject({ method: 'GET', url: '/api/v1/inconnu' }), 404);
       }
 
-      expectProblem(await app.inject({ method: 'GET', url: '/api/v1/inconnu' }), 429);
+      const limited = await app.inject({ method: 'GET', url: '/api/v1/inconnu' });
+      expectProblem(limited, 429);
+      expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
+      // Le quota est partagé avec les routes de contenu.
+      expectProblem(await app.inject({ method: 'GET', url: '/api/v1/profile' }), 429);
+    });
+  });
+
+  it('les préflights OPTIONS consomment le quota', async () => {
+    await withEnv({ RATE_LIMIT_MAX: String(MAX) }, async (app) => {
+      const preflight = () =>
+        app.inject({
+          method: 'OPTIONS',
+          url: '/api/v1/profile',
+          headers: { origin: ALLOWED_ORIGIN, 'access-control-request-method': 'GET' },
+        });
+      for (let count = 0; count < MAX; count += 1) {
+        expect((await preflight()).statusCode).toBe(204);
+      }
+
+      expectProblem(await preflight(), 429);
+    });
+  });
+
+  describe('corps de requête (API en lecture seule)', () => {
+    const body = 'x'.repeat(2048);
+
+    it.each([
+      ['POST', '/api/v1/inconnu'],
+      ['POST', '/api/v1/profile'],
+      ['PUT', '/api/v1/cv'],
+      ['PATCH', '/api/v1/skills'],
+      ['DELETE', '/api/v1/tools'],
+    ])('%s %s avec un corps de 2 Kio : 413 problem+json, corps jamais lu', async (method, url) => {
+      await withEnv({ RATE_LIMIT_MAX: '100000' }, async (app) => {
+        const response = await app.inject({
+          method: method as 'POST',
+          url,
+          headers: { 'content-type': 'text/plain' },
+          payload: body,
+        });
+
+        expectProblem(response, 413);
+      });
+    });
+
+    it('un corps de 2 Kio en streaming sans content-length est aussi refusé', async () => {
+      await withEnv({ RATE_LIMIT_MAX: '100000' }, async (app) => {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/v1/inconnu',
+          headers: { 'content-type': 'application/json', 'transfer-encoding': 'chunked' },
+          payload: Readable.from([Buffer.from('"'), Buffer.from(body), Buffer.from('"')]),
+        });
+
+        expectProblem(response, 413);
+      });
+    });
+
+    it('un petit corps sur une route inconnue reste un 404 problem+json', async () => {
+      await withEnv({ RATE_LIMIT_MAX: '100000' }, async (app) => {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/v1/inconnu',
+          headers: { 'content-type': 'application/json' },
+          payload: '{}',
+        });
+
+        expectProblem(response, 404);
+      });
     });
   });
 
@@ -300,29 +373,48 @@ describe('Rate limiting sur les routes de contenu', () => {
     });
   });
 
-  it('avec TRUST_PROXY=true, l’IP du client vient de X-Forwarded-For', async () => {
-    await withEnv({ RATE_LIMIT_MAX: String(MAX), TRUST_PROXY: 'true' }, async (app) => {
-      for (let count = 0; count < MAX; count += 1) {
-        await app.inject({
+  it('avec un proxy de confiance, l’IP du client est le dernier saut non fiable de X-Forwarded-For', async () => {
+    await withEnv({ RATE_LIMIT_MAX: String(MAX), TRUST_PROXY: 'loopback' }, async (app) => {
+      const request = (forwardedFor: string) =>
+        app.inject({
           method: 'GET',
           url: '/api/v1/skills',
-          headers: { 'x-forwarded-for': '198.51.100.1' },
+          headers: { 'x-forwarded-for': forwardedFor },
         });
+      // Le client falsifie le début de l'en-tête ; le proxy ajoute la vraie IP à la fin.
+      for (let count = 0; count < MAX; count += 1) {
+        await request(`9.9.9.${count}, 198.51.100.1`);
       }
 
-      const sameClient = await app.inject({
-        method: 'GET',
-        url: '/api/v1/skills',
-        headers: { 'x-forwarded-for': '198.51.100.1' },
-      });
-      const otherClient = await app.inject({
-        method: 'GET',
-        url: '/api/v1/skills',
-        headers: { 'x-forwarded-for': '198.51.100.2' },
-      });
+      const sameClient = await request('9.9.9.200, 198.51.100.1');
+      const otherClient = await request('9.9.9.200, 198.51.100.2');
 
       expectProblem(sameClient, 429);
       expect(otherClient.statusCode).toBe(200);
+    });
+  });
+
+  it('avec une liste de CIDR, seul un proxy listé est cru ; un autre pair est ignoré', async () => {
+    await withEnv({ RATE_LIMIT_MAX: String(MAX), TRUST_PROXY: '10.0.0.0/8' }, async (app) => {
+      const request = (forwardedFor: string, remoteAddress: string) =>
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/skills',
+          remoteAddress,
+          headers: { 'x-forwarded-for': forwardedFor },
+        });
+      for (let count = 0; count < MAX; count += 1) {
+        await request('198.51.100.1', '10.1.2.3');
+      }
+
+      // Proxy de confiance : l'IP vient de l'en-tête.
+      expectProblem(await request('198.51.100.1', '10.1.2.3'), 429);
+      expect((await request('198.51.100.2', '10.1.2.3')).statusCode).toBe(200);
+      // Pair hors de la liste : X-Forwarded-For est ignoré, son IP propre est comptée.
+      for (let count = 0; count < MAX; count += 1) {
+        await request(`198.51.100.${count + 50}`, '203.0.113.7');
+      }
+      expectProblem(await request('198.51.100.99', '203.0.113.7'), 429);
     });
   });
 });

@@ -104,10 +104,10 @@ describe('GET /api/v1/skill-groups', () => {
       expect(group?.skills.map((skill) => skill.name)).toEqual(['Compétence FR']);
     });
 
-    it('description nulle en base devient une chaîne vide', async () => {
+    it('description nulle en base reste null dans la réponse', async () => {
       const groups = SkillGroupsSchema.parse((await get(app)).json());
 
-      expect(groups[0]?.description).toBe('');
+      expect(groups[0]?.description).toBeNull();
     });
 
     it('le groupe republié réapparaît avec ses compétences', async () => {

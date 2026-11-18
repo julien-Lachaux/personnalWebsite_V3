@@ -5,6 +5,7 @@ import { insertEmptySeedTablesFixtures } from './support/content-fixtures.js';
 import { ENDPOINTS, TRANSLATION_TABLES, withLang } from './support/endpoints.js';
 import { withFixture } from './support/fixtures.js';
 import { expectProblem } from './support/problem.js';
+import { resetTestDatabase } from './support/database.js';
 import { startTestApp } from './support/test-app.js';
 import { validate } from './support/validate.js';
 
@@ -24,6 +25,7 @@ describe('Matrice endpoints x langues', () => {
   beforeAll(async () => {
     // Plus d'une centaine de requêtes sur la même IP : le quota par défaut (100/min) est relevé.
     process.env['RATE_LIMIT_MAX'] = '100000';
+    await resetTestDatabase();
     app = await startTestApp();
   });
 

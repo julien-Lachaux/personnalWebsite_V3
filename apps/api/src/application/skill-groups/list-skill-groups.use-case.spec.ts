@@ -9,7 +9,7 @@ const groups: SkillGroup[] = [
   {
     slug: 'langages',
     name: 'Langages',
-    description: '',
+    description: null,
     skills: [
       {
         slug: 'typescript',

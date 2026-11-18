@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import postgres, { type Sql } from 'postgres';
 
+import { splitSqlStatements, statementVerb } from './sql-statements.js';
+
 /** Clé du verrou consultatif (`pg_advisory_lock`) qui sérialise les runners de migrations. */
 const MIGRATIONS_LOCK_KEY = 7_251_001;
 
@@ -78,6 +80,55 @@ async function ensureMigrationsTable(sql: Sql): Promise<void> {
     )`;
 }
 
+/** Verbes qui pilotent la transaction : interdits dans un fichier, le runner la gère lui-même. */
+const TRANSACTION_VERBS = new Set(['begin', 'start', 'commit', 'end', 'rollback', 'abort']);
+
+/**
+ * Refuse un fichier de migration qui contient `begin`, `commit`, `rollback`, `start transaction`,
+ * `end` ou `abort` (hors commentaires, chaînes et corps de fonction) : le runner exécute le fichier
+ * dans sa propre transaction avec l'enregistrement dans `schema_migrations`, et un `commit` du
+ * fichier la terminerait. La migration serait alors à moitié appliquée et non enregistrée.
+ */
+export function assertNoTransactionControl(fileName: string, content: string): void {
+  for (const statement of splitSqlStatements(content)) {
+    const verb = statementVerb(statement);
+    if (TRANSACTION_VERBS.has(verb)) {
+      throw new Error(
+        `${fileName}.sql contient « ${verb} » : le runner gère la transaction, ` +
+          'retirer toute instruction de contrôle de transaction du fichier.',
+      );
+    }
+  }
+}
+
+/**
+ * Refuse une migration déjà appliquée que le disque ne retrouve plus ou sous un autre nom :
+ * fichier supprimé, ou renommé (même version, `name` différent). Les deux trahissent un dépôt
+ * qui diverge de la base (mauvaise branche, historique réécrit) ; continuer appliquerait les
+ * migrations suivantes sur un schéma que le dépôt ne décrit plus.
+ */
+export function assertAppliedMatchDisk(
+  applied: readonly { version: string; name: string }[],
+  files: readonly SqlFile[],
+): void {
+  const byVersion = new Map(files.map((file) => [file.version, file.name]));
+  for (const row of applied) {
+    const onDisk = byVersion.get(row.version);
+    if (onDisk === undefined) {
+      throw new Error(
+        `Migration ${row.name} (version ${row.version}) appliquée en base mais absente du disque : ` +
+          'le dépôt ne correspond pas à la base (fichier supprimé, mauvaise branche ?).',
+      );
+    }
+    if (onDisk !== row.name) {
+      throw new Error(
+        `Migration ${row.version} renommée : appliquée sous le nom ${row.name}, présente sous le nom ` +
+          `${onDisk}. Une migration appliquée ne se renomme jamais.`,
+      );
+    }
+  }
+}
+
 /** Applique les migrations en attente et vérifie les checksums des migrations déjà appliquées. */
 export async function runMigrations(options: MigrationsOptions): Promise<MigrationsResult> {
   const files = await listSqlFiles(options.directory);
@@ -87,8 +138,9 @@ export async function runMigrations(options: MigrationsOptions): Promise<Migrati
     await sql`select pg_advisory_lock(${MIGRATIONS_LOCK_KEY})`;
     try {
       await ensureMigrationsTable(sql);
-      const rows = await sql<{ version: string; checksum: string }[]>`
-        select version, checksum from schema_migrations`;
+      const rows = await sql<{ version: string; name: string; checksum: string }[]>`
+        select version, name, checksum from schema_migrations order by version`;
+      assertAppliedMatchDisk(rows, files);
       const appliedChecksums = new Map(rows.map((row) => [row.version, row.checksum]));
 
       for (const file of files) {
@@ -106,6 +158,7 @@ export async function runMigrations(options: MigrationsOptions): Promise<Migrati
           result.alreadyApplied.push(file.name);
           continue;
         }
+        assertNoTransactionControl(file.name, content);
         await sql.begin(async (tx) => {
           await tx.unsafe(content);
           await tx`

@@ -32,12 +32,30 @@ describe('loadEnv', () => {
       ...valid,
       RATE_LIMIT_MAX: '5',
       RATE_LIMIT_WINDOW_MS: '1000',
-      TRUST_PROXY: 'true',
+      TRUST_PROXY: 'loopback',
     });
     expect(env.RATE_LIMIT_MAX).toBe(5);
     expect(env.RATE_LIMIT_WINDOW_MS).toBe(1000);
-    expect(env.TRUST_PROXY).toBe(true);
+    expect(env.TRUST_PROXY).toEqual(['loopback']);
   });
+
+  it.each([
+    ['false', false],
+    ['', false],
+    ['uniquelocal', ['uniquelocal']],
+    ['10.0.0.0/8', ['10.0.0.0/8']],
+    ['172.16.0.0/12, 192.168.1.10', ['172.16.0.0/12', '192.168.1.10']],
+    ['fd00::/8', ['fd00::/8']],
+  ])('lit TRUST_PROXY=%j comme %j', (raw, expected) => {
+    expect(loadEnv({ ...valid, TRUST_PROXY: raw }).TRUST_PROXY).toEqual(expected);
+  });
+
+  it.each(['true', 'oui', '1', '2', '1.5', '-1', '10.0.0.0/99', 'a.b.c.d', '10.0.0.1,'])(
+    'refuse TRUST_PROXY=%j (« true » ferait confiance à tous les sauts)',
+    (raw) => {
+      expect(() => loadEnv({ ...valid, TRUST_PROXY: raw })).toThrow(/TRUST_PROXY/);
+    },
+  );
 
   it('refuse un seuil de rate limiting nul ou une fenêtre trop courte', () => {
     expect(() => loadEnv({ ...valid, RATE_LIMIT_MAX: '0' })).toThrow(/RATE_LIMIT_MAX/);
@@ -53,5 +71,13 @@ describe('loadEnv', () => {
 
   it('refuse une configuration sans CORS_ORIGIN', () => {
     expect(() => loadEnv({ DATABASE_URL: valid.DATABASE_URL })).toThrow(/CORS_ORIGIN/);
+  });
+
+  it('fixe des délais par défaut : requête SQL 5 s, requête HTTP 10 s', () => {
+    const env = loadEnv(valid);
+
+    expect(env.DB_STATEMENT_TIMEOUT_MS).toBe(5000);
+    expect(env.HANDLER_TIMEOUT_MS).toBe(10_000);
+    expect(() => loadEnv({ ...valid, HANDLER_TIMEOUT_MS: '0' })).toThrow(/HANDLER_TIMEOUT_MS/);
   });
 });

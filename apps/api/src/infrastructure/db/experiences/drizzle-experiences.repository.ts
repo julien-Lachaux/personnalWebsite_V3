@@ -1,27 +1,23 @@
-import { Injectable } from '@nestjs/common';
 import { type Locale } from '@siteperso/contracts';
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 
 import { type ExperiencesRepository } from '../../../application/experiences/ports/experiences-repository.port.js';
 import { type Experience } from '../../../domain/experiences/experience.js';
 import { type Skill } from '../../../domain/skills/skill.js';
-import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
+import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { experiences, experienceSkills, experiencesTranslations, skills } from '../schema/index.js';
 import { selectPublishedSkills } from '../skills/select-published-skills.js';
-import { translated } from '../translated.js';
+import { translated, translationAliases } from '../translated.js';
 
 /**
  * Implémentation Drizzle du dépôt d'expériences : deux requêtes au total (les expériences, puis les
  * compétences de toutes ces expériences d'un coup), assemblées en mémoire par identifiant.
  */
-@Injectable()
 export class DrizzleExperiencesRepository implements ExperiencesRepository {
   constructor(private readonly client: DrizzleDatabaseClient) {}
 
   async findAllPublished(locale: Locale): Promise<Experience[]> {
-    const fr = alias(experiencesTranslations, 'experience_fr');
-    const en = alias(experiencesTranslations, 'experience_en');
+    const { fr, en } = translationAliases(experiencesTranslations);
 
     const rows = await this.client.db
       .select({
@@ -31,16 +27,16 @@ export class DrizzleExperiencesRepository implements ExperiencesRepository {
         company: experiences.company,
         companyUrl: experiences.companyUrl,
         logoPath: experiences.logoPath,
-        logoAlt: translated<string | null>(en.logoAlt, fr.logoAlt),
+        logoAlt: translated(en.logoAlt, fr.logoAlt),
         contractType: experiences.contractType,
         workMode: experiences.workMode,
         dateStart: experiences.dateStart,
         dateEnd: experiences.dateEnd,
-        jobTitle: translated<string>(en.jobTitle, fr.jobTitle),
-        location: translated<string | null>(en.location, fr.location),
-        summary: translated<string>(en.summary, fr.summary),
-        achievements: translated<string[]>(en.achievements, fr.achievements),
-        stackLabel: translated<string | null>(en.stackLabel, fr.stackLabel),
+        jobTitle: translated(en.jobTitle, fr.jobTitle),
+        location: translated(en.location, fr.location),
+        summary: translated(en.summary, fr.summary),
+        achievements: translated(en.achievements, fr.achievements),
+        stackLabel: translated(en.stackLabel, fr.stackLabel),
       })
       .from(experiences)
       .innerJoin(fr, and(eq(fr.experienceId, experiences.id), eq(fr.locale, 'fr')))

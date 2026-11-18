@@ -1,12 +1,4 @@
-/** Compétence mobilisée par un projet, déjà traduite (repli `fr` fait par le dépôt). */
-export interface ProjectSkill {
-  slug: string;
-  name: string;
-  level: number;
-  icon: string;
-  iconPath: string | null;
-  groupSlug: string;
-}
+import { type Skill } from '../skills/skill.js';
 
 /**
  * Réalisation (projet) publiée. Les champs optionnels reflètent le schéma SQL : un projet peut
@@ -22,5 +14,5 @@ export interface Project {
   year: number | null;
   title: string;
   description: string;
-  skills: ProjectSkill[];
+  skills: Skill[];
 }

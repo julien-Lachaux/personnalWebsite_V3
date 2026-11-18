@@ -4,7 +4,12 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { computeChecksum, listSqlFiles } from './migrations-runner.js';
+import {
+  assertAppliedMatchDisk,
+  assertNoTransactionControl,
+  computeChecksum,
+  listSqlFiles,
+} from './migrations-runner.js';
 
 describe('listSqlFiles', () => {
   let directory: string;
@@ -48,5 +53,49 @@ describe('computeChecksum', () => {
     expect(computeChecksum('select 1;')).toBe(computeChecksum('select 1;'));
     expect(computeChecksum('select 1;')).not.toBe(computeChecksum('select 2;'));
     expect(computeChecksum('select 1;')).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe('assertNoTransactionControl', () => {
+  it.each(['begin', 'commit', 'rollback', 'start transaction', 'end', 'abort'])(
+    'refuse « %s »',
+    (statement) => {
+      expect(() =>
+        assertNoTransactionControl('0002_x', `create table t (id int); ${statement};`),
+      ).toThrow(/0002_x\.sql contient/);
+    },
+  );
+
+  it('accepte le mot dans un commentaire, une chaîne ou un corps de fonction', () => {
+    const content = `-- commit;
+      create table t (label text default 'rollback;');
+      create function f() returns int language plpgsql as $$ begin return 1; end; $$;`;
+
+    expect(() => assertNoTransactionControl('0002_x', content)).not.toThrow();
+  });
+});
+
+describe('assertAppliedMatchDisk', () => {
+  const files = [
+    { version: '0001', name: '0001_first', path: '/x/0001_first.sql' },
+    { version: '0002', name: '0002_second', path: '/x/0002_second.sql' },
+  ];
+
+  it('accepte des migrations appliquées présentes sous le même nom', () => {
+    expect(() =>
+      assertAppliedMatchDisk([{ version: '0001', name: '0001_first' }], files),
+    ).not.toThrow();
+  });
+
+  it('refuse une migration renommée', () => {
+    expect(() => assertAppliedMatchDisk([{ version: '0001', name: '0001_old' }], files)).toThrow(
+      /0001 renommée.*0001_old.*0001_first/,
+    );
+  });
+
+  it('refuse une migration absente du disque', () => {
+    expect(() => assertAppliedMatchDisk([{ version: '0003', name: '0003_gone' }], files)).toThrow(
+      /0003_gone.*absente du disque/,
+    );
   });
 });

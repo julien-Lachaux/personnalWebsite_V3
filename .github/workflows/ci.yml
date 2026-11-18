@@ -22,14 +22,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # La version de pnpm vient du champ `packageManager` du package.json racine.
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Dépendances de production : échoue sur une vulnérabilité de gravité haute ou critique.
+      - run: pnpm audit --prod --audit-level=high
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
@@ -58,21 +60,23 @@ jobs:
       DATABASE_URL: postgres://siteperso:siteperso@localhost:5433/siteperso_test
       CORS_ORIGIN: http://localhost:3001
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:e2e
+      # Seconde passe dans un ordre de fichiers aléatoire : détecte une dépendance entre fichiers.
+      - run: pnpm --filter @siteperso/api exec vitest run --config vitest.e2e.config.ts --sequence.shuffle.files
 
   docker:
     name: Image Docker de l'API (build sans push)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: docker build -f docker/api.Dockerfile -t siteperso-api:ci .
       - name: Vérifier le démarrage du conteneur (utilisateur non root)
         run: |

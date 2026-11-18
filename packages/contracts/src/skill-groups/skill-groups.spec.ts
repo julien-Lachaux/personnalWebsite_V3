@@ -30,4 +30,10 @@ describe('SkillGroupSchema', () => {
     );
     expect(SkillGroupSchema.safeParse({ ...valid, skills: 'typescript' }).success).toBe(false);
   });
+
+  it('accepte une description nulle mais pas absente', () => {
+    expect(SkillGroupSchema.safeParse({ ...valid, description: null }).success).toBe(true);
+    const { description: _description, ...withoutDescription } = valid;
+    expect(SkillGroupSchema.safeParse(withoutDescription).success).toBe(false);
+  });
 });

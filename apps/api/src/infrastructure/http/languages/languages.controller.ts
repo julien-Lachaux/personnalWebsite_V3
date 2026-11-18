@@ -1,10 +1,8 @@
-import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
-import { type Language, LanguageSchema, LocaleQuerySchema } from '@siteperso/contracts';
-import { z } from 'zod';
+import { Controller, Get, Query } from '@nestjs/common';
+import { type Language, LanguageSchema } from '@siteperso/contracts';
 
 import { ListLanguagesUseCase } from '../../../application/languages/list-languages.use-case.js';
-
-const LanguagesResponseSchema = z.array(LanguageSchema);
+import { parseLocaleQuery } from '../common/locale-query.js';
 
 /** `GET /api/v1/languages` : langues parlées publiées, triées par `sort_order`. */
 @Controller('languages')
@@ -13,12 +11,8 @@ export class LanguagesController {
 
   @Get()
   async list(@Query() rawQuery: unknown): Promise<Language[]> {
-    const query = LocaleQuerySchema.safeParse(rawQuery);
-    if (!query.success) {
-      throw new BadRequestException('Paramètre « lang » invalide : valeurs acceptées fr, en.');
-    }
-    const languages = await this.listLanguages.execute(query.data.lang);
+    const locale = parseLocaleQuery(rawQuery);
     // Validation stricte de la réponse avant envoi.
-    return LanguagesResponseSchema.parse(languages);
+    return LanguageSchema.array().parse(await this.listLanguages.execute(locale));
   }
 }

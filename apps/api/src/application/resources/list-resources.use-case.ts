@@ -1,15 +1,8 @@
-import { type Image, type Locale, type Resource as ResourceDto } from '@siteperso/contracts';
+import { type Locale, type Resource as ResourceDto } from '@siteperso/contracts';
 
 import { type Resource } from '../../domain/resources/resources.js';
+import { toImage } from '../common/image.js';
 import { type ResourcesRepository } from './ports/resources-repository.port.js';
-
-/**
- * Une image n'est exposée que si son chemin ET son texte alternatif existent : le contrat
- * (`Image`) impose l'alternative pour l'accessibilité.
- */
-function toImage(path: string | null, alt: string | null): Image | null {
-  return path !== null && path !== '' && alt !== null && alt !== '' ? { path, alt } : null;
-}
 
 function toDto(resource: Resource): ResourceDto {
   return {

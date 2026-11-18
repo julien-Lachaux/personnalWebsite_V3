@@ -1,5 +1,10 @@
 # Production : Caddy (TLS automatique) devant l'API, PostgreSQL privé.
-# Seul `caddy` publie des ports (80/443) ; l'API et la base ne sont joignables que sur le réseau interne.
+# Seul `caddy` publie des ports (80/443). Trois réseaux :
+#   - edge : réseau Docker ordinaire de Caddy (ports publiés, sortie vers Internet pour le certificat) ;
+#   - app  : Caddy et l'API, `internal` (aucune sortie vers Internet) ;
+#   - data : l'API, migrate et PostgreSQL, `internal` (Caddy n'y est pas : il ne joint pas la base).
+# Conteneurs durcis : système de fichiers en lecture seule, aucune capacité Linux superflue,
+# `no-new-privileges`, mémoire et nombre de processus bornés.
 # Lancement (depuis la racine du dépôt) :
 #   docker compose -f docker/compose.prod.yml --env-file docker/.env.prod up -d --build
 # Variables : voir docker/.env.prod.example (le vrai .env.prod n'est jamais commité).
@@ -8,7 +13,7 @@ name: siteperso-v3-prod
 
 services:
   caddy:
-    image: caddy:2
+    image: caddy:2@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
     restart: unless-stopped
     ports:
       - '${HTTP_PORT:-80}:80'
@@ -16,6 +21,7 @@ services:
       - '${HTTPS_PORT:-443}:443/udp'
     environment:
       SITE_DOMAIN: ${SITE_DOMAIN:?SITE_DOMAIN requis}
+      PUBLIC_HTTPS_PORT: ${HTTPS_PORT:-443}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./placeholder:/srv/placeholder:ro
@@ -24,7 +30,23 @@ services:
     depends_on:
       - api
     networks:
-      - internal
+      - edge
+      - app
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 100
+    # Journal d'accès avec adresses IP : conservation bornée (3 x 10 Mo) sur le VPS.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
 
   api:
     build:
@@ -35,37 +57,63 @@ services:
     expose:
       - '3000'
     environment:
-      DATABASE_URL: postgres://siteperso:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}@postgres:5432/siteperso
+      # Rôle de lecture seule (select uniquement), créé par `migrate` : l'API n'a besoin de rien d'autre.
+      DATABASE_URL: postgres://siteperso_api:${API_DB_PASSWORD:?API_DB_PASSWORD requis}@postgres:5432/siteperso
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN requis}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
-      # Obligatoire derrière Caddy : sinon tout le trafic partage le quota de l'IP du proxy.
-      TRUST_PROXY: 'true'
+      # Obligatoire derrière Caddy : sinon tout le trafic partage le quota de l'IP du proxy. Seuls les pairs
+      # des réseaux privés (Caddy, sur le réseau Docker interne) sont crus ; jamais `true` (refusé).
+      TRUST_PROXY: 'uniquelocal'
     depends_on:
       migrate:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
     networks:
-      - internal
+      - app
+      - data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 100
 
-  # Applique les migrations puis les seeds (runner du lot 1 : db/migrations, db/seeds), puis s'arrête.
+  # Applique les migrations puis les seeds (runner du lot 1 : db/migrations, db/seeds), crée ou met à jour
+  # le rôle de lecture seule de l'API, puis s'arrête. Seul service qui utilise le rôle propriétaire.
   migrate:
     image: siteperso-api:prod
     pull_policy: never
     restart: 'no'
-    command: ['sh', '-c', 'node dist/cli/migrate.js && node dist/cli/seed.js']
+    command:
+      [
+        'sh',
+        '-c',
+        'node dist/cli/migrate.js && node dist/cli/seed.js && node dist/cli/provision-api-role.js',
+      ]
     environment:
       DATABASE_URL: postgres://siteperso:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}@postgres:5432/siteperso
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?API_DB_PASSWORD requis}
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN requis}
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - internal
+      - data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 100
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:81e77a4833487b8132fe4b00bedd39dc3f74b8641e387f19312a48f7de218c2e
     restart: unless-stopped
     environment:
       POSTGRES_DB: siteperso
@@ -79,20 +127,35 @@ services:
       timeout: 3s
       retries: 12
     networks:
-      - internal
+      - data
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    # L'entrypoint de l'image prépare le volume (chown) puis descend vers l'utilisateur postgres.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 200
 
   # `web` : service réservé au futur front (apps/web, différé). Tant qu'il n'existe pas, Caddy sert
-  # docker/placeholder/index.html. Exemple à activer le moment venu :
+  # docker/placeholder/index.html. Exemple à activer le moment venu (réseau `app`, comme l'API) :
   # web:
   #   image: siteperso-web:prod
   #   restart: unless-stopped
   #   expose:
   #     - '3001'
   #   networks:
-  #     - internal
+  #     - app
 
 networks:
-  internal:
+  edge:
+  app:
+    internal: true
+  data:
+    internal: true
 
 volumes:
   pgdata:

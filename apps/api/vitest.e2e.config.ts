@@ -17,6 +17,8 @@ export default defineConfig({
   plugins: [swc.vite({ module: { type: 'es6' } })],
   test: {
     include: ['test/**/*.e2e-spec.ts'],
+    // Base neuve garantie avant le premier fichier (migrations + seeds).
+    globalSetup: ['test/support/global-setup.ts'],
     environment: 'node',
     // Un seul processus : l'application et sa connexion sont partagées entre les fichiers.
     fileParallelism: false,

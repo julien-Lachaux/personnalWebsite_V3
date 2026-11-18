@@ -15,6 +15,7 @@ import { SKILLS_REPOSITORY } from '../src/application/skills/ports/skills-reposi
 import { SOCIAL_LINKS_REPOSITORY } from '../src/application/social-links/ports/social-links-repository.port.js';
 import { TOOLS_REPOSITORY } from '../src/application/tools/ports/tools-repository.port.js';
 import { appWithOverrides } from './support/override-app.js';
+import { resetTestDatabase } from './support/database.js';
 import { ALLOWED_ORIGIN, startTestApp } from './support/test-app.js';
 import { expectNoLeak, expectProblem } from './support/problem.js';
 
@@ -53,6 +54,7 @@ describe('Erreurs au format RFC 9457 (problem+json)', () => {
   let app: NestFastifyApplication;
 
   beforeAll(async () => {
+    await resetTestDatabase();
     app = await startTestApp();
   });
 
@@ -169,26 +171,35 @@ describe('Erreurs au format RFC 9457 (problem+json)', () => {
       expect(response.statusCode).toBe(204);
     });
 
-    // BUG-2 : OPTIONS sans en-têtes de préflight (curl -X OPTIONS) répond 400 `text/plain`
-    // « Invalid Preflight Request » (@fastify/cors, strictPreflight), hors RFC 9457, sans les
-    // en-têtes de sécurité de helmet. Attendu : un problem+json ou un 204.
-    it.fails('BUG-2 : OPTIONS sans préflight répond en problem+json ou en 2xx', async () => {
-      const response = await app.inject({ method: 'OPTIONS', url: '/api/v1/profile' });
+    // BUG-2 (corrigé) : OPTIONS sans en-têtes de préflight (curl -X OPTIONS) répondait 400
+    // `text/plain` « Invalid Preflight Request » (@fastify/cors, strictPreflight). Avec
+    // `strictPreflight: false`, la réponse est un 204 portant les en-têtes de sécurité.
+    it('BUG-2 : OPTIONS sans en-têtes de préflight répond 204, sans corps', async () => {
+      for (const url of ['/api/v1/profile', '/api/v1/inconnu']) {
+        const response = await app.inject({ method: 'OPTIONS', url });
 
-      const isProblem = String(response.headers['content-type']).includes('problem+json');
-      expect(isProblem || response.statusCode < 300).toBe(true);
+        expect(response.statusCode, url).toBe(204);
+        expect(response.body, url).toBe('');
+        expect(response.headers['x-content-type-options'], url).toBe('nosniff');
+      }
     });
   });
 
   describe('erreurs levées par Fastify avant le routage', () => {
-    // BUG-1 : une URL à pourcentage invalide est rejetée par Fastify (FST_ERR_BAD_URL) AVANT
-    // le filtre Nest : corps `application/json` {statusCode, code, error, message}, sans
-    // en-têtes de sécurité (helmet). Attendu : problem+json 400. Piste : `frameworkErrors`
-    // du FastifyAdapter dans create-app.ts.
-    it.fails('BUG-1 : une URL mal encodée (/api/v1/%zz) répond en problem+json', async () => {
+    // BUG-1 (corrigé) : une URL à pourcentage invalide est rejetée par Fastify (FST_ERR_BAD_URL)
+    // avant le filtre Nest et helmet ; `frameworkErrors` (create-app.ts) la rend en problem+json.
+    it('BUG-1 : une URL mal encodée (/api/v1/%zz) répond en problem+json avec des en-têtes de sécurité', async () => {
       const response = await app.inject({ method: 'GET', url: '/api/v1/%zz' });
 
       expectProblem(response, 400);
+      expect(response.headers['x-content-type-options']).toBe('nosniff');
+      expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
+    });
+
+    it('une URL mal encodée sur une autre route et avec un octet invalide (%E0%A4%A) : même réponse', async () => {
+      for (const url of ['/api/v1/%E0%A4%A', '/%', '/api/v1/profile%zz']) {
+        expectProblem(await app.inject({ method: 'GET', url }), 400);
+      }
     });
 
     it('une URL mal encodée répond tout de même 400 sans pile ni chemin', async () => {

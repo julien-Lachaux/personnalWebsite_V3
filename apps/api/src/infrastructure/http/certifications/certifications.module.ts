@@ -5,6 +5,7 @@ import {
   CERTIFICATIONS_REPOSITORY,
   type CertificationsRepository,
 } from '../../../application/certifications/ports/certifications-repository.port.js';
+import { DrizzleDatabaseClient } from '../../db/drizzle-database-client.js';
 import { DrizzleCertificationsRepository } from '../../db/certifications/drizzle-certifications.repository.js';
 import { CertificationsController } from './certifications.controller.js';
 
@@ -12,7 +13,11 @@ import { CertificationsController } from './certifications.controller.js';
 @Module({
   controllers: [CertificationsController],
   providers: [
-    { provide: CERTIFICATIONS_REPOSITORY, useClass: DrizzleCertificationsRepository },
+    {
+      provide: CERTIFICATIONS_REPOSITORY,
+      useFactory: (client: DrizzleDatabaseClient) => new DrizzleCertificationsRepository(client),
+      inject: [DrizzleDatabaseClient],
+    },
     {
       provide: ListCertificationsUseCase,
       useFactory: (repository: CertificationsRepository) =>

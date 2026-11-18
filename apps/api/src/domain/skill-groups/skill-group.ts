@@ -4,7 +4,7 @@ import { type Skill } from '../skills/skill.js';
 export interface SkillGroup {
   readonly slug: string;
   readonly name: string;
-  /** Chaîne vide quand le groupe n'a pas de description. */
-  readonly description: string;
+  /** `null` quand le groupe n'a pas de description. */
+  readonly description: string | null;
   readonly skills: readonly Skill[];
 }

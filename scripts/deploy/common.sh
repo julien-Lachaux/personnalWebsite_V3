@@ -43,3 +43,18 @@ require_docker() {
 require_env_file() {
   [ -f "${ENV_FILE}" ] || die "${ENV_FILE} est absent : lancer d'abord scripts/deploy/first-install.sh"
 }
+
+# Génère API_DB_PASSWORD dans .env.prod s'il manque (déploiement antérieur au rôle de lecture seule
+# `siteperso_api`) : le service migrate crée alors le rôle avec ce mot de passe.
+ensure_api_db_password() {
+  if grep -Eq '^API_DB_PASSWORD=.+' "${ENV_FILE}"; then
+    return 0
+  fi
+  command -v openssl >/dev/null 2>&1 || die "openssl est introuvable (génération du mot de passe)"
+  if [ "${DRY_RUN}" = "1" ]; then
+    log "(dry-run) API_DB_PASSWORD absent de ${ENV_FILE} : serait généré"
+    return 0
+  fi
+  printf 'API_DB_PASSWORD=%s\n' "$(openssl rand -hex 24)" >>"${ENV_FILE}"
+  log "API_DB_PASSWORD généré dans ${ENV_FILE} (rôle PostgreSQL de lecture seule de l'API)"
+}

@@ -1,10 +1,8 @@
-import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
-import { LocaleQuerySchema, type Skill, SkillSchema } from '@siteperso/contracts';
-import { z } from 'zod';
+import { Controller, Get, Query } from '@nestjs/common';
+import { type Skill, SkillSchema } from '@siteperso/contracts';
 
 import { ListSkillsUseCase } from '../../../application/skills/list-skills.use-case.js';
-
-const SkillsResponseSchema = z.array(SkillSchema);
+import { parseLocaleQuery } from '../common/locale-query.js';
 
 /** `GET /api/v1/skills` : compétences publiées à plat, avec `groupSlug`. */
 @Controller('skills')
@@ -13,12 +11,8 @@ export class SkillsController {
 
   @Get()
   async list(@Query() rawQuery: unknown): Promise<Skill[]> {
-    const query = LocaleQuerySchema.safeParse(rawQuery);
-    if (!query.success) {
-      throw new BadRequestException('Paramètre « lang » invalide : valeurs acceptées fr, en.');
-    }
-    const skills = await this.listSkills.execute(query.data.lang);
+    const locale = parseLocaleQuery(rawQuery);
     // Validation stricte de la réponse avant envoi.
-    return SkillsResponseSchema.parse(skills);
+    return SkillSchema.array().parse(await this.listSkills.execute(locale));
   }
 }

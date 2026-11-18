@@ -16,7 +16,8 @@ apps/api/                 API NestJS 12 sur Fastify (ESM), architecture hexagona
     db/                   Drizzle + driver postgres, implémentation des ports (DATABASE_CLIENT)
     http/                 Nest : create-app.ts, app.module.ts, problem/, health/, docs/,
                           puis un dossier par ressource (profile/, skills/, cv/…)
-  src/cli/                points d'entrée Node sans Nest : migrate.ts, seed.ts, reset.ts (scripts db:*)
+  src/cli/                points d'entrée Node sans Nest : migrate.ts, seed.ts, reset.ts (scripts db:*),
+                          provision-api-role.ts (rôle PostgreSQL de lecture seule de l'API, prod)
   test/                   tests e2e (*.e2e-spec.ts) via app.inject contre le Postgres de test ;
                           test/support/database.ts : resetTestDatabase(), openTestSql()
 packages/contracts/       schémas Zod partagés + document OpenAPI 3.2.0 (createOpenApiDocument)
@@ -37,8 +38,11 @@ docs/comptes-rendus/      compte rendu de chaque agent (lot-N-role.md)
   Les cas d'usage sont des classes sans décorateur, fournis aux modules par `useFactory`
   avec `inject: [PORT_TOKEN]` (voir `health/health.module.ts`).
 - Les ports sont des interfaces TypeScript + un jeton `Symbol` dans `application/.../ports/`.
-  L'implémentation Drizzle vit dans `infrastructure/db/`. Les dépôts injectent
-  `DrizzleDatabaseClient` et utilisent `client.db`.
+  L'implémentation Drizzle vit dans `infrastructure/db/`. Les dépôts reçoivent
+  `DrizzleDatabaseClient` à la construction et utilisent `client.db` ; ce sont des classes sans
+  décorateur ni import de Nest (seul `db/database.module.ts` en importe), câblées par les modules de
+  `infrastructure/http` en `useFactory` + `inject: [DrizzleDatabaseClient]`. `src/architecture.spec.ts`
+  vérifie ces règles d'import.
 - Pas de décorateurs métier, pas de pipes de validation magiques : les DTO et query params
   sont des schémas Zod de `@siteperso/contracts`, validés par un appel explicite
   (`Schema.safeParse`) dans le controller.
@@ -96,7 +100,7 @@ autres ressources : il les importe par leurs modules, sans dupliquer de requête
 
 ## Commandes
 
-Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 9. pnpm télécharge lui-même
+Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 10 (>= 10.34.5 : les versions 9.x sont visées par des avis de sécurité sans correctif). pnpm télécharge lui-même
 la version de Node fixée dans `.npmrc` (`use-node-version`, Node 26 = dernière ligne stable,
 docs/02) et l'utilise pour tous les scripts ; `engines.node` vaut `>=26 <27`.
 

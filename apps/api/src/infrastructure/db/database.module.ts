@@ -15,7 +15,10 @@ import { DrizzleDatabaseClient } from './drizzle-database-client.js';
   providers: [
     {
       provide: DrizzleDatabaseClient,
-      useFactory: (env: Env) => new DrizzleDatabaseClient(env.DATABASE_URL),
+      useFactory: (env: Env) =>
+        new DrizzleDatabaseClient(env.DATABASE_URL, {
+          statementTimeoutMs: env.DB_STATEMENT_TIMEOUT_MS,
+        }),
       inject: [APP_CONFIG],
     },
     { provide: DATABASE_CLIENT, useExisting: DrizzleDatabaseClient },

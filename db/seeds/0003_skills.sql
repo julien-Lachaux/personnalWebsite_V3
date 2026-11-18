@@ -295,7 +295,7 @@ from (values
   ('git', 'Git'),
   ('production-operations', 'Exploitation et diagnostic en production')
 ) as v (slug, name)
-join skills s on s.slug = v.slug
+left join skills s on s.slug = v.slug -- left join : un slug inconnu viole not null au lieu d'être ignoré
 on conflict (skill_id, locale) do update set name = excluded.name;
 
 insert into skills_translations (skill_id, locale, name)
@@ -345,5 +345,5 @@ from (values
   -- EN : à relire
   ('production-operations', 'Production operations and diagnosis')
 ) as v (slug, name)
-join skills s on s.slug = v.slug
+left join skills s on s.slug = v.slug -- left join : un slug inconnu viole not null au lieu d'être ignoré
 on conflict (skill_id, locale) do update set name = excluded.name;

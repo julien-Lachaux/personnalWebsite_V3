@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { SlugSchema } from '../common/slug.js';
+import { HttpUrlSchema } from '../common/url.js';
 
 /** Formation. Raffinement : `yearEnd` ne peut pas précéder `yearStart`. */
 export const EducationSchema = z
@@ -14,7 +15,7 @@ export const EducationSchema = z
       .max(2100)
       .nullable()
       .meta({ description: 'Fin ; `null` = en cours.' }),
-    url: z.url().nullable().meta({ description: "Site de l'établissement." }),
+    url: HttpUrlSchema.nullable().meta({ description: "Site de l'établissement." }),
     title: z.string().min(1),
     description: z
       .string()

@@ -86,4 +86,87 @@ describe('contraintes du schéma SQL', () => {
       insert into profile (id, first_name, last_name, picture_path, location)
       values (2, 'a', 'b', 'c', 'd')`).rejects.toThrow(/profile_id_check|check constraint/);
   });
+
+  it('refuse un chemin d’image ou un texte alternatif vide (le contrat Image les exige non vides)', async () => {
+    await expect(sql`update profile_translations set picture_alt = ''`).rejects.toThrow(
+      /profile_translations_picture_alt_check/,
+    );
+    await expect(sql`update profile set picture_path = ''`).rejects.toThrow(
+      /profile_picture_path_check/,
+    );
+    await expect(sql`update experiences_translations set logo_alt = ''`).rejects.toThrow(
+      /experiences_translations_logo_alt_check/,
+    );
+    await expect(sql`update experiences set logo_path = ''`).rejects.toThrow(
+      /experiences_logo_path_check/,
+    );
+
+    await sql`insert into projects (slug) values ('t-projet-image')`;
+    await sql`insert into resources (slug, url) values ('t-ressource-image', 'https://example.test')`;
+    try {
+      await expect(
+        sql`update projects set image_desktop_path = '' where slug = 't-projet-image'`,
+      ).rejects.toThrow(/projects_image_desktop_path_check/);
+      await expect(
+        sql`update projects set image_mobile_path = '' where slug = 't-projet-image'`,
+      ).rejects.toThrow(/projects_image_mobile_path_check/);
+      await expect(
+        sql`update resources set picture_path = '' where slug = 't-ressource-image'`,
+      ).rejects.toThrow(/resources_picture_path_check/);
+      await expect(sql`
+        insert into projects_translations (project_id, locale, title, description, image_alt)
+        select id, 'fr', 't', 'd', '' from projects where slug = 't-projet-image'`).rejects.toThrow(
+        /projects_translations_image_alt_check/,
+      );
+      await expect(sql`
+        insert into resources_translations (resource_id, locale, name, description, picture_alt)
+        select id, 'fr', 'n', 'd', '' from resources where slug = 't-ressource-image'`).rejects.toThrow(
+        /resources_translations_picture_alt_check/,
+      );
+    } finally {
+      await sql`delete from projects where slug = 't-projet-image'`;
+      await sql`delete from resources where slug = 't-ressource-image'`;
+    }
+  });
+
+  it.each([
+    'javascript:alert(document.domain)',
+    'data:text/html,x',
+    'mailto:contact@example.test',
+    'tel:+33100000000',
+    'ftp://example.test',
+  ])('refuse l’URL %s dans toute colonne d’adresse (XSS stockée)', async (url) => {
+    await expect(
+      sql`insert into social_links (slug, kind, url) values ('t-lien', 'github', ${url})`,
+    ).rejects.toThrow(/social_links_url_check/);
+    await expect(
+      sql`insert into resources (slug, url) values ('t-ressource-url', ${url})`,
+    ).rejects.toThrow(/resources_url_check/);
+    await expect(sql`insert into tools (slug, url) values ('t-outil', ${url})`).rejects.toThrow(
+      /tools_url_check/,
+    );
+    await expect(sql`insert into projects (slug, url) values ('t-p1', ${url})`).rejects.toThrow(
+      /projects_url_check/,
+    );
+    await expect(
+      sql`insert into projects (slug, repo_url) values ('t-p2', ${url})`,
+    ).rejects.toThrow(/projects_repo_url_check/);
+    await expect(
+      sql`insert into certifications (slug, issuer, year, url) values ('t-cert', 'x', 2020, ${url})`,
+    ).rejects.toThrow(/certifications_url_check/);
+    await expect(
+      sql`insert into education (slug, institution, year_start, url) values ('t-edu', 'x', 2010, ${url})`,
+    ).rejects.toThrow(/education_url_check/);
+    await expect(
+      sql`insert into experiences (slug, kind, date_start, company_url) values ('t-xp', 'freelance', '2020-01-01', ${url})`,
+    ).rejects.toThrow(/experiences_company_url_check/);
+  });
+
+  it('accepte http, https et l’absence d’URL', async () => {
+    await sql`insert into resources (slug, url) values ('t-http', 'http://example.test')`;
+    await sql`insert into resources (slug, url) values ('t-https', 'HTTPS://example.test/a')`;
+    await sql`insert into tools (slug, url) values ('t-sans-url', null)`;
+    await sql`delete from resources where slug in ('t-http', 't-https')`;
+    await sql`delete from tools where slug = 't-sans-url'`;
+  });
 });

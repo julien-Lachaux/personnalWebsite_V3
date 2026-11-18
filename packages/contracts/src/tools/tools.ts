@@ -1,12 +1,13 @@
 import { z } from 'zod';
 
 import { SlugSchema } from '../common/slug.js';
+import { HttpUrlSchema } from '../common/url.js';
 
 /** Outil du quotidien (IDE, API, services…). */
 export const ToolSchema = z
   .strictObject({
     slug: SlugSchema,
-    url: z.url().nullable().meta({ description: "Site de l'outil, s'il existe." }),
+    url: HttpUrlSchema.nullable().meta({ description: "Site de l'outil, s'il existe." }),
     iconPath: z
       .string()
       .min(1)

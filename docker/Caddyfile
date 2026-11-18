@@ -1,7 +1,23 @@
 # Caddy obtient et renouvelle seul le certificat TLS de {$SITE_DOMAIN}.
 # (`SITE_DOMAIN=localhost` donne un certificat interne auto-signé pour l'essai local.)
+
+# Redirection HTTP vers HTTPS écrite à la main (et non l'automatique de Caddy) pour pouvoir retirer
+# l'en-tête `Server`, qui annonce le logiciel. PUBLIC_HTTPS_PORT : port HTTPS publié (443 en prod).
+http://{$SITE_DOMAIN:localhost} {
+	header -Server
+	redir https://{host}:{$PUBLIC_HTTPS_PORT:443}{uri} permanent
+}
+
 {$SITE_DOMAIN:localhost} {
 	encode gzip zstd
+
+	# Journal d'accès (JSON, sortie standard) : sert à vérifier l'IP réelle des clients, surtout IPv6
+	# (voir docs/deploiement.md, « IP des clients et rate limiting »). Contient des adresses IP :
+	# rotation et durée de conservation limitées (compose.prod.yml, `logging`).
+	log {
+		output stdout
+		format json
+	}
 
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -12,13 +28,39 @@
 		-Server
 	}
 
+	# API en lecture seule : aucune route n'attend de corps ni de méthode d'écriture. Caddy les
+	# écarte avant l'API (405 sans lire le corps) et plafonne tout corps restant à 1 Kio.
 	handle /api/* {
+		# Réponses JSON : rien à charger ni à afficher dans un cadre. `-Via` : Caddy ne s'annonce pas
+		# (reverse_proxy ajoute `Via: 1.1 Caddy` et `header_down -Via` ne le retire pas).
+		header {
+			Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+			-Via
+		}
+
+		@writes not method GET HEAD OPTIONS
+		header @writes Allow "GET, HEAD, OPTIONS"
+		header @writes Content-Type "application/problem+json"
+		respond @writes `{"type":"about:blank","title":"Method Not Allowed","status":405}` 405 {
+			close
+		}
+
+		request_body {
+			max_size 1KB
+		}
 		reverse_proxy api:3000
 	}
 
-	# Tant que le front n'existe pas : page statique minimale.
+	# Tant que le front n'existe pas : page statique minimale (aucune ressource externe).
 	handle {
+		header Content-Security-Policy "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
 		root * /srv/placeholder
 		file_server
+	}
+
+	# Erreurs produites par Caddy (413 du plafond de corps, 502 si l'API est arrêtée…) : sans `Server`.
+	handle_errors {
+		header -Server
+		respond "{err.status_code} {err.status_text}" {err.status_code}
 	}
 }
