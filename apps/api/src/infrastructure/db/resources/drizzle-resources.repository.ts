@@ -1,12 +1,11 @@
 import { type Locale } from '@siteperso/contracts';
 import { and, asc, eq } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 
 import { type ResourcesRepository } from '../../../application/resources/ports/resources-repository.port.js';
 import { type Resource } from '../../../domain/resources/resources.js';
 import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { resources, resourcesTranslations, skillGroups } from '../schema/index.js';
-import { translated } from '../translated.js';
+import { translated, translationAliases } from '../translated.js';
 
 /**
  * Dépôt Drizzle des ressources. Repli de langue en SQL, en une requête : `fr` obligatoire
@@ -18,8 +17,7 @@ export class DrizzleResourcesRepository implements ResourcesRepository {
   constructor(private readonly client: DrizzleDatabaseClient) {}
 
   async findAllPublished(locale: Locale): Promise<Resource[]> {
-    const fr = alias(resourcesTranslations, 'fr');
-    const en = alias(resourcesTranslations, 'en');
+    const { fr, en } = translationAliases(resourcesTranslations);
 
     return this.client.db
       .select({
@@ -27,7 +25,7 @@ export class DrizzleResourcesRepository implements ResourcesRepository {
         url: resources.url,
         groupSlug: skillGroups.slug,
         picturePath: resources.picturePath,
-        pictureAlt: translated<string | null>(en.pictureAlt, fr.pictureAlt),
+        pictureAlt: translated(en.pictureAlt, fr.pictureAlt),
         name: translated(en.name, fr.name),
         description: translated(en.description, fr.description),
       })

@@ -1,6 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 
 import { type ProjectsRepository } from '../../../application/projects/ports/projects-repository.port.js';
 import { type Project } from '../../../domain/projects/projects.js';
@@ -8,7 +7,7 @@ import { type Skill } from '../../../domain/skills/skill.js';
 import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { projects, projectSkills, projectsTranslations, skills } from '../schema/index.js';
 import { selectPublishedSkills } from '../skills/select-published-skills.js';
-import { translated } from '../translated.js';
+import { translated, translationAliases } from '../translated.js';
 
 /**
  * Dépôt Drizzle des projets. Repli de langue en SQL : `fr` obligatoire (inner join), `locale`
@@ -20,8 +19,7 @@ export class DrizzleProjectsRepository implements ProjectsRepository {
 
   async findAllPublished(locale: Locale): Promise<Project[]> {
     const { db } = this.client;
-    const fr = alias(projectsTranslations, 'fr');
-    const en = alias(projectsTranslations, 'en');
+    const { fr, en } = translationAliases(projectsTranslations);
 
     const rows = await db
       .select({
@@ -34,7 +32,7 @@ export class DrizzleProjectsRepository implements ProjectsRepository {
         year: projects.year,
         title: translated(en.title, fr.title),
         description: translated(en.description, fr.description),
-        imageAlt: translated<string | null>(en.imageAlt, fr.imageAlt),
+        imageAlt: translated(en.imageAlt, fr.imageAlt),
       })
       .from(projects)
       .innerJoin(fr, and(eq(fr.projectId, projects.id), eq(fr.locale, 'fr')))

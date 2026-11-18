@@ -1,12 +1,11 @@
 import { type Locale } from '@siteperso/contracts';
 import { and, asc, eq } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 
 import { type ToolsRepository } from '../../../application/tools/ports/tools-repository.port.js';
 import { type Tool } from '../../../domain/tools/tools.js';
 import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { tools, toolsTranslations } from '../schema/index.js';
-import { translated } from '../translated.js';
+import { translated, translationAliases } from '../translated.js';
 
 /**
  * Dépôt Drizzle des outils. Repli de langue en SQL, en une requête : `fr` obligatoire
@@ -16,8 +15,7 @@ export class DrizzleToolsRepository implements ToolsRepository {
   constructor(private readonly client: DrizzleDatabaseClient) {}
 
   async findAllPublished(locale: Locale): Promise<Tool[]> {
-    const fr = alias(toolsTranslations, 'fr');
-    const en = alias(toolsTranslations, 'en');
+    const { fr, en } = translationAliases(toolsTranslations);
 
     return this.client.db
       .select({

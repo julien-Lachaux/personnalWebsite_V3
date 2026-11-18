@@ -1,5 +1,6 @@
 import { boolean, index, integer, pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
 
+import { CEFR_LEVELS } from '../../../domain/languages/language.js';
 import { localeCode } from './enums.js';
 
 export const languages = pgTable(
@@ -8,7 +9,8 @@ export const languages = pgTable(
     id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
     slug: text('slug').notNull().unique(),
     code: text('code').notNull().unique(),
-    cefrLevel: text('cefr_level'),
+    // Mêmes valeurs que la contrainte SQL `languages_cefr_level_check`.
+    cefrLevel: text('cefr_level', { enum: CEFR_LEVELS }),
     sortOrder: integer('sort_order').notNull().default(0),
     published: boolean('published').notNull().default(true),
   },

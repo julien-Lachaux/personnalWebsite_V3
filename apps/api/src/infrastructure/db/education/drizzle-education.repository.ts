@@ -1,12 +1,11 @@
 import { type Locale } from '@siteperso/contracts';
 import { and, asc, eq } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 
 import { type EducationRepository } from '../../../application/education/ports/education-repository.port.js';
 import { type Education } from '../../../domain/education/education.js';
 import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { education, educationTranslations } from '../schema/index.js';
-import { translated } from '../translated.js';
+import { translated, translationAliases } from '../translated.js';
 
 /**
  * Dépôt Drizzle des formations. Repli de langue en SQL, en une requête : `fr` obligatoire
@@ -16,8 +15,7 @@ export class DrizzleEducationRepository implements EducationRepository {
   constructor(private readonly client: DrizzleDatabaseClient) {}
 
   async findAllPublished(locale: Locale): Promise<Education[]> {
-    const fr = alias(educationTranslations, 'fr');
-    const en = alias(educationTranslations, 'en');
+    const { fr, en } = translationAliases(educationTranslations);
 
     return this.client.db
       .select({
@@ -27,7 +25,7 @@ export class DrizzleEducationRepository implements EducationRepository {
         yearEnd: education.yearEnd,
         url: education.url,
         title: translated(en.title, fr.title),
-        description: translated<string | null>(en.description, fr.description),
+        description: translated(en.description, fr.description),
       })
       .from(education)
       .innerJoin(fr, and(eq(fr.educationId, education.id), eq(fr.locale, 'fr')))
