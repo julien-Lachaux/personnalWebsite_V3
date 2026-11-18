@@ -21,6 +21,9 @@ COPY tsconfig.base.json turbo.json ./
 COPY apps/api apps/api
 COPY packages/contracts packages/contracts
 RUN pnpm turbo run build --filter=@siteperso/api...
+# `db:reset` détruit tout le schéma : jamais livré dans l'image (sa garde NODE_ENV=production se
+# contourne avec NODE_ENV=development).
+RUN rm -f apps/api/dist/cli/reset.* apps/api/dist/infrastructure/db/reset-database.*
 
 # --- prune : API seule avec ses dépendances de production ---------------------------------
 FROM build AS prune

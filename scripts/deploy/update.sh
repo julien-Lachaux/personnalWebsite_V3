@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Mise à jour d'un déploiement existant : git pull, rebuild, migrations, redémarrage.
-# Codes de sortie : 0 terminé ; 1 erreur.
+# Mise à jour d'un déploiement existant : sauvegarde, git pull, rebuild, migrations, redémarrage.
+# Variables : SKIP_BACKUP=1 saute la sauvegarde préalable (déconseillé : les migrations et les seeds
+# modifient la base).
+# Codes de sortie : 0 terminé ; 1 erreur (dont l'échec de la sauvegarde : rien n'est alors modifié).
 set -euo pipefail
 
 # shellcheck source=scripts/deploy/common.sh
@@ -9,6 +11,13 @@ set -euo pipefail
 require_docker
 require_env_file
 ensure_api_db_password
+
+if [ "${SKIP_BACKUP:-0}" = "1" ]; then
+  log "Sauvegarde préalable ignorée (SKIP_BACKUP=1)"
+else
+  log "Sauvegarde préalable de la base"
+  "$(dirname "${BASH_SOURCE[0]}")/backup.sh"
+fi
 
 log "Mise à jour du code (fast-forward uniquement)"
 run git -C "${REPO_DIR}" pull --ff-only

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sauvegarde de la base : pg_dump compressé dans DEPLOY_DIR/backups, rotation des plus anciennes.
-# Variables : BACKUP_KEEP (nombre de sauvegardes conservées, défaut 14).
+# Variables : BACKUP_KEEP (nombre de sauvegardes conservées, entier >= 1, défaut 14).
 # Codes de sortie : 0 terminé ; 1 erreur.
 set -euo pipefail
 
@@ -9,6 +9,9 @@ set -euo pipefail
 
 BACKUP_KEEP="${BACKUP_KEEP:-14}"
 BACKUP_DIR="${DEPLOY_DIR}/backups"
+
+# 0 (ou une valeur non numérique) supprimerait toutes les sauvegardes, la neuve comprise.
+[[ "${BACKUP_KEEP}" =~ ^[1-9][0-9]*$ ]] || die "BACKUP_KEEP doit être un entier >= 1 (reçu : '${BACKUP_KEEP}')"
 
 require_docker
 require_env_file

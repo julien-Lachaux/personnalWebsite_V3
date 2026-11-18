@@ -27,11 +27,11 @@ mot de passe PostgreSQL du propriétaire (`POSTGRES_PASSWORD`) et un mot de pass
 construit l'image, lance la pile, attend que l'API soit `healthy` (`HEALTH_TIMEOUT`, 180 s par défaut) et
 affiche l'état.
 
-| Code | Sens                                                                |
-| ---- | ------------------------------------------------------------------- |
-| 0    | terminé                                                             |
+| Code | Sens                                                               |
+| ---- | ------------------------------------------------------------------ |
+| 0    | terminé                                                            |
 | 1    | erreur (Docker absent, configuration invalide, API jamais healthy) |
-| 10   | `.env.prod` créé ou encore au modèle : à remplir, puis relancer     |
+| 10   | `.env.prod` créé ou encore au modèle : à remplir, puis relancer    |
 
 `DRY_RUN=1` affiche les commandes qui modifient l'état au lieu de les exécuter (utile pour répéter la
 procédure avec `DEPLOY_DIR=$(mktemp -d)`).
@@ -44,7 +44,8 @@ Vérification : `curl https://<domaine>/api/v1/health` renvoie `{"status":"ok","
 scripts/deploy/update.sh
 ```
 
-`git pull --ff-only`, reconstruction de l'image, `compose run --rm migrate` (migrations et seeds),
+Sauvegarde préalable (`backup.sh`, l'échec arrête la mise à jour avant toute modification ; `SKIP_BACKUP=1`
+la saute), `git pull --ff-only`, reconstruction de l'image, `compose run --rm migrate` (migrations et seeds),
 `compose up -d`. Une migration déjà appliquée ne doit jamais être modifiée : le runner compare les
 checksums et échoue (voir `db/README.md`).
 
@@ -55,8 +56,18 @@ scripts/deploy/backup.sh          # DEPLOY_DIR/backups/siteperso-AAAAMMJJ-HHMMSS
 ```
 
 `pg_dump` est exécuté dans le conteneur `postgres` ; les `BACKUP_KEEP` (14) sauvegardes les plus récentes
-sont conservées. Pour planifier : une ligne `crontab` quotidienne appelant le script avec `DEPLOY_DIR`.
-Copier régulièrement les sauvegardes hors du VPS.
+sont conservées (`BACKUP_KEEP` doit être un entier >= 1, le script refuse toute autre valeur). Pour planifier :
+une ligne `crontab` quotidienne appelant le script avec `DEPLOY_DIR`.
+
+**Copie hors du VPS** (indispensable : une sauvegarde sur le disque du VPS ne protège pas de sa perte).
+Exemple, une heure après la sauvegarde, vers une machine ou un stockage objet distinct :
+
+```sh
+0 3 * * * DEPLOY_DIR=/opt/siteperso-v3 /opt/siteperso-v3/repo/scripts/deploy/backup.sh
+0 4 * * * rsync -a --delete /opt/siteperso-v3/backups/ sauvegarde@hote-distant:siteperso-v3/
+```
+
+L'image de production ne contient pas `db:reset` (commande destructrice, réservée aux bases de dev et de test).
 
 Restauration (la sauvegarde contient `DROP … IF EXISTS`) :
 
