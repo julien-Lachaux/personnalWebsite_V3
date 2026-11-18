@@ -1,7 +1,7 @@
 import { Controller, Get, Header } from '@nestjs/common';
 import { createOpenApiDocument, type OpenApiDocument } from '@siteperso/contracts';
 
-/** Sert le contrat OpenAPI 3.1 généré depuis les schémas Zod de `@siteperso/contracts`. */
+/** Sert le contrat OpenAPI 3.2.0 généré depuis les schémas Zod de `@siteperso/contracts`. */
 @Controller('docs.json')
 export class DocsController {
   private readonly document: OpenApiDocument = createOpenApiDocument();

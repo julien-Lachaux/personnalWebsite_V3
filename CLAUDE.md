@@ -17,7 +17,7 @@ apps/api/                 API NestJS 12 sur Fastify (ESM), architecture hexagona
     http/                 Nest : create-app.ts, app.module.ts, problem/, health/, docs/,
                           puis un dossier par ressource (profile/, skills/, cv/…)
   test/                   tests e2e (*.e2e-spec.ts) via app.inject contre le Postgres de test
-packages/contracts/       schémas Zod partagés + document OpenAPI 3.1 (createOpenApiDocument)
+packages/contracts/       schémas Zod partagés + document OpenAPI 3.2.0 (createOpenApiDocument)
 db/migrations/            SQL manuel NNNN_description.sql (source de vérité du schéma)
 db/seeds/                 contenu SQL idempotent (upsert sur slug)
 docker-compose.yml        postgres (dev, :5432) et postgres-test (:5433, tmpfs)
@@ -46,7 +46,12 @@ docs/comptes-rendus/      compte rendu de chaque agent (lot-N-role.md)
   RFC 9457 `application/problem+json` ; une erreur inattendue donne un 500 au détail
   générique, jamais de message ni de pile.
 - Réponses JSON stables et décrites dans le contrat OpenAPI. Toute nouvelle route est ajoutée
-  dans `packages/contracts/src/openapi/document.ts` avec ses schémas.
+  dans `packages/contracts/src/openapi/document.ts` (`routes`, `namedSchemas`) avec ses schémas.
+- Contrat OpenAPI **3.2.0** (plus haute version qu'`utoipa` 6 émet côté Rust), généré par
+  `@asteasolutions/zod-to-openapi` (`OpenApiGeneratorV32`) ; `info.version` 1.0.0 = version du
+  contrat. Les noms et descriptions viennent de `.meta({ id, description })` natif de Zod 4 :
+  pas d'`extendZodWithOpenApi`, pas de `.openapi()`. Un schéma de réponse n'a pas de `.default()`
+  (le générateur rendrait le champ optionnel) : `default` se met en annotation dans `.meta()`.
 
 ## Règle « modules isolés » (lot 3, deux agents en parallèle)
 
@@ -89,7 +94,8 @@ autres ressources : il les importe par leurs modules, sans dupliquer de requête
 ## Commandes
 
 Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 9. pnpm télécharge lui-même
-la version de Node fixée dans `.npmrc` (`use-node-version`) et l'utilise pour tous les scripts.
+la version de Node fixée dans `.npmrc` (`use-node-version`, Node 26 = dernière ligne stable,
+docs/02) et l'utilise pour tous les scripts ; `engines.node` vaut `>=26 <27`.
 
 ```sh
 pnpm install                 # dépendances, Node via pnpm, hook pre-commit husky
@@ -126,6 +132,8 @@ le postgres de test.
 - Rien d'installé globalement sur l'hôte en dehors de Docker et pnpm : PostgreSQL uniquement
   en Docker, Node téléchargé par pnpm. Pas de `npm i -g`, pas de `brew`/`apt` pour le projet.
 - Versions de paquets : stables actuelles vérifiées sur npm (`pnpm view <pkg> version`),
-  épinglées exactement dans les `package.json`.
+  épinglées exactement dans les `package.json`. Node : toujours la dernière ligne stable
+  (https://nodejs.org/dist/index.json) ; en cas d'incompatibilité, on en discute avec Julien
+  avant de rétrograder quoi que ce soit.
 - Périmètre : lecture seule, pas d'auth, pas de CRUD, pas de contact côté API (docs/01).
 - Chaque agent termine par un compte rendu court : fait, non fait, décisions, points ouverts.

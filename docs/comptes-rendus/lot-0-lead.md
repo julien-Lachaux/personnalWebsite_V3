@@ -1,10 +1,34 @@
 # Lot 0 : fondations, compte rendu du lead back-end
 
 Branche `lot/0-fondations` (worktree), 14 commits atomiques au-dessus de `v3/backend`
-(11 de la livraison initiale, 3 de correction après recette).
+(11 de la livraison initiale, 3 de correction après recette), puis lot 0bis
+(`lot/0bis-node26-openapi32`, 3 commits) pour appliquer les décisions de Julien après recette.
 Vérification finale le 18 novembre 2026 : `pnpm install --frozen-lockfile` propre, `pnpm check`
-vert (lint, typecheck, 14 tests unitaires, 23 tests e2e contre le postgres de test), API démarrée
-contre le postgres de dev et vérifiée avec curl.
+vert (lint, typecheck, 8 + 14 tests unitaires, 23 tests e2e contre le postgres de test), API
+démarrée contre le postgres de dev et vérifiée avec curl.
+
+## Lot 0bis : décisions de Julien appliquées après recette
+
+1. Node 26 (docs/02 « dernière ligne stable ») : pnpm télécharge 26.13.1 (`.npmrc`
+   `use-node-version`), `.nvmrc` 26, `engines.node` `>=26 <27` dans les trois `package.json`,
+   `@types/node` 26.6.6. Toutes les briques (NestJS 12, Fastify 5, @swc/core, unplugin-swc,
+   Vitest 5, ESLint 10, TypeScript 6, Drizzle, postgres 4) tournent sans changement de code :
+   `pnpm check` vert, aucune rétrogradation.
+2. OpenAPI 3.2.0 : `zod-openapi` (3.1 maximum) remplacé par `@asteasolutions/zod-to-openapi`
+   9.1.0 (générateur `OpenApiGeneratorV32`) + `openapi3-ts` 4.6.2 pour le type exporté
+   `OpenApiDocument`. 3.2.0 = plus haute version qu'`utoipa` 6 émet côté Rust (la spec courante
+   3.2.1 n'est outillée nulle part). API publique du paquet inchangée (`createOpenApiDocument`,
+   `dist/openapi.json`, schémas `Locale` / `LocaleQuery` / `ProblemDetails` / `HealthResponse`),
+   `info.version` 1.0.0 confirmé par Julien, `GET /api/v1/docs.json` inchangé. Les noms de schémas
+   viennent toujours de `.meta({ id })` natif de Zod 4 (pas d'`extendZodWithOpenApi`, pas de
+   `.openapi()`). Différences de rendu par rapport à `zod-openapi`, sans effet sur l'API :
+   - `additionalProperties: false` n'est plus émis pour les objets Zod en mode `strip` (le
+     générateur ne l'émet que pour `.strict()`) ; cohérent avec ce qu'`utoipa` produit.
+   - un `.default()` Zod rend le champ optionnel dans le contrat (le générateur raisonne sur
+     l'entrée). `ProblemDetails.type` passe donc en annotation `.meta({ default })` et reste
+     `required` : l'API renvoie toujours ce champ. Règle ajoutée dans `CLAUDE.md`.
+   - le générateur ajoute `components.parameters: {}` et `webhooks: {}` (valides, vides).
+3. Rien d'autre : pas de SQL, pas de ressource, pas de Dockerfile.
 
 ## Corrections après recette
 
@@ -23,7 +47,7 @@ contre le postgres de dev et vérifiée avec curl.
 - Monorepo pnpm workspaces + Turborepo (`apps/*`, `packages/*`), TypeScript strict partagé
   (`tsconfig.base.json`), ESLint flat config typée + Prettier, `.editorconfig`.
 - `packages/contracts` : schémas Zod (`Locale`, `LocaleQuery`, `ProblemDetails`,
-  `HealthResponse`), `createOpenApiDocument()` (OpenAPI 3.1, `servers: /api/v1`), export
+  `HealthResponse`), `createOpenApiDocument()` (OpenAPI 3.2.0, `servers: /api/v1`), export
   `dist/openapi.json` au build, tests unitaires du document.
 - `apps/api` : NestJS sur Fastify (ESM), architecture hexagonale `domain` / `application` /
   `infrastructure` ; configuration validée par Zod (`APP_CONFIG`) ; client Drizzle + driver
@@ -50,7 +74,7 @@ contre le postgres de dev et vérifiée avec curl.
   fichiers partagés interdits aux agents de ressource, flux git, interdictions, traductions EN
   à relire dans `docs/traductions-a-relire.md`) et `README.md`.
 - Vérifications curl : `/api/v1/health` 200 `{"status":"ok","checks":{"database":"up"}}` ;
-  `/api/v1/docs.json` 200 avec `"openapi":"3.1.0"` ; `/api/v1/profile` 501
+  `/api/v1/docs.json` 200 avec `"openapi":"3.2.0"` ; `/api/v1/profile` 501
   `application/problem+json` ; `/api/v1/inconnue` 404 `application/problem+json`.
 
 ## Non fait
@@ -68,13 +92,13 @@ Versions (stables au 18 novembre 2026, vérifiées sur npm, épinglées exacteme
 
 | Brique | Choix |
 |---|---|
-| Node | 22.23.5 téléchargé par pnpm (`.npmrc` `use-node-version`), `engines` `>=22.11.0 <23` ; pnpm 9 (`packageManager` 9.0.0) |
+| Node | 26.13.1 (dernière ligne stable, lot 0bis) téléchargé par pnpm (`.npmrc` `use-node-version`), `engines` `>=26 <27`, @types/node 26.6.6 ; pnpm 9 (`packageManager` 9.0.0) |
 | Monorepo | pnpm workspaces, turbo 2.11.12 (`lint`/`typecheck`/`test`/`test:e2e` dépendent de `^build`) |
 | Langage | typescript 6.0.3, `module: NodeNext`, ESM partout, imports relatifs avec `.js` |
 | Qualité | eslint 10.15.0 + typescript-eslint 8.73.0 (recommendedTypeChecked + stylisticTypeChecked), prettier 3.10.1, husky 9.1.7 |
 | API | @nestjs/common, core, platform-fastify, testing 12.5.1 ; fastify 5.12.8 ; @fastify/helmet 13.2.0 ; @fastify/cors 11.4.3 ; @fastify/rate-limit 11.2.2 ; reflect-metadata 0.2.2 ; rxjs 7.8.2 |
 | Données | drizzle-orm 0.45.4 (`drizzle-orm/postgres-js`), postgres 4.1.1 |
-| Validation / contrat | zod 4.6.7, zod-openapi 6.0.2 |
+| Validation / contrat | zod 4.6.7, @asteasolutions/zod-to-openapi 9.1.0 (OpenAPI 3.2.0, lot 0bis), openapi3-ts 4.6.2 |
 | Tests | vitest 5.1.1, unplugin-swc 2.0.0 + @swc/core 1.16.22 (métadonnées de décorateurs), @swc-node/register 1.12.1 pour `pnpm dev` (`node --watch --import`) |
 | Base | postgres:16-alpine |
 
@@ -86,9 +110,9 @@ Structure et conventions :
   `inject`.
 - Validation explicite par `safeParse` des schémas de `@siteperso/contracts` dans les
   controllers ; aucun pipe global, aucun décorateur métier.
-- Contrat OpenAPI généré par `zod-openapi` (lit `.meta({ id })` natif de Zod 4, pas de
-  patch de prototype ni de registre parallèle), servi par `GET /api/v1/docs.json` et exporté
-  dans `packages/contracts/dist/openapi.json`.
+- Contrat OpenAPI 3.2.0 généré par `@asteasolutions/zod-to-openapi` (`OpenApiGeneratorV32`,
+  lit `.meta({ id })` natif de Zod 4, pas de patch de prototype ni de registre parallèle),
+  servi par `GET /api/v1/docs.json` et exporté dans `packages/contracts/dist/openapi.json`.
 - `@siteperso/contracts` consommé via `dist/` (pas d'alias source) : même résolution en dev,
   en test et en build ; `pnpm dev` compile les contrats avant de lancer l'API.
 - Tests e2e par `app.inject` (light-my-request), sans supertest ni port ouvert, un seul
@@ -108,8 +132,9 @@ Structure et conventions :
 
 - « husky facultatif » : activé, le hook pre-commit lance lint, typecheck et tests unitaires
   (docs/03 impose « aucun commit si lint et tests ne passent pas »).
-- « Node.js LTS courant » : l'hôte a Node 22.11 ; ESLint 10, Vite et Vitest 5 exigent
-  >= 22.13, donc pnpm télécharge 22.23.5 (`use-node-version`), rien d'installé globalement.
+- Node : le lot 0 livrait 22.23.5 (l'hôte a Node 22.11) ; depuis le lot 0bis, docs/02 impose la
+  dernière ligne stable et pnpm télécharge 26.13.1 (`use-node-version`), rien d'installé
+  globalement.
 - « Vitest + supertest/app.inject » : `app.inject` seul, supertest non ajouté.
 - `docs/` est exclu de Prettier pour ne pas reformater les documents validés ; les comptes
   rendus y sont donc écrits à la main au même format.
@@ -128,11 +153,14 @@ Structure et conventions :
    devront exporter leurs cas d'usage (`exports: [...]`). À répartir entre les deux agents API
    (proposition : agent A = profile, social-links, skill-groups, skills, experiences, projects ;
    agent B = tools, resources, certifications, education, languages, cv).
-4. Versions majeures récentes (TypeScript 6, ESLint 10, Vitest 5, NestJS 12, Zod 4,
-   postgres 4) : tout passe aujourd'hui ; si une incompatibilité apparaît au lot 3, on rétrograde
-   la brique concernée en un commit `chore` dédié plutôt que de contourner.
-5. `OpenAPI info.version` vaut `1.0.0` (version du contrat) alors que les paquets sont en
-   `0.0.0` : à confirmer que c'est bien la version de l'API publique que le portage Rust
-   devra honorer.
-6. Premier `pnpm install` : pnpm télécharge Node 22.23.5 (accès réseau requis) ; en CI (lot 5)
-   utiliser `pnpm/action-setup` + le même `.npmrc`, ou fixer Node 22.23.5 dans l'image.
+4. Versions majeures récentes (Node 26, TypeScript 6, ESLint 10, Vitest 5, NestJS 12, Zod 4,
+   postgres 4) : tout passe aujourd'hui ; si une incompatibilité apparaît, on en discute avec
+   Julien avant toute rétrogradation (politique de versions de docs/02), puis commit `chore`
+   dédié.
+5. Fermé au lot 0bis : `OpenAPI info.version` `1.0.0` est la version du contrat, validée par
+   Julien ; les paquets restent en `0.0.0`.
+6. Premier `pnpm install` : pnpm télécharge Node 26.13.1 (accès réseau requis) ; en CI (lot 5)
+   utiliser `pnpm/action-setup` + le même `.npmrc`, ou fixer Node 26.13.1 dans l'image.
+7. `docs/backlog.md` (document du CdP) mentionne encore `use-node-version=22.23.5` et
+   `node:22.23.5-alpine` (L0, R13, lot 5) : à aligner sur 26.13.1 par le CdP, hors périmètre du
+   lead back-end.
