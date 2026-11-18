@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
 /** Locales servies par l'API. `fr` est obligatoire en base, `en` se replie sur `fr`. */
-export const LocaleSchema = z.enum(['fr', 'en']).meta({
+export const LOCALES = ['fr', 'en'] as const;
+
+export const LocaleSchema = z.enum(LOCALES).meta({
+  examples: ['fr'],
   id: 'Locale',
   description:
     "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
