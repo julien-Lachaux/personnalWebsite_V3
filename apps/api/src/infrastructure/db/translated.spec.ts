@@ -1,7 +1,7 @@
 import { PgDialect, alias, integer, pgTable, text } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 
-import { translated, translatedOrEmpty } from './translated.js';
+import { translated } from './translated.js';
 
 const labels = pgTable('labels', {
   id: integer('id'),
@@ -25,12 +25,5 @@ describe('translated', () => {
     const typed = dialect.sqlToQuery(translated<string | null>(en.note, fr.note));
 
     expect(typed).toEqual(plain);
-  });
-
-  it('translatedOrEmpty ajoute une chaîne vide littérale en dernier recours', () => {
-    const query = dialect.sqlToQuery(translatedOrEmpty(en.note, fr.note));
-
-    expect(query.sql).toBe(`coalesce("en"."note", "fr"."note", '')`);
-    expect(query.params).toEqual([]);
   });
 });

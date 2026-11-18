@@ -12,10 +12,3 @@ import { type AnyPgColumn } from 'drizzle-orm/pg-core';
  */
 export const translated = <T = string>(en: AnyPgColumn, fr: AnyPgColumn): SQL<NoInfer<T>> =>
   sql<T>`coalesce(${en}, ${fr})`;
-
-/**
- * Comme `translated`, avec une chaîne vide en dernier recours : pour une colonne de traduction
- * nullable que le contrat expose en `string` non nullable.
- */
-export const translatedOrEmpty = (en: AnyPgColumn, fr: AnyPgColumn): SQL<string> =>
-  sql<string>`coalesce(${en}, ${fr}, '')`;

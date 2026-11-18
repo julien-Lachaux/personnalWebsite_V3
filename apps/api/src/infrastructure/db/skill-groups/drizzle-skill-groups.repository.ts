@@ -9,7 +9,7 @@ import { type Skill } from '../../../domain/skills/skill.js';
 import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { skillGroups, skillGroupsTranslations, skills } from '../schema/index.js';
 import { selectPublishedSkills } from '../skills/select-published-skills.js';
-import { translated, translatedOrEmpty } from '../translated.js';
+import { translated } from '../translated.js';
 
 /**
  * Implémentation Drizzle du dépôt de groupes de compétences : deux requêtes au total (les groupes,
@@ -27,8 +27,7 @@ export class DrizzleSkillGroupsRepository implements SkillGroupsRepository {
       .select({
         slug: skillGroups.slug,
         name: translated(en.name, fr.name),
-        // `description` est nullable en base ; le contrat exige une chaîne.
-        description: translatedOrEmpty(en.description, fr.description),
+        description: translated<string | null>(en.description, fr.description),
       })
       .from(skillGroups)
       .innerJoin(fr, and(eq(fr.skillGroupId, skillGroups.id), eq(fr.locale, 'fr')))
