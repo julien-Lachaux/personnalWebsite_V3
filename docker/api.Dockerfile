@@ -3,10 +3,12 @@
 # pas de téléchargement de Node par pnpm. Node 26 n'embarque plus corepack : pnpm est installé
 # via npm, à la version du champ packageManager.
 
-ARG NODE_VERSION=26.13.1
+# Image de base épinglée par digest (reproductible, insensible à un tag déplacé). La version doit rester
+# celle de `.npmrc` (use-node-version) ; Dependabot propose la mise à jour du tag et du digest.
+ARG NODE_IMAGE=node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
 
 # --- deps : dépendances du monorepo (lockfile figé) ---------------------------------------
-FROM node:${NODE_VERSION}-alpine AS deps
+FROM ${NODE_IMAGE} AS deps
 ENV CI=true
 WORKDIR /repo
 RUN npm install --global pnpm@10.34.9 --no-fund --no-audit
@@ -30,7 +32,7 @@ FROM build AS prune
 RUN pnpm deploy --legacy --filter=@siteperso/api --prod /out
 
 # --- runtime ------------------------------------------------------------------------------
-FROM node:${NODE_VERSION}-alpine AS runtime
+FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000

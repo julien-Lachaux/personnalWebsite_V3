@@ -1,11 +1,16 @@
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
 const composeFile = fileURLToPath(new URL('../../../docker/compose.prod.yml', import.meta.url));
 
+const workflowFile = fileURLToPath(new URL('../../../.github/workflows/ci.yml', import.meta.url));
+const dockerfile = fileURLToPath(new URL('../../../docker/api.Dockerfile', import.meta.url));
+
 interface Service {
+  image?: string;
   networks?: Record<string, unknown>;
   read_only?: boolean;
   cap_drop?: string[];
@@ -76,5 +81,22 @@ describe('pile de production (docker/compose.prod.yml)', () => {
 
   it('ne fait confiance qu’aux proxys du réseau privé, jamais à tous les sauts', () => {
     expect(config.services['api']?.environment?.['TRUST_PROXY']).toBe('uniquelocal');
+  });
+
+  it('épingle les images tierces par digest (RS-9)', () => {
+    expect(config.services['caddy']?.image).toMatch(/@sha256:[0-9a-f]{64}$/);
+    expect(config.services['postgres']?.image).toMatch(/@sha256:[0-9a-f]{64}$/);
+    expect(readFileSync(dockerfile, 'utf8')).toMatch(/^ARG NODE_IMAGE=\S+@sha256:[0-9a-f]{64}$/m);
+  });
+
+  it('épingle chaque action de la CI par SHA de commit (RS-9)', () => {
+    const uses = [...readFileSync(workflowFile, 'utf8').matchAll(/^\s*- uses: (\S+)/gm)].map(
+      (match) => match[1] ?? '',
+    );
+
+    expect(uses.length).toBeGreaterThan(0);
+    for (const reference of uses) {
+      expect(reference, reference).toMatch(/@[0-9a-f]{40}$/);
+    }
   });
 });
