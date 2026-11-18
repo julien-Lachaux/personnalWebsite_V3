@@ -5,20 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp } from './support/test-app.js';
 
 /** Routes du contrat (docs/01) dont l'implémentation arrive au lot 3. */
-const PENDING_RESOURCES = [
-  'profile',
-  'social-links',
-  'skill-groups',
-  'skills',
-  'experiences',
-  'projects',
-  'tools',
-  'resources',
-  'certifications',
-  'education',
-  'languages',
-  'cv',
-];
+// Seul `cv` reste en 501 : son câblage suit la fusion des deux branches du lot 3.
+const PENDING_RESOURCES = ['cv'];
 
 describe('Erreurs au format RFC 9457 (problem+json)', () => {
   let app: NestFastifyApplication;
