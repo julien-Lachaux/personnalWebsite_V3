@@ -171,14 +171,17 @@ describe('Erreurs au format RFC 9457 (problem+json)', () => {
       expect(response.statusCode).toBe(204);
     });
 
-    // BUG-2 : OPTIONS sans en-têtes de préflight (curl -X OPTIONS) répond 400 `text/plain`
-    // « Invalid Preflight Request » (@fastify/cors, strictPreflight), hors RFC 9457, sans les
-    // en-têtes de sécurité de helmet. Attendu : un problem+json ou un 204.
-    it.fails('BUG-2 : OPTIONS sans préflight répond en problem+json ou en 2xx', async () => {
-      const response = await app.inject({ method: 'OPTIONS', url: '/api/v1/profile' });
+    // BUG-2 (corrigé) : OPTIONS sans en-têtes de préflight (curl -X OPTIONS) répondait 400
+    // `text/plain` « Invalid Preflight Request » (@fastify/cors, strictPreflight). Avec
+    // `strictPreflight: false`, la réponse est un 204 portant les en-têtes de sécurité.
+    it('BUG-2 : OPTIONS sans en-têtes de préflight répond 204, sans corps', async () => {
+      for (const url of ['/api/v1/profile', '/api/v1/inconnu']) {
+        const response = await app.inject({ method: 'OPTIONS', url });
 
-      const isProblem = String(response.headers['content-type']).includes('problem+json');
-      expect(isProblem || response.statusCode < 300).toBe(true);
+        expect(response.statusCode, url).toBe(204);
+        expect(response.body, url).toBe('');
+        expect(response.headers['x-content-type-options'], url).toBe('nosniff');
+      }
     });
   });
 

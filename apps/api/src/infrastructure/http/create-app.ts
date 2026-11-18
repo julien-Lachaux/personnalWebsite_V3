@@ -93,6 +93,8 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
     origin: env.CORS_ORIGIN,
     methods: ['GET', 'HEAD', 'OPTIONS'],
     maxAge: 600,
+    // Un OPTIONS sans en-têtes de préflight (curl, sonde) répond 204 au lieu d'un 400 text/plain.
+    strictPreflight: false,
   });
 
   app.setGlobalPrefix(GLOBAL_PREFIX);
