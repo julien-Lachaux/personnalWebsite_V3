@@ -1,7 +1,7 @@
 # Déploiement en production (VPS)
 
 La production tourne avec `docker/compose.prod.yml` : Caddy (TLS automatique, seul service qui publie
-des ports 80/443), l'API (réseau interne, `TRUST_PROXY=uniquelocal`), un service `migrate` à usage unique
+des ports 80/443), l'API (réseaux internes, `TRUST_PROXY=uniquelocal`), un service `migrate` à usage unique
 (migrations, seeds, rôle de lecture seule de l'API) et PostgreSQL 16 (volume nommé, aucun port publié). Le front viendra plus tard :
 en attendant, Caddy sert `docker/placeholder/index.html` sur `/` et proxifie `/api/*` vers l'API.
 
@@ -76,6 +76,18 @@ gunzip -c DEPLOY_DIR/backups/<fichier>.sql.gz | \
   docker compose -f docker/compose.prod.yml --env-file DEPLOY_DIR/.env.prod \
   exec -T postgres psql -U siteperso -d siteperso
 ```
+
+## Réseaux et durcissement des conteneurs
+
+- Réseaux : `edge` (Caddy : ports publiés, sortie vers Internet pour le certificat), `app` (Caddy et l'API) et
+  `data` (l'API, `migrate`, PostgreSQL), ces deux derniers `internal: true`. Caddy ne joint donc pas la base et
+  l'API ne peut pas sortir sur Internet. Le futur front se branchera sur `app`.
+- Chaque conteneur : système de fichiers racine en lecture seule (`tmpfs` pour `/tmp`), `cap_drop: ALL` (Caddy
+  garde `NET_BIND_SERVICE`, PostgreSQL les capacités de son entrypoint), `no-new-privileges`, `mem_limit` et
+  `pids_limit`.
+- Image de l'API : code et `node_modules` à root (en lecture seule pour l'utilisateur `node`), ni npm, ni yarn,
+  ni `wget`/`nc` dans l'image, pas de `db:reset`.
+- `apps/api/test/prod-compose.e2e-spec.ts` vérifie ces propriétés sur la configuration résolue par compose.
 
 ## Ce que Caddy filtre et annonce
 

@@ -36,10 +36,17 @@ ENV NODE_ENV=production \
     PORT=3000
 # Disposition /repo/apps/api + /repo/db : les CLI (migrate, seed) résolvent db/ depuis dist/cli/ vers la racine du dépôt.
 WORKDIR /repo/apps/api
-COPY --from=prune --chown=node:node /out/node_modules ./node_modules
-COPY --from=build --chown=node:node /repo/apps/api/dist ./dist
-COPY --from=build --chown=node:node /repo/apps/api/package.json ./package.json
-COPY --chown=node:node db /repo/db
+# Sans `--chown` : le code, `node_modules` et `db/` restent à root, en lecture seule pour l'utilisateur
+# `node` qui exécute l'API (un code injecté ne peut pas modifier `dist/`).
+COPY --from=prune /out/node_modules ./node_modules
+COPY --from=build /repo/apps/api/dist ./dist
+COPY --from=build /repo/apps/api/package.json ./package.json
+COPY db /repo/db
+# Le runtime n'a besoin ni de npm ni de yarn, ni d'outils réseau en ligne de commande (busybox) :
+# moins d'outils sous la main d'un code injecté.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
+      /usr/local/bin/corepack /usr/local/lib/node_modules/corepack /opt/yarn-* /usr/local/bin/yarn* \
+    && rm -f /usr/bin/wget /usr/bin/nc
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
