@@ -1,8 +1,10 @@
 # Environnement de développement : deux PostgreSQL 16 séparés.
 # - postgres      : base de dev `siteperso`, données persistées dans un volume nommé.
 # - postgres-test : base `siteperso_test` pour les tests e2e, en tmpfs (jetable, rapide).
-# Le conteneur de l'API (Dockerfile) arrive au lot 5.
+# - api           : essai local de l'image de production (profil `api`, voir docker/api.Dockerfile).
 # Identifiants de dev uniquement : jamais exposés hors de la machine locale.
+
+name: siteperso-v3
 
 services:
   postgres:
@@ -39,6 +41,24 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+
+  # Essai local de l'image de production : `docker compose --profile api up -d --build api`.
+  # Hors profil, `pnpm db:up` ne le démarre pas.
+  api:
+    profiles: ['api']
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: siteperso-v3-api
+    environment:
+      DATABASE_URL: postgres://siteperso:siteperso@postgres:5432/siteperso
+      CORS_ORIGIN: http://localhost:3001
+      TRUST_PROXY: 'true'
+    ports:
+      - '127.0.0.1:${API_PORT:-3000}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   siteperso_pgdata:

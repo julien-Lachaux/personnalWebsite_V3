@@ -1,0 +1,17 @@
+# Contexte de build strict : seules les sources utiles à l'image entrent.
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!turbo.json
+!apps/api/**
+!packages/contracts/**
+!db/**
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/*.tsbuildinfo
+**/.turbo
+**/coverage
