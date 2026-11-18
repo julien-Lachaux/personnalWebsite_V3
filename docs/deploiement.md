@@ -2,7 +2,7 @@
 
 La production tourne avec `docker/compose.prod.yml` : Caddy (TLS automatique, seul service qui publie
 des ports 80/443), l'API (réseau interne, `TRUST_PROXY=true`), un service `migrate` à usage unique
-(migrations puis seeds) et PostgreSQL 16 (volume nommé, aucun port publié). Le front viendra plus tard :
+(migrations, seeds, rôle de lecture seule de l'API) et PostgreSQL 16 (volume nommé, aucun port publié). Le front viendra plus tard :
 en attendant, Caddy sert `docker/placeholder/index.html` sur `/` et proxifie `/api/*` vers l'API.
 
 ## Prérequis
@@ -21,7 +21,8 @@ scripts/deploy/first-install.sh
 
 Le script est idempotent. Il vérifie Docker, crée le dossier de déploiement (`DEPLOY_DIR`, par défaut
 `/opt/siteperso-v3`, droits 700), puis crée `DEPLOY_DIR/.env.prod` depuis `docker/.env.prod.example` avec un
-mot de passe PostgreSQL généré par `openssl rand`. Il s'arrête alors avec le **code de sortie 10** : éditer
+mot de passe PostgreSQL du propriétaire (`POSTGRES_PASSWORD`) et un mot de passe du rôle de l'API
+(`API_DB_PASSWORD`) générés par `openssl rand`. Il s'arrête alors avec le **code de sortie 10** : éditer
 `.env.prod` (`SITE_DOMAIN`, `CORS_ORIGIN`, éventuellement `RATE_LIMIT_*`) puis relancer le script. Il
 construit l'image, lance la pile, attend que l'API soit `healthy` (`HEALTH_TIMEOUT`, 180 s par défaut) et
 affiche l'état.
@@ -64,6 +65,21 @@ gunzip -c DEPLOY_DIR/backups/<fichier>.sql.gz | \
   docker compose -f docker/compose.prod.yml --env-file DEPLOY_DIR/.env.prod \
   exec -T postgres psql -U siteperso -d siteperso
 ```
+
+## Rôles PostgreSQL
+
+Deux rôles, pour que l'API en lecture seule ne puisse rien écrire même si elle est compromise :
+
+- `siteperso` (`POSTGRES_PASSWORD`) : superutilisateur de l'image PostgreSQL, propriétaire du schéma.
+  Utilisé par le service `migrate` (migrations, seeds) et par `backup.sh` (`pg_dump`). L'API ne le voit pas.
+- `siteperso_api` (`API_DB_PASSWORD`) : `login`, ni superutilisateur ni propriétaire, `select` seul sur les
+  tables du schéma `public` (présentes et futures). Créé ou mis à jour à chaque déploiement par
+  `node dist/cli/provision-api-role.js` (dernière étape du service `migrate`) ; c'est le rôle de
+  `DATABASE_URL` du service `api`. Il ne peut ni écrire, ni créer d'objet, ni exécuter `copy … program`.
+
+Un déploiement antérieur sans `API_DB_PASSWORD` : `update.sh` le génère dans `.env.prod`, puis `migrate`
+crée le rôle. Vérification : `docker compose … exec postgres psql -U siteperso -d siteperso -c "select
+rolname, rolsuper from pg_roles where rolname like 'siteperso%'"`.
 
 ## Secrets
 

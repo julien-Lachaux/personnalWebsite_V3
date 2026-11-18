@@ -25,13 +25,16 @@ if [ ! -f "${ENV_FILE}" ]; then
   chmod 600 "${ENV_FILE}"
   password="$(openssl rand -hex 24)"
   sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${password}/" "${ENV_FILE}"
-  log "${ENV_FILE} créé avec un mot de passe PostgreSQL généré."
+  sed -i "s/^API_DB_PASSWORD=.*/API_DB_PASSWORD=$(openssl rand -hex 24)/" "${ENV_FILE}"
+  log "${ENV_FILE} créé avec des mots de passe PostgreSQL générés (propriétaire et API en lecture seule)."
   log "Renseigner SITE_DOMAIN et CORS_ORIGIN dans ce fichier, puis relancer ce script."
   exit "${EXIT_NEEDS_ENV}"
 fi
 
+ensure_api_db_password
+
 # Le fichier existe : refuser les valeurs du modèle qui n'ont pas été remplacées.
-if grep -Eq '^(SITE_DOMAIN=example\.test|CORS_ORIGIN=https://example\.test|POSTGRES_PASSWORD=change-me)$' "${ENV_FILE}"; then
+if grep -Eq '^(SITE_DOMAIN=example\.test|CORS_ORIGIN=https://example\.test|POSTGRES_PASSWORD=change-me|API_DB_PASSWORD=change-me)$' "${ENV_FILE}"; then
   log "${ENV_FILE} contient encore des valeurs du modèle (example.test, change-me)."
   log "Les remplacer, puis relancer ce script."
   exit "${EXIT_NEEDS_ENV}"

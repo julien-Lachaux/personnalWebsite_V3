@@ -35,7 +35,8 @@ services:
     expose:
       - '3000'
     environment:
-      DATABASE_URL: postgres://siteperso:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}@postgres:5432/siteperso
+      # Rôle de lecture seule (select uniquement), créé par `migrate` : l'API n'a besoin de rien d'autre.
+      DATABASE_URL: postgres://siteperso_api:${API_DB_PASSWORD:?API_DB_PASSWORD requis}@postgres:5432/siteperso
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN requis}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
@@ -49,14 +50,21 @@ services:
     networks:
       - internal
 
-  # Applique les migrations puis les seeds (runner du lot 1 : db/migrations, db/seeds), puis s'arrête.
+  # Applique les migrations puis les seeds (runner du lot 1 : db/migrations, db/seeds), crée ou met à jour
+  # le rôle de lecture seule de l'API, puis s'arrête. Seul service qui utilise le rôle propriétaire.
   migrate:
     image: siteperso-api:prod
     pull_policy: never
     restart: 'no'
-    command: ['sh', '-c', 'node dist/cli/migrate.js && node dist/cli/seed.js']
+    command:
+      [
+        'sh',
+        '-c',
+        'node dist/cli/migrate.js && node dist/cli/seed.js && node dist/cli/provision-api-role.js',
+      ]
     environment:
       DATABASE_URL: postgres://siteperso:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}@postgres:5432/siteperso
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?API_DB_PASSWORD requis}
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN requis}
     depends_on:
       postgres:

@@ -16,7 +16,8 @@ apps/api/                 API NestJS 12 sur Fastify (ESM), architecture hexagona
     db/                   Drizzle + driver postgres, implémentation des ports (DATABASE_CLIENT)
     http/                 Nest : create-app.ts, app.module.ts, problem/, health/, docs/,
                           puis un dossier par ressource (profile/, skills/, cv/…)
-  src/cli/                points d'entrée Node sans Nest : migrate.ts, seed.ts, reset.ts (scripts db:*)
+  src/cli/                points d'entrée Node sans Nest : migrate.ts, seed.ts, reset.ts (scripts db:*),
+                          provision-api-role.ts (rôle PostgreSQL de lecture seule de l'API, prod)
   test/                   tests e2e (*.e2e-spec.ts) via app.inject contre le Postgres de test ;
                           test/support/database.ts : resetTestDatabase(), openTestSql()
 packages/contracts/       schémas Zod partagés + document OpenAPI 3.2.0 (createOpenApiDocument)
