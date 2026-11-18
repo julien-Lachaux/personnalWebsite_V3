@@ -119,6 +119,10 @@ le postgres de test.
 - JAMAIS de `git push` par un agent. Jamais de `--no-verify`, jamais de `git stash` nu.
 - Aucun e-mail, téléphone ou donnée personnelle de Julien dans le dépôt (code, SQL, tests,
   docs) : placeholders uniquement.
+- Traductions EN du contenu : produites par l'agent base de données (lot 1) dans les seeds et
+  marquées « à relire » pour Julien. Chaque traduction produite est listée dans
+  `docs/traductions-a-relire.md` (table, slug, champ, texte FR, texte EN proposé) ; Julien
+  relit puis retire les lignes validées. Aucune traduction n'est considérée définitive avant.
 - Rien d'installé globalement sur l'hôte en dehors de Docker et pnpm : PostgreSQL uniquement
   en Docker, Node téléchargé par pnpm. Pas de `npm i -g`, pas de `brew`/`apt` pour le projet.
 - Versions de paquets : stables actuelles vérifiées sur npm (`pnpm view <pkg> version`),
