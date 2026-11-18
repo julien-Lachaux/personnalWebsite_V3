@@ -1,15 +1,24 @@
-import { Controller, Get, NotImplementedException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { LocaleQuerySchema, type SkillGroup, SkillGroupSchema } from '@siteperso/contracts';
+import { z } from 'zod';
 
-/**
- * Ressource « groupes de compétences » (`GET /api/v1/skill-groups`). Squelette du lot 0 : la route répond 501
- * problem+json jusqu'à son implémentation au lot 3 (voir docs/01 pour le contrat).
- */
+import { ListSkillGroupsUseCase } from '../../../application/skill-groups/list-skill-groups.use-case.js';
+
+const SkillGroupsResponseSchema = z.array(SkillGroupSchema);
+
+/** `GET /api/v1/skill-groups` : groupes publiés avec leurs compétences imbriquées. */
 @Controller('skill-groups')
 export class SkillGroupsController {
+  constructor(private readonly listSkillGroups: ListSkillGroupsUseCase) {}
+
   @Get()
-  list(): never {
-    throw new NotImplementedException(
-      'Ressource « skill-groups » : implémentation prévue au lot 3.',
-    );
+  async list(@Query() rawQuery: unknown): Promise<SkillGroup[]> {
+    const query = LocaleQuerySchema.safeParse(rawQuery);
+    if (!query.success) {
+      throw new BadRequestException('Paramètre « lang » invalide : valeurs acceptées fr, en.');
+    }
+    const groups = await this.listSkillGroups.execute(query.data.lang);
+    // Validation stricte de la réponse avant envoi.
+    return SkillGroupsResponseSchema.parse(groups);
   }
 }
