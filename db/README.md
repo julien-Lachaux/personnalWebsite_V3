@@ -7,14 +7,19 @@ quel langage (le portage Rust reprendra ces fichiers tels quels).
 ## `migrations/` : schéma
 
 - Nommage : `NNNN_description.sql`, numéro sur quatre chiffres, croissant, sans trou
-  (`0001_profile.sql`, `0002_skills.sql`…). La description est en anglais, en snake_case.
+  (`0001_enums.sql`, `0002_profile.sql`…). La description est en anglais, en snake_case.
 - Un fichier = une évolution de schéma cohérente, appliquée dans une transaction.
 - Une migration appliquée ne se modifie plus jamais : on en ajoute une nouvelle.
 - Conventions SQL : snake_case, `text` plutôt que `varchar(n)`, `not null` par défaut,
   clés étrangères explicites avec `on delete`, tables de traduction `<table>_translations`
   à clé primaire composite `(<table>_id, locale)`.
-- Le runner (lot 1) applique les fichiers dans l'ordre et mémorise ceux déjà passés dans la
-  table `schema_migrations (version, applied_at)`.
+- `pnpm db:migrate` (`apps/api/src/infrastructure/db/migrations-runner.ts`) applique les fichiers
+  dans l'ordre. Chaque fichier non encore appliqué passe dans une transaction (`begin`, exécution,
+  insertion dans `schema_migrations`, `commit` ; `rollback` au moindre échec). Un verrou
+  `pg_advisory_lock` sérialise les runners concurrents. Deux fichiers de même préfixe sont refusés.
+- Table `schema_migrations` : `version` (préfixe `NNNN`, clé primaire), `name` (nom du fichier sans
+  `.sql`), `checksum` (SHA-256 du contenu), `applied_at`. Le checksum est comparé à chaque
+  exécution : un fichier appliqué puis modifié fait échouer le runner (erreur « checksum »).
 
 ## `seeds/` : contenu
 
@@ -29,5 +34,5 @@ quel langage (le portage Rust reprendra ces fichiers tels quels).
 
 ## Exécution
 
-Le runner de migrations et de seeds arrive au lot 1 (`pnpm db:migrate`, `pnpm db:seed`).
-En attendant, les bases de dev et de test sont fournies par `docker-compose.yml`.
+Les bases de dev et de test sont fournies par `docker-compose.yml` (`pnpm db:up`,
+`pnpm db:test:up`). `pnpm db:migrate` applique les migrations sur la base de `DATABASE_URL`.

@@ -20,6 +20,7 @@
     "format:check": "prettier --check .",
     "db:up": "docker compose up -d --wait postgres",
     "db:test:up": "docker compose up -d --wait postgres-test",
+    "db:migrate": "pnpm --filter @siteperso/api db:migrate",
     "db:down": "docker compose down",
     "dev": "turbo run build --filter=@siteperso/contracts && pnpm --filter @siteperso/api dev",
     "start": "pnpm --filter @siteperso/api start",
