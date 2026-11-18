@@ -9,8 +9,8 @@ en attendant, Caddy sert `docker/placeholder/index.html` sur `/` et proxifie `/a
 
 - Un VPS avec Docker et le plugin `docker compose` (rien d'autre : Node est dans l'image).
 - Un enregistrement DNS A/AAAA du domaine vers le VPS, ports 80 et 443 ouverts (Caddy obtient le
-  Pour un essai local, `HTTP_PORT` et `HTTPS_PORT` (dans `.env.prod`) changent les ports hôte publiés (défaut 80/443).
-  certificat tout seul).
+  certificat tout seul). Pour un essai local, `HTTP_PORT` et `HTTPS_PORT` (dans `.env.prod`) changent les
+  ports hôte publiés (défaut 80/443).
 - Le dépôt cloné sur le VPS (les scripts se trouvent dans `scripts/deploy/`).
 
 ## Premier déploiement
