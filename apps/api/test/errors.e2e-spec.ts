@@ -15,6 +15,7 @@ import { SKILLS_REPOSITORY } from '../src/application/skills/ports/skills-reposi
 import { SOCIAL_LINKS_REPOSITORY } from '../src/application/social-links/ports/social-links-repository.port.js';
 import { TOOLS_REPOSITORY } from '../src/application/tools/ports/tools-repository.port.js';
 import { appWithOverrides } from './support/override-app.js';
+import { resetTestDatabase } from './support/database.js';
 import { ALLOWED_ORIGIN, startTestApp } from './support/test-app.js';
 import { expectNoLeak, expectProblem } from './support/problem.js';
 
@@ -53,6 +54,7 @@ describe('Erreurs au format RFC 9457 (problem+json)', () => {
   let app: NestFastifyApplication;
 
   beforeAll(async () => {
+    await resetTestDatabase();
     app = await startTestApp();
   });
 

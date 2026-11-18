@@ -10,6 +10,7 @@ import { PROFILE_REPOSITORY } from '../src/application/profile/ports/profile-rep
 import { ENDPOINTS, withLang } from './support/endpoints.js';
 import { appWithOverrides } from './support/override-app.js';
 import { expectProblem } from './support/problem.js';
+import { resetTestDatabase } from './support/database.js';
 import { startTestApp } from './support/test-app.js';
 import { validate } from './support/validate.js';
 
@@ -70,6 +71,7 @@ describe('Conformité des réponses au document OpenAPI servi', () => {
 
   beforeAll(async () => {
     process.env['RATE_LIMIT_MAX'] = '100000';
+    await resetTestDatabase();
     app = await startTestApp();
     document = (await app.inject({ method: 'GET', url: '/api/v1/docs.json' })).json();
     ajv = new Ajv2020({ strict: false, allErrors: true });

@@ -3,6 +3,7 @@ import { type Sql } from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { withFixture } from './support/fixtures.js';
+import { resetTestDatabase } from './support/database.js';
 import { startTestApp } from './support/test-app.js';
 
 interface RowOptions {
@@ -155,6 +156,7 @@ describe('Filtrage published et ordre de tri', () => {
 
   beforeAll(async () => {
     process.env['RATE_LIMIT_MAX'] = '100000';
+    await resetTestDatabase();
     app = await startTestApp();
   });
 

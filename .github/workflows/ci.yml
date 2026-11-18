@@ -66,6 +66,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:e2e
+      # Seconde passe dans un ordre de fichiers aléatoire : détecte une dépendance entre fichiers.
+      - run: pnpm --filter @siteperso/api exec vitest run --config vitest.e2e.config.ts --sequence.shuffle.files
 
   docker:
     name: Image Docker de l'API (build sans push)

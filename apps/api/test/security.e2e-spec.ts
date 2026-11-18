@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { ENDPOINTS } from './support/endpoints.js';
 import { expectProblem } from './support/problem.js';
+import { resetTestDatabase } from './support/database.js';
 import { ALLOWED_ORIGIN, startTestApp } from './support/test-app.js';
 
 /** Variables d'environnement lues par `createApp` : posées avant `startTestApp`, restaurées après. */
@@ -14,6 +15,7 @@ async function withEnv<T>(
   Object.assign(process.env, values);
   let app: NestFastifyApplication | undefined;
   try {
+    await resetTestDatabase();
     app = await startTestApp();
     return await body(app);
   } finally {
@@ -41,6 +43,7 @@ describe('En-têtes de sécurité', () => {
 
   beforeAll(async () => {
     process.env['RATE_LIMIT_MAX'] = '100000';
+    await resetTestDatabase();
     app = await startTestApp();
   });
 
@@ -102,6 +105,7 @@ describe('CORS', () => {
 
   beforeAll(async () => {
     process.env['RATE_LIMIT_MAX'] = '100000';
+    await resetTestDatabase();
     app = await startTestApp();
   });
 

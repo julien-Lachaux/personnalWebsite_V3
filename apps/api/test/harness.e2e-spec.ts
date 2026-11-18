@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { ENDPOINTS } from './support/endpoints.js';
 import { withFixture } from './support/fixtures.js';
 import { expectProblem } from './support/problem.js';
+import { resetTestDatabase } from './support/database.js';
 import { startTestApp } from './support/test-app.js';
 import { validate } from './support/validate.js';
 
@@ -13,6 +14,7 @@ describe('Harnais e2e', () => {
   let app: NestFastifyApplication;
 
   beforeAll(async () => {
+    await resetTestDatabase();
     app = await startTestApp();
   });
 
