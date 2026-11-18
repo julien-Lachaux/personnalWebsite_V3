@@ -86,4 +86,46 @@ describe('contraintes du schéma SQL', () => {
       insert into profile (id, first_name, last_name, picture_path, location)
       values (2, 'a', 'b', 'c', 'd')`).rejects.toThrow(/profile_id_check|check constraint/);
   });
+
+  it('refuse un chemin d’image ou un texte alternatif vide (le contrat Image les exige non vides)', async () => {
+    await expect(sql`update profile_translations set picture_alt = ''`).rejects.toThrow(
+      /profile_translations_picture_alt_check/,
+    );
+    await expect(sql`update profile set picture_path = ''`).rejects.toThrow(
+      /profile_picture_path_check/,
+    );
+    await expect(sql`update experiences_translations set logo_alt = ''`).rejects.toThrow(
+      /experiences_translations_logo_alt_check/,
+    );
+    await expect(sql`update experiences set logo_path = ''`).rejects.toThrow(
+      /experiences_logo_path_check/,
+    );
+
+    await sql`insert into projects (slug) values ('t-projet-image')`;
+    await sql`insert into resources (slug, url) values ('t-ressource-image', 'https://example.test')`;
+    try {
+      await expect(
+        sql`update projects set image_desktop_path = '' where slug = 't-projet-image'`,
+      ).rejects.toThrow(/projects_image_desktop_path_check/);
+      await expect(
+        sql`update projects set image_mobile_path = '' where slug = 't-projet-image'`,
+      ).rejects.toThrow(/projects_image_mobile_path_check/);
+      await expect(
+        sql`update resources set picture_path = '' where slug = 't-ressource-image'`,
+      ).rejects.toThrow(/resources_picture_path_check/);
+      await expect(sql`
+        insert into projects_translations (project_id, locale, title, description, image_alt)
+        select id, 'fr', 't', 'd', '' from projects where slug = 't-projet-image'`).rejects.toThrow(
+        /projects_translations_image_alt_check/,
+      );
+      await expect(sql`
+        insert into resources_translations (resource_id, locale, name, description, picture_alt)
+        select id, 'fr', 'n', 'd', '' from resources where slug = 't-ressource-image'`).rejects.toThrow(
+        /resources_translations_picture_alt_check/,
+      );
+    } finally {
+      await sql`delete from projects where slug = 't-projet-image'`;
+      await sql`delete from resources where slug = 't-ressource-image'`;
+    }
+  });
 });

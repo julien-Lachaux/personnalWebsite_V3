@@ -1,15 +1,8 @@
-import { type Image, type Locale, type Project as ProjectDto } from '@siteperso/contracts';
+import { type Locale, type Project as ProjectDto } from '@siteperso/contracts';
 
 import { type Project } from '../../domain/projects/projects.js';
+import { toImage } from '../common/image.js';
 import { type ProjectsRepository } from './ports/projects-repository.port.js';
-
-/**
- * Une image n'est exposée que si son chemin ET son texte alternatif existent : le contrat
- * (`Image`) impose l'alternative pour l'accessibilité.
- */
-function toImage(path: string | null, alt: string | null): Image | null {
-  return path !== null && path !== '' && alt !== null && alt !== '' ? { path, alt } : null;
-}
 
 function toDto(project: Project): ProjectDto {
   return {

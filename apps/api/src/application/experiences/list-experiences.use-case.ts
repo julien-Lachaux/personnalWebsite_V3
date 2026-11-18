@@ -1,6 +1,7 @@
 import { type Experience as ExperienceResponse, type Locale } from '@siteperso/contracts';
 
 import { type Experience } from '../../domain/experiences/experience.js';
+import { toImage } from '../common/image.js';
 import { type ExperiencesRepository } from './ports/experiences-repository.port.js';
 
 /** Cas d'usage : expériences publiées, de la plus récente à la plus ancienne. Classe pure. */
@@ -19,12 +20,7 @@ function toResponse(experience: Experience): ExperienceResponse {
     kind: experience.kind,
     company: experience.company,
     companyUrl: experience.companyUrl,
-    // Une image n'est exposée qu'avec son texte alternatif (accessibilité, docs/01) : sans chemin
-    // ou sans alt, pas de logo.
-    logo:
-      experience.logoPath !== null && experience.logoAlt !== null
-        ? { path: experience.logoPath, alt: experience.logoAlt }
-        : null,
+    logo: toImage(experience.logoPath, experience.logoAlt),
     contractType: experience.contractType,
     workMode: experience.workMode,
     dateStart: experience.dateStart,
