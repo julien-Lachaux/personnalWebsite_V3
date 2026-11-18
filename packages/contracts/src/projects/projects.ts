@@ -9,8 +9,8 @@ import { SkillSchema } from '../skills/skills.js';
 export const ProjectSchema = z
   .strictObject({
     slug: SlugSchema,
-    url: z.url().meta({ description: 'Adresse publique du projet.' }),
-    repoUrl: z.url().meta({ description: 'Adresse du dépôt de code.' }),
+    url: z.url().nullable().meta({ description: 'Adresse publique du projet, si elle existe.' }),
+    repoUrl: z.url().nullable().meta({ description: 'Adresse du dépôt de code, si public.' }),
     imageDesktop: nullable(ImageSchema).meta({ description: "Capture d'écran bureau." }),
     imageMobile: nullable(ImageSchema).meta({ description: "Capture d'écran mobile." }),
     year: z.int().min(1990).max(2100).meta({ description: 'Année de réalisation.' }),

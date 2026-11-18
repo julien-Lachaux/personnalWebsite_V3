@@ -6,8 +6,12 @@ import { SlugSchema } from '../common/slug.js';
 export const ToolSchema = z
   .strictObject({
     slug: SlugSchema,
-    url: z.url().meta({ description: "Site de l'outil." }),
-    iconPath: z.string().min(1).meta({ description: "Chemin de l'icône statique." }),
+    url: z.url().nullable().meta({ description: "Site de l'outil, s'il existe." }),
+    iconPath: z
+      .string()
+      .min(1)
+      .nullable()
+      .meta({ description: "Chemin de l'icône statique, si disponible." }),
     name: z.string().min(1),
     family: z
       .string()

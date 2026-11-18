@@ -19,6 +19,10 @@ describe('ProjectSchema', () => {
     expect(ProjectSchema.safeParse(valid).success).toBe(true);
   });
 
+  it('accepte des URL nulles (projet sans site ou sans dépôt public)', () => {
+    expect(ProjectSchema.safeParse({ ...valid, url: null, repoUrl: null }).success).toBe(true);
+  });
+
   it('refuse une année non entière et une URL invalide', () => {
     expect(ProjectSchema.safeParse({ ...valid, year: 2026.5 }).success).toBe(false);
     expect(ProjectSchema.safeParse({ ...valid, url: 'example' }).success).toBe(false);
