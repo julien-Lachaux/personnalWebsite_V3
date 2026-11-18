@@ -1,13 +1,21 @@
-import { Controller, Get, NotImplementedException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { type Cv, CvSchema, LocaleQuerySchema } from '@siteperso/contracts';
 
-/**
- * Ressource « CV agrégé » (`GET /api/v1/cv`). Squelette du lot 0 : la route répond 501
- * problem+json jusqu'à son implémentation au lot 3 (voir docs/01 pour le contrat).
- */
+import { GetCvUseCase } from '../../../application/cv/get-cv.use-case.js';
+
+/** `GET /api/v1/cv` : CV agrégé en un appel, dans la langue demandée (repli `en` vers `fr`). */
 @Controller('cv')
 export class CvController {
+  constructor(private readonly getCv: GetCvUseCase) {}
+
   @Get()
-  list(): never {
-    throw new NotImplementedException('Ressource « cv » : implémentation prévue au lot 3.');
+  async get(@Query() rawQuery: unknown): Promise<Cv> {
+    const query = LocaleQuerySchema.safeParse(rawQuery);
+    if (!query.success) {
+      throw new BadRequestException('Paramètre « lang » invalide : valeurs acceptées fr, en.');
+    }
+    const cv = await this.getCv.execute(query.data.lang);
+    // Validation stricte de la réponse avant envoi (déjà faite par le cas d'usage, redoublée par convention).
+    return CvSchema.parse(cv);
   }
 }
