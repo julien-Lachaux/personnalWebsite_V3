@@ -976,7 +976,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
   dans l'image, utiliser `node:26.13.1-alpine` (même version) et neutraliser le téléchargement
   (`pnpm config set use-node-version` vide ou `--config.use-node-version=` au `pnpm install`). L'API lit
   `HOST`, `PORT`, `DATABASE_URL`, `CORS_ORIGIN`, `RATE_LIMIT_*`, `TRUST_PROXY` ; derrière Caddy,
-  `TRUST_PROXY=true` est obligatoire (sinon tout le trafic partage le quota de l'IP du proxy). `/health`
+  `TRUST_PROXY=uniquelocal` (lot 6 : `true` refusé) est obligatoire (sinon tout le trafic partage le quota de l'IP du proxy). `/health`
   renvoie 503 tant que la base est injoignable.
 
 ### L5-01 — Dockerfile multi-stage de l'API
@@ -1000,7 +1000,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 - **Description** : `docker/compose.prod.yml` (`name: siteperso-v3-prod`) : services `caddy` (ports 80/443,
   volumes `caddy_data`, `caddy_config`, `Caddyfile`), `api` (image construite, `expose: 3000` seulement,
-  `TRUST_PROXY=true`, `depends_on` `migrate` terminé avec succès et `postgres` healthy, `restart:
+  `TRUST_PROXY=uniquelocal`, `depends_on` `migrate` terminé avec succès et `postgres` healthy, `restart:
   unless-stopped`), `migrate` (même image, commande `node dist/cli/migrate.js && node dist/cli/seed.js`,
   `restart: no`), `postgres` (`postgres:16-alpine`, volume nommé, aucun port publié, healthcheck), réseau
   interne. `web` : service réservé (commenté ou image placeholder statique) en attendant le front.
@@ -1149,7 +1149,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 | R9 | Modification d'une migration déjà appliquée sur le VPS. | Divergence de schéma. | Checksum dans `schema_migrations` (L1-01), règle dans `db/README.md`. |
 | R10 | Compose prod : Caddy sans front (`apps/web` différé). | Page d'accueil vide en production. | Placeholder statique minimal (L5-02), à remplacer lors du lot front. |
 | R11 | Dérive entre le document OpenAPI et les réponses réelles de l'API (le document est généré depuis Zod, mais les contrôleurs pourraient renvoyer autre chose). | Contrat faux pour le portage Rust. | Validation `strict` des réponses dans chaque contrôleur (lot 3), test L4-06. |
-| R12 | `TRUST_PROXY` oublié en prod derrière Caddy. | Rate limiting appliqué à l'IP du proxy : tout le trafic partagé. | `TRUST_PROXY=true` imposé dans `compose.prod.yml` (L5-02), vérifié en revue sécurité (L6-02). |
+| R12 | `TRUST_PROXY` oublié en prod derrière Caddy. | Rate limiting appliqué à l'IP du proxy : tout le trafic partagé. | `TRUST_PROXY=uniquelocal` imposé dans `compose.prod.yml` (L5-02), vérifié en revue sécurité (L6-02). |
 | R13 | Node téléchargé par pnpm (`use-node-version`) : accès réseau au premier `pnpm install`, comportement différent en CI et dans l'image Docker. | Build CI ou Docker cassé. | Même version 26.13.1 partout (`.npmrc`, `node:26.13.1-alpine`, CI), téléchargement neutralisé dans l'image (L5-01). |
 
 ## 9. Versions installées au lot 0 (épinglées exactement ; à revérifier avec `pnpm view <pkg> version` avant tout ajout)
@@ -1160,5 +1160,5 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 `unplugin-swc` 2.0.0 · `@swc/core` 1.16.22 · `@swc-node/register` 1.12.1 · `tsx` 4.23.15 · `typescript` 6.0.3
 (la 7.x est `latest` mais `typescript-eslint` exige `< 6.1`) · `typescript-eslint` 8.73.0 · `eslint` 10.15.0 ·
 `@eslint/js` 10.0.1 · `eslint-config-prettier` 10.1.8 · `prettier` 3.10.1 · `turbo` 2.11.12 · `husky` 9.1.7 ·
-`@types/node` 22.20.5. Image `postgres:16-alpine`.
+`@types/node` 26.6.6. Image `postgres:16-alpine`.
 Hôte : pnpm 10.34.9 (`packageManager`, lot 6), Node 26.13.1 téléchargé par pnpm (`.npmrc`), Docker Compose v2.40.

@@ -142,7 +142,7 @@ Aucun secret n'est versionné : `.env.prod` vit dans `DEPLOY_DIR`, hors du dép�
 ## Essai local de la pile de production
 
 ```sh
-SITE_DOMAIN=localhost CORS_ORIGIN=https://localhost POSTGRES_PASSWORD=essai \
+SITE_DOMAIN=localhost CORS_ORIGIN=https://localhost POSTGRES_PASSWORD=essai API_DB_PASSWORD=essai-api \
   docker compose -f docker/compose.prod.yml up -d --build
 curl -sk https://localhost/api/v1/health
 docker compose -f docker/compose.prod.yml down -v   # supprime aussi les volumes
