@@ -12,7 +12,19 @@
 		-Server
 	}
 
+	# API en lecture seule : aucune route n'attend de corps ni de méthode d'écriture. Caddy les
+	# écarte avant l'API (405 sans lire le corps) et plafonne tout corps restant à 1 Kio.
 	handle /api/* {
+		@writes not method GET HEAD OPTIONS
+		header @writes Allow "GET, HEAD, OPTIONS"
+		header @writes Content-Type "application/problem+json"
+		respond @writes `{"type":"about:blank","title":"Method Not Allowed","status":405}` 405 {
+			close
+		}
+
+		request_body {
+			max_size 1KB
+		}
 		reverse_proxy api:3000
 	}
 

@@ -1,3 +1,5 @@
+import { Readable } from 'node:stream';
+
 import { type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -15,7 +17,6 @@ async function withEnv<T>(
   Object.assign(process.env, values);
   let app: NestFastifyApplication | undefined;
   try {
-    await resetTestDatabase();
     app = await startTestApp();
     return await body(app);
   } finally {
@@ -247,16 +248,84 @@ describe('Rate limiting sur les routes de contenu', () => {
     });
   });
 
-  // BUG-3 : les routes inconnues (404) ne sont pas comptées par @fastify/rate-limit, qui ne
-  // s'accroche qu'aux routes déclarées : un client peut les marteler sans jamais recevoir de 429.
-  // Impact faible (réponse minuscule, aucun accès base), mais le quota « global » ne l'est pas.
-  it.fails('BUG-3 : les requêtes 404 consomment aussi le quota par IP', async () => {
+  // Les routes inconnues (404) et les préflights consomment le quota : un hook `onRequest` racine
+  // (create-app.ts) remplace l'accroche par route de @fastify/rate-limit (ex-BUG-3).
+  it('BUG-3 : les requêtes 404 consomment aussi le quota par IP', async () => {
     await withEnv({ RATE_LIMIT_MAX: String(MAX) }, async (app) => {
-      for (let count = 0; count < MAX + 2; count += 1) {
-        await app.inject({ method: 'GET', url: '/api/v1/inconnu' });
+      for (let count = 0; count < MAX; count += 1) {
+        expectProblem(await app.inject({ method: 'GET', url: '/api/v1/inconnu' }), 404);
       }
 
-      expectProblem(await app.inject({ method: 'GET', url: '/api/v1/inconnu' }), 429);
+      const limited = await app.inject({ method: 'GET', url: '/api/v1/inconnu' });
+      expectProblem(limited, 429);
+      expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
+      // Le quota est partagé avec les routes de contenu.
+      expectProblem(await app.inject({ method: 'GET', url: '/api/v1/profile' }), 429);
+    });
+  });
+
+  it('les préflights OPTIONS consomment le quota', async () => {
+    await withEnv({ RATE_LIMIT_MAX: String(MAX) }, async (app) => {
+      const preflight = () =>
+        app.inject({
+          method: 'OPTIONS',
+          url: '/api/v1/profile',
+          headers: { origin: ALLOWED_ORIGIN, 'access-control-request-method': 'GET' },
+        });
+      for (let count = 0; count < MAX; count += 1) {
+        expect((await preflight()).statusCode).toBe(204);
+      }
+
+      expectProblem(await preflight(), 429);
+    });
+  });
+
+  describe('corps de requête (API en lecture seule)', () => {
+    const body = 'x'.repeat(2048);
+
+    it.each([
+      ['POST', '/api/v1/inconnu'],
+      ['POST', '/api/v1/profile'],
+      ['PUT', '/api/v1/cv'],
+      ['PATCH', '/api/v1/skills'],
+      ['DELETE', '/api/v1/tools'],
+    ])('%s %s avec un corps de 2 Kio : 413 problem+json, corps jamais lu', async (method, url) => {
+      await withEnv({ RATE_LIMIT_MAX: '100000' }, async (app) => {
+        const response = await app.inject({
+          method: method as 'POST',
+          url,
+          headers: { 'content-type': 'text/plain' },
+          payload: body,
+        });
+
+        expectProblem(response, 413);
+      });
+    });
+
+    it('un corps de 2 Kio en streaming sans content-length est aussi refusé', async () => {
+      await withEnv({ RATE_LIMIT_MAX: '100000' }, async (app) => {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/v1/inconnu',
+          headers: { 'content-type': 'application/json', 'transfer-encoding': 'chunked' },
+          payload: Readable.from([Buffer.from('"'), Buffer.from(body), Buffer.from('"')]),
+        });
+
+        expectProblem(response, 413);
+      });
+    });
+
+    it('un petit corps sur une route inconnue reste un 404 problem+json', async () => {
+      await withEnv({ RATE_LIMIT_MAX: '100000' }, async (app) => {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/v1/inconnu',
+          headers: { 'content-type': 'application/json' },
+          payload: '{}',
+        });
+
+        expectProblem(response, 404);
+      });
     });
   });
 
