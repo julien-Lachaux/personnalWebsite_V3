@@ -1,13 +1,24 @@
-import { Controller, Get, NotImplementedException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { LocaleQuerySchema, type Skill, SkillSchema } from '@siteperso/contracts';
+import { z } from 'zod';
 
-/**
- * Ressource « compétences » (`GET /api/v1/skills`). Squelette du lot 0 : la route répond 501
- * problem+json jusqu'à son implémentation au lot 3 (voir docs/01 pour le contrat).
- */
+import { ListSkillsUseCase } from '../../../application/skills/list-skills.use-case.js';
+
+const SkillsResponseSchema = z.array(SkillSchema);
+
+/** `GET /api/v1/skills` : compétences publiées à plat, avec `groupSlug`. */
 @Controller('skills')
 export class SkillsController {
+  constructor(private readonly listSkills: ListSkillsUseCase) {}
+
   @Get()
-  list(): never {
-    throw new NotImplementedException('Ressource « skills » : implémentation prévue au lot 3.');
+  async list(@Query() rawQuery: unknown): Promise<Skill[]> {
+    const query = LocaleQuerySchema.safeParse(rawQuery);
+    if (!query.success) {
+      throw new BadRequestException('Paramètre « lang » invalide : valeurs acceptées fr, en.');
+    }
+    const skills = await this.listSkills.execute(query.data.lang);
+    // Validation stricte de la réponse avant envoi.
+    return SkillsResponseSchema.parse(skills);
   }
 }

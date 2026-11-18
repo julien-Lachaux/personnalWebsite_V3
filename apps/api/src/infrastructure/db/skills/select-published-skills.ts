@@ -1,0 +1,43 @@
+import { type Locale } from '@siteperso/contracts';
+import { and, eq, type SQL, sql } from 'drizzle-orm';
+import { alias, type SelectedFields } from 'drizzle-orm/pg-core';
+
+import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
+import { skillGroups, skills, skillsTranslations } from '../schema/index.js';
+
+/**
+ * Requête de base partagée par les dépôts `skills`, `skill-groups` et `experiences` : compétences
+ * publiées dont le groupe est lui aussi publié, avec leur nom traduit (repli `en` → `fr` en SQL).
+ * L'appelant ajoute ses jointures et son tri, ses colonnes propres via `extra` et une condition
+ * supplémentaire via `condition` (le `where` est déjà posé : il ne faut pas le rappeler). Les
+ * colonnes de base correspondent au type de domaine `Skill`.
+ */
+export function selectPublishedSkills<TExtra extends SelectedFields>(
+  db: DrizzleDatabaseClient['db'],
+  locale: Locale,
+  extra: TExtra,
+  condition?: SQL,
+) {
+  const fr = alias(skillsTranslations, 'skill_fr');
+  const en = alias(skillsTranslations, 'skill_en');
+
+  return db
+    .select({
+      slug: skills.slug,
+      name: sql<string>`coalesce(${en.name}, ${fr.name})`,
+      level: skills.level,
+      icon: skills.icon,
+      iconPath: skills.iconPath,
+      groupSlug: skillGroups.slug,
+      ...extra,
+    })
+    .from(skills)
+    .innerJoin(
+      skillGroups,
+      and(eq(skillGroups.id, skills.groupId), eq(skillGroups.published, true)),
+    )
+    .innerJoin(fr, and(eq(fr.skillId, skills.id), eq(fr.locale, 'fr')))
+    .leftJoin(en, and(eq(en.skillId, skills.id), eq(en.locale, locale)))
+    .where(and(eq(skills.published, true), condition))
+    .$dynamic();
+}

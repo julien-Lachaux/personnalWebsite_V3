@@ -1,15 +1,24 @@
-import { Controller, Get, NotImplementedException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { LocaleQuerySchema, type SocialLink, SocialLinkSchema } from '@siteperso/contracts';
+import { z } from 'zod';
 
-/**
- * Ressource « liens sociaux » (`GET /api/v1/social-links`). Squelette du lot 0 : la route répond 501
- * problem+json jusqu'à son implémentation au lot 3 (voir docs/01 pour le contrat).
- */
+import { ListSocialLinksUseCase } from '../../../application/social-links/list-social-links.use-case.js';
+
+const SocialLinksResponseSchema = z.array(SocialLinkSchema);
+
+/** `GET /api/v1/social-links` : liens publiés, triés par `sort_order`. */
 @Controller('social-links')
 export class SocialLinksController {
+  constructor(private readonly listSocialLinks: ListSocialLinksUseCase) {}
+
   @Get()
-  list(): never {
-    throw new NotImplementedException(
-      'Ressource « social-links » : implémentation prévue au lot 3.',
-    );
+  async list(@Query() rawQuery: unknown): Promise<SocialLink[]> {
+    const query = LocaleQuerySchema.safeParse(rawQuery);
+    if (!query.success) {
+      throw new BadRequestException('Paramètre « lang » invalide : valeurs acceptées fr, en.');
+    }
+    const links = await this.listSocialLinks.execute(query.data.lang);
+    // Validation stricte de la réponse avant envoi.
+    return SocialLinksResponseSchema.parse(links);
   }
 }
