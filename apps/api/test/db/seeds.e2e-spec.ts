@@ -264,9 +264,32 @@ describe('convergence de la base vers les seeds', () => {
     expect(await snapshot(sql, tables)).toEqual(before);
   });
 
+  it('arrête le déploiement si une ligne publiée n’a pas de traduction fr, sans rien appliquer', async () => {
+    const tables = await tableNames(sql);
+    const before = await snapshot(sql, tables);
+    const directory = await seedsWith('0002_social_links.sql', (content) => content);
+    await writeFile(
+      join(directory, '0099_sans_fr.sql'),
+      `insert into experiences (slug, kind, company, date_start)
+       values ('qa-sans-fr', 'freelance', 'Société', '2020-01-01')
+       on conflict (slug) do update set company = excluded.company;
+       insert into experiences_translations (experience_id, locale, job_title, summary)
+       select id, 'en', 'Job', 'Summary' from experiences where slug = 'qa-sans-fr'
+       on conflict (experience_id, locale) do update set job_title = excluded.job_title;`,
+    );
+
+    await expect(run(directory)).rejects.toThrow(
+      /Traduction fr manquante.*experiences\/qa-sans-fr/,
+    );
+    expect(await snapshot(sql, tables)).toEqual(before);
+  });
+
   it('signale sans la supprimer une entité absente des seeds', async () => {
     await sql`
       insert into certifications (slug, issuer, year) values ('qa-retiree', 'Organisme', 2020)`;
+    await sql`
+      insert into certifications_translations (certification_id, locale, name)
+      select id, 'fr', 'Retirée' from certifications where slug = 'qa-retiree'`;
 
     const lines: string[] = [];
     await run(seedsDirectory, (line) => lines.push(line));

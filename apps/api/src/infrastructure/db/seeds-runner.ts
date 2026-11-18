@@ -6,7 +6,7 @@ import {
   type LogFn,
   openSingleConnection,
 } from './migrations-runner.js';
-import { convergeToSeeds } from './seeds-convergence.js';
+import { assertFrenchTranslations, convergeToSeeds } from './seeds-convergence.js';
 import { splitSqlStatements, statementVerb } from './sql-statements.js';
 
 /** Verbes d'écriture : une instruction de seed qui n'en touche aucune ligne est suspecte. */
@@ -63,6 +63,7 @@ export async function runSeeds(options: SeedsOptions): Promise<string[]> {
         executed.push(file.name);
       }
       await convergeToSeeds(tx, (line) => messages.push(line));
+      await assertFrenchTranslations(tx);
     });
     for (const message of messages) {
       options.log(message);

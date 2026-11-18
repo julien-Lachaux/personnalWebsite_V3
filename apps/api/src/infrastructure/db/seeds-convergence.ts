@@ -100,3 +100,35 @@ export async function convergeToSeeds(tx: TransactionSql, log: LogFn): Promise<v
     }
   }
 }
+
+/**
+ * Contrôle de fin de seed : chaque ligne publiée a une traduction `fr`, et le profil aussi. Sans
+ * traduction `fr`, une ligne publiée disparaîtrait silencieusement de toutes les réponses (la
+ * jointure `fr` est interne) : mieux vaut arrêter le déploiement.
+ */
+export async function assertFrenchTranslations(tx: TransactionSql): Promise<void> {
+  const missing: string[] = [];
+  for (const entity of SEEDED_ENTITIES) {
+    const translations = entity.children.find(([child]) => child.endsWith('_translations'));
+    if (translations === undefined) {
+      continue;
+    }
+    const [translationTable, foreignKey] = translations;
+    const rows = await tx<{ label: string }[]>`
+      select ${entity.hasSlug ? tx`p.slug` : tx`'profil'`}::text as label
+      from ${tx(entity.table)} p
+      where ${entity.hasSlug ? tx`p.published` : tx`true`}
+        and not exists (
+          select 1 from ${tx(translationTable)} t
+          where t.${tx(foreignKey)} = p.id and t.locale = 'fr')
+      order by 1`;
+    for (const row of rows) {
+      missing.push(`${entity.table}/${row.label}`);
+    }
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `Traduction fr manquante (la ligne disparaîtrait de l'API) : ${missing.join(', ')}.`,
+    );
+  }
+}

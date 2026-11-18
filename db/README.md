@@ -38,6 +38,8 @@ quel langage (le portage Rust reprendra ces fichiers tels quels).
     tout (projets, outils, ressources tant qu'ils n'ont pas de seed) n'est pas touchée ;
   - une entité (ligne parente) retirée des fichiers n'est pas supprimée : le runner la signale
     (`ATTENTION …`) ; supprimer ou dépublier à la main (politique à trancher) ;
+  - en fin de seed, toute ligne publiée (et le profil) doit avoir une traduction `fr`, sinon le seed échoue
+    et le déploiement s'arrête (la ligne disparaîtrait sinon de l'API) ;
   - tout échec annule l'ensemble : aucun seed n'est appliqué à moitié.
 - Les seeds référencent les lignes par `slug` (sous-requêtes), jamais par id numérique.
 - Aucune donnée personnelle de contact (e-mail, téléphone) : le contact est géré par le front.
