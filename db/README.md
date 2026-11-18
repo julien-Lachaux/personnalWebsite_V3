@@ -35,4 +35,12 @@ quel langage (le portage Rust reprendra ces fichiers tels quels).
 ## Exécution
 
 Les bases de dev et de test sont fournies par `docker-compose.yml` (`pnpm db:up`,
-`pnpm db:test:up`). `pnpm db:migrate` applique les migrations sur la base de `DATABASE_URL`.
+`pnpm db:test:up`).
+
+- `pnpm db:migrate` applique les migrations sur la base de `DATABASE_URL`.
+- `pnpm db:seed` exécute tous les seeds dans l'ordre, chacun dans une transaction, à chaque appel
+  (idempotents, pas de table de suivi) ; il échoue si une migration est en attente.
+- `pnpm db:reset` : `drop schema public cascade; create schema public`, puis migrate et seed.
+  Refusé quand `NODE_ENV=production`.
+- Les e2e appellent `resetTestDatabase()` (`apps/api/test/support/database.ts`), même séquence
+  sur la base de test.

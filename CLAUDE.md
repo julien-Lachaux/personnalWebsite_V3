@@ -16,7 +16,9 @@ apps/api/                 API NestJS 12 sur Fastify (ESM), architecture hexagona
     db/                   Drizzle + driver postgres, implémentation des ports (DATABASE_CLIENT)
     http/                 Nest : create-app.ts, app.module.ts, problem/, health/, docs/,
                           puis un dossier par ressource (profile/, skills/, cv/…)
-  test/                   tests e2e (*.e2e-spec.ts) via app.inject contre le Postgres de test
+  src/cli/                points d'entrée Node sans Nest : migrate.ts, seed.ts, reset.ts (scripts db:*)
+  test/                   tests e2e (*.e2e-spec.ts) via app.inject contre le Postgres de test ;
+                          test/support/database.ts : resetTestDatabase(), openTestSql()
 packages/contracts/       schémas Zod partagés + document OpenAPI 3.2.0 (createOpenApiDocument)
 db/migrations/            SQL manuel NNNN_description.sql (source de vérité du schéma)
 db/seeds/                 contenu SQL idempotent (upsert sur slug)
@@ -100,6 +102,9 @@ docs/02) et l'utilise pour tous les scripts ; `engines.node` vaut `>=26 <27`.
 ```sh
 pnpm install                 # dépendances, Node via pnpm, hook pre-commit husky
 pnpm db:up                   # postgres de dev (docker compose)
+pnpm db:migrate              # applique db/migrations (checksum, transaction par fichier)
+pnpm db:seed                 # rejoue db/seeds (idempotents) ; refusé si une migration est en attente
+pnpm db:reset                # drop schema public + migrate + seed (refusé en production)
 pnpm db:test:up              # postgres de test
 pnpm dev                     # compile les contrats puis API en watch sur http://localhost:3000/api/v1
 pnpm lint | typecheck | test | test:e2e | build
