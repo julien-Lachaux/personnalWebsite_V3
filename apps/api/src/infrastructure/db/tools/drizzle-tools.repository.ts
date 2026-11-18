@@ -1,0 +1,38 @@
+import { Injectable } from '@nestjs/common';
+import { type Locale } from '@siteperso/contracts';
+import { and, asc, eq, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+
+import { type ToolsRepository } from '../../../application/tools/ports/tools-repository.port.js';
+import { type Tool } from '../../../domain/tools/tools.js';
+import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
+import { tools, toolsTranslations } from '../schema/index.js';
+
+/**
+ * Dépôt Drizzle des outils. Repli de langue en SQL, en une requête : `fr` obligatoire
+ * (inner join), `locale` optionnelle (left join), `coalesce(en, fr)` par champ.
+ */
+@Injectable()
+export class DrizzleToolsRepository implements ToolsRepository {
+  constructor(private readonly client: DrizzleDatabaseClient) {}
+
+  async findAllPublished(locale: Locale): Promise<Tool[]> {
+    const fr = alias(toolsTranslations, 'fr');
+    const en = alias(toolsTranslations, 'en');
+
+    return this.client.db
+      .select({
+        slug: tools.slug,
+        url: tools.url,
+        iconPath: tools.iconPath,
+        name: sql<string>`coalesce(${en.name}, ${fr.name})`,
+        family: sql<string>`coalesce(${en.family}, ${fr.family})`,
+        description: sql<string>`coalesce(${en.description}, ${fr.description})`,
+      })
+      .from(tools)
+      .innerJoin(fr, and(eq(fr.toolId, tools.id), eq(fr.locale, 'fr')))
+      .leftJoin(en, and(eq(en.toolId, tools.id), eq(en.locale, locale)))
+      .where(eq(tools.published, true))
+      .orderBy(asc(tools.sortOrder), asc(tools.id));
+  }
+}
