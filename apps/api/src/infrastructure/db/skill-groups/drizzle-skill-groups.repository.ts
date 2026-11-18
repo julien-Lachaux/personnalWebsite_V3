@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq, sql } from 'drizzle-orm';
-import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { and, asc, eq } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { type SkillGroupsRepository } from '../../../application/skill-groups/ports/skill-groups-repository.port.js';
 import { type SkillGroup } from '../../../domain/skill-groups/skill-group.js';
@@ -9,9 +9,7 @@ import { type Skill } from '../../../domain/skills/skill.js';
 import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { skillGroups, skillGroupsTranslations, skills } from '../schema/index.js';
 import { selectPublishedSkills } from '../skills/select-published-skills.js';
-
-/** Repli de langue en SQL : la traduction demandée si elle existe, sinon le français. */
-const translated = (en: AnyPgColumn, fr: AnyPgColumn) => sql<string>`coalesce(${en}, ${fr})`;
+import { translated, translatedOrEmpty } from '../translated.js';
 
 /**
  * Implémentation Drizzle du dépôt de groupes de compétences : deux requêtes au total (les groupes,
@@ -30,7 +28,7 @@ export class DrizzleSkillGroupsRepository implements SkillGroupsRepository {
         slug: skillGroups.slug,
         name: translated(en.name, fr.name),
         // `description` est nullable en base ; le contrat exige une chaîne.
-        description: sql<string>`coalesce(${en.description}, ${fr.description}, '')`,
+        description: translatedOrEmpty(en.description, fr.description),
       })
       .from(skillGroups)
       .innerJoin(fr, and(eq(fr.skillGroupId, skillGroups.id), eq(fr.locale, 'fr')))

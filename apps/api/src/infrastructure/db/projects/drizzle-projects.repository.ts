@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { type ProjectsRepository } from '../../../application/projects/ports/projects-repository.port.js';
 import { type Project, type ProjectSkill } from '../../../domain/projects/projects.js';
 import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
+import { translated } from '../translated.js';
 import {
   projects,
   projectSkills,
@@ -38,9 +39,9 @@ export class DrizzleProjectsRepository implements ProjectsRepository {
         imageDesktopPath: projects.imageDesktopPath,
         imageMobilePath: projects.imageMobilePath,
         year: projects.year,
-        title: sql<string>`coalesce(${en.title}, ${fr.title})`,
-        description: sql<string>`coalesce(${en.description}, ${fr.description})`,
-        imageAlt: sql<string | null>`coalesce(${en.imageAlt}, ${fr.imageAlt})`,
+        title: translated(en.title, fr.title),
+        description: translated(en.description, fr.description),
+        imageAlt: translated<string | null>(en.imageAlt, fr.imageAlt),
       })
       .from(projects)
       .innerJoin(fr, and(eq(fr.projectId, projects.id), eq(fr.locale, 'fr')))
@@ -58,7 +59,7 @@ export class DrizzleProjectsRepository implements ProjectsRepository {
       .select({
         projectId: projectSkills.projectId,
         slug: skills.slug,
-        name: sql<string>`coalesce(${skillEn.name}, ${skillFr.name})`,
+        name: translated(skillEn.name, skillFr.name),
         level: skills.level,
         icon: skills.icon,
         iconPath: skills.iconPath,
