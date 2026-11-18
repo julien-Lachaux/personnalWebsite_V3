@@ -1,0 +1,7 @@
+node_modules
+dist
+coverage
+.turbo
+pnpm-lock.yaml
+# Documents de décision validés : on ne les reformate pas automatiquement.
+docs/

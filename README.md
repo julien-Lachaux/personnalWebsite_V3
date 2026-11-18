@@ -1,0 +1,53 @@
+# Site perso V3 : back-end
+
+Monorepo pnpm + Turborepo : API NestJS/Fastify en architecture hexagonale (`apps/api`),
+contrats Zod + OpenAPI 3.1 (`packages/contracts`), schéma et contenu en SQL (`db/`).
+Décisions et modèle de données : `docs/`. Conventions pour les agents : `CLAUDE.md`.
+
+## Lancer en 4 commandes
+
+Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 9. Node est téléchargé par pnpm
+(`.npmrc`, `use-node-version`), rien d'autre à installer.
+
+```sh
+pnpm install                       # 1. dépendances + hook pre-commit
+cp .env.example apps/api/.env      # 2. configuration locale de l'API (jamais commitée)
+pnpm db:up                         # 3. PostgreSQL 16 de dev (docker compose)
+pnpm dev                           # 4. compile les contrats puis API en watch : http://localhost:3000/api/v1
+```
+
+Vérifier :
+
+```sh
+curl -s http://localhost:3000/api/v1/health      # 200 {"status":"ok","checks":{"database":"up"}}
+curl -s http://localhost:3000/api/v1/docs.json   # 200 contrat OpenAPI 3.1 ("openapi":"3.1.0")
+curl -s http://localhost:3000/api/v1/profile     # 501 application/problem+json jusqu'au lot 3
+curl -s http://localhost:3000/api/v1/inconnue    # 404 application/problem+json
+curl -si http://localhost:3000/api/v1/health | grep -i x-ratelimit   # quota par IP (défaut 100/min), 429 au-delà
+```
+
+`pnpm build` compile les contrats puis l'API dans `dist/` ; `pnpm start` lance la version
+compilée.
+
+## Qualité
+
+```sh
+pnpm check       # démarre le Postgres de test puis lint, typecheck, tests unitaires et e2e
+pnpm db:down     # arrête les conteneurs
+```
+
+Le hook pre-commit (husky) lance lint, typecheck et tests unitaires ; les e2e tournent dans
+`pnpm check` et en CI (lot 5). `pnpm format` applique Prettier (les documents de `docs/` sont
+exclus).
+
+## Arborescence
+
+```
+apps/api/             API NestJS sur Fastify : src/domain, src/application, src/infrastructure
+packages/contracts/   schémas Zod partagés et génération OpenAPI (dist/openapi.json)
+db/migrations/        SQL manuel NNNN_description.sql (runner au lot 1)
+db/seeds/             contenu SQL idempotent
+docker-compose.yml    postgres (dev, :5432) et postgres-test (:5433, tmpfs)
+docs/                 état des lieux V2, modèle de données, stack, organisation
+docs/comptes-rendus/  compte rendu de chaque agent par lot
+```

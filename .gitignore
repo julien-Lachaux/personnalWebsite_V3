@@ -1,9 +1,24 @@
+# Dépendances et sorties de build
 node_modules/
 dist/
+*.tsbuildinfo
+
+# Environnement local (seul .env.example est versionné)
 .env
 .env.*
 !.env.example
+
+# Caches et rapports
 coverage/
 .turbo/
+.eslintcache
 *.log
+
+# Système et éditeurs
 .DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Worktrees des agents
+.claude/worktrees/

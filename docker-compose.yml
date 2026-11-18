@@ -1,0 +1,44 @@
+# Environnement de développement : deux PostgreSQL 16 séparés.
+# - postgres      : base de dev `siteperso`, données persistées dans un volume nommé.
+# - postgres-test : base `siteperso_test` pour les tests e2e, en tmpfs (jetable, rapide).
+# Le conteneur de l'API (Dockerfile) arrive au lot 5.
+# Identifiants de dev uniquement : jamais exposés hors de la machine locale.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: siteperso-v3-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: siteperso
+      POSTGRES_USER: siteperso
+      POSTGRES_PASSWORD: siteperso
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - siteperso_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U siteperso -d siteperso']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: siteperso-v3-postgres-test
+    environment:
+      POSTGRES_DB: siteperso_test
+      POSTGRES_USER: siteperso
+      POSTGRES_PASSWORD: siteperso
+    ports:
+      - '127.0.0.1:${POSTGRES_TEST_PORT:-5433}:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U siteperso -d siteperso_test']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  siteperso_pgdata:
