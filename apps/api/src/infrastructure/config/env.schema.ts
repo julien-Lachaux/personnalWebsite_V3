@@ -20,6 +20,20 @@ export const EnvSchema = z.object({
         .filter((origin) => origin.length > 0),
     )
     .pipe(z.array(z.url()).min(1)),
+  /**
+   * Rate limiting global (docs/02 « sécurité dès le départ ») : nombre maximal de requêtes
+   * par adresse IP sur une fenêtre glissante de RATE_LIMIT_WINDOW_MS millisecondes.
+   */
+  RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(100),
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
+  /**
+   * Derrière un reverse proxy (Caddy en prod), l'IP du client est lue dans `X-Forwarded-For`
+   * uniquement si cette option est à `true` ; sinon le rate limiting verrait l'IP du proxy.
+   */
+  TRUST_PROXY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

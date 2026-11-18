@@ -23,6 +23,7 @@ curl -s http://localhost:3000/api/v1/health      # 200 {"status":"ok","checks":{
 curl -s http://localhost:3000/api/v1/docs.json   # 200 contrat OpenAPI 3.1 ("openapi":"3.1.0")
 curl -s http://localhost:3000/api/v1/profile     # 501 application/problem+json jusqu'au lot 3
 curl -s http://localhost:3000/api/v1/inconnue    # 404 application/problem+json
+curl -si http://localhost:3000/api/v1/health | grep -i x-ratelimit   # quota par IP (défaut 100/min), 429 au-delà
 ```
 
 `pnpm build` compile les contrats puis l'API dans `dist/` ; `pnpm start` lance la version
