@@ -22,7 +22,8 @@ apps/api/                 API NestJS 12 sur Fastify (ESM), architecture hexagona
 packages/contracts/       schémas Zod partagés + document OpenAPI 3.2.0 (createOpenApiDocument)
 db/migrations/            SQL manuel NNNN_description.sql (source de vérité du schéma)
 db/seeds/                 contenu SQL idempotent (upsert sur slug)
-docker-compose.yml        postgres (dev, :5432) et postgres-test (:5433, tmpfs)
+docker-compose.yml        postgres (dev, :5432) et postgres-test (:5433, tmpfs) ; ports et nom de
+                          projet surchargeables par un `.env` racine (worktrees en parallèle)
 docs/                     décisions validées ; ne pas reformater (exclu de Prettier)
 docs/comptes-rendus/      compte rendu de chaque agent (lot-N-role.md)
 ```
@@ -116,6 +117,14 @@ pnpm db:down                 # arrête les conteneurs
 La configuration de l'API est lue dans `apps/api/.env` (modèle : `.env.example`, à copier,
 jamais commité). Les e2e n'en ont pas besoin : `vitest.e2e.config.ts` pointe par défaut sur
 le postgres de test.
+
+## Worktrees en parallèle
+
+Deux agents qui lancent `pnpm check` en même temps doivent isoler leurs conteneurs : chacun
+crée un `.env` à la racine de SON worktree (gitignoré) avec `COMPOSE_PROJECT_NAME`,
+`POSTGRES_PORT` et `POSTGRES_TEST_PORT` qui lui sont propres (ex. `siteperso-v3-b`, 5442, 5443),
+et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docker compose` et
+`vitest.e2e.config.ts` lisent ce `.env` racine. `pnpm db:down` n'arrête alors que ses conteneurs.
 
 ## Flux git et interdictions
 

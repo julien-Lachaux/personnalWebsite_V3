@@ -3,13 +3,14 @@
 # - postgres-test : base `siteperso_test` pour les tests e2e, en tmpfs (jetable, rapide).
 # - api           : essai local de l'image de production (profil `api`, voir docker/api.Dockerfile).
 # Identifiants de dev uniquement : jamais exposés hors de la machine locale.
+# Worktrees en parallèle : un `.env` racine avec COMPOSE_PROJECT_NAME, POSTGRES_PORT et
+# POSTGRES_TEST_PORT distincts isole conteneurs et ports (lu par compose et par vitest.e2e).
 
-name: siteperso-v3
+name: ${COMPOSE_PROJECT_NAME:-siteperso-v3}
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: siteperso-v3-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: siteperso
@@ -27,7 +28,6 @@ services:
 
   postgres-test:
     image: postgres:16-alpine
-    container_name: siteperso-v3-postgres-test
     environment:
       POSTGRES_DB: siteperso_test
       POSTGRES_USER: siteperso
@@ -49,7 +49,6 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
-    container_name: siteperso-v3-api
     environment:
       DATABASE_URL: postgres://siteperso:siteperso@postgres:5432/siteperso
       CORS_ORIGIN: http://localhost:3001
