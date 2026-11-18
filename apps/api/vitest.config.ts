@@ -26,6 +26,8 @@ export default defineConfig({
         'src/infrastructure/db/database.module.ts',
         'src/infrastructure/db/reset-database.ts',
         'src/infrastructure/db/seeds-runner.ts',
+        'src/infrastructure/db/seeds-convergence.ts',
+        'src/infrastructure/db/provision-api-role.ts',
         'src/infrastructure/config/config.module.ts',
         // Interfaces et jetons d'injection : aucune logique.
         'src/application/**/ports/**',

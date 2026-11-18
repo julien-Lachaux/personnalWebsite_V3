@@ -107,7 +107,7 @@ export function assertNoTransactionControl(fileName: string, content: string): v
  * qui diverge de la base (mauvaise branche, historique réécrit) ; continuer appliquerait les
  * migrations suivantes sur un schéma que le dépôt ne décrit plus.
  */
-function assertAppliedMatchDisk(
+export function assertAppliedMatchDisk(
   applied: readonly { version: string; name: string }[],
   files: readonly SqlFile[],
 ): void {
