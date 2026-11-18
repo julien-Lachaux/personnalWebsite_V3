@@ -304,6 +304,61 @@ describe('Filtrage published et ordre de tri', () => {
       );
     });
 
+    it('une compétence publiée d’un groupe non publié disparaît aussi des compétences imbriquées des projets, des expériences et de /cv', async () => {
+      await withFixture(
+        async (sql) => {
+          await sql`insert into skill_groups (slug, sort_order, published) values ('qa-groupe-cache', -50, false)`;
+          await sql`
+            insert into skill_groups_translations (skill_group_id, locale, name)
+            select id, 'fr', 'Groupe caché' from skill_groups where slug = 'qa-groupe-cache'`;
+          await sql`
+            insert into skills (slug, group_id, level, icon, published)
+            select 'qa-orpheline', id, 3, 'test', true from skill_groups where slug = 'qa-groupe-cache'`;
+          await sql`
+            insert into skills_translations (skill_id, locale, name)
+            select id, 'fr', 'Orpheline' from skills where slug = 'qa-orpheline'`;
+          await insertRow(
+            sql,
+            SPECS.find((spec) => spec.table === 'projects')!,
+            'qa-projet',
+            { published: true, sortOrder: -1, index: 0 },
+          );
+          await insertRow(
+            sql,
+            SPECS.find((spec) => spec.table === 'experiences')!,
+            'qa-xp',
+            { published: true, sortOrder: -1, index: 0 },
+          );
+          await sql`
+            insert into project_skills (project_id, skill_id)
+            select p.id, s.id from projects p, skills s
+            where p.slug = 'qa-projet' and s.slug = 'qa-orpheline'`;
+          await sql`
+            insert into experience_skills (experience_id, skill_id)
+            select e.id, s.id from experiences e, skills s
+            where e.slug = 'qa-xp' and s.slug = 'qa-orpheline'`;
+        },
+        async () => {
+          for (const path of ['/api/v1/projects', '/api/v1/experiences']) {
+            const items = (await app.inject({ method: 'GET', url: path })).json<
+              { slug: string; skills: unknown[] }[]
+            >();
+            const fixture = items.find((item) => item.slug.startsWith('qa-'));
+            expect(fixture, path).toBeDefined();
+            expect(fixture?.skills, path).toEqual([]);
+          }
+          const cv = (await app.inject({ method: 'GET', url: '/api/v1/cv' })).json<
+            Record<string, { slug: string; skills: unknown[] }[]>
+          >();
+          for (const key of ['projects', 'experiences']) {
+            const fixture = cv[key]?.find((item) => item.slug.startsWith('qa-'));
+            expect(fixture, key).toBeDefined();
+            expect(fixture?.skills, key).toEqual([]);
+          }
+        },
+      );
+    });
+
     it('une compétence non publiée disparaît des compétences imbriquées des projets et des expériences', async () => {
       await withFixture(
         async (sql) => {
