@@ -1,7 +1,25 @@
 import { Module } from '@nestjs/common';
 
+import { ListCertificationsUseCase } from '../../../application/certifications/list-certifications.use-case.js';
+import {
+  CERTIFICATIONS_REPOSITORY,
+  type CertificationsRepository,
+} from '../../../application/certifications/ports/certifications-repository.port.js';
+import { DrizzleCertificationsRepository } from '../../db/certifications/drizzle-certifications.repository.js';
 import { CertificationsController } from './certifications.controller.js';
 
-/** Module de la ressource « certifications ». Seul l'agent chargé de cette ressource le modifie. */
-@Module({ controllers: [CertificationsController] })
+/** Module de la ressource « certifications » ; exporte son cas d'usage pour le module `cv`. */
+@Module({
+  controllers: [CertificationsController],
+  providers: [
+    { provide: CERTIFICATIONS_REPOSITORY, useClass: DrizzleCertificationsRepository },
+    {
+      provide: ListCertificationsUseCase,
+      useFactory: (repository: CertificationsRepository) =>
+        new ListCertificationsUseCase(repository),
+      inject: [CERTIFICATIONS_REPOSITORY],
+    },
+  ],
+  exports: [ListCertificationsUseCase],
+})
 export class CertificationsModule {}
