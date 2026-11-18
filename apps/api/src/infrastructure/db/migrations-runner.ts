@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import postgres, { type Sql } from 'postgres';
 
+import { splitSqlStatements, statementVerb } from './sql-statements.js';
+
 /** Clé du verrou consultatif (`pg_advisory_lock`) qui sérialise les runners de migrations. */
 const MIGRATIONS_LOCK_KEY = 7_251_001;
 
@@ -78,6 +80,27 @@ async function ensureMigrationsTable(sql: Sql): Promise<void> {
     )`;
 }
 
+/** Verbes qui pilotent la transaction : interdits dans un fichier, le runner la gère lui-même. */
+const TRANSACTION_VERBS = new Set(['begin', 'start', 'commit', 'end', 'rollback', 'abort']);
+
+/**
+ * Refuse un fichier de migration qui contient `begin`, `commit`, `rollback`, `start transaction`,
+ * `end` ou `abort` (hors commentaires, chaînes et corps de fonction) : le runner exécute le fichier
+ * dans sa propre transaction avec l'enregistrement dans `schema_migrations`, et un `commit` du
+ * fichier la terminerait. La migration serait alors à moitié appliquée et non enregistrée.
+ */
+export function assertNoTransactionControl(fileName: string, content: string): void {
+  for (const statement of splitSqlStatements(content)) {
+    const verb = statementVerb(statement);
+    if (TRANSACTION_VERBS.has(verb)) {
+      throw new Error(
+        `${fileName}.sql contient « ${verb} » : le runner gère la transaction, ` +
+          'retirer toute instruction de contrôle de transaction du fichier.',
+      );
+    }
+  }
+}
+
 /**
  * Refuse une migration déjà appliquée que le disque ne retrouve plus ou sous un autre nom :
  * fichier supprimé, ou renommé (même version, `name` différent). Les deux trahissent un dépôt
@@ -135,6 +158,7 @@ export async function runMigrations(options: MigrationsOptions): Promise<Migrati
           result.alreadyApplied.push(file.name);
           continue;
         }
+        assertNoTransactionControl(file.name, content);
         await sql.begin(async (tx) => {
           await tx.unsafe(content);
           await tx`

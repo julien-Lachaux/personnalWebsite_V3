@@ -9,6 +9,11 @@ quel langage (le portage Rust reprendra ces fichiers tels quels).
 - Nommage : `NNNN_description.sql`, numéro sur quatre chiffres, croissant, sans trou
   (`0001_enums.sql`, `0002_profile.sql`…). La description est en anglais, en snake_case.
 - Un fichier = une évolution de schéma cohérente, appliquée dans une transaction.
+- Jamais de `begin`, `commit`, `rollback`, `start transaction`, `end` ni `abort` dans un fichier (hors
+  commentaires, chaînes et corps de fonction) : le runner les refuse, car un `commit` du fichier terminerait
+  la transaction du runner et laisserait la migration à moitié appliquée et non enregistrée.
+- Le runner refuse aussi une migration déjà appliquée que le disque ne retrouve plus (supprimée) ou sous
+  un autre nom (renommée).
 - Une migration appliquée ne se modifie plus jamais : on en ajoute une nouvelle.
 - Conventions SQL : snake_case, `text` plutôt que `varchar(n)`, `not null` par défaut,
   clés étrangères explicites avec `on delete`, tables de traduction `<table>_translations`
