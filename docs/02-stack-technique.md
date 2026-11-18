@@ -6,18 +6,21 @@ d'API et le schéma SQL pourront être portés en Rust sans réécriture du mod�
 ## Back-end (périmètre immédiat)
 | Brique | Choix | Pourquoi |
 |---|---|---|
-| Runtime | Node.js LTS courant, pnpm | |
+| Runtime | Node.js dernière ligne stable (26 au 18 nov. 2026), pnpm | décision : toujours la version la plus récente ; en cas de problème, on en discute ensemble |
 | Framework | NestJS sur adaptateur Fastify | expertise de Julien, structure en modules qui se transpose en crates/modules Rust |
 | Base | PostgreSQL 16 | |
 | Accès données | Drizzle ORM + driver `postgres` | requêtes proches du SQL, schéma explicite, zéro magie |
 | Migrations | SQL manuel, runner maison minimal | décision : tout le contenu est géré en SQL |
 | Validation | Zod (DTO et query params) | schémas réutilisables par le front via `packages/contracts` |
-| Contrat API | OpenAPI 3.1 généré depuis les schémas Zod, servi en JSON | contrat de référence pour le portage Rust |
+| Contrat API | OpenAPI **3.2.0** généré depuis Zod par `@asteasolutions/zod-to-openapi` (générateur V32), servi en JSON, `info.version` 1.0.0 | 3.2.0 = plus haute version émise par utoipa 6 côté Rust (spec courante 3.2.1, pas encore outillée des deux côtés) |
 | Tests | Vitest (unitaires), Vitest + supertest/`app.inject` (e2e contre un Postgres Docker) | |
 | Qualité | TypeScript strict, ESLint + Prettier, husky facultatif | |
 | Conteneurs | Docker multi-stage, docker-compose dev (api + postgres) et prod (Caddy + api + web + postgres) | VPS Docker, même topologie que la V2 |
 
-### Règles « Rust-friendly »
+### Politique de versions
+Toujours les versions majeures les plus récentes de chaque brique (vérifiées sur le registre au moment de l'ajout, épinglées exactement). Si une incompatibilité apparaît, on en discute avec Julien avant de rétrograder.
+
+## Règles « Rust-friendly »
 - Architecture hexagonale : `domain` (types, règles, aucune dépendance Nest), `application`
   (cas d'usage), `infrastructure` (Drizzle, HTTP). Nest n'apparaît que dans `infrastructure/http`.
 - Pas de décorateurs métier, pas de pipes magiques : les DTO sont des schémas Zod, la validation
