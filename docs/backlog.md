@@ -4,6 +4,12 @@ Rédigé le 18 novembre 2026 par le chef de projet, dérivé strictement de `doc
 `docs/02-stack-technique.md` et `docs/03-organisation-agents.md`. Ces trois documents sont les décisions
 validées ; ce backlog les décline en lots, tickets et critères d'acceptation. Il ne les remet pas en cause.
 
+Révision du 18 novembre 2026, après recette du lot 0 : le backlog est aligné sur la structure réellement
+livrée (noms de paquets, scripts, arborescence hexagonale par couches, compose, tests). À partir de
+maintenant, la source de vérité des conventions est `CLAUDE.md` à la racine du repo, complété par ce
+document pour les tickets et les critères. En cas de divergence entre les deux, `CLAUDE.md` fait foi et le
+chef de projet corrige le backlog.
+
 Conventions de ce document :
 
 - Un ticket = une micro-tâche = au moins un commit atomique (Conventional Commits en français).
@@ -11,26 +17,34 @@ Conventions de ce document :
   sortie 0. Les commandes se lancent à la racine du repo sauf mention contraire.
 - Les chemins sont relatifs à la racine du monorepo.
 - Les identifiants de code sont en anglais, le texte libre (commentaires, docs, messages) en français.
+- `<resource>` désigne l'une des 12 ressources de l'API en kebab-case : `profile`, `social-links`,
+  `skill-groups`, `skills`, `experiences`, `projects`, `tools`, `resources`, `certifications`, `education`,
+  `languages`, `cv`.
 
 ## 0. Rappels transverses
 
-### 0.1 Règles non négociables (reprises dans `CLAUDE.md` au lot 0)
+### 0.1 Règles non négociables (reprises dans `CLAUDE.md`)
 
-- Jamais de `git push` par un agent. Jamais de commit si lint, typecheck et tests ne passent pas.
-- Commits atomiques, un par micro-tâche, format `type(scope): sujet` en français, suivi d'une ligne vide
-  puis du trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Jamais de `git push` par un agent. Jamais de commit si `lint`, `typecheck` et `test` ne passent pas
+  (hook pre-commit) ; les e2e doivent aussi passer avant de livrer un lot (`pnpm check`). Jamais de
+  `--no-verify`, jamais de `git stash` nu.
+- Commits atomiques, un par micro-tâche, format `type(scope): sujet` ou `type: sujet` en français
+  (`feat(api): …`, `feat(contracts): …`, `feat(db): …`, `test(api): …`, `chore: …`, `docs: …`), suivi d'une
+  ligne vide puis du trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Aucun e-mail, numéro de téléphone ni donnée personnelle de contact nulle part dans le repo
   (code, SQL, docs, tests, fixtures, `.env.example`). Les exemples utilisent des placeholders
   (`contact@example.com`, `+33 0 00 00 00 00`). Le nom, le titre, la localisation et les URL publiques de
   profils professionnels sont du contenu de CV publié et sont seedés ; l'e-mail et le téléphone jamais.
-- Node 22 et pnpm 9 sont utilisés directement sur l'hôte. PostgreSQL tourne uniquement en Docker
-  (`docker compose`). Rien d'autre n'est installé globalement.
+- Sur l'hôte : Docker (avec `docker compose`) et pnpm 9 seulement. Node 22 est téléchargé par pnpm
+  (`.npmrc`, `use-node-version=22.23.5`). PostgreSQL tourne uniquement en Docker (`docker-compose.yml`).
+  Rien d'autre n'est installé globalement : `psql` s'exécute dans le conteneur (`docker compose exec`).
 - Versions : chaque paquet est ajouté à sa version stable courante vérifiée avec `pnpm view <pkg> version`,
-  jamais une version mémorisée. Les versions relevées le 18 novembre 2026 sont indiquées en section 9 à
-  titre de repère ; elles sont à revérifier au moment de l'installation.
+  jamais une version mémorisée, et épinglée exactement. Les versions installées au lot 0 sont en section 9.
 - Flux Git : branche d'intégration `v3/backend`, une branche et un worktree par lot (`lot/0-fondations`,
   `lot/1-sql`, `lot/2-contrats`, `lot/3-api-a`, `lot/3-api-b`, `lot/4-qa`, `lot/5-devops`,
   `lot/6-corrections`), fusion `--no-ff` par l'orchestrateur après recette du chef de projet.
+- Traductions EN du contenu : produites par l'agent base de données (lot 1), listées dans
+  `docs/traductions-a-relire.md` et marquées « à relire » ; aucune n'est définitive avant relecture de Julien.
 
 ### 0.2 Définition de « terminé » (commune à tous les lots)
 
@@ -41,12 +55,12 @@ tickets le sont et que le chef de projet a validé la livraison contre les crit�
 |---|---|---|
 | D1 | Lint propre | `pnpm lint` passe |
 | D2 | Typecheck propre | `pnpm typecheck` passe |
-| D3 | Tests verts (unitaires et e2e du périmètre touché) | `pnpm test` passe avec le Postgres de test Docker démarré |
+| D3 | Tests verts (unitaires et e2e du périmètre touché) | `pnpm check` passe (démarre le Postgres de test puis lint, typecheck, `test` = unitaires, `test:e2e` = e2e) |
 | D4 | Build propre | `pnpm build` passe |
-| D5 | Commits atomiques, un par micro-tâche, Conventional Commits en français avec trailer `Co-Authored-By` | `git log --format=%B v3/backend..HEAD` : chaque message matche `^(feat|fix|docs|chore|refactor|test|ci|build|perf|style)\([a-z0-9-]+\): .+` et contient le trailer |
+| D5 | Commits atomiques, un par micro-tâche, Conventional Commits en français avec trailer `Co-Authored-By` | `git log --format=%B v3/backend..HEAD` : chaque message matche `^(feat|fix|docs|chore|refactor|test|ci|build|perf|style)(\([a-z0-9-]+\))?: .+` et contient le trailer (vérification à la main par le chef de projet : pas de hook `commit-msg`) |
 | D6 | Hook pre-commit non contourné | aucun commit n'a été fait avec `--no-verify` (déclaré dans le compte rendu) |
-| D7 | Aucune donnée personnelle de contact | `git grep -nE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}' -- ':!*.lock' ':!pnpm-lock.yaml'` ne remonte que des placeholders `@example.com` ou le trailer `noreply@anthropic.com` ; `git grep -nE '(\+33|0)[1-9]([ .-]?[0-9]{2}){4}' -- ':!pnpm-lock.yaml'` ne remonte que des placeholders `+33 0 00 00 00 00` |
-| D8 | Conventions `CLAUDE.md` respectées (structure hexagonale, Nest confiné à `infrastructure/http`, pas de décorateurs métier, SQL source de vérité, textes en français, identifiants en anglais) | règles ESLint `no-restricted-imports` du lot 0 passent ; revue du chef de projet |
+| D7 | Aucune donnée personnelle de contact | `git grep -nE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}' -- ':!pnpm-lock.yaml'` ne remonte que des placeholders `@example.com` ou le trailer `noreply@anthropic.com` ; `git grep -nE '(\+33|0)[1-9]([ .-]?[0-9]{2}){4}' -- ':!pnpm-lock.yaml'` ne remonte que des placeholders `+33 0 00 00 00 00` |
+| D8 | Conventions `CLAUDE.md` respectées (hexagonal par couches, Nest confiné à `infrastructure/http` et aux modules Nest de `config`/`db`, pas de décorateur métier, validation Zod explicite, SQL source de vérité, textes en français, identifiants en anglais) | `grep -rlE "@nestjs|from 'fastify'|drizzle-orm|from 'postgres'" apps/api/src/domain apps/api/src/application` ne renvoie rien ; revue du chef de projet |
 | D9 | Compte rendu court livré | fichier `docs/comptes-rendus/lot-<N>-<role>.md` présent avec les sections « Fait », « Non fait », « Décisions prises », « Points ouverts » |
 | D10 | Aucun fichier hors périmètre du lot modifié | `git diff --stat v3/backend..HEAD` ne liste que les dossiers autorisés du lot |
 
@@ -62,208 +76,296 @@ lot 0 fondations ──┬── lot 1 SQL + seeds ──┐
 Points de contrôle où l'orchestrateur attend Julien : après le lot 0 (structure et conventions), et à la fin
 (compte rendu du chef de projet).
 
-### 0.4 Arborescence cible (référence pour tous les tickets)
+### 0.4 Arborescence livrée au lot 0 et cible (référence pour tous les tickets)
+
+Architecture hexagonale par couches (et non par module) : chaque ressource est répartie dans les trois
+couches, sous un dossier `<resource>/` par couche. Les lignes marquées « (lot N) » n'existent pas encore.
 
 ```
 personnalWebsite_V3/
-  apps/api/                      NestJS sur Fastify
-    src/main.ts                  bootstrap Fastify, helmet, cors, rate limit
-    src/app.module.ts            enregistre les 12 modules + health
-    src/shared/config/           chargement et validation Zod des variables d'environnement
-    src/shared/http/             filtre problem+json, 404, parsing de ?lang
-    src/shared/i18n/             règle de repli de locale (fonction pure)
-    src/infrastructure/db/       client Drizzle, schéma Drizzle (dérivé du SQL), runner migrations/seeds
-    src/cli/migrate.ts           point d'entrée `db:migrate`
-    src/cli/seed.ts              point d'entrée `db:seed`
-    src/modules/<resource>/      domain/ application/ infrastructure/{http,db}/
-    test/e2e/                    tests e2e (app.inject contre Postgres Docker)
-  apps/web/                      Nuxt, hors périmètre de ce backlog (dossier réservé, vide)
-  packages/contracts/            schémas Zod, types, génération OpenAPI, openapi/openapi.json
-  db/migrations/NNNN_description.sql
-  db/seeds/NNNN_contenu.sql
-  docker/                        Dockerfile, compose.dev.yml, compose.prod.yml, Caddyfile
-  scripts/                       scripts shell (déploiement)
-  docs/                          décisions, backlog, comptes rendus, revues
-  .github/workflows/ci.yml
-  CLAUDE.md, README.md
+  apps/api/                                   @siteperso/api : NestJS 12 sur Fastify 5 (ESM)
+    src/main.ts                               bootstrap : createApp() puis listen
+    src/domain/                               types et règles métier : AUCUNE dépendance Nest, Drizzle, Fastify
+      errors/                                 DomainError, EntityNotFoundError (→ 404)
+      <resource>/                             types métier de la ressource (lot 3)
+    src/application/                          cas d'usage (classes sans décorateur) et ports
+      ports/database-client.port.ts           port DATABASE_CLIENT (ping)
+      health/get-health.use-case.ts
+      <resource>/                             <verb>-<resource>.use-case.ts + ports/<resource>-repository.port.ts (lot 3)
+    src/infrastructure/
+      config/                                 env.schema.ts (Zod), env.ts (loadEnv), config.module.ts (APP_CONFIG)
+      db/                                     database.module.ts, drizzle-database-client.ts (DrizzleDatabaseClient, client.db)
+        schema/                               schéma Drizzle dérivé du SQL (lot 1)
+        migrations-runner.ts, seeds-runner.ts runner minimal (lot 1)
+        <resource>/                           drizzle-<resource>.repository.ts (lot 3)
+      http/                                   Nest : create-app.ts (helmet, rate limit, CORS, préfixe api/v1, filtre), app.module.ts
+        problem/                              ProblemDetailsFilter, toProblemDetails (RFC 9457)
+        health/                               GET /health (ping SQL, 503 si base injoignable)
+        docs/                                 GET /docs.json (contrat OpenAPI servi depuis les contrats)
+        <resource>/                           <resource>.module.ts + <resource>.controller.ts (GET en 501 jusqu'au lot 3)
+    src/cli/                                  migrate.ts, seed.ts, reset.ts : points d'entrée db:* (lot 1)
+    test/*.e2e-spec.ts                        e2e via app.inject contre le Postgres de test (vitest.e2e.config.ts)
+    test/support/test-app.ts                  startTestApp(), ALLOWED_ORIGIN
+    test/support/database.ts                  resetTestDatabase() : migrate + seed sur la base de test (lot 1)
+    test/db/*.e2e-spec.ts                     e2e du runner, du schéma et des seeds (lot 1)
+    vitest.config.ts                          unitaires src/**/*.spec.ts (SWC, pas d'accès réseau)
+    vitest.e2e.config.ts                      e2e, DATABASE_URL par défaut = postgres de test (5433)
+  packages/contracts/                         @siteperso/contracts : schémas Zod + OpenAPI 3.1
+    src/common/                               locale.ts (LocaleSchema, LocaleQuerySchema, DEFAULT_LOCALE), problem-details.ts
+    src/health/health.ts                      HealthResponseSchema
+    src/<resource>/                           schémas Zod de la ressource (lot 2)
+    src/openapi/document.ts                   createOpenApiDocument() : paths relatifs à /api/v1 (servers)
+    src/index.ts                              point d'entrée : exports de tout le paquet
+    scripts/export-openapi.ts                 openapi:export → dist/openapi.json (non commité, produit au build)
+  db/README.md                                conventions SQL (migrations, seeds, idempotence)
+  db/migrations/NNNN_description.sql          source de vérité du schéma
+  db/seeds/NNNN_description.sql               contenu idempotent (upsert sur slug)
+  docker-compose.yml                          postgres (dev, 127.0.0.1:5432, volume) et postgres-test (127.0.0.1:5433, tmpfs)
+  docker/                                     api.Dockerfile, compose.prod.yml, Caddyfile (lot 5)
+  scripts/deploy/                             scripts shell de déploiement (lot 5)
+  .github/workflows/ci.yml                    CI (lot 5)
+  .husky/pre-commit                           pnpm turbo run lint typecheck test
+  docs/                                       décisions (00-03), backlog, comptes-rendus/, traductions-a-relire.md (lot 1), revues/ (lot 6)
+  CLAUDE.md, README.md, .env.example, .npmrc (use-node-version), turbo.json, eslint.config.js, tsconfig.base.json
 ```
 
-Les 12 modules API (ressources) : `profile`, `social-links`, `skill-groups`, `skills`, `experiences`,
-`projects`, `tools`, `resources`, `certifications`, `education`, `languages`, `cv`. Le module `health` fait
-partie du socle (lot 0).
+Les 12 modules de ressources sont déjà enregistrés dans `AppModule` (`src/infrastructure/http/app.module.ts`,
+tableau `RESOURCE_MODULES`) ; `health` et `docs` font partie du socle (lot 0). `apps/web/` (Nuxt) est hors
+périmètre de ce backlog et n'est pas créé.
+
+### 0.5 Règle « modules isolés » et fichiers partagés (reprise de `CLAUDE.md`)
+
+Pour implémenter une ressource (lot 3), un agent ne crée ou ne modifie des fichiers QUE dans :
+
+- `apps/api/src/infrastructure/http/<resource>/`
+- `apps/api/src/application/<resource>/` (cas d'usage, `ports/`)
+- `apps/api/src/domain/<resource>/` (types)
+- `apps/api/src/infrastructure/db/<resource>/` (dépôt Drizzle)
+- `apps/api/test/<resource>.e2e-spec.ts`
+- `packages/contracts/src/<resource>/` (schémas Zod ; au lot 3, uniquement si un ajustement est indispensable
+  et signalé dans le compte rendu)
+
+Fichiers PARTAGÉS, interdits aux agents de ressource : `apps/api/src/main.ts`,
+`src/infrastructure/http/{app.module.ts,create-app.ts}`, `src/infrastructure/http/problem/*`,
+`src/infrastructure/http/health/*`, `src/infrastructure/http/docs/*`, `src/infrastructure/config/*`,
+`src/infrastructure/db/{database.module.ts,drizzle-database-client.ts}`, `src/infrastructure/db/schema/*`,
+`src/application/ports/*`, `src/domain/errors/*`, `test/support/*`, `packages/contracts/src/index.ts`,
+`packages/contracts/src/openapi/document.ts`, `packages/contracts/src/common/*`, tout fichier de configuration
+racine (`package.json`, `turbo.json`, `eslint.config.js`, `tsconfig*.json`, `docker-compose.yml`, `.husky/*`,
+`CLAUDE.md`). Si une ressource a besoin d'un changement partagé (export dans `index.ts`, chemin OpenAPI,
+colonne de schéma), l'agent le signale dans son compte rendu et l'orchestrateur l'applique en un commit dédié.
+
+Les lots 1, 2, 4, 5 et 6 travaillent seuls sur leurs fichiers partagés (voir « Périmètre autorisé » de
+chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
+
+### 0.6 Commandes de référence
+
+| Commande | Effet |
+|---|---|
+| `pnpm install` | dépendances, Node 22.23.5 via pnpm, hook pre-commit husky |
+| `pnpm db:up` / `pnpm db:test:up` / `pnpm db:down` | Postgres de dev / Postgres de test (`--wait` sur le healthcheck) / arrêt des conteneurs |
+| `pnpm dev` | compile `@siteperso/contracts` puis API en watch sur `http://localhost:3000/api/v1` (config dans `apps/api/.env`, modèle `.env.example`) |
+| `pnpm lint` / `pnpm typecheck` / `pnpm build` | via Turborepo, chaque tâche dépend de `^build` (les contrats sont compilés avant) |
+| `pnpm test` | tests unitaires seuls (`src/**/*.spec.ts`), sans base |
+| `pnpm test:e2e` | e2e (`apps/api/test/**/*.e2e-spec.ts`) contre le Postgres de test ; un seul fichier : `pnpm --filter @siteperso/api test:e2e -- <nom>` |
+| `pnpm check` | `db:test:up` puis `lint`, `typecheck`, `test`, `test:e2e` : obligatoire avant de livrer un lot |
+| `pnpm format` / `pnpm format:check` | Prettier (`docs/` exclu) |
+| `pnpm --filter @siteperso/contracts openapi:export` | régénère `packages/contracts/dist/openapi.json` |
+| `pnpm db:migrate` / `pnpm db:seed` / `pnpm db:reset` | runner SQL sur `DATABASE_URL` de `apps/api/.env` (lot 1) |
 
 ---
 
-## 1. Lot 0 — Fondations
+## 1. Lot 0 — Fondations (LIVRÉ)
 
 - **Objectif** : un monorepo qui s'installe, lint, typecheck, teste et démarre à vide, avec toutes les
   conventions posées pour que les lots suivants n'aient à toucher que leurs propres fichiers.
 - **Dépendances** : aucune (part de `v3/backend` qui ne contient que `docs/`).
-- **Agent responsable** : Lead back-end (branche `lot/0-fondations`).
+- **Agent responsable** : Lead back-end (branche `lot/0-fondations`, partie de `6b88d33`).
 - **Périmètre autorisé** : tout le repo sauf `docs/0*.md` et `docs/backlog.md`.
-- **Point de contrôle** : validation par Julien de la structure et de `CLAUDE.md` avant lancement des lots 1, 2 et 5.
+- **Statut** : livré et recetté le 18 novembre 2026, 14 commits atomiques (11 de livraison, 3 de correction
+  après recette). `pnpm check` vert : lint, typecheck, 14 tests unitaires, 23 tests e2e. Compte rendu :
+  `docs/comptes-rendus/lot-0-lead.md`. Les descriptions ci-dessous décrivent ce qui est livré ; les écarts
+  avec la version initiale du backlog sont acceptés en recette et constituent désormais la convention.
+- **Fusion** : `git merge --no-ff lot/0-fondations` dans `v3/backend`. La branche ne contient pas `5201791`
+  (`docs(pm): backlog`) ; aucun conflit attendu (fichier nouveau côté `v3/backend`).
+- **Point de contrôle 1** : validation par Julien de la structure et de `CLAUDE.md` avant lancement des
+  lots 1, 2 et 5.
 
-### L0-01 — Monorepo pnpm + Turborepo
+### L0-01 — Monorepo pnpm + Turborepo — livré `00064c0`
 
-- **Description** : initialiser le monorepo : `package.json` racine privé (`packageManager: pnpm@9.x`,
-  `engines.node: ">=22"`), `pnpm-workspace.yaml` (`apps/*`, `packages/*`), `turbo.json` avec les tâches
-  `build`, `lint`, `typecheck`, `test`, `test:unit`, `test:e2e`, `.nvmrc` (22), `.editorconfig`,
-  `tsconfig.base.json` strict (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
-  `module: NodeNext`), ESLint flat config + Prettier partagés à la racine, `.gitignore` complété
-  (`node_modules`, `dist`, `.env*` sauf `.env.example`, `coverage`, `.turbo`). Scripts racine : `lint`,
-  `lint:fix`, `format`, `typecheck`, `test`, `test:unit`, `test:e2e`, `build`, `db:up`, `db:down`,
-  `db:migrate`, `db:seed`. Toutes les versions vérifiées avec `pnpm view`.
-- **Fichiers** : `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `.nvmrc`, `.editorconfig`,
-  `tsconfig.base.json`, `eslint.config.js`, `.prettierrc`, `.prettierignore`, `.gitignore`, `pnpm-lock.yaml`.
-- **Critères d'acceptation** :
+- **Livré** : `package.json` racine privé `siteperso-v3` (`packageManager: pnpm@9.0.0`, `engines.node:
+  ">=22.11.0 <23"`), `pnpm-workspace.yaml` (`apps/*`, `packages/*`), `turbo.json` (tâches `build`, `lint`,
+  `typecheck`, `test`, `test:e2e`, toutes `dependsOn: ["^build"]`, `test:e2e` sans cache avec `env`
+  `DATABASE_URL`, `PORT`, `HOST`, `CORS_ORIGIN`, `NODE_ENV`), `.npmrc` (`use-node-version=22.23.5`,
+  `engine-strict`), `.nvmrc` (22), `.editorconfig`, `tsconfig.base.json` strict (`module: NodeNext`),
+  `eslint.config.js` flat (typescript-eslint `recommendedTypeChecked` + `stylisticTypeChecked`,
+  `consistent-type-imports`, Prettier en dernier), `.prettierrc.json`, `.prettierignore` (`docs/` exclu),
+  `.gitignore` (`node_modules`, `dist`, `.env*` sauf `.env.example`, `coverage`, `.turbo`,
+  `.claude/worktrees/`). Scripts racine : `build`, `lint`, `typecheck`, `test`, `test:e2e`, `check`,
+  `format`, `format:check`, `db:up`, `db:test:up`, `db:down`, `dev`, `start`, `prepare`.
+- **Écarts acceptés** : pas de `test:unit` (c'est `test`), pas de `lint:fix`, pas de `db:migrate`/`db:seed`
+  (lot 1), Node téléchargé par pnpm plutôt qu'installé sur l'hôte.
+- **Critères d'acceptation** (vérifiés) :
   - `pnpm install --frozen-lockfile` passe.
   - `node -e "const p=require('./package.json');process.exit(/^pnpm@9\./.test(p.packageManager)?0:1)"` passe.
-  - `pnpm turbo run lint typecheck build --dry-run=json` liste les tâches pour `@v3/api` et `@v3/contracts`.
-  - `pnpm lint` et `pnpm format --check` (équivalent `prettier --check .`) passent.
+  - `pnpm turbo run lint typecheck build --dry-run=json` liste les tâches pour `@siteperso/api` et `@siteperso/contracts`.
+  - `pnpm lint` et `pnpm format:check` passent.
 
-### L0-02 — Squelette `packages/contracts`
+### L0-02 — Squelette `packages/contracts` — livré `3ac1d62`
 
-- **Description** : créer le paquet `@v3/contracts` (ESM, TypeScript strict) avec Zod et le générateur
-  OpenAPI (`@asteasolutions/zod-to-openapi` ou équivalent compatible Zod 4) en dépendances, un point d'entrée
-  `src/index.ts` exportant un schéma minimal `HealthResponseSchema` et `ProblemDetailsSchema` (RFC 9457),
-  un script `build` (tsc vers `dist/`), `typecheck`, `test` (Vitest) et `openapi:generate` (écrit
-  `openapi/openapi.json`, vide de chemins à ce stade hormis `/health`). `apps/api` dépend de
-  `@v3/contracts` via `workspace:*`.
-- **Fichiers** : `packages/contracts/{package.json,tsconfig.json,vitest.config.ts,src/index.ts,src/common/health.ts,src/common/problem-details.ts,src/openapi/generate.ts,openapi/openapi.json}`.
-- **Critères d'acceptation** :
-  - `pnpm --filter @v3/contracts build` passe et produit `packages/contracts/dist/index.js` et `dist/index.d.ts`.
-  - `pnpm --filter @v3/contracts openapi:generate` passe et `node -e "const o=require('./packages/contracts/openapi/openapi.json');process.exit(o.openapi.startsWith('3.1')&&o.paths['/health']?0:1)"` passe.
-  - `pnpm --filter @v3/contracts test` passe (au moins un test : `ProblemDetailsSchema` accepte un exemple valide et rejette `status: "abc"`).
+- **Livré** : paquet `@siteperso/contracts` (ESM, consommé via `dist/` : `main`, `types`, `exports`),
+  dépendances `zod` 4.6.7 et `zod-openapi` 6.0.2 (lit les `.meta({ id, description })` natifs de Zod 4,
+  produit de l'OpenAPI 3.1 sans registre parallèle). `src/common/locale.ts` (`LocaleSchema` = `z.enum(['fr',
+  'en'])`, `DEFAULT_LOCALE`, `LocaleQuerySchema` = `{ lang: LocaleSchema.default('fr') }`),
+  `src/common/problem-details.ts` (`ProblemDetailsSchema` RFC 9457, `PROBLEM_JSON_CONTENT_TYPE`),
+  `src/health/health.ts` (`HealthResponseSchema` = `{ status: 'ok', checks: { database: 'up'|'down' } }`),
+  `src/openapi/document.ts` (`createOpenApiDocument()`, `API_VERSION` `1.0.0`, `API_PREFIX` `/api/v1` en
+  `servers`, chemin `/health` avec 200 et 503, composant `ProblemDetails`), `src/index.ts`. Scripts `build`
+  (tsc + `openapi:export`), `openapi:export` (`tsx scripts/export-openapi.ts` → `dist/openapi.json`), `lint`,
+  `typecheck`, `test`. Tests : `locale.spec.ts`, `document.spec.ts`.
+- **Écarts acceptés** : `zod-openapi` plutôt que `@asteasolutions/zod-to-openapi` ; `openapi:export` écrit
+  `dist/openapi.json` (non commité, produit au build) au lieu d'un `openapi/openapi.json` commité ; le document
+  est aussi servi en direct par `GET /api/v1/docs.json` (voir L0-03). Les chemins du document sont relatifs à
+  `/api/v1` (`servers`), donc `/health` et non `/api/v1/health`.
+- **Critères d'acceptation** (vérifiés) :
+  - `pnpm --filter @siteperso/contracts build` passe et produit `packages/contracts/dist/index.js`, `dist/index.d.ts` et `dist/openapi.json`.
+  - `node -e "const o=require('./packages/contracts/dist/openapi.json');process.exit(o.openapi.startsWith('3.1')&&o.paths['/health']&&o.servers[0].url==='/api/v1'?0:1)"` passe.
+  - `pnpm --filter @siteperso/contracts test` passe.
 
-### L0-03 — API NestJS/Fastify hexagonale et socle HTTP
+### L0-03 — API NestJS/Fastify hexagonale et socle HTTP — livré `8eadf96`, `0fa664c`, `b07626d`
 
-- **Description** : créer `apps/api` (`@v3/api`) : NestJS sur `@nestjs/platform-fastify`, `main.ts` qui
-  enregistre `@fastify/helmet`, `@fastify/cors` (origine unique lue dans `CORS_ORIGIN`),
-  `@fastify/rate-limit` (`RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS`), préfixe global `/api/v1`,
-  désactivation de `x-powered-by`. Configuration validée par Zod au démarrage (`PORT`, `DATABASE_URL`,
-  `CORS_ORIGIN`, `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS`, `NODE_ENV` ; `DATABASE_URL_TEST` optionnelle,
-  utilisée par les tests seulement) : une variable obligatoire manquante fait échouer le démarrage avec un
-  message explicite. Filtre d'exception global produisant du `application/problem+json`
-  (RFC 9457 : `type`, `title`, `status`, `detail`, `instance`) pour toutes les erreurs, 404 propre pour toute
-  route inconnue, 400 pour `?lang` invalide. Parsing explicite de `?lang=fr|en` (défaut `fr`) via le schéma
-  Zod des contrats, sans pipe Nest. Fonction pure `pickTranslation(locale, translations)` dans
-  `src/shared/i18n/` implémentant le repli `en → fr` (sans dépendance Nest ni Drizzle). Module `health`
-  (`GET /api/v1/health` → `{ status: "ok" }` ; aucune information de version ni d'environnement exposée).
-  Client Drizzle + driver `postgres` dans `src/infrastructure/db/client.ts` (connexion paresseuse, pool
-  fermé à l'arrêt). Règle ESLint `no-restricted-imports` : `@nestjs/*`, `fastify`, `drizzle-orm`, `postgres`
-  interdits sous `**/domain/**` et `**/application/**` ; `@nestjs/*` interdit sous `**/infrastructure/db/**`.
-  `.env.example` avec placeholders uniquement.
-- **Fichiers** : `apps/api/{package.json,tsconfig.json,tsconfig.build.json,nest-cli.json,vitest.config.ts,.env.example}`, `apps/api/src/{main.ts,app.module.ts}`, `apps/api/src/shared/{config,http,i18n}/**`, `apps/api/src/modules/health/**`, `apps/api/src/infrastructure/db/client.ts`, règles dans `eslint.config.js`.
-- **Critères d'acceptation** :
-  - `pnpm --filter @v3/api build` passe et produit `apps/api/dist/main.js`.
-  - `pnpm --filter @v3/api typecheck` passe.
-  - `pnpm lint` passe, et un fichier de test temporaire `apps/api/src/modules/health/domain/x.ts` contenant `import '@nestjs/common'` fait échouer `pnpm lint` (vérification manuelle décrite dans le compte rendu, fichier supprimé ensuite).
-  - `grep -rl "@nestjs" apps/api/src --include=*.ts | grep -vE "/infrastructure/http/|/main\.ts$|/app\.module\.ts$|\.module\.ts$"` ne renvoie rien.
-  - Test unitaire `pickTranslation` : `en` présent → `en` ; `en` absent → `fr` ; `fr` absent → erreur explicite.
-  - `cd apps/api && PORT=3999 CORS_ORIGIN=https://example.com DATABASE_URL=postgres://user:pass@localhost:5432/placeholder RATE_LIMIT_MAX=100 RATE_LIMIT_WINDOW_MS=60000 node dist/main.js & sleep 3 ; curl -s -o /dev/null -w '%{http_code}' http://localhost:3999/api/v1/health` renvoie `200` (le `/health` ne touche pas la base : connexion paresseuse).
-  - `curl -s -i http://localhost:3999/api/v1/inconnu` renvoie `404`, `content-type: application/problem+json` et un corps conforme à `ProblemDetailsSchema`.
-  - `curl -s -i http://localhost:3999/api/v1/health` contient `x-content-type-options: nosniff`, `x-frame-options`, `content-security-policy`, `referrer-policy` et ne contient pas `x-powered-by`.
-  - `CORS_ORIGIN= node dist/main.js` échoue avec un message listant la variable manquante.
+- **Livré** : `apps/api` (`@siteperso/api`) en ESM, imports relatifs avec `.js`, SWC pour les métadonnées de
+  décorateurs (`.swcrc`, `unplugin-swc` dans Vitest, `@swc-node/register` pour `pnpm dev` en `node --watch`).
+  Couches `src/domain` (`DomainError`, `EntityNotFoundError`), `src/application` (`GetHealthUseCase` pur,
+  port `DATABASE_CLIENT` = `Symbol` + interface `DatabaseClientPort.ping()`), `src/infrastructure/config`
+  (`EnvSchema` Zod : `NODE_ENV`, `PORT` défaut 3000, `HOST` défaut `0.0.0.0`, `DATABASE_URL` obligatoire,
+  `CORS_ORIGIN` obligatoire (liste séparée par des virgules), `RATE_LIMIT_MAX` défaut 100,
+  `RATE_LIMIT_WINDOW_MS` défaut 60000, `TRUST_PROXY` défaut `false` ; `loadEnv()` lève un message explicite ;
+  `ConfigModule` global fournit `APP_CONFIG`), `src/infrastructure/db` (`DrizzleDatabaseClient` : driver
+  `postgres` paresseux, `db` Drizzle exposé aux dépôts, `ping()`, `close()` ; `DatabaseModule` global fournit
+  `DrizzleDatabaseClient` et `DATABASE_CLIENT`, ferme le pool à l'arrêt), `src/infrastructure/http`
+  (`create-app.ts` : `createApp()` sans `listen`, helmet sans CSP, `@fastify/rate-limit` par IP, CORS
+  restreint à `CORS_ORIGIN` et aux méthodes GET/HEAD/OPTIONS, préfixe global `api/v1`, `ProblemDetailsFilter`
+  global, shutdown hooks ; `app.module.ts` ; `problem/` : toute exception → `application/problem+json` avec
+  `type`, `title`, `status`, `detail`, `instance`, 5xx journalisées sans fuite ; `health/` : `GET /health` →
+  `{ status: 'ok', checks: { database: 'up' } }`, 503 problem+json si le ping SQL échoue ; `docs/` :
+  `GET /docs.json` sert `createOpenApiDocument()` avec `cache-control: public, max-age=300`). `main.ts` =
+  `createApp()` + `listen`. `.env.example` à la racine avec placeholders (copié en `apps/api/.env`).
+- **Écarts acceptés** : pas de `pickTranslation` ni de `src/shared/` (le repli de langue est au lot 3,
+  conformément à docs/03, en SQL dans chaque dépôt : voir le patron du lot 3) ; pas de règle ESLint
+  `no-restricted-imports` : la règle hexagonale est écrite dans `CLAUDE.md` et vérifiée par grep (D8) ;
+  `/health` fait un ping SQL (503 si base injoignable) au lieu d'un `{ status: 'ok' }` sans base ; helmet
+  sans `content-security-policy` (choix assumé pour une API JSON), `x-frame-options: SAMEORIGIN` (défaut
+  helmet) ; pas de `DATABASE_URL_TEST` (les e2e lisent `DATABASE_URL`, défaut dans `vitest.e2e.config.ts`) ;
+  pas de `nest-cli.json` (pas de CLI Nest, `tsc` seul) ; le 400 sur `?lang` invalide arrive avec les
+  contrôleurs réels au lot 3 (routes en 501 pour l'instant).
+- **Critères d'acceptation** (vérifiés) :
+  - `pnpm --filter @siteperso/api build` produit `apps/api/dist/main.js` ; `pnpm --filter @siteperso/api typecheck` passe.
+  - `grep -rlE "@nestjs|from 'fastify'|drizzle-orm|from 'postgres'" apps/api/src/domain apps/api/src/application` ne renvoie rien.
+  - `pnpm db:up` puis `pnpm dev` : `curl -s http://localhost:3000/api/v1/health` = `{"status":"ok","checks":{"database":"up"}}` ; `curl -s -i http://localhost:3000/api/v1/inconnue` renvoie 404 `application/problem+json` conforme à `ProblemDetailsSchema` ; `curl -s -i http://localhost:3000/api/v1/health` contient `x-content-type-options: nosniff`, `x-frame-options`, `strict-transport-security`, `x-ratelimit-limit` et pas `x-powered-by`.
+  - `pnpm db:down` puis `curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/v1/health` = `503`.
+  - `cd apps/api && CORS_ORIGIN= node dist/main.js` échoue avec un message listant la variable manquante.
 
-### L0-04 — Modules vides enregistrés pour les 12 ressources
+### L0-04 — Modules vides enregistrés pour les 12 ressources — livré `56498ee`
 
-- **Description** : créer, pour chacune des 12 ressources (`profile`, `social-links`, `skill-groups`,
-  `skills`, `experiences`, `projects`, `tools`, `resources`, `certifications`, `education`, `languages`,
-  `cv`), un dossier `apps/api/src/modules/<resource>/` contenant `domain/.gitkeep`, `application/.gitkeep`,
-  `infrastructure/db/.gitkeep`, `infrastructure/http/<resource>.module.ts` (module Nest vide, sans
-  contrôleur) et l'enregistrer dans `app.module.ts`. Les deux agents du lot 3 ne toucheront ensuite qu'à
-  leurs propres dossiers de modules. Tout appel à une route de ressource renvoie 404 problem+json à ce stade.
-- **Fichiers** : `apps/api/src/modules/*/**`, `apps/api/src/app.module.ts`.
-- **Critères d'acceptation** :
-  - `for m in profile social-links skill-groups skills experiences projects tools resources certifications education languages cv; do test -f apps/api/src/modules/$m/infrastructure/http/$m.module.ts || exit 1; done` passe.
-  - `grep -c "Module," apps/api/src/app.module.ts` ≥ 13 (12 ressources + health) ; test unitaire qui compile `AppModule` avec `Test.createTestingModule` et vérifie que les 12 modules sont résolus.
-  - `pnpm --filter @v3/api build` passe.
+- **Livré** : pour chaque ressource, `apps/api/src/infrastructure/http/<resource>/<resource>.module.ts` et
+  `<resource>.controller.ts` (`@Controller('<resource>')`, `@Get()` qui lève `NotImplementedException` →
+  501 problem+json « implémentation prévue au lot 3 »), enregistrés dans `AppModule` via `RESOURCE_MODULES`
+  dans l'ordre du contrat (docs/01).
+- **Écarts acceptés** : les modules ont un contrôleur qui répond 501 (et non 404 sans contrôleur) : la route
+  existe, seul le corps change au lot 3 ; pas de `.gitkeep` par couche ni de test `Test.createTestingModule` :
+  la résolution des 12 modules est couverte par les 12 e2e en 501 (`test/errors.e2e-spec.ts`) et par le
+  démarrage réel.
+- **Critères d'acceptation** (vérifiés) :
+  - `for m in profile social-links skill-groups skills experiences projects tools resources certifications education languages cv; do test -f apps/api/src/infrastructure/http/$m/$m.module.ts && test -f apps/api/src/infrastructure/http/$m/$m.controller.ts || exit 1; done` passe.
+  - `grep -c "Module,$" apps/api/src/infrastructure/http/app.module.ts` ≥ 12 ; `pnpm --filter @siteperso/api test:e2e -- errors` passe (12 routes en 501).
 
-### L0-05 — Dossiers `db/` et commandes `db:migrate` / `db:seed`
+### L0-05 — Dossiers `db/` — livré `9c78c64`
 
-- **Description** : créer `db/migrations/` et `db/seeds/` avec un `README.md` chacun (format des fichiers
-  `NNNN_description.sql`, règles d'idempotence `on conflict (slug) do update`, interdiction de modifier
-  une migration appliquée), un fichier `.gitkeep`, et les points d'entrée `apps/api/src/cli/migrate.ts`
-  et `seed.ts` qui, à ce stade, lisent et listent les fichiers des deux dossiers (le runner réel est le
-  ticket L1-01 ; le lot 0 livre uniquement l'emplacement, le contrat de ligne de commande et le câblage
-  `pnpm db:migrate` / `pnpm db:seed` → `tsx` ou `node dist/cli/*.js`).
-- **Fichiers** : `db/migrations/README.md`, `db/seeds/README.md`, `apps/api/src/cli/{migrate.ts,seed.ts}`, scripts dans `apps/api/package.json` et `package.json`.
-- **Critères d'acceptation** :
-  - `test -d db/migrations && test -d db/seeds && test -f db/migrations/README.md && test -f db/seeds/README.md` passe.
-  - `pnpm db:migrate` et `pnpm db:seed` passent avec le Postgres Docker démarré (sortie : « 0 fichier à appliquer »).
+- **Livré** : `db/README.md` (convention `NNNN_description.sql` pour migrations et seeds, une migration
+  appliquée ne se modifie jamais, snake_case, `text`, `not null` par défaut, FK explicites, tables
+  `<table>_translations` à PK composite, idempotence des seeds par `on conflict (slug) do update`, références
+  par `slug`, traductions `en` marquées « à relire », table `schema_migrations`), `db/migrations/.gitkeep`,
+  `db/seeds/.gitkeep`.
+- **Écarts acceptés** : un seul `db/README.md` (pas un par dossier) ; pas de `src/cli/{migrate,seed}.ts` ni de
+  scripts `db:migrate`/`db:seed` : le runner et son câblage sont entièrement au lot 1 (L1-01, L1-02),
+  conformément à docs/03.
+- **Critères d'acceptation** (vérifiés) : `test -d db/migrations && test -d db/seeds && test -f db/README.md` passe ; `grep -q schema_migrations db/README.md` passe.
 
-### L0-06 — Compose de développement (api + postgres + postgres de test)
+### L0-06 — Compose de développement — livré `8200d58`
 
-- **Description** : `docker/compose.dev.yml` avec les services `postgres` (image `postgres:16-alpine`,
-  port publié `127.0.0.1:5432`, volume nommé, healthcheck `pg_isready`), `postgres_test` (même image, port
-  `127.0.0.1:5433`, sans volume persistant, healthcheck) et `api` (profil `api`, image `node:22-alpine`,
-  bind mount du repo, commande `pnpm --filter @v3/api dev`, dépend de `postgres` healthy). Identifiants de
-  base lus dans `.env` (placeholders dans `.env.example`). Scripts `pnpm db:up` (démarre `postgres` et
-  `postgres_test` en attendant le healthy) et `pnpm db:down`.
-- **Fichiers** : `docker/compose.dev.yml`, `.env.example`, scripts racine.
-- **Critères d'acceptation** :
-  - `docker compose -f docker/compose.dev.yml config` passe.
-  - `pnpm db:up` passe puis `docker compose -f docker/compose.dev.yml ps --format json | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const l=d.trim().split('\n').map(JSON.parse);process.exit(l.filter(s=>/healthy/.test(s.Health||s.Status)).length>=2?0:1)})"` passe.
-  - `docker compose -f docker/compose.dev.yml config | grep -E '^\s+- "?127\.0\.0\.1:' | wc -l` ≥ 2 et aucune publication `0.0.0.0`.
-  - `pnpm db:down` passe.
+- **Livré** : `docker-compose.yml` à la racine : `postgres` (`postgres:16-alpine`, conteneur
+  `siteperso-v3-postgres`, base `siteperso`, port `127.0.0.1:${POSTGRES_PORT:-5432}`, volume nommé
+  `siteperso_pgdata`, healthcheck `pg_isready`) et `postgres-test` (conteneur `siteperso-v3-postgres-test`,
+  base `siteperso_test`, port `127.0.0.1:${POSTGRES_TEST_PORT:-5433}`, `tmpfs`, healthcheck). Identifiants
+  de dev `siteperso`/`siteperso` (jamais exposés hors de la machine). Scripts `db:up` (`docker compose up -d
+  --wait postgres`), `db:test:up` (`… postgres-test`), `db:down`.
+- **Écarts acceptés** : fichier `docker-compose.yml` à la racine (et non `docker/compose.dev.yml`) ; pas de
+  service `api` (l'API tourne sur l'hôte via le Node téléchargé par pnpm ; le conteneur API arrive au lot 5) ;
+  `pnpm db:up` ne démarre que le Postgres de dev, `pnpm db:test:up` celui de test (`pnpm check` l'enchaîne).
+  Le nom du réseau compose dérive du dossier courant (`<dossier>_default`, soit `wf_…_default` dans un
+  worktree) : le lot 5 pose `name: siteperso-v3` si nécessaire.
+- **Critères d'acceptation** (vérifiés) :
+  - `docker compose config` passe ; `docker compose config | grep -cE "127\.0\.0\.1:"` ≥ 2 et aucune publication `0.0.0.0`.
+  - `pnpm db:up && pnpm db:test:up` passent (`--wait` attend les healthchecks) ; `pnpm db:down` passe.
 
-### L0-07 — Vitest : unitaires et e2e contre Postgres Docker
+### L0-07 — Vitest : unitaires et e2e contre Postgres Docker — livré `119113a` (+ `b07626d`)
 
-- **Description** : configuration Vitest de `apps/api` en deux projets : `unit` (`src/**/*.spec.ts`) et
-  `e2e` (`test/e2e/**/*.e2e.ts`, `pool: forks`, `fileParallelism: false`). Setup e2e
-  (`test/e2e/setup.ts`) : lit `DATABASE_URL_TEST`, échoue immédiatement avec un message clair si le Postgres
-  de test est injoignable, construit l'application avec l'adaptateur Fastify et utilise `app.inject`
-  (pas de port ouvert). Premiers tests e2e : `GET /api/v1/health` → 200, route inconnue → 404 problem+json,
-  en-têtes de sécurité présents, `?lang=de` sur une route de ressource → 400 problem+json (ou 404 tant
-  que la ressource n'existe pas : préciser dans le test). Tâches Turborepo `test:unit` et `test:e2e`,
-  `test` = les deux.
-- **Fichiers** : `apps/api/vitest.config.ts`, `apps/api/test/e2e/{setup.ts,health.e2e.ts,errors.e2e.ts,security-headers.e2e.ts}`, `apps/api/src/shared/i18n/pick-translation.spec.ts`.
-- **Critères d'acceptation** :
-  - `pnpm db:up && pnpm test` passe.
-  - `pnpm test:unit` passe sans Postgres (`pnpm db:down` au préalable).
-  - `pnpm db:down && pnpm test:e2e` échoue avec un message contenant « Postgres de test injoignable » (et non une stack trace brute).
+- **Livré** : `apps/api/vitest.config.ts` (unitaires `src/**/*.spec.ts`, SWC, aucun accès réseau) et
+  `apps/api/vitest.e2e.config.ts` (`test/**/*.e2e-spec.ts`, `fileParallelism: false`, timeouts 15 s / 30 s,
+  `env` par défaut : `NODE_ENV=test`, `PORT`, `CORS_ORIGIN=http://localhost:3001`,
+  `DATABASE_URL=postgres://siteperso:siteperso@localhost:5433/siteperso_test`, chacun surchargeable par
+  l'environnement). `test/support/test-app.ts` : `startTestApp()` (`createApp({ logger: false })`, `init`,
+  `ready`, pas de port ouvert, requêtes par `app.inject`), `ALLOWED_ORIGIN`. Tests : `health.e2e-spec.ts`
+  (200 avec base joignable, en-têtes helmet, CORS origine autorisée/refusée, préflight sans POST),
+  `docs.e2e-spec.ts` (OpenAPI 3.1 avec `/health` et `ProblemDetails`), `errors.e2e-spec.ts` (12 routes en
+  501 problem+json avec `instance`, 404 sous et hors préfixe, aucune pile), `rate-limit.e2e-spec.ts`
+  (en-têtes `x-ratelimit-*`, 429 problem+json avec `retry-after`, comptage par IP). Unitaires :
+  `get-health.use-case.spec.ts`, `env.spec.ts`, `problem-details.filter.spec.ts`.
+- **Écarts acceptés** : fichiers `apps/api/test/*.e2e-spec.ts` et deux configurations Vitest (au lieu de
+  `test/e2e/*.e2e.ts` en projets Vitest) ; `pnpm test` = unitaires, `pnpm test:e2e` = e2e ; pas de message
+  dédié « Postgres de test injoignable » quand `postgres-test` est arrêté (les tests échouent sur
+  assertion) ; pas de test `?lang=de` → 400 (routes en 501, test prévu au lot 3 par ressource et au lot 4 en
+  matrice).
+- **Critères d'acceptation** (vérifiés) :
+  - `pnpm db:test:up && pnpm test:e2e` passe (23 tests).
+  - `pnpm db:down && pnpm test` passe sans Postgres (14 tests).
 
-### L0-08 — Hook pre-commit et commit-msg
+### L0-08 — Hook pre-commit — livré `5c32fc3`
 
-- **Description** : husky + lint-staged. Hook `pre-commit` : `pnpm lint`, `pnpm typecheck`, `pnpm test:unit`
-  puis `pnpm test:e2e` (le Postgres de test doit être démarré ; le hook échoue avec le message du L0-07
-  sinon). Hook `commit-msg` : vérifie `^(feat|fix|docs|chore|refactor|test|ci|build|perf|style)\([a-z0-9-]+\): .+`
-  sur la première ligne et la présence du trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
-  Les hooks sont installés par `pnpm install` (script `prepare`).
-- **Fichiers** : `.husky/pre-commit`, `.husky/commit-msg`, `.lintstagedrc.json` ou section dans `package.json`, script `prepare`.
-- **Critères d'acceptation** :
-  - `test -x .husky/pre-commit && test -x .husky/commit-msg` passe après `pnpm install`.
-  - `printf 'mauvais message' > /tmp/m && .husky/commit-msg /tmp/m` échoue ; `printf 'feat(api): test\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>\n' > /tmp/m && .husky/commit-msg /tmp/m` passe.
-  - Un commit de test introduisant volontairement une erreur de type est refusé par le hook (vérification manuelle décrite dans le compte rendu, commit non conservé).
+- **Livré** : husky 9, script `prepare`, `.husky/pre-commit` = `pnpm turbo run lint typecheck test` (lint,
+  typecheck, unitaires ; les e2e sont dans `pnpm check` et en CI au lot 5).
+- **Écarts acceptés** : pas de hook `commit-msg` ni de lint-staged ; le format des messages et le trailer
+  sont vérifiés par le chef de projet (D5) ; les 14 messages du lot 0 ont été vérifiés à la main : tous
+  conformes. Le hook n'exécute pas les e2e (lenteur, dépendance au Postgres de test) : `pnpm check` est
+  obligatoire avant de livrer un lot.
+- **Critères d'acceptation** (vérifiés) : `test -f .husky/pre-commit && grep -q "turbo run lint typecheck test" .husky/pre-commit` passe après `pnpm install` ; un commit introduisant une erreur de type est refusé (vérifié manuellement, commit non conservé).
 
-### L0-09 — `CLAUDE.md` et `README.md`
+### L0-09 — `CLAUDE.md` et `README.md` — livré `503f3c2`, `9edd328`
 
-- **Description** : `CLAUDE.md` à la racine, en français, qui reprend : règles non négociables (section 0.1),
-  définition de « terminé » (0.2), flux Git et nommage des branches, format des commits avec trailer,
-  arborescence et architecture hexagonale (Nest confiné à `infrastructure/http`, pas de décorateurs métier,
-  validation Zod explicite, SQL source de vérité, Drizzle pour les requêtes seulement), conventions de
-  nommage (snake_case SQL, camelCase TS, slugs kebab-case), règle de repli de locale, format d'erreur
-  problem+json, commandes utiles, interdiction des données personnelles, emplacement des comptes rendus
-  (`docs/comptes-rendus/lot-<N>-<role>.md`) et liste des traductions à relire
-  (`docs/traductions-a-relire.md`). `README.md` : présentation courte, prérequis (Node 22, pnpm 9, Docker),
-  démarrage (`pnpm install`, `pnpm db:up`, `pnpm db:migrate`, `pnpm db:seed`, `pnpm --filter @v3/api dev`),
-  commandes, liens vers `docs/`.
-- **Fichiers** : `CLAUDE.md`, `README.md`.
-- **Critères d'acceptation** :
-  - `for s in "Jamais de git push" "Co-Authored-By" "problem+json" "infrastructure/http" "schema_migrations" "comptes-rendus" "traductions-a-relire" "lang" ; do grep -q -- "$s" CLAUDE.md || exit 1; done` passe.
-  - `grep -qE "pnpm db:up|pnpm db:migrate|pnpm db:seed" README.md` passe.
-  - Critère D7 (aucune donnée personnelle) passe sur les deux fichiers.
+- **Livré** : `CLAUDE.md` (structure, règles hexagonales, règle « modules isolés » et liste des fichiers
+  partagés pour le lot 3, conventions de code, commandes, flux git et interdictions, traductions EN à relire
+  dans `docs/traductions-a-relire.md`, comptes rendus dans `docs/comptes-rendus/lot-N-role.md`). `README.md`
+  (lancement en 4 commandes : `pnpm install`, `cp .env.example apps/api/.env`, `pnpm db:up`, `pnpm dev` ;
+  vérifications curl ; `pnpm check` ; arborescence).
+- **Écarts acceptés** : la règle de repli de locale est dans docs/01 et dans la description du schéma
+  `Locale` des contrats ; `schema_migrations` est dans `db/README.md` ; `README.md` ne mentionne pas
+  `db:migrate`/`db:seed` (lot 1 : L1-02 complète `README.md` et `CLAUDE.md`).
+- **Critères d'acceptation** (vérifiés) :
+  - `for s in "git push" "Co-Authored-By" "problem+json" "infrastructure/http" "modules isolés" "comptes-rendus" "traductions-a-relire" "db/migrations" ; do grep -q -- "$s" CLAUDE.md || exit 1; done` passe.
+  - `grep -q "pnpm db:up" README.md && grep -q "pnpm dev" README.md` passe.
+  - Critère D7 passe sur les deux fichiers.
 
-### L0-10 — Vérification finale du lot 0 et compte rendu
+### L0-10 — Vérification finale du lot 0 et compte rendu — livré `d57f534`, `7445604`
 
-- **Description** : exécuter depuis un clone propre du worktree la séquence complète d'installation et de
-  vérification, corriger ce qui bloque, rédiger `docs/comptes-rendus/lot-0-lead-backend.md` (fait, non
-  fait, décisions prises dont les versions exactes installées, points ouverts).
-- **Fichiers** : `docs/comptes-rendus/lot-0-lead-backend.md`, corrections éventuelles.
-- **Critères d'acceptation** :
-  - `git clean -ndx` ne liste rien d'inattendu puis `rm -rf node_modules apps/*/node_modules packages/*/node_modules && pnpm install --frozen-lockfile && pnpm db:up && pnpm lint && pnpm typecheck && pnpm build && pnpm test && pnpm db:down` passe.
-  - `git status --porcelain` vide après la séquence (aucun fichier généré non ignoré).
-  - Critères D1 à D10 vérifiés par le chef de projet ; `git log --oneline v3/backend..HEAD | wc -l` ≥ 10 (au moins un commit par ticket).
+- **Livré** : `docs/comptes-rendus/lot-0-lead.md` (fait, non fait, décisions dont le tableau des versions
+  exactes, écarts avec docs/02, points ouverts). Séquence complète rejouée : `pnpm install --frozen-lockfile`
+  propre, `pnpm check` vert, API démarrée contre le Postgres de dev et vérifiée avec curl.
+- **Écarts acceptés** : nom du fichier `lot-0-lead.md` (et non `lot-0-lead-backend.md`) : convention
+  `lot-N-role.md` de `CLAUDE.md`.
+- **Critères d'acceptation** (vérifiés) :
+  - `rm -rf node_modules apps/*/node_modules packages/*/node_modules && pnpm install --frozen-lockfile && pnpm build && pnpm check && pnpm db:down` passe ; `git status --porcelain` vide ensuite.
+  - Critères D1 à D10 vérifiés par le chef de projet ; `git log --oneline 6b88d33..lot/0-fondations | wc -l` = 14.
 
 ---
 
@@ -273,37 +375,59 @@ partie du socle (lot 0).
   appliqués par un runner minimal, avec le contenu du CV (novembre 2026) en FR et EN.
 - **Dépendances** : lot 0 fusionné dans `v3/backend`.
 - **Agent responsable** : Dev base de données (branche `lot/1-sql`).
-- **Périmètre autorisé** : `db/**`, `apps/api/src/infrastructure/db/**`, `apps/api/src/cli/**`,
-  `apps/api/test/e2e/db/**`, `docs/comptes-rendus/lot-1-*.md`, `docs/traductions-a-relire.md`.
+- **Périmètre autorisé** : `db/**`, `apps/api/src/infrastructure/db/**` (y compris `drizzle-database-client.ts`
+  pour brancher le schéma, sans changer son API publique `db`/`ping`/`close`), `apps/api/src/cli/**`,
+  `apps/api/test/db/**`, `apps/api/test/support/database.ts`, scripts `db:*` de `apps/api/package.json` et de
+  `package.json` (rien d'autre dans ces fichiers), `db/README.md`, lignes `src/cli/` et `db:*` de `CLAUDE.md`
+  et `README.md`, `docs/comptes-rendus/lot-1-*.md`, `docs/traductions-a-relire.md`.
 - **Source du contenu** : `../personnalWebsite_V2/.claude/BRIEF-site-perso-v2.md`, section « Données du CV »
   (hors repo ; l'e-mail et le téléphone qui y figurent ne sont jamais recopiés).
+- **Outil de vérification** (aucun `psql` sur l'hôte) : dans les critères ci-dessous, `psqldev` désigne
+  `psqldev() { docker compose exec -T postgres psql -U siteperso -d siteperso -Atc "$1"; }` (base de dev,
+  après `pnpm db:up && pnpm db:migrate && pnpm db:seed`). Pour la base de test : `postgres-test` et
+  `siteperso_test`.
 
 ### L1-01 — Runner de migrations minimal
 
-- **Description** : `apps/api/src/infrastructure/db/migrations-runner.ts` : crée si besoin
-  `schema_migrations (version text primary key, name text not null, checksum text not null, applied_at
-  timestamptz not null default now())`, lit `db/migrations/*.sql` triés par nom (préfixe `NNNN`), refuse
-  deux fichiers de même préfixe, applique chaque fichier non encore appliqué dans une transaction
-  (`begin` … insertion dans `schema_migrations` … `commit`, `rollback` en cas d'erreur), compare le
-  checksum SHA-256 des fichiers déjà appliqués et échoue si un fichier appliqué a été modifié. Verrou
-  `pg_advisory_lock` pendant l'exécution. Journal : une ligne par fichier (appliqué / déjà appliqué).
-  Aucune dépendance Nest.
-- **Fichiers** : `apps/api/src/infrastructure/db/migrations-runner.ts`, `apps/api/src/cli/migrate.ts`, `apps/api/src/infrastructure/db/migrations-runner.spec.ts`.
+- **Description** : `apps/api/src/infrastructure/db/migrations-runner.ts` : fonction pure côté Node (driver
+  `postgres` directement, aucune dépendance Nest) qui crée si besoin `schema_migrations (version text primary
+  key, name text not null, checksum text not null, applied_at timestamptz not null default now())`, lit
+  `db/migrations/*.sql` triés par nom (préfixe `NNNN`), refuse deux fichiers de même préfixe, applique chaque
+  fichier non encore appliqué dans une transaction (`begin` … insertion dans `schema_migrations` … `commit`,
+  `rollback` en cas d'erreur), compare le checksum SHA-256 des fichiers déjà appliqués et échoue si un fichier
+  appliqué a été modifié. Verrou `pg_advisory_lock` pendant l'exécution. Journal : une ligne par fichier
+  (appliqué / déjà appliqué), via `Logger` de Nest ou `process.stdout` dans le CLI (pas de `console.log` dans
+  `infrastructure/db`). Point d'entrée `apps/api/src/cli/migrate.ts` (lit `DATABASE_URL` via `loadEnv()` de
+  `infrastructure/config`). Scripts : `apps/api/package.json` `db:migrate` = `node --env-file-if-exists=.env
+  --import @swc-node/register/esm-register src/cli/migrate.ts` ; racine `db:migrate` = `pnpm --filter
+  @siteperso/api db:migrate`. `db/README.md` mis à jour (colonnes de `schema_migrations`, checksum).
+- **Fichiers** : `apps/api/src/infrastructure/db/migrations-runner.ts`, `migrations-runner.spec.ts` (tri,
+  détection de doublon de préfixe, checksum : tests purs sur des répertoires temporaires, sans base),
+  `apps/api/src/cli/migrate.ts`, `apps/api/test/db/migrations-runner.e2e-spec.ts`, scripts, `db/README.md`.
 - **Critères d'acceptation** :
   - `pnpm db:migrate` passe deux fois de suite ; la seconde exécution affiche « déjà appliquée » pour chaque fichier et `schema_migrations` n'a pas de doublon.
-  - Test e2e `migrations-runner.e2e.ts` sur `postgres_test` : un fichier SQL invalide placé dans un répertoire temporaire fait échouer le runner et aucune ligne n'est insérée dans `schema_migrations` (rollback) ; un fichier appliqué puis modifié provoque une erreur « checksum ».
-  - `psql "$DATABASE_URL" -Atc "select count(*) from schema_migrations"` = nombre de fichiers dans `db/migrations/`.
+  - `pnpm --filter @siteperso/api test:e2e -- migrations-runner` passe : sur la base de test, un fichier SQL invalide placé dans un répertoire temporaire fait échouer le runner et aucune ligne n'est insérée dans `schema_migrations` (rollback) ; un fichier appliqué puis modifié provoque une erreur « checksum ».
+  - `psqldev "select count(*) from schema_migrations"` = nombre de fichiers dans `db/migrations/`.
+  - `grep -rl "@nestjs" apps/api/src/infrastructure/db/migrations-runner.ts apps/api/src/cli` ne renvoie rien.
 
-### L1-02 — Runner de seeds idempotents
+### L1-02 — Runner de seeds idempotents, `db:reset`, base de test
 
-- **Description** : `seeds-runner.ts` : lit `db/seeds/*.sql` triés, exécute chaque fichier dans une
-  transaction à chaque appel (les seeds sont idempotents par `on conflict (slug) do update`, pas de table de
-  suivi), échoue si une migration est en attente. `pnpm db:seed` et `pnpm db:reset` (drop schema public
-  cascade + migrate + seed, refusé si `NODE_ENV=production`).
-- **Fichiers** : `apps/api/src/infrastructure/db/seeds-runner.ts`, `apps/api/src/cli/{seed.ts,reset.ts}`.
+- **Description** : `apps/api/src/infrastructure/db/seeds-runner.ts` : lit `db/seeds/*.sql` triés, exécute
+  chaque fichier dans une transaction à chaque appel (les seeds sont idempotents par `on conflict (slug) do
+  update`, pas de table de suivi), échoue si une migration est en attente. `src/cli/seed.ts` et
+  `src/cli/reset.ts` (`drop schema public cascade; create schema public` + migrate + seed, refusé si
+  `NODE_ENV=production`). Scripts `db:seed` et `db:reset` dans `apps/api/package.json` et à la racine.
+  `apps/api/test/support/database.ts` : `resetTestDatabase()` (même séquence que `reset`, sur le
+  `DATABASE_URL` de `vitest.e2e.config.ts`) et `openTestSql()` (connexion `postgres` brute pour les fixtures),
+  utilisés par les e2e des lots 1, 3 et 4 en `beforeAll`. `README.md` : ajouter `pnpm db:migrate && pnpm
+  db:seed` entre `pnpm db:up` et `pnpm dev` ; `CLAUDE.md` : ligne `src/cli/` dans le bloc Structure et
+  commandes `db:*`.
+- **Fichiers** : `apps/api/src/infrastructure/db/seeds-runner.ts`, `apps/api/src/cli/{seed.ts,reset.ts}`,
+  `apps/api/test/support/database.ts`, scripts, `README.md`, `CLAUDE.md`.
 - **Critères d'acceptation** :
-  - `pnpm db:seed && pnpm db:seed` passe ; `psql "$DATABASE_URL" -Atc "select count(*) from experiences"` identique avant et après la seconde exécution.
+  - `pnpm db:seed && pnpm db:seed` passe ; `psqldev "select count(*) from experiences"` identique avant et après la seconde exécution.
   - `NODE_ENV=production pnpm db:reset` échoue avec un message explicite.
+  - `pnpm db:test:up && pnpm test:e2e` passe : les e2e du lot 1 appellent `resetTestDatabase()` et laissent la base de test migrée et seedée.
 
 ### L1-03 — Migration : enums, `profile`, `social_links`
 
@@ -317,9 +441,9 @@ partie du socle (lot 0).
 - **Fichiers** : `db/migrations/0001_enums.sql`, `0002_profile.sql`, `0003_social_links.sql`.
 - **Critères d'acceptation** :
   - `pnpm db:migrate` passe.
-  - `psql "$DATABASE_URL" -Atc "select enum_range(null::experience_kind)"` = `{employment,freelance,break,mentoring}`.
-  - `psql "$DATABASE_URL" -c "insert into profile (id, first_name, last_name, picture_path, location) values (2,'a','b','c','d')"` échoue (check id = 1).
-  - `psql "$DATABASE_URL" -c "insert into profile_translations (profile_id, locale, title, headline, bio, availability, picture_alt) values (1,'de','t','h','b','a','p')"` échoue (locale).
+  - `psqldev "select enum_range(null::experience_kind)"` = `{employment,freelance,break,mentoring}`.
+  - `psqldev "insert into profile (id, first_name, last_name, picture_path, location) values (2,'a','b','c','d')"` échoue (check id = 1).
+  - `psqldev "insert into profile_translations (profile_id, locale, title, headline, bio, availability, picture_alt) values (1,'de','t','h','b','a','p')"` échoue (locale).
 
 ### L1-04 — Migration : `skill_groups`, `skills`
 
@@ -329,8 +453,8 @@ partie du socle (lot 0).
   published, sort_order)`), `skills_translations (name)`.
 - **Fichiers** : `db/migrations/0004_skills.sql`.
 - **Critères d'acceptation** :
-  - `psql "$DATABASE_URL" -c "insert into skills (slug, group_id, level, icon) values ('x', 1, 6, 'x')"` échoue (check level).
-  - `psql "$DATABASE_URL" -Atc "select indexname from pg_indexes where tablename='skills'"` contient un index sur `(group_id, published, sort_order)`.
+  - `psqldev "insert into skills (slug, group_id, level, icon) values ('x', 1, 6, 'x')"` échoue (check level).
+  - `psqldev "select indexname from pg_indexes where tablename='skills'"` contient un index sur `(group_id, published, sort_order)`.
 
 ### L1-05 — Migration : `experiences`, `experience_skills`
 
@@ -344,7 +468,7 @@ partie du socle (lot 0).
 - **Fichiers** : `db/migrations/0005_experiences.sql`.
 - **Critères d'acceptation** :
   - Insertion d'une expérience avec `date_end < date_start` échoue ; insertion `kind='break'` avec `company` non null échoue.
-  - `psql "$DATABASE_URL" -Atc "select data_type from information_schema.columns where table_name='experiences_translations' and column_name='achievements'"` = `ARRAY`.
+  - `psqldev "select data_type from information_schema.columns where table_name='experiences_translations' and column_name='achievements'"` = `ARRAY`.
 
 ### L1-06 — Migration : `projects`, `tools`, `resources`
 
@@ -356,8 +480,8 @@ partie du socle (lot 0).
   `resources_translations` (name, description, picture_alt null). Index `(published, sort_order)` partout.
 - **Fichiers** : `db/migrations/0006_projects_tools_resources.sql`.
 - **Critères d'acceptation** :
-  - `psql "$DATABASE_URL" -Atc "select table_name from information_schema.tables where table_schema='public' order by 1"` contient `projects`, `projects_translations`, `project_skills`, `tools`, `tools_translations`, `resources`, `resources_translations`.
-  - Suppression d'un `skill_groups` référencé par une `resources` met `group_id` à null (test e2e).
+  - `psqldev "select table_name from information_schema.tables where table_schema='public' order by 1"` contient `projects`, `projects_translations`, `project_skills`, `tools`, `tools_translations`, `resources`, `resources_translations`.
+  - Suppression d'un `skill_groups` référencé par une `resources` met `group_id` à null (test e2e dans `test/db/schema-constraints.e2e-spec.ts`).
 
 ### L1-07 — Migration : `certifications`, `education`, `languages`
 
@@ -370,19 +494,21 @@ partie du socle (lot 0).
 - **Fichiers** : `db/migrations/0007_certifications_education_languages.sql`.
 - **Critères d'acceptation** :
   - Insertion `cefr_level='Z9'` échoue ; insertion `code='fra'` échoue.
-  - `psql "$DATABASE_URL" -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name <> 'schema_migrations'"` = 24 (13 tables de contenu : `profile`, `social_links`, `skill_groups`, `skills`, `experiences`, `experience_skills`, `projects`, `project_skills`, `tools`, `resources`, `certifications`, `education`, `languages` ; 11 tables `_translations`).
+  - `psqldev "select count(*) from information_schema.tables where table_schema='public' and table_name <> 'schema_migrations'"` = 24 (13 tables de contenu : `profile`, `social_links`, `skill_groups`, `skills`, `experiences`, `experience_skills`, `projects`, `project_skills`, `tools`, `resources`, `certifications`, `education`, `languages` ; 11 tables `_translations`).
 
 ### L1-08 — Schéma Drizzle dérivé du SQL
 
 - **Description** : `apps/api/src/infrastructure/db/schema/*.ts` : une définition Drizzle (`pgTable`,
-  `pgEnum`) par table, recopiée du SQL (noms snake_case, types, nullabilité, enums). Aucun `drizzle-kit
-  generate` ni `push` : le SQL reste la source de vérité. Test e2e qui compare, pour chaque table Drizzle,
-  la liste `(colonne, type, nullable)` avec `information_schema.columns` de la base migrée, et échoue à la
-  moindre divergence ou table manquante.
-- **Fichiers** : `apps/api/src/infrastructure/db/schema/{index.ts,enums.ts,profile.ts,social-links.ts,skills.ts,experiences.ts,projects.ts,tools.ts,resources.ts,certifications.ts,education.ts,languages.ts}`, `apps/api/test/e2e/db/schema-matches-db.e2e.ts`.
+  `pgEnum`) par table, recopiée du SQL (noms snake_case, types, nullabilité, enums), `schema/index.ts` les
+  réexporte. `drizzle-database-client.ts` passe le schéma à `drizzle(this.sql, { schema })` et type `db` en
+  `PostgresJsDatabase<typeof schema>` (seul changement autorisé dans ce fichier). Aucun `drizzle-kit` : le SQL
+  reste la source de vérité. Test e2e qui compare, pour chaque table Drizzle, la liste `(colonne, type,
+  nullable)` avec `information_schema.columns` de la base de test migrée, et échoue à la moindre divergence ou
+  table manquante.
+- **Fichiers** : `apps/api/src/infrastructure/db/schema/{index.ts,enums.ts,profile.ts,social-links.ts,skills.ts,experiences.ts,projects.ts,tools.ts,resources.ts,certifications.ts,education.ts,languages.ts}`, `apps/api/src/infrastructure/db/drizzle-database-client.ts`, `apps/api/test/db/schema-matches-db.e2e-spec.ts`.
 - **Critères d'acceptation** :
-  - `pnpm test:e2e -- schema-matches-db` passe.
-  - `grep -rn "drizzle-kit" package.json apps/api/package.json` ne renvoie aucun script `generate`/`push`.
+  - `pnpm --filter @siteperso/api test:e2e -- schema-matches-db` passe.
+  - `grep -rn "drizzle-kit" package.json apps/api/package.json pnpm-lock.yaml` ne renvoie rien.
 
 ### L1-09 — Seed : profil et liens sociaux (FR + EN)
 
@@ -394,8 +520,8 @@ partie du socle (lot 0).
   téléphone. Upsert `on conflict (slug) do update` (et `on conflict (profile_id, locale)` pour les traductions).
 - **Fichiers** : `db/seeds/0001_profile.sql`, `db/seeds/0002_social_links.sql`.
 - **Critères d'acceptation** :
-  - `psql "$DATABASE_URL" -Atc "select count(*) from profile_translations"` = 2 et `select count(*) from profile` = 1.
-  - `psql "$DATABASE_URL" -Atc "select count(*) from social_links where kind in ('email','phone') or url ~* 'mailto:|tel:'"` = 0.
+  - `psqldev "select count(*) from profile_translations"` = 2 et `psqldev "select count(*) from profile"` = 1.
+  - `psqldev "select count(*) from social_links where kind in ('email','phone') or url ~* 'mailto:|tel:'"` = 0.
   - Critère D7 sur `db/seeds/`.
 
 ### L1-10 — Seed : groupes de compétences et compétences
@@ -409,8 +535,8 @@ partie du socle (lot 0).
   propres.
 - **Fichiers** : `db/seeds/0003_skills.sql`.
 - **Critères d'acceptation** :
-  - `psql "$DATABASE_URL" -Atc "select count(*) from skill_groups"` = 7 ; `select count(*) from skills` ≥ 30.
-  - `psql "$DATABASE_URL" -Atc "select count(*) from skills s where not exists (select 1 from skills_translations t where t.skill_id=s.id and t.locale='fr')"` = 0 (toute compétence a sa traduction `fr`).
+  - `psqldev "select count(*) from skill_groups"` = 7 ; `psqldev "select count(*) from skills"` ≥ 30.
+  - `psqldev "select count(*) from skills s where not exists (select 1 from skills_translations t where t.skill_id=s.id and t.locale='fr')"` = 0 (toute compétence a sa traduction `fr`).
 
 ### L1-11 — Seed : expériences, réalisations et pause professionnelle
 
@@ -426,39 +552,41 @@ partie du socle (lot 0).
   technologies absentes du référentiel restent uniquement dans `stack_label`).
 - **Fichiers** : `db/seeds/0004_experiences.sql`.
 - **Critères d'acceptation** :
-  - `psql "$DATABASE_URL" -Atc "select count(*) from experiences"` = 8 ; `select count(*) from experiences where kind='break'` = 1 ; `select count(*) from experiences where kind='break' and company is not null` = 0.
-  - `psql "$DATABASE_URL" -Atc "select count(*) from experiences_translations where locale='fr' and cardinality(achievements) > 0"` ≥ 5.
-  - `psql "$DATABASE_URL" -Atc "select count(*) from experiences_translations where locale='en'"` = 8.
-  - `psql "$DATABASE_URL" -Atc "select count(*) from experiences e where not exists (select 1 from experience_skills es where es.experience_id = e.id) and e.kind <> 'break'"` = 0.
+  - `psqldev "select count(*) from experiences"` = 8 ; `psqldev "select count(*) from experiences where kind='break'"` = 1 ; `psqldev "select count(*) from experiences where kind='break' and company is not null"` = 0.
+  - `psqldev "select count(*) from experiences_translations where locale='fr' and cardinality(achievements) > 0"` ≥ 5.
+  - `psqldev "select count(*) from experiences_translations where locale='en'"` = 8.
+  - `psqldev "select count(*) from experiences e where not exists (select 1 from experience_skills es where es.experience_id = e.id) and e.kind <> 'break'"` = 0.
   - `grep -c "EN : à relire" db/seeds/0004_experiences.sql` ≥ 8.
 
 ### L1-12 — Seed : certifications, formation, langues
 
 - **Description** : `db/seeds/0005_certifications_education_languages.sql` : 3 certifications du CV
   (émetteur, année), formation (autodidacte + EEMI 2016 + parcours OpenClassrooms 2015, en 1 à 3 lignes
-  `education` selon le choix documenté), langues `fr` (langue maternelle, `cefr_level` null) et `en`
-  (`C1`, « professionnel »). Traductions FR + EN (`-- EN : à relire`). `projects`, `tools`, `resources` : pas
-  de seed (point ouvert P5), les tables restent vides et l'API renvoie `[]`.
+  `education` selon le choix documenté, point ouvert P6), langues `fr` (langue maternelle, `cefr_level` null)
+  et `en` (`C1`, « professionnel »). Traductions FR + EN (`-- EN : à relire`). `projects`, `tools`,
+  `resources` : pas de seed (point ouvert P5), les tables restent vides et l'API renvoie `[]`.
 - **Fichiers** : `db/seeds/0005_certifications_education_languages.sql`.
 - **Critères d'acceptation** :
-  - `psql "$DATABASE_URL" -Atc "select count(*) from certifications"` = 3 ; `select count(*) from languages` = 2 ; `select count(*) from education` ≥ 1.
-  - `psql "$DATABASE_URL" -Atc "select cefr_level from languages where code='en'"` = `C1`.
+  - `psqldev "select count(*) from certifications"` = 3 ; `psqldev "select count(*) from languages"` = 2 ; `psqldev "select count(*) from education"` ≥ 1.
+  - `psqldev "select cefr_level from languages where code='en'"` = `C1`.
 
 ### L1-13 — Tests d'idempotence, de couverture des traductions et d'absence de données personnelles
 
-- **Description** : test e2e `seeds.e2e.ts` sur `postgres_test` : `reset` puis `seed` deux fois ; les
-  comptages de toutes les tables sont identiques entre les deux passes ; chaque entité publiée possède une
-  traduction `fr` ; chaque colonne `*_alt` non nulle pour les entités ayant un chemin d'image ; aucune
-  valeur de colonne texte ne matche les regex e-mail / téléphone ; toute `url` commence par `https://`.
-- **Fichiers** : `apps/api/test/e2e/db/seeds.e2e.ts`.
+- **Description** : `apps/api/test/db/seeds.e2e-spec.ts` sur la base de test : `resetTestDatabase()` puis
+  seed une seconde fois ; les comptages de toutes les tables sont identiques entre les deux passes ; chaque
+  entité publiée possède une traduction `fr` ; chaque colonne `*_alt` non nulle pour les entités ayant un
+  chemin d'image ; aucune valeur de colonne texte ne matche les regex e-mail / téléphone ; toute `url`
+  commence par `https://`.
+- **Fichiers** : `apps/api/test/db/seeds.e2e-spec.ts`.
 - **Critères d'acceptation** :
-  - `pnpm test:e2e -- seeds` passe.
+  - `pnpm --filter @siteperso/api test:e2e -- seeds` passe.
   - `git grep -nE "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}|(\+33|0)[1-9]([ .-]?[0-9]{2}){4}" -- db/` ne renvoie rien.
 
 ### L1-14 — Liste des traductions à relire et compte rendu
 
 - **Description** : `docs/traductions-a-relire.md` : tableau (fichier, slug, colonne, texte FR, texte EN
-  proposé) de toutes les traductions produites par l'agent, à relire par Julien.
+  proposé) de toutes les traductions produites par l'agent, à relire par Julien (format imposé par
+  `CLAUDE.md` : table, slug, champ, texte FR, texte EN proposé ; Julien retire les lignes validées).
   `docs/comptes-rendus/lot-1-dev-db.md`.
 - **Fichiers** : `docs/traductions-a-relire.md`, `docs/comptes-rendus/lot-1-dev-db.md`.
 - **Critères d'acceptation** :
@@ -469,23 +597,29 @@ partie du socle (lot 0).
 
 ## 3. Lot 2 — Contrats : schémas Zod, types, OpenAPI
 
-- **Objectif** : `packages/contracts` décrit entièrement l'API en lecture seule (chaque ressource, `/cv`,
+- **Objectif** : `@siteperso/contracts` décrit entièrement l'API en lecture seule (chaque ressource, `/cv`,
   `/health`, erreurs) sous forme de schémas Zod, de types exportés et d'un document OpenAPI 3.1 servi tel
-  quel par l'API et honoré à l'identique par le futur portage Rust.
+  quel par `GET /api/v1/docs.json` et honoré à l'identique par le futur portage Rust.
 - **Dépendances** : lot 0 fusionné. Indépendant du lot 1 (parallèle).
 - **Agent responsable** : Dev contrats (branche `lot/2-contrats`).
-- **Périmètre autorisé** : `packages/contracts/**`, `docs/comptes-rendus/lot-2-*.md`.
+- **Périmètre autorisé** : `packages/contracts/**`, `docs/comptes-rendus/lot-2-*.md`. Les fichiers partagés
+  `src/index.ts`, `src/common/*` et `src/openapi/document.ts` sont à lui seul pendant ce lot.
+- **Conventions livrées au lot 0 à respecter** : un dossier `src/<resource>/` par ressource ; métadonnées
+  OpenAPI par `.meta({ id: 'Nom', description })` (zod-openapi lit les `.meta` natifs de Zod 4, pas de
+  `.openapi()`) ; chemins déclarés dans `src/openapi/document.ts` relatifs à `/api/v1` (`servers`) ; schémas
+  réutilisés tels quels par l'API (`safeParse` explicite) et par le front.
 
 ### L2-01 — Schémas communs
 
-- **Description** : `src/common/` : `LocaleSchema` (`z.enum(['fr','en'])`), `LangQuerySchema`
-  (`{ lang: LocaleSchema.default('fr') }`), `SlugSchema` (`^[a-z0-9]+(-[a-z0-9]+)*$`), `IsoDateSchema`
-  (`YYYY-MM-DD`), `ImageSchema` (`{ path: string, alt: string }`), enums `ExperienceKindSchema`,
-  `ContractTypeSchema`, `WorkModeSchema`, `CefrLevelSchema`, `ProblemDetailsSchema` (déjà présent, complété),
-  `HealthResponseSchema`. Enregistrement OpenAPI de chaque schéma avec `.openapi('Nom')` et exemples.
-- **Fichiers** : `packages/contracts/src/common/*.ts`, tests `*.spec.ts`.
+- **Description** : compléter `src/common/` : `LocaleSchema` et `LocaleQuerySchema` (existants, à conserver
+  tels quels : `{ lang: LocaleSchema.default('fr') }`), `SlugSchema` (`^[a-z0-9]+(-[a-z0-9]+)*$`),
+  `IsoDateSchema` (`YYYY-MM-DD`), `ImageSchema` (`{ path: string, alt: string }`), enums
+  `ExperienceKindSchema`, `ContractTypeSchema`, `WorkModeSchema`, `CefrLevelSchema`, constantes `LOCALES`,
+  `EXPERIENCE_KINDS`, `CONTRACT_TYPES`, `WORK_MODES`, `CEFR_LEVELS`. `ProblemDetailsSchema` et
+  `HealthResponseSchema` existent déjà. Chaque schéma porte `.meta({ id, description })` et un exemple.
+- **Fichiers** : `packages/contracts/src/common/{slug.ts,date.ts,image.ts,enums.ts}` et specs `*.spec.ts`.
 - **Critères d'acceptation** :
-  - `pnpm --filter @v3/contracts test` passe : `LangQuerySchema.parse({})` → `{ lang: 'fr' }` ; `LangQuerySchema.safeParse({ lang: 'de' }).success` = false ; `SlugSchema` rejette `Foo_bar`.
+  - `pnpm --filter @siteperso/contracts test` passe : `LocaleQuerySchema.parse({})` → `{ lang: 'fr' }` ; `LocaleQuerySchema.safeParse({ lang: 'de' }).success` = false ; `SlugSchema` rejette `Foo_bar` ; `IsoDateSchema` rejette `2026-13-01`.
 
 ### L2-02 — Schémas `profile`, `social-links`, `skills`, `skill-groups`
 
@@ -495,10 +629,10 @@ partie du socle (lot 0).
   `SkillGroupSchema` (`slug`, `name`, `description`, `skills: SkillSchema[]`). Réponses : objet pour
   `/profile`, tableau pour les autres. Les objets de réponse sont `strict` (clé inconnue refusée) afin que
   les tests e2e détectent toute fuite de colonne.
-- **Fichiers** : `packages/contracts/src/resources/{profile,social-links,skills,skill-groups}.ts`, specs.
+- **Fichiers** : `packages/contracts/src/{profile/profile.ts,social-links/social-links.ts,skills/skills.ts,skill-groups/skill-groups.ts}`, specs.
 - **Critères d'acceptation** :
   - Tests : un exemple valide par schéma passe ; `ProfileSchema.safeParse({ ...valid, email: 'contact@example.com' }).success` = false.
-  - `grep -nEi "email|phone|tel\b" packages/contracts/src/resources/profile.ts` ne renvoie rien.
+  - `grep -nEi "email|phone|tel\b" packages/contracts/src/profile/profile.ts` ne renvoie rien.
 
 ### L2-03 — Schémas `experiences`, `projects`, `tools`, `resources`
 
@@ -508,7 +642,7 @@ partie du socle (lot 0).
   `url`, `repoUrl`, `imageDesktop`, `imageMobile` (`ImageSchema | null`), `year`, `title`, `description`,
   `skills`), `ToolSchema` (`slug`, `url`, `iconPath`, `name`, `family`, `description`), `ResourceSchema`
   (`slug`, `url`, `groupSlug` null, `picture: ImageSchema | null`, `name`, `description`).
-- **Fichiers** : `packages/contracts/src/resources/{experiences,projects,tools,resources}.ts`, specs.
+- **Fichiers** : `packages/contracts/src/{experiences/experiences.ts,projects/projects.ts,tools/tools.ts,resources/resources.ts}`, specs.
 - **Critères d'acceptation** :
   - Tests : une expérience `kind: 'break'` avec `company: null` passe ; `dateStart: '2026-13-01'` est rejeté ; `achievements` doit être un tableau (chaîne rejetée).
 
@@ -517,7 +651,7 @@ partie du socle (lot 0).
 - **Description** : `CertificationSchema` (`slug`, `issuer`, `year`, `url` null, `name`), `EducationSchema`
   (`slug`, `institution`, `yearStart`, `yearEnd` null, `url` null, `title`, `description`), `LanguageSchema`
   (`slug`, `code`, `cefrLevel` null, `name`, `levelLabel`).
-- **Fichiers** : `packages/contracts/src/resources/{certifications,education,languages}.ts`, specs.
+- **Fichiers** : `packages/contracts/src/{certifications/certifications.ts,education/education.ts,languages/languages.ts}`, specs.
 - **Critères d'acceptation** :
   - Tests : `LanguageSchema` rejette `cefrLevel: 'Z9'` ; `EducationSchema` rejette `yearEnd < yearStart` (raffinement).
 
@@ -525,37 +659,42 @@ partie du socle (lot 0).
 
 - **Description** : `CvSchema` = `{ locale, profile, socialLinks, skillGroups, experiences, projects, tools,
   resources, certifications, education, languages }` composé des schémas précédents (`skills` n'est pas
-  répété à plat : il est imbriqué dans `skillGroups`). Export `CvResponse` typé.
-- **Fichiers** : `packages/contracts/src/resources/cv.ts`, spec.
+  répété à plat : il est imbriqué dans `skillGroups`). Export `Cv` typé.
+- **Fichiers** : `packages/contracts/src/cv/cv.ts`, spec.
 - **Critères d'acceptation** :
   - Test : un exemple complet passe ; l'absence de `languages` est rejetée ; une clé supplémentaire est rejetée.
 
-### L2-06 — Registre OpenAPI 3.1 complet
+### L2-06 — Document OpenAPI 3.1 complet
 
-- **Description** : `src/openapi/registry.ts` enregistre les 13 routes (`GET /api/v1/{profile, social-links,
-  skill-groups, skills, experiences, projects, tools, resources, certifications, education, languages, cv}`
-  et `GET /api/v1/health`) avec le paramètre de requête `lang` (sauf `/health`), les réponses `200`
-  (`application/json`, schéma de la ressource), `400` et `404` (`application/problem+json`,
-  `ProblemDetails`), `429` pour toutes. `info` (titre, version `1.0.0`, description en français), `servers`
-  relatif (`/`). `openapi:generate` écrit `openapi/openapi.json` (commité) de façon déterministe (clés
-  triées, indentation 2). Test : le JSON généré est validé par un validateur OpenAPI 3.1 et identique au
-  fichier commité.
-- **Fichiers** : `packages/contracts/src/openapi/{registry.ts,generate.ts,openapi.spec.ts}`, `packages/contracts/openapi/openapi.json`.
+- **Description** : `src/openapi/document.ts` déclare les 13 chemins (`/profile`, `/social-links`,
+  `/skill-groups`, `/skills`, `/experiences`, `/projects`, `/tools`, `/resources`, `/certifications`,
+  `/education`, `/languages`, `/cv`, plus `/health` existant ; relatifs à `servers` `/api/v1`) avec le
+  paramètre de requête `lang` (`LocaleSchema`, sauf `/health`), les réponses `200` (`application/json`,
+  schéma de la ressource), `400` et `404` (`application/problem+json`, `ProblemDetails`), `429` et `500`
+  pour toutes, `503` pour `/health`. Tags par ressource. `info` inchangé (titre, version `1.0.0`,
+  description en français). `GET /docs.json` est une méta-route hors contrat : elle n'apparaît pas dans
+  `paths`. `openapi:export` reste déterministe (ordre stable des clés, indentation 2). Test :
+  `document.spec.ts` valide le document avec un validateur OpenAPI 3.1 (dépendance de dev choisie avec `pnpm
+  view`, consignée dans le compte rendu) et vérifie les 13 chemins, le paramètre `lang` sur 12 d'entre eux et
+  les composants.
+- **Fichiers** : `packages/contracts/src/openapi/document.ts`, `document.spec.ts`, `package.json` (dépendance de dev du validateur).
 - **Critères d'acceptation** :
-  - `pnpm --filter @v3/contracts openapi:generate && git diff --exit-code packages/contracts/openapi/openapi.json` passe (fichier à jour).
-  - `node -e "const o=require('./packages/contracts/openapi/openapi.json');const p=Object.keys(o.paths);process.exit(p.length===13&&p.every(k=>k.startsWith('/api/v1/'))?0:1)"` passe.
-  - Test de validation OpenAPI 3.1 passe ; `grep -c '"lang"' packages/contracts/openapi/openapi.json` ≥ 12.
+  - `pnpm --filter @siteperso/contracts build && node -e "const o=require('./packages/contracts/dist/openapi.json');const p=Object.keys(o.paths);process.exit(p.length===13&&p.every(k=>k.startsWith('/')&&!k.startsWith('/api'))&&o.servers[0].url==='/api/v1'?0:1)"` passe.
+  - `grep -c '"name": "lang"' packages/contracts/dist/openapi.json` ≥ 12 ; `grep -c docs.json packages/contracts/dist/openapi.json` = 0.
+  - `pnpm --filter @siteperso/contracts openapi:export` exécuté deux fois produit un fichier identique (`sha256sum`).
 
 ### L2-07 — Exports, types et compte rendu
 
 - **Description** : `src/index.ts` exporte tous les schémas, les types `z.infer` (`Profile`, `SocialLink`,
-  …, `Cv`, `ProblemDetails`, `Locale`), les enums en constantes (`LOCALES`, `EXPERIENCE_KINDS`, …) et
-  `openApiDocument` (objet) ; `package.json` avec `exports` (`.`, `./openapi.json`), `types`, `sideEffects:
-  false`. Compte rendu `docs/comptes-rendus/lot-2-dev-contrats.md`.
-- **Fichiers** : `packages/contracts/src/index.ts`, `packages/contracts/package.json`, compte rendu.
+  `Skill`, `SkillGroup`, `Experience`, `Project`, `Tool`, `Resource`, `Certification`, `Education`,
+  `Language`, `Cv`, `ProblemDetails`, `HealthResponse`, `Locale`, `LocaleQuery`), les constantes d'enums et
+  `createOpenApiDocument` (déjà exporté). `package.json` : `exports` inchangé (`.` vers `dist/`),
+  `sideEffects: false`. `packages/contracts/README.md` mis à jour. Compte rendu
+  `docs/comptes-rendus/lot-2-dev-contrats.md`.
+- **Fichiers** : `packages/contracts/src/index.ts`, `packages/contracts/package.json`, `packages/contracts/README.md`, compte rendu.
 - **Critères d'acceptation** :
-  - `node -e "import('@v3/contracts').then(m=>process.exit(['ProfileSchema','CvSchema','ProblemDetailsSchema','LangQuerySchema','openApiDocument'].every(k=>k in m)?0:1))"` passe depuis `apps/api` après `pnpm build`.
-  - `pnpm --filter @v3/api typecheck` passe avec un import de type `Cv` depuis `@v3/contracts` (vérifié par un fichier `.d.ts` de test dans contracts : `expectTypeOf`).
+  - `pnpm build` puis, depuis `apps/api` : `node --input-type=module -e "import('@siteperso/contracts').then(m=>process.exit(['ProfileSchema','CvSchema','ProblemDetailsSchema','LocaleQuerySchema','createOpenApiDocument'].every(k=>k in m)?0:1))"` passe.
+  - `pnpm typecheck` passe avec un fichier de test de types dans contracts (`src/index.spec.ts`, `expectTypeOf<Cv>()`).
   - Critères D1 à D10.
 
 ---
@@ -567,58 +706,75 @@ partie du socle (lot 0).
   expériences), limitées au contenu `published`, et validées par les schémas Zod des contrats avant envoi.
 - **Dépendances** : lots 1 et 2 fusionnés dans `v3/backend`.
 - **Agents responsables** : Dev API A (branche `lot/3-api-a`) et Dev API B (branche `lot/3-api-b`), en
-  parallèle, périmètres disjoints.
+  parallèle, périmètres disjoints définis par la règle « modules isolés » (section 0.5 et `CLAUDE.md`).
 - **Répartition** (6 modules chacun, équilibrée par complexité : A reçoit `experiences` et `skill-groups`
   imbriqué, B reçoit `cv` et `projects`) :
 
-| Agent | Modules | Périmètre de fichiers |
+| Agent | Modules | Périmètre de fichiers (pour chaque `<resource>` de la liste) |
 |---|---|---|
-| A | `profile`, `social-links`, `skills`, `skill-groups`, `experiences`, `languages` + route `openapi.json` | `apps/api/src/modules/{profile,social-links,skills,skill-groups,experiences,languages}/**`, `apps/api/src/modules/openapi/**`, `apps/api/test/e2e/{profile,social-links,skills,skill-groups,experiences,languages,openapi}.e2e.ts`, `docs/comptes-rendus/lot-3-dev-api-a.md` |
-| B | `projects`, `tools`, `resources`, `certifications`, `education`, `cv` | `apps/api/src/modules/{projects,tools,resources,certifications,education,cv}/**`, `apps/api/test/e2e/{projects,tools,resources,certifications,education,cv}.e2e.ts`, `docs/comptes-rendus/lot-3-dev-api-b.md` |
+| A | `profile`, `social-links`, `skills`, `skill-groups`, `experiences`, `languages` | `apps/api/src/domain/<resource>/**`, `apps/api/src/application/<resource>/**`, `apps/api/src/infrastructure/db/<resource>/**`, `apps/api/src/infrastructure/http/<resource>/**`, `apps/api/test/<resource>.e2e-spec.ts`, `docs/comptes-rendus/lot-3-dev-api-a.md` |
+| B | `projects`, `tools`, `resources`, `certifications`, `education`, `cv` | mêmes dossiers pour ses ressources, `docs/comptes-rendus/lot-3-dev-api-b.md` |
 
 - **Patron commun à chaque module** (identique pour A et B, imposé par `CLAUDE.md`) :
-  - `domain/<resource>.ts` : types métier (dérivés des types de `@v3/contracts`), port
-    `<Resource>Repository` (interface, ex. `findAllPublished(locale): Promise<Experience[]>` /
-    `findProfile(locale): Promise<Profile | null>`), sans dépendance Nest ni Drizzle.
-  - `application/list-<resource>.use-case.ts` (ou `get-profile.use-case.ts`) : classe sans décorateur,
-    reçoit le port par constructeur, applique le repli de locale avec `pickTranslation`, retourne le type
-    du contrat.
-  - `infrastructure/db/drizzle-<resource>.repository.ts` : requêtes Drizzle (jointure des deux locales en
-    une requête : `left join … and locale = 'en'` + `join … and locale = 'fr'`), filtre `published = true`,
-    tri `sort_order asc, id asc`.
-  - `infrastructure/http/<resource>.controller.ts` + `<resource>.module.ts` : contrôleur Nest, parse `?lang`
-    avec `LangQuerySchema` (400 problem+json sinon), appelle le cas d'usage, valide la réponse avec le
-    schéma du contrat (`strict`) avant de la renvoyer, 404 problem+json si `/profile` n'a pas de ligne.
-  - Tests unitaires du cas d'usage avec un dépôt en mémoire (repli, tri, filtrage) ; test e2e du module
-    contre le Postgres de test seedé (`fr`, `en`, repli, forme de la réponse validée par le schéma Zod).
+  - `src/domain/<resource>/<resource>.ts` : types métier de la ressource (sans importer les contrats : le
+    domaine n'importe rien d'externe ; la correspondance avec le type du contrat est faite dans l'application).
+  - `src/application/<resource>/ports/<resource>-repository.port.ts` : interface `<Resource>Repository`
+    (ex. `findAllPublished(locale: Locale): Promise<Experience[]>` / `findProfile(locale): Promise<Profile |
+    null>`) et jeton `export const <RESOURCE>_REPOSITORY = Symbol('<RESOURCE>_REPOSITORY')`.
+  - `src/application/<resource>/list-<resource>.use-case.ts` (ou `get-profile.use-case.ts`,
+    `get-cv.use-case.ts`) : classe sans décorateur, reçoit le port par constructeur, retourne le type de
+    `@siteperso/contracts`.
+  - `src/infrastructure/db/<resource>/drizzle-<resource>.repository.ts` : injecte `DrizzleDatabaseClient`,
+    utilise `client.db` et le schéma de `infrastructure/db/schema`. Repli de langue en SQL, en une requête :
+    `inner join <t>_translations fr on … and fr.locale = 'fr'` + `left join <t>_translations en on … and
+    en.locale = :lang`, chaque champ traduit en `coalesce(en.col, fr.col)` (pour `lang = 'fr'`, la jointure
+    `en` est simplement vide). Filtre `published = true`, tri `sort_order asc, id asc`. Les entités
+    imbriquées (`skills`) sont chargées en une seconde requête au plus (pas de N+1).
+  - `src/infrastructure/http/<resource>/<resource>.controller.ts` : parse `?lang` avec
+    `LocaleQuerySchema.safeParse(request.query)` (`@Query()` brut ; 400 `BadRequestException` → problem+json
+    sinon), appelle le cas d'usage, valide la réponse avec le schéma du contrat (`strict`) avant de la
+    renvoyer, 404 (`EntityNotFoundError` du domaine) si `/profile` n'a pas de ligne. Le `.module.ts` fournit le
+    dépôt (`{ provide: <RESOURCE>_REPOSITORY, useClass: Drizzle<Resource>Repository }`) et le cas d'usage par
+    `useFactory` + `inject: [<RESOURCE>_REPOSITORY]` (voir `health/health.module.ts`), et **exporte le cas
+    d'usage** (`exports: [List<Resource>UseCase]`) pour `cv`.
+  - Tests unitaires `*.spec.ts` à côté du code : cas d'usage avec un dépôt en mémoire (tri, filtrage,
+    correspondance de types) ; test e2e `apps/api/test/<resource>.e2e-spec.ts` : `resetTestDatabase()` en
+    `beforeAll`, puis `fr`, `en`, repli (suppression des lignes `en` via `openTestSql()` puis
+    `resetTestDatabase()` en `afterAll`), `?lang=de` → 400, forme de la réponse validée par le schéma Zod
+    strict.
 - **Signatures des cas d'usage** (fixées ici pour que `cv` de l'agent B puisse composer ceux de l'agent A
   sans attendre) : `GetProfileUseCase.execute(locale)`, `ListSocialLinksUseCase.execute(locale)`,
   `ListSkillGroupsUseCase.execute(locale)`, `ListSkillsUseCase.execute(locale)`,
   `ListExperiencesUseCase.execute(locale)`, `ListProjectsUseCase.execute(locale)`,
   `ListToolsUseCase.execute(locale)`, `ListResourcesUseCase.execute(locale)`,
   `ListCertificationsUseCase.execute(locale)`, `ListEducationUseCase.execute(locale)`,
-  `ListLanguagesUseCase.execute(locale)`. Chaque module exporte son cas d'usage comme provider Nest
-  (`exports` du module) sous son nom de classe.
+  `ListLanguagesUseCase.execute(locale)` ; `locale: Locale` de `@siteperso/contracts`, retour `Promise<T>` du
+  type du contrat. Chaque module exporte son cas d'usage comme provider Nest sous son nom de classe.
+- **Fichiers partagés** : aucun agent ne touche `app.module.ts`, `create-app.ts`, `problem/*`, `config/*`,
+  `db/database.module.ts`, `db/drizzle-database-client.ts`, `db/schema/*`, `test/support/*`,
+  `packages/contracts/src/{index.ts,common/*,openapi/document.ts}`. Tout besoin (colonne manquante, schéma de
+  contrat à ajuster, export) est signalé dans le compte rendu ; l'orchestrateur l'applique en un commit dédié
+  sur `v3/backend` avant la fusion.
 
 ### L3-01 (A) — Module `profile`
 
 - **Description** : `GET /api/v1/profile` selon le patron commun. 404 problem+json si aucune ligne.
-- **Fichiers** : `apps/api/src/modules/profile/**`, `apps/api/test/e2e/profile.e2e.ts`.
+- **Fichiers** : dossiers `<resource>` = `profile` dans les quatre couches, `apps/api/test/profile.e2e-spec.ts`.
 - **Critères d'acceptation** :
-  - e2e : `GET /api/v1/profile` → 200, corps validé par `ProfileSchema` strict ; `?lang=en` → `title` en anglais ; après suppression de la ligne `en` dans le test → `?lang=en` renvoie le `fr` ; `?lang=de` → 400 problem+json.
+  - e2e : `GET /api/v1/profile` → 200, corps validé par `ProfileSchema` strict ; `?lang=en` → `title` en anglais ; après suppression de la ligne `en` → `?lang=en` renvoie le `fr` ; `?lang=de` → 400 problem+json ; profil supprimé → 404 problem+json.
   - `curl -s http://localhost:3000/api/v1/profile | grep -ciE "@|tel"` = 0.
 
 ### L3-02 (A) — Module `social-links`
 
 - **Description** : `GET /api/v1/social-links`, tableau trié par `sort_order`, `published` seulement.
-- **Fichiers** : `apps/api/src/modules/social-links/**`, `apps/api/test/e2e/social-links.e2e.ts`.
+- **Fichiers** : dossiers `social-links`, `apps/api/test/social-links.e2e-spec.ts`.
 - **Critères d'acceptation** :
   - e2e : 200, tableau validé par `z.array(SocialLinkSchema)` ; un lien mis `published=false` dans le test disparaît ; ordre = `sort_order`.
 
 ### L3-03 (A) — Module `skills`
 
 - **Description** : `GET /api/v1/skills`, tableau plat avec `groupSlug`, tri par `sort_order`.
-- **Fichiers** : `apps/api/src/modules/skills/**`, `apps/api/test/e2e/skills.e2e.ts`.
+- **Fichiers** : dossiers `skills`, `apps/api/test/skills.e2e-spec.ts`.
 - **Critères d'acceptation** :
   - e2e : 200, ≥ 30 éléments validés par `SkillSchema` ; `en` identique au `fr` pour un nom propre ; une compétence non publiée est exclue.
 
@@ -626,46 +782,47 @@ partie du socle (lot 0).
 
 - **Description** : `GET /api/v1/skill-groups` : groupes publiés triés, chacun avec ses `skills` publiés
   triés, en au plus deux requêtes (pas de N+1).
-- **Fichiers** : `apps/api/src/modules/skill-groups/**`, `apps/api/test/e2e/skill-groups.e2e.ts`.
+- **Fichiers** : dossiers `skill-groups`, `apps/api/test/skill-groups.e2e-spec.ts`.
 - **Critères d'acceptation** :
-  - e2e : 7 groupes validés par `SkillGroupSchema` ; un groupe non publié disparaît avec ses compétences ; test unitaire du dépôt comptant les requêtes exécutées ≤ 2 (via un logger Drizzle de test).
+  - e2e : 7 groupes validés par `SkillGroupSchema` ; un groupe non publié disparaît avec ses compétences ; test unitaire du dépôt comptant les requêtes exécutées ≤ 2 (logger Drizzle de test injecté via un `DrizzleDatabaseClient` de doublure).
 
 ### L3-05 (A) — Module `experiences` (skills, enums, tri par date)
 
 - **Description** : `GET /api/v1/experiences` : tri `date_start desc`, `achievements` en tableau, `skills`
   imbriqués triés par `experience_skills.sort_order`, dates au format `YYYY-MM-DD`, `logo` null si pas de
   `logo_path`.
-- **Fichiers** : `apps/api/src/modules/experiences/**`, `apps/api/test/e2e/experiences.e2e.ts`.
+- **Fichiers** : dossiers `experiences`, `apps/api/test/experiences.e2e-spec.ts`.
 - **Critères d'acceptation** :
   - e2e : 8 éléments validés par `ExperienceSchema` ; le premier est le plus récent ; l'élément `kind: 'break'` a `company: null` et `stackLabel` « Huile de coude » ; `?lang=en` renvoie les `achievements` anglais ; repli vers `fr` vérifié sur une expérience sans `en`.
 
 ### L3-06 (A) — Module `languages`
 
 - **Description** : `GET /api/v1/languages`.
-- **Fichiers** : `apps/api/src/modules/languages/**`, `apps/api/test/e2e/languages.e2e.ts`.
+- **Fichiers** : dossiers `languages`, `apps/api/test/languages.e2e-spec.ts`.
 - **Critères d'acceptation** :
   - e2e : 2 éléments validés par `LanguageSchema` ; `cefrLevel` `C1` pour `en`, null pour `fr`.
 
-### L3-07 (A) — Route `GET /api/v1/openapi.json`
+### L3-07 — Route du contrat OpenAPI — livré au lot 0 (`8eadf96`)
 
-- **Description** : module `openapi` servant `openApiDocument` de `@v3/contracts` en `application/json`,
-  avec `cache-control: public, max-age=3600`. La route est une méta-route hors contrat : elle n'apparaît
-  pas dans `paths` du document OpenAPI (décision à consigner dans le compte rendu).
-- **Fichiers** : `apps/api/src/modules/openapi/**`, `apps/api/test/e2e/openapi.e2e.ts`.
-- **Critères d'acceptation** :
-  - e2e : 200, corps strictement égal (`deepEqual`) au contenu de `packages/contracts/openapi/openapi.json`.
+- **Statut** : déjà livré par L0-03 sous la forme de `GET /api/v1/docs.json` (`DocsModule`,
+  `cache-control: public, max-age=300`, document généré par `createOpenApiDocument()` de
+  `@siteperso/contracts`). Méta-route hors `paths` du document. Aucune action au lot 3 : la route reflète
+  automatiquement les chemins ajoutés au lot 2. Le numéro est conservé pour la traçabilité ; l'agent A n'a pas
+  de septième module.
+- **Critères d'acceptation** (lot 4, L4-06) : `GET /api/v1/docs.json` strictement égal (`deepEqual`) au
+  contenu de `packages/contracts/dist/openapi.json` après `pnpm build`.
 
 ### L3-08 (B) — Module `projects` (skills imbriqués)
 
 - **Description** : `GET /api/v1/projects`, `skills` via `project_skills`, images en `ImageSchema | null`.
-- **Fichiers** : `apps/api/src/modules/projects/**`, `apps/api/test/e2e/projects.e2e.ts`.
+- **Fichiers** : dossiers `projects`, `apps/api/test/projects.e2e-spec.ts`.
 - **Critères d'acceptation** :
   - e2e : 200 et `[]` sur la base seedée ; avec une fixture insérée dans le test (projet + 2 skills, `en` absent) : 1 élément validé par `ProjectSchema`, `skills` triés, repli `fr` sur `?lang=en`.
 
 ### L3-09 (B) — Module `tools`
 
 - **Description** : `GET /api/v1/tools`.
-- **Fichiers** : `apps/api/src/modules/tools/**`, `apps/api/test/e2e/tools.e2e.ts`.
+- **Fichiers** : dossiers `tools`, `apps/api/test/tools.e2e-spec.ts`.
 - **Critères d'acceptation** :
   - e2e : `[]` sur base seedée ; avec fixture : validé par `ToolSchema`, filtrage `published`, tri.
 
@@ -673,32 +830,34 @@ partie du socle (lot 0).
 
 - **Description** : `GET /api/v1/resources`, `groupSlug` résolu par jointure sur `skill_groups` (null si
   pas de groupe).
-- **Fichiers** : `apps/api/src/modules/resources/**`, `apps/api/test/e2e/resources.e2e.ts`.
+- **Fichiers** : dossiers `resources`, `apps/api/test/resources.e2e-spec.ts`.
 - **Critères d'acceptation** :
   - e2e : `[]` sur base seedée ; avec fixture rattachée à un groupe : `groupSlug` renseigné ; sans groupe : null.
 
 ### L3-11 (B) — Module `certifications`
 
 - **Description** : `GET /api/v1/certifications`.
-- **Fichiers** : `apps/api/src/modules/certifications/**`, `apps/api/test/e2e/certifications.e2e.ts`.
+- **Fichiers** : dossiers `certifications`, `apps/api/test/certifications.e2e-spec.ts`.
 - **Critères d'acceptation** :
   - e2e : 3 éléments validés par `CertificationSchema`, tri `sort_order`, `en` présent et repli testé.
 
 ### L3-12 (B) — Module `education`
 
 - **Description** : `GET /api/v1/education`.
-- **Fichiers** : `apps/api/src/modules/education/**`, `apps/api/test/e2e/education.e2e.ts`.
+- **Fichiers** : dossiers `education`, `apps/api/test/education.e2e-spec.ts`.
 - **Critères d'acceptation** :
   - e2e : ≥ 1 élément validé par `EducationSchema`, `yearEnd` null accepté.
 
 ### L3-13 (B) — Module `cv` (agrégat)
 
-- **Description** : `GET /api/v1/cv` : `GetCvUseCase` compose les 10 cas d'usage listés (injectés par
-  Nest via les `exports` des modules), exécution en parallèle (`Promise.all`), réponse validée par
-  `CvSchema` strict, `locale` effective dans le corps. Tests unitaires avec des doublures des cas d'usage
-  (l'agent B n'attend pas le code de l'agent A) ; test e2e exécutable seulement après fusion des deux
-  branches : le chef de projet le lance à l'intégration.
-- **Fichiers** : `apps/api/src/modules/cv/**`, `apps/api/test/e2e/cv.e2e.ts`.
+- **Description** : `GET /api/v1/cv` : `GetCvUseCase` (`src/application/cv/get-cv.use-case.ts`) compose les
+  10 cas d'usage listés, reçus par constructeur ; `CvModule` importe les 10 modules de ressources et fournit
+  `GetCvUseCase` par `useFactory` + `inject: [GetProfileUseCase, …]` (noms de classes fixés ci-dessus),
+  exécution en parallèle (`Promise.all`), réponse validée par `CvSchema` strict, `locale` effective dans le
+  corps. Aucun dépôt propre : `cv` ne duplique aucune requête (`CLAUDE.md`). Tests unitaires avec des
+  doublures des cas d'usage (l'agent B n'attend pas le code de l'agent A) ; test e2e exécutable seulement
+  après fusion des deux branches : le chef de projet le lance à l'intégration.
+- **Fichiers** : `apps/api/src/application/cv/**`, `apps/api/src/infrastructure/http/cv/**`, `apps/api/test/cv.e2e-spec.ts`.
 - **Critères d'acceptation** :
   - Unitaire : `GetCvUseCase` renvoie un objet validé par `CvSchema` à partir de doublures ; une doublure qui rejette fait rejeter l'ensemble (pas de réponse partielle).
   - e2e (après fusion A + B) : `GET /api/v1/cv` → 200, validé par `CvSchema` ; `cv.experiences` égal à la réponse de `/experiences` ; `?lang=en` → `locale: 'en'`.
@@ -706,8 +865,9 @@ partie du socle (lot 0).
 
 ### L3-14 (A et B) — Comptes rendus
 
-- **Description** : chaque agent livre `docs/comptes-rendus/lot-3-dev-api-{a,b}.md`.
-- **Critères d'acceptation** : critères D1 à D10 sur chaque branche ; `git diff --stat v3/backend..lot/3-api-a` et `...lot/3-api-b` ne listent aucun fichier commun (périmètres disjoints vérifiés par `comm -12`).
+- **Description** : chaque agent livre `docs/comptes-rendus/lot-3-dev-api-{a,b}.md`, avec la liste des
+  changements partagés demandés à l'orchestrateur (exports, contrats, schéma).
+- **Critères d'acceptation** : critères D1 à D10 sur chaque branche ; `git diff --stat v3/backend..lot/3-api-a` et `...lot/3-api-b` ne listent aucun fichier commun (périmètres disjoints vérifiés par `comm -12`) ; `pnpm check` vert sur `v3/backend` après fusion des deux branches et des commits partagés de l'orchestrateur.
 
 ---
 
@@ -719,26 +879,28 @@ partie du socle (lot 0).
 - **Dépendances** : lot 3 (A et B) fusionné.
 - **Agent responsable** : QA (branche `lot/4-qa`).
 - **Périmètre autorisé** : `apps/api/test/**`, `apps/api/src/**/*.spec.ts`, `apps/api/vitest.config.ts`,
-  `docs/comptes-rendus/lot-4-*.md`. Les bugs trouvés sont consignés (pas corrigés par la QA sauf
-  trivialité dans un test) et transmis au lot 6.
+  `apps/api/vitest.e2e.config.ts`, `apps/api/package.json` (dépendances de test uniquement),
+  `docs/comptes-rendus/lot-4-*.md`. Les bugs trouvés sont consignés (pas corrigés par la QA sauf trivialité
+  dans un test) et transmis au lot 6.
 
 ### L4-01 — Harnais e2e commun
 
-- **Description** : `test/e2e/helpers/` : démarrage unique de l'app par fichier, `resetDatabase()`
-  (migrate + seed sur `postgres_test`), `withFixture()` (insertion dans une transaction annulée en fin de
-  test), `expectProblem(res, status)` (vérifie `content-type` et `ProblemDetailsSchema`), `validate(schema,
-  body)`. Table de paramétrage `ENDPOINTS` (12 routes, schéma associé, compteur attendu sur base seedée).
-- **Fichiers** : `apps/api/test/e2e/helpers/*.ts`.
+- **Description** : compléter `apps/api/test/support/` : `fixtures.ts` (`withFixture()` : insertion via
+  `openTestSql()` puis nettoyage en fin de test), `problem.ts` (`expectProblem(res, status)` : vérifie
+  `content-type` et `ProblemDetailsSchema`), `validate.ts` (`validate(schema, body)` strict), `endpoints.ts`
+  (table `ENDPOINTS` : 12 routes, schéma associé, compteur attendu sur base seedée). `startTestApp()` et
+  `resetTestDatabase()` existent déjà.
+- **Fichiers** : `apps/api/test/support/{fixtures.ts,problem.ts,validate.ts,endpoints.ts}`.
 - **Critères d'acceptation** :
   - `pnpm test:e2e` passe deux fois de suite sans intervention (reproductibilité).
 
 ### L4-02 — Matrice endpoints × langues × repli
 
 - **Description** : test paramétré sur `ENDPOINTS` : pour chaque route, `sans lang` = `fr`, `?lang=fr`,
-  `?lang=en`, `?lang=EN` (400 ou normalisation : trancher selon le contrat, qui impose `fr|en` minuscule
-  → 400), `?lang=de` → 400, `?lang=` → 400 ; repli : suppression de toutes les lignes `en` de la table
-  concernée dans la fixture puis `?lang=en` égal à `?lang=fr` champ par champ.
-- **Fichiers** : `apps/api/test/e2e/matrix.e2e.ts`.
+  `?lang=en`, `?lang=EN` → 400 (point ouvert P8 : contrat strict `fr|en` minuscule), `?lang=de` → 400,
+  `?lang=` → 400 ; repli : suppression de toutes les lignes `en` de la table concernée dans la fixture puis
+  `?lang=en` égal à `?lang=fr` champ par champ.
+- **Fichiers** : `apps/api/test/matrix.e2e-spec.ts`.
 - **Critères d'acceptation** :
   - Le test couvre les 12 routes (assertion `expect(ENDPOINTS).toHaveLength(12)`), passe, et le rapport Vitest liste ≥ 72 cas (12 × 6).
 
@@ -746,50 +908,56 @@ partie du socle (lot 0).
 
 - **Description** : pour chaque ressource en liste : une fixture non publiée n'apparaît ni dans la route
   dédiée ni dans `/cv` ; un `sort_order` modifié change l'ordre ; `experiences` triées `dateStart desc`.
-- **Fichiers** : `apps/api/test/e2e/published-and-order.e2e.ts`.
+- **Fichiers** : `apps/api/test/published-and-order.e2e-spec.ts`.
 - **Critères d'acceptation** : passe ; 10 ressources en liste couvertes.
 
 ### L4-04 — Erreurs et routes
 
-- **Description** : 404 problem+json sur `/api/v1/inconnu`, `/api/v1/profile/1`, `/inconnu`, `/api/v2/cv` ;
-  405 ou 404 (selon Fastify, à consigner) sur `POST /api/v1/profile` ; `HEAD` et `OPTIONS` cohérents ;
-  corps d'erreur sans stack trace ni message interne (`detail` générique en 500 simulé via une doublure de
-  dépôt qui lève) ; `instance` = chemin demandé.
-- **Fichiers** : `apps/api/test/e2e/errors.e2e.ts`.
-- **Critères d'acceptation** : passe ; aucune réponse d'erreur ne contient `at ` suivi d'un chemin de fichier (`/apps/api/`).
+- **Description** : compléter `errors.e2e-spec.ts` (qui perd ses 12 cas en 501) : 404 problem+json sur
+  `/api/v1/inconnu`, `/api/v1/profile/1`, `/inconnu`, `/api/v2/cv` ; 405 ou 404 (selon Fastify, à consigner)
+  sur `POST /api/v1/profile` ; `HEAD` et `OPTIONS` cohérents ; corps d'erreur sans stack trace ni message
+  interne (`detail` générique en 500 simulé via une doublure de dépôt qui lève, montée par
+  `Test.createTestingModule` avec `overrideProvider(<RESOURCE>_REPOSITORY)`) ; `instance` = chemin demandé.
+- **Fichiers** : `apps/api/test/errors.e2e-spec.ts`.
+- **Critères d'acceptation** : passe ; aucune réponse d'erreur ne contient `at ` suivi d'un chemin de fichier (`/apps/api/`) ; `grep -c 501 apps/api/test/errors.e2e-spec.ts` = 0.
 
 ### L4-05 — En-têtes de sécurité, CORS, rate limiting
 
-- **Description** : sur chaque route : `x-content-type-options: nosniff`, `x-frame-options: DENY` (ou
-  `SAMEORIGIN`, à consigner), `content-security-policy` avec `default-src 'none'`, `referrer-policy`,
-  `strict-transport-security`, absence de `x-powered-by` et de `server` détaillé ; CORS : `Origin` =
-  `CORS_ORIGIN` → `access-control-allow-origin` égal, autre origine → absent ; preflight `OPTIONS` n'autorise
-  que `GET` ; rate limiting : avec `RATE_LIMIT_MAX=3` injecté dans la config de test, la 4e requête dans la
-  fenêtre → 429 problem+json avec `retry-after`.
-- **Fichiers** : `apps/api/test/e2e/security.e2e.ts`.
+- **Description** : sur chaque route : `x-content-type-options: nosniff`, `x-frame-options: SAMEORIGIN`
+  (livré ; `DENY` si Julien tranche P9), `referrer-policy`, `strict-transport-security`, absence de
+  `x-powered-by` et de `server` détaillé ; pas de `content-security-policy` attendue (choix du lot 0 : API
+  JSON ; si P9 impose une CSP, test à inverser) ; CORS : `Origin` = première valeur de `CORS_ORIGIN` →
+  `access-control-allow-origin` égal, autre origine → absent ; préflight `OPTIONS` n'autorise que
+  `GET`/`HEAD` ; rate limiting : avec `RATE_LIMIT_MAX=3` injecté dans l'environnement de l'application de
+  test (`createApp` lit `process.env` : surcharger avant `startTestApp()` dans un fichier dédié), la 4e
+  requête dans la fenêtre → 429 problem+json avec `retry-after`. `health.e2e-spec.ts` et
+  `rate-limit.e2e-spec.ts` du lot 0 sont fusionnés ou conservés sans doublon.
+- **Fichiers** : `apps/api/test/security.e2e-spec.ts`.
 - **Critères d'acceptation** : passe ; `curl -s -I -H "Origin: https://evil.example" http://localhost:3000/api/v1/health | grep -i access-control-allow-origin` vide.
 
 ### L4-06 — Conformité des réponses au document OpenAPI
 
 - **Description** : pour chaque route et chaque langue, la réponse est validée (a) par le schéma Zod du
-  contrat en mode strict et (b) par le schéma JSON correspondant extrait de `openapi/openapi.json`
-  (validation Ajv 2020-12 avec `additionalProperties` forcé à false) ; les codes 400/404/429 sont déclarés
-  dans le document pour la route ; `GET /api/v1/openapi.json` égal au fichier commité.
-- **Fichiers** : `apps/api/test/e2e/openapi-conformance.e2e.ts`.
+  contrat en mode strict et (b) par le schéma JSON correspondant extrait du document servi par
+  `GET /api/v1/docs.json` (validation Ajv 2020-12 avec `additionalProperties` forcé à false ; dépendance de
+  dev choisie avec `pnpm view`) ; les codes 400/404/429 sont déclarés dans le document pour la route ;
+  `GET /api/v1/docs.json` égal (`deepEqual`) au contenu de `packages/contracts/dist/openapi.json`.
+- **Fichiers** : `apps/api/test/openapi-conformance.e2e-spec.ts`.
 - **Critères d'acceptation** : passe pour 12 routes × 2 langues ; un champ ajouté artificiellement dans une réponse (doublure) fait échouer le test (test négatif inclus).
 
 ### L4-07 — Tests unitaires manquants et seuil de couverture
 
-- **Description** : compléter les unitaires des cas d'usage et de `pickTranslation`, du filtre problem+json,
-  du parsing de config ; activer `coverage` (v8) avec seuils `lines 85`, `branches 75` sur `apps/api/src`
-  hors `infrastructure/db/schema`.
-- **Fichiers** : `apps/api/src/**/*.spec.ts`, `apps/api/vitest.config.ts`.
-- **Critères d'acceptation** : `pnpm --filter @v3/api test:unit -- --coverage` passe avec les seuils.
+- **Description** : compléter les unitaires des cas d'usage, du filtre problem+json (`toProblemDetails`), du
+  parsing de config ; activer `coverage` (v8, `@vitest/coverage-v8` à la version de `vitest`) dans
+  `vitest.config.ts` avec seuils `lines 85`, `branches 75` sur `apps/api/src` hors `infrastructure/db/schema`,
+  `cli/` et `main.ts`.
+- **Fichiers** : `apps/api/src/**/*.spec.ts`, `apps/api/vitest.config.ts`, `apps/api/package.json`.
+- **Critères d'acceptation** : `pnpm --filter @siteperso/api test -- --coverage` passe avec les seuils.
 
 ### L4-08 — Rapport QA
 
 - **Description** : `docs/comptes-rendus/lot-4-qa.md` : liste des anomalies trouvées (gravité, route,
-  reproduction par commande), cas non couverts, décisions (405 vs 404, `x-frame-options`).
+  reproduction par commande), cas non couverts, décisions (405 vs 404, `x-frame-options`, CSP).
 - **Critères d'acceptation** : critères D1 à D10 ; chaque anomalie référence un test rouge ou `skip` nommé `BUG-<n>`.
 
 ---
@@ -798,42 +966,54 @@ partie du socle (lot 0).
 
 - **Objectif** : image Docker de production, compose de production derrière Caddy (TLS automatique, aucun
   port base exposé), script de premier déploiement sur le VPS, CI GitHub Actions.
-- **Dépendances** : lot 0 fusionné pour démarrer ; vérification finale après fusion du lot 4.
+- **Dépendances** : lot 0 fusionné pour démarrer ; vérification finale après fusion du lot 4 (le service
+  `migrate` a besoin du runner du lot 1 : L5-02 se termine après la fusion du lot 1).
 - **Agent responsable** : DevOps (branche `lot/5-devops`).
-- **Périmètre autorisé** : `docker/**` (sauf `compose.dev.yml` : modifications minimales et justifiées),
-  `scripts/**`, `.github/**`, `.dockerignore`, `docs/deploiement.md`, `docs/comptes-rendus/lot-5-*.md`.
+- **Périmètre autorisé** : `docker/**`, `docker-compose.yml` (modifications minimales et justifiées :
+  `name:`, service `api` sous profil), `scripts/**`, `.github/**`, `.dockerignore`, `docs/deploiement.md`,
+  `docs/comptes-rendus/lot-5-*.md`.
+- **Contraintes livrées au lot 0** : `.npmrc` `use-node-version=22.23.5` fait télécharger Node par pnpm ;
+  dans l'image, utiliser `node:22.23.5-alpine` (même version) et neutraliser le téléchargement
+  (`pnpm config set use-node-version` vide ou `--config.use-node-version=` au `pnpm install`). L'API lit
+  `HOST`, `PORT`, `DATABASE_URL`, `CORS_ORIGIN`, `RATE_LIMIT_*`, `TRUST_PROXY` ; derrière Caddy,
+  `TRUST_PROXY=true` est obligatoire (sinon tout le trafic partage le quota de l'IP du proxy). `/health`
+  renvoie 503 tant que la base est injoignable.
 
 ### L5-01 — Dockerfile multi-stage de l'API
 
-- **Description** : `docker/api.Dockerfile` : étape `deps` (`node:22-alpine`, `corepack enable`, `pnpm
-  install --frozen-lockfile`), `build` (`pnpm turbo build --filter=@v3/api...`), `prune` (`pnpm deploy
-  --filter=@v3/api --prod`), `runtime` (`node:22-alpine`, utilisateur non root `node`, `NODE_ENV=production`,
-  copie de `dist`, `node_modules` prunés et `db/`, `HEALTHCHECK` sur `/api/v1/health`, `CMD node
-  dist/main.js`). `.dockerignore` strict. Image sans `pnpm`, sans sources TS, sans `.env`.
-- **Fichiers** : `docker/api.Dockerfile`, `.dockerignore`.
+- **Description** : `docker/api.Dockerfile` : étape `deps` (`node:22.23.5-alpine`, `corepack enable`, `pnpm
+  install --frozen-lockfile`), `build` (`pnpm turbo run build --filter=@siteperso/api...`), `prune` (`pnpm
+  deploy --filter=@siteperso/api --prod`), `runtime` (`node:22.23.5-alpine`, utilisateur non root `node`,
+  `NODE_ENV=production`, `HOST=0.0.0.0`, copie de `apps/api/dist`, `node_modules` prunés et `db/`,
+  `HEALTHCHECK` sur `/api/v1/health`, `CMD node dist/main.js`). `.dockerignore` strict. Image sans `pnpm`,
+  sans sources TS, sans `.env`. Service optionnel `api` (profil `api`, `build` du Dockerfile, `depends_on`
+  `postgres` healthy) ajouté à `docker-compose.yml` pour l'essai local, et `name: siteperso-v3` pour fixer le
+  nom du réseau quel que soit le dossier.
+- **Fichiers** : `docker/api.Dockerfile`, `.dockerignore`, `docker-compose.yml`.
 - **Critères d'acceptation** :
-  - `docker build -f docker/api.Dockerfile -t v3-api:test .` passe.
-  - `docker run --rm v3-api:test sh -c 'id -u'` ≠ 0 ; `docker run --rm v3-api:test sh -c 'ls src 2>/dev/null; ls .env 2>/dev/null; which pnpm'` ne renvoie rien.
-  - `docker image inspect v3-api:test --format '{{.Size}}'` < 300 Mo.
-  - `docker run --rm -e PORT=3000 -e CORS_ORIGIN=https://example.com -e DATABASE_URL=postgres://u:p@h/d -e RATE_LIMIT_MAX=100 -e RATE_LIMIT_WINDOW_MS=60000 -p 127.0.0.1:3100:3000 -d v3-api:test && sleep 3 && curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3100/api/v1/health` = 200.
+  - `docker build -f docker/api.Dockerfile -t siteperso-api:test .` passe.
+  - `docker run --rm siteperso-api:test sh -c 'id -u'` ≠ 0 ; `docker run --rm siteperso-api:test sh -c 'ls src 2>/dev/null; ls .env 2>/dev/null; which pnpm'` ne renvoie rien.
+  - `docker image inspect siteperso-api:test --format '{{.Size}}'` < 300 Mo.
+  - `pnpm db:up && docker compose --profile api up -d --build api && sleep 3 && curl -s http://127.0.0.1:3000/api/v1/health` = `{"status":"ok","checks":{"database":"up"}}` (base migrée au préalable avec `pnpm db:migrate` après fusion du lot 1 ; avant, 503 attendu).
 
 ### L5-02 — Compose de production avec Caddy
 
-- **Description** : `docker/compose.prod.yml` : services `caddy` (ports 80/443, volumes `caddy_data`,
-  `caddy_config`, `Caddyfile`), `api` (image construite, `expose: 3000` seulement, `depends_on` `migrate`
-  terminé avec succès et `postgres` healthy, `restart: unless-stopped`), `migrate` (même image, commande
-  `node dist/cli/migrate.js && node dist/cli/seed.js`, `restart: no`), `postgres` (`postgres:16-alpine`,
-  volume nommé, aucun port publié, healthcheck), réseau interne. `web` : service réservé (commenté ou
-  image placeholder statique) en attendant le front. `docker/Caddyfile` : site `{$SITE_DOMAIN}`,
-  `reverse_proxy /api/* api:3000`, `encode gzip zstd`, en-têtes de sécurité complémentaires, `/` renvoie
-  une page statique minimale sans donnée personnelle tant que le front n'existe pas. Variables dans
-  `docker/.env.prod.example` (placeholders).
+- **Description** : `docker/compose.prod.yml` (`name: siteperso-v3-prod`) : services `caddy` (ports 80/443,
+  volumes `caddy_data`, `caddy_config`, `Caddyfile`), `api` (image construite, `expose: 3000` seulement,
+  `TRUST_PROXY=true`, `depends_on` `migrate` terminé avec succès et `postgres` healthy, `restart:
+  unless-stopped`), `migrate` (même image, commande `node dist/cli/migrate.js && node dist/cli/seed.js`,
+  `restart: no`), `postgres` (`postgres:16-alpine`, volume nommé, aucun port publié, healthcheck), réseau
+  interne. `web` : service réservé (commenté ou image placeholder statique) en attendant le front.
+  `docker/Caddyfile` : site `{$SITE_DOMAIN}`, `reverse_proxy /api/* api:3000`, `encode gzip zstd`,
+  en-têtes de sécurité complémentaires, `/` renvoie une page statique minimale sans donnée personnelle tant
+  que le front n'existe pas. Variables dans `docker/.env.prod.example` (placeholders : `SITE_DOMAIN`,
+  `POSTGRES_PASSWORD`, `CORS_ORIGIN`, `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS`).
 - **Fichiers** : `docker/compose.prod.yml`, `docker/Caddyfile`, `docker/.env.prod.example`, `docker/placeholder/index.html`.
 - **Critères d'acceptation** :
   - `docker compose -f docker/compose.prod.yml --env-file docker/.env.prod.example config` passe.
   - `docker compose -f docker/compose.prod.yml --env-file docker/.env.prod.example config | grep -A3 'postgres:' | grep -c 'ports:'` = 0 (aucun port base exposé) ; seul `caddy` publie des ports.
   - `docker run --rm -v "$PWD/docker/Caddyfile:/etc/caddy/Caddyfile" caddy:2 caddy validate --config /etc/caddy/Caddyfile` passe.
-  - Test local : `SITE_DOMAIN=localhost docker compose -f docker/compose.prod.yml --env-file docker/.env.prod.example up -d --build` puis `curl -sk https://localhost/api/v1/health` = `{"status":"ok"}` et `curl -sk https://localhost/api/v1/cv | node -e "..."` validé par `CvSchema` (migrations et seeds passés par le service `migrate`).
+  - Test local (après fusion du lot 1) : `SITE_DOMAIN=localhost docker compose -f docker/compose.prod.yml --env-file docker/.env.prod.example up -d --build` puis `curl -sk https://localhost/api/v1/health` = `{"status":"ok","checks":{"database":"up"}}` ; après fusion du lot 3, `curl -sk https://localhost/api/v1/cv` validé par `CvSchema` (migrations et seeds passés par le service `migrate`).
 
 ### L5-03 — Script de premier déploiement VPS
 
@@ -841,33 +1021,34 @@ partie du socle (lot 0).
   Docker et Compose, crée le dossier de déploiement, copie `.env.prod.example` en `.env.prod` si absent et
   s'arrête pour que l'opérateur le remplisse (mots de passe générés par `openssl rand`), construit ou tire
   l'image, lance `compose.prod.yml`, attend le healthcheck, affiche l'état. `scripts/deploy/update.sh` :
-  `git pull`, rebuild, `up -d`, `migrate` relancé. Aucun secret dans le repo. `docs/deploiement.md` décrit
-  la procédure et la sauvegarde/restauration de `postgres` (`pg_dump` via `docker compose exec`).
+  `git pull`, rebuild, `up -d`, `migrate` relancé. `scripts/deploy/backup.sh` : `pg_dump` via `docker compose
+  exec`. Aucun secret dans le repo. `docs/deploiement.md` décrit la procédure et la sauvegarde/restauration.
 - **Fichiers** : `scripts/deploy/{first-install.sh,update.sh,backup.sh}`, `docs/deploiement.md`.
 - **Critères d'acceptation** :
-  - `bash -n scripts/deploy/*.sh` et `shellcheck scripts/deploy/*.sh` (via `docker run --rm -v "$PWD:/mnt" koalaman/shellcheck:stable scripts/deploy/*.sh`) passent.
-  - Exécution à blanc dans un conteneur `docker:cli` ou sur l'hôte avec `DEPLOY_DIR=$(mktemp -d)` : le script s'arrête proprement à l'étape « remplir .env.prod » avec un code de sortie documenté, puis termine sur une seconde exécution avec un `.env.prod` rempli de valeurs de test.
+  - `bash -n scripts/deploy/*.sh` et `docker run --rm -v "$PWD:/mnt" koalaman/shellcheck:stable scripts/deploy/*.sh` passent.
+  - Exécution à blanc sur l'hôte avec `DEPLOY_DIR=$(mktemp -d)` : le script s'arrête proprement à l'étape « remplir .env.prod » avec un code de sortie documenté, puis termine sur une seconde exécution avec un `.env.prod` rempli de valeurs de test.
   - Critère D7 sur `scripts/` et `docs/deploiement.md`.
 
 ### L5-04 — CI GitHub Actions
 
 - **Description** : `.github/workflows/ci.yml` déclenché sur `push` et `pull_request` : job `qualite`
-  (`actions/setup-node` 22 + cache pnpm via `corepack`, `pnpm install --frozen-lockfile`, `pnpm lint`,
-  `pnpm typecheck`, `pnpm build`, `pnpm test:unit`), job `e2e` (service `postgres:16-alpine`,
-  `DATABASE_URL_TEST` pointant dessus, `pnpm test:e2e`), job `docker` (`docker build` du Dockerfile, sans
-  push), job `contrats` (`openapi:generate` puis `git diff --exit-code`). Concurrence annulant les runs
-  obsolètes, permissions minimales (`contents: read`), actions épinglées par tag majeur.
+  (`pnpm/action-setup` lisant `packageManager`, Node via `.npmrc` `use-node-version` ou
+  `actions/setup-node` 22.23.5 avec cache pnpm, `pnpm install --frozen-lockfile`, `pnpm format:check`,
+  `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm test`), job `e2e` (service `postgres:16-alpine` avec
+  base `siteperso_test`, `DATABASE_URL` pointant dessus, `CORS_ORIGIN` de test, `pnpm test:e2e`), job
+  `docker` (`docker build -f docker/api.Dockerfile`, sans push). Concurrence annulant les runs obsolètes,
+  permissions minimales (`contents: read`), actions épinglées par tag majeur.
 - **Fichiers** : `.github/workflows/ci.yml`.
 - **Critères d'acceptation** :
   - `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest` passe.
-  - Exécution locale équivalente des quatre jobs (commandes listées dans le compte rendu) passe.
+  - Exécution locale équivalente des trois jobs (commandes listées dans le compte rendu) passe.
   - `grep -c "permissions:" .github/workflows/ci.yml` ≥ 1 et aucune étape `push` d'image ni secret référencé.
 
 ### L5-05 — Vérification finale et compte rendu
 
 - **Description** : après fusion du lot 4, rejouer L5-01 à L5-04 sur `v3/backend`, puis
   `docs/comptes-rendus/lot-5-devops.md`.
-- **Critères d'acceptation** : critères D1 à D10 ; `docker compose -f docker/compose.prod.yml ... down -v` laisse `docker ps -a | grep v3` vide.
+- **Critères d'acceptation** : critères D1 à D10 ; `docker compose -f docker/compose.prod.yml ... down -v` laisse `docker ps -a | grep siteperso-v3-prod` vide.
 
 ---
 
@@ -884,9 +1065,10 @@ partie du socle (lot 0).
 
 ### L6-01 — Revue de code indépendante
 
-- **Description** : relecture de `git diff master..v3/backend` : respect de l'architecture hexagonale,
-  duplication entre modules A et B, gestion d'erreurs, N+1, typage (`any`, assertions), dette, lisibilité,
-  conformité `CLAUDE.md`, pertinence des tests. Chaque finding : fichier, ligne, gravité (bloquant /
+- **Description** : relecture de `git diff master..v3/backend` : respect de l'architecture hexagonale par
+  couches (`CLAUDE.md`), duplication entre modules A et B (parsing de `?lang`, jointures de traduction :
+  proposer un helper partagé si la duplication le justifie), gestion d'erreurs, N+1, typage (`any`,
+  assertions), dette, lisibilité, pertinence des tests. Chaque finding : fichier, ligne, gravité (bloquant /
   majeur / mineur), scénario de défaillance, proposition. Sans accès à `docs/revues/securite-*.md`.
 - **Fichiers** : `docs/revues/code-2026-11-<jj>.md`.
 - **Critères d'acceptation** : fichier présent, chaque finding a un identifiant `RC-<n>` et une commande ou un test de reproduction ; `git diff --stat` de la branche de revue ne liste que `docs/revues/`.
@@ -895,10 +1077,10 @@ partie du socle (lot 0).
 
 - **Description** : même diff, angle sécurité : injection SQL (requêtes Drizzle paramétrées, pas de `sql.raw`
   sur entrée utilisateur), validation de `lang`, fuite d'informations (stack, versions, `server`),
-  en-têtes, CORS, rate limiting, Dockerfile (utilisateur, surface), compose prod (ports, secrets, réseau),
-  scripts de déploiement (`set -euo pipefail`, injection via variables), CI (permissions, épinglage),
-  dépendances (`pnpm audit --prod`), données personnelles (grep e-mail/téléphone), absence d'endpoints
-  d'écriture. Sans accès à `docs/revues/code-*.md`.
+  en-têtes, CORS, rate limiting (`TRUST_PROXY` en prod), Dockerfile (utilisateur, surface), compose prod
+  (ports, secrets, réseau), scripts de déploiement (`set -euo pipefail`, injection via variables), CI
+  (permissions, épinglage), dépendances (`pnpm audit --prod`), données personnelles (grep e-mail/téléphone),
+  absence d'endpoints d'écriture. Sans accès à `docs/revues/code-*.md`.
 - **Fichiers** : `docs/revues/securite-2026-11-<jj>.md`.
 - **Critères d'acceptation** : fichier présent, findings `RS-<n>` avec gravité et reproduction ; `pnpm audit --prod --audit-level=high` exécuté et son résultat consigné.
 
@@ -918,12 +1100,13 @@ partie du socle (lot 0).
 
 ### L6-05 — Recette finale du chef de projet
 
-- **Description** : sur `v3/backend` après fusion : rejouer la séquence L0-10, `pnpm db:reset`, `pnpm test`,
-  L5-02 (compose prod local), vérifier l'intégralité du contrat (13 routes), relire
-  `docs/traductions-a-relire.md`, puis rédiger `docs/compte-rendu-2026-11-<jj>.md` : périmètre livré,
-  écarts avec `docs/01` et `docs/02`, dette, points ouverts pour Julien, coût (tokens / durée si connus).
+- **Description** : sur `v3/backend` après fusion, depuis un clone propre : `pnpm install --frozen-lockfile`,
+  `pnpm db:up && pnpm db:migrate && pnpm db:seed`, `pnpm build`, `pnpm check`, `pnpm dev` + curl des 13
+  routes et de `/docs.json`, L5-02 (compose prod local), relecture de `docs/traductions-a-relire.md`, puis
+  rédaction de `docs/compte-rendu-2026-11-<jj>.md` : périmètre livré, écarts avec `docs/01` et `docs/02`,
+  dette, points ouverts pour Julien, coût (tokens / durée si connus).
 - **Critères d'acceptation** :
-  - Séquence complète verte depuis un clone propre.
+  - Séquence complète verte depuis un clone propre ; `git status --porcelain` vide ensuite.
   - `docs/compte-rendu-2026-11-<jj>.md` présent avec les sections « Livré », « Non livré », « Décisions », « Points ouverts », « Dette ».
   - Point de contrôle 2 : attente de Julien.
 
@@ -942,32 +1125,40 @@ partie du socle (lot 0).
 | P5 | Contenu de `projects`, `tools`, `resources` : vide dans la V2 et absent du CV. | Tables créées, aucun seed, routes renvoient `[]`. |
 | P6 | Formation : 1 ligne « autodidacte » + 2 lignes (EEMI 2016, OpenClassrooms 2015) ou 1 seule ligne ? | 3 lignes, `sort_order` chronologique inverse. |
 | P7 | Texte brut ou Markdown léger pour `bio`, `summary`, `description` (docs/01 : « à trancher au design »). | Texte brut sans balisage ; le contrat ne le précise pas, à documenter dans OpenAPI quand tranché. |
-| P8 | `lang` en majuscules (`?lang=EN`) : 400 ou normalisation ? | 400 (contrat strict `fr|en`). |
-| P9 | `x-frame-options` `DENY` vs `SAMEORIGIN`, et CSP de l'API (`default-src 'none'`). | `DENY`, `default-src 'none'`. |
+| P8 | `lang` en majuscules (`?lang=EN`) : 400 ou normalisation ? | 400 (contrat strict `fr|en`, `LocaleSchema` livré). |
+| P9 | En-têtes : le lot 0 livre helmet sans CSP et `x-frame-options: SAMEORIGIN` (défauts helmet, API JSON). Garder, ou imposer `DENY` + `content-security-policy: default-src 'none'` ? | Garder la livraison du lot 0 ; L4-05 teste ce qui est livré. |
 | P10 | Domaine du front pour `CORS_ORIGIN` et `SITE_DOMAIN` en production. | Placeholders `https://example.com` / `example.com`. |
 | P11 | Doit-on garder `GET /api/v1/skills` à plat alors que `/skill-groups` les imbrique ? (docs/01 liste les deux.) | Conserver les deux, conformément à docs/01. |
+| P12 | Rate limiting : seuil par défaut de 100 requêtes/minute/IP (lot 0), store en mémoire (une instance d'API). | Garder ; modifiable sans code via `RATE_LIMIT_MAX` et `RATE_LIMIT_WINDOW_MS`. |
+| P13 | Faut-il commiter un instantané `openapi.json` dans le repo pour le portage Rust, en plus de `dist/openapi.json` (build) et de `GET /docs.json` ? | Non : le document est généré depuis les schémas Zod (aucune dérive possible) ; un export est produit à la demande par `openapi:export`. |
+| P14 | `OpenAPI info.version` vaut `1.0.0` (version du contrat public) alors que les paquets sont en `0.0.0`. | Garder `1.0.0` comme version du contrat que le portage Rust devra honorer. |
+| P15 | Répartition A/B du lot 3 : le lead propose A = profile, social-links, skill-groups, skills, experiences, projects ; B = tools, resources, certifications, education, languages, cv. | Conserver la répartition de la section 4 (A : experiences + skill-groups ; B : cv + projects), équilibrée par complexité. |
 
 ### Risques identifiés
 
 | # | Risque | Impact | Mitigation |
 |---|---|---|---|
-| R1 | TypeScript `latest` sur npm est la 7.x (compilateur natif) ; `typescript-eslint` exige `< 6.1`, et la chaîne NestJS/Vitest n'est pas validée dessus. | Lint ou build cassés au lot 0. | Épingler la dernière 6.0.x (`pnpm view typescript versions`) et le consigner dans le compte rendu du lot 0 ; revérifier à chaque lot. |
-| R2 | Zod 4 : certains générateurs OpenAPI n'acceptent que Zod 4 (`@asteasolutions/zod-to-openapi` 9.x, `zod-openapi` 6.x) et l'API a changé par rapport à Zod 3. | Génération OpenAPI incomplète ou schémas 3.1 non conformes. | Choisir le générateur au lot 0 après un test de génération réel ; test de validation 3.1 au lot 2. |
-| R3 | NestJS 12 + Fastify 5 : les plugins `@fastify/helmet`, `@fastify/cors`, `@fastify/rate-limit` doivent être enregistrés sur l'instance Fastify sous-jacente, pas via Express. | En-têtes absents, CORS inopérant. | Tests e2e d'en-têtes dès le lot 0 (L0-07), complétés au lot 4. |
-| R4 | Repli de locale en SQL : jointure double (`fr` + `en`) sur chaque table de traduction, risque de N+1 ou d'oubli dans un module. | Réponses incohérentes entre modules A et B. | `pickTranslation` partagé (lot 0), patron de requête imposé (lot 3), matrice de repli (L4-02). |
-| R5 | Parallélisme A/B au lot 3 : `cv` (B) dépend des cas d'usage de A. | `cv` non testable e2e avant fusion. | Signatures fixées dans ce backlog ; unitaires avec doublures ; e2e `cv` joué par le CdP à l'intégration. |
-| R6 | Hook pre-commit lançant les e2e : lent et dépendant du Postgres de test démarré. | Agents tentés par `--no-verify`. | Message d'erreur explicite ; D6 exige la déclaration ; CI rejoue tout. |
-| R7 | Traductions EN produites par un agent. | Qualité éditoriale. | Marquage « à relire » systématique et liste centralisée (L1-14). |
+| R1 | Versions majeures récentes (TypeScript 6.0.3, ESLint 10, Vitest 5, NestJS 12, Zod 4, postgres 4) : tout passe au lot 0, incompatibilité possible au lot 3. | Lint, build ou tests cassés. | Rétrograder la brique concernée en un commit `chore` dédié plutôt que de contourner ; consigner dans le compte rendu. |
+| R2 | Zod 4 et `zod-openapi` 6 : schémas composés (`strict`, `nullable`, raffinements) mal rendus en OpenAPI 3.1. | Document non conforme pour le portage Rust. | Validateur OpenAPI 3.1 dans `document.spec.ts` (L2-06), conformité Ajv des réponses (L4-06). |
+| R3 | NestJS 12 + Fastify 5 : plugins `@fastify/*` enregistrés sur l'instance Fastify. | En-têtes absents, CORS inopérant. | Vérifié par les e2e du lot 0 (`health`, `rate-limit`), complété au lot 4 (L4-05). |
+| R4 | Repli de locale en SQL : jointure double (`fr` + `en`) sur chaque table de traduction, risque de N+1 ou d'oubli dans un module. | Réponses incohérentes entre modules A et B. | Patron de requête imposé (lot 3), test de repli par module, matrice de repli (L4-02), revue de la duplication (L6-01). |
+| R5 | Parallélisme A/B au lot 3 : `cv` (B) dépend des cas d'usage de A. | `cv` non testable e2e avant fusion. | Signatures et noms de classes fixés dans ce backlog ; unitaires avec doublures ; e2e `cv` joué par le CdP à l'intégration. |
+| R6 | Hook pre-commit sans e2e : un commit peut casser les e2e sans être bloqué. | Régression découverte tard. | `pnpm check` obligatoire avant de livrer un lot (D3), CI rejoue tout (L5-04), D6 exige la déclaration. |
+| R7 | Traductions EN produites par un agent. | Qualité éditoriale. | Marquage « à relire » systématique et liste centralisée (L1-14, `CLAUDE.md`). |
 | R8 | Fuite de données personnelles par inadvertance (seed, fixtures, docs, `.env`). | Non négociable violé. | Critère D7 à chaque ticket, test L1-13, grep en revue sécurité. |
-| R9 | Modification d'une migration déjà appliquée sur le VPS. | Divergence de schéma. | Checksum dans `schema_migrations` (L1-01), règle dans `db/migrations/README.md`. |
+| R9 | Modification d'une migration déjà appliquée sur le VPS. | Divergence de schéma. | Checksum dans `schema_migrations` (L1-01), règle dans `db/README.md`. |
 | R10 | Compose prod : Caddy sans front (`apps/web` différé). | Page d'accueil vide en production. | Placeholder statique minimal (L5-02), à remplacer lors du lot front. |
-| R11 | Dérive entre `openapi.json` commité et schémas Zod. | Contrat faux pour le portage Rust. | Job CI `contrats` (`git diff --exit-code`) et test L4-06. |
+| R11 | Dérive entre le document OpenAPI et les réponses réelles de l'API (le document est généré depuis Zod, mais les contrôleurs pourraient renvoyer autre chose). | Contrat faux pour le portage Rust. | Validation `strict` des réponses dans chaque contrôleur (lot 3), test L4-06. |
+| R12 | `TRUST_PROXY` oublié en prod derrière Caddy. | Rate limiting appliqué à l'IP du proxy : tout le trafic partagé. | `TRUST_PROXY=true` imposé dans `compose.prod.yml` (L5-02), vérifié en revue sécurité (L6-02). |
+| R13 | Node téléchargé par pnpm (`use-node-version`) : accès réseau au premier `pnpm install`, comportement différent en CI et dans l'image Docker. | Build CI ou Docker cassé. | Même version 22.23.5 partout (`.npmrc`, `node:22.23.5-alpine`, CI), téléchargement neutralisé dans l'image (L5-01). |
 
-## 9. Repères de versions (relevés le 18 novembre 2026, à revérifier avec `pnpm view <pkg> version`)
+## 9. Versions installées au lot 0 (épinglées exactement ; à revérifier avec `pnpm view <pkg> version` avant tout ajout)
 
-`@nestjs/core` 12.5.1 · `@nestjs/platform-fastify` 12.5.1 · `fastify` 5.12.8 · `drizzle-orm` 0.45.4 ·
-`postgres` 4.1.1 · `zod` 4.6.7 · `@asteasolutions/zod-to-openapi` 9.1.0 · `zod-openapi` 6.0.2 · `vitest` 5.1.1 ·
-`typescript` 7.0.2 (latest ; voir R1 : épingler 6.0.x) · `typescript-eslint` 8.73.0 (peer TS `< 6.1`) ·
-`eslint` 10.15.0 · `prettier` 3.10.1 · `turbo` 2.11.12 · `husky` 9.1.7 · `lint-staged` 17.6.1 ·
-`@fastify/helmet` 13.2.0 · `@fastify/cors` 11.4.3 · `@fastify/rate-limit` 11.2.2 · `@nestjs/testing` 12.5.1.
-Hôte : Node v22.11.0, pnpm 9.0.0, Docker Compose v2.40.
+`@nestjs/common`, `@nestjs/core`, `@nestjs/platform-fastify`, `@nestjs/testing` 12.5.1 · `fastify` 5.12.8 ·
+`@fastify/helmet` 13.2.0 · `@fastify/cors` 11.4.3 · `@fastify/rate-limit` 11.2.2 · `reflect-metadata` 0.2.2 ·
+`rxjs` 7.8.2 · `drizzle-orm` 0.45.4 · `postgres` 4.1.1 · `zod` 4.6.7 · `zod-openapi` 6.0.2 · `vitest` 5.1.1 ·
+`unplugin-swc` 2.0.0 · `@swc/core` 1.16.22 · `@swc-node/register` 1.12.1 · `tsx` 4.23.15 · `typescript` 6.0.3
+(la 7.x est `latest` mais `typescript-eslint` exige `< 6.1`) · `typescript-eslint` 8.73.0 · `eslint` 10.15.0 ·
+`@eslint/js` 10.0.1 · `eslint-config-prettier` 10.1.8 · `prettier` 3.10.1 · `turbo` 2.11.12 · `husky` 9.1.7 ·
+`@types/node` 22.20.5. Image `postgres:16-alpine`.
+Hôte : pnpm 9.0.0 (`packageManager`), Node 22.23.5 téléchargé par pnpm (`.npmrc`), Docker Compose v2.40.
