@@ -12,7 +12,8 @@ import { translated } from '../translated.js';
 /**
  * Dépôt Drizzle des ressources. Repli de langue en SQL, en une requête : `fr` obligatoire
  * (inner join), `locale` optionnelle (left join), `coalesce(en, fr)` par champ. Le slug du groupe
- * vient d'un left join sur `skill_groups` (null sans groupe).
+ * vient d'un left join sur `skill_groups` limité aux groupes publiés (null sans groupe ou si le
+ * groupe n'est pas publié : `/skill-groups` ne l'expose pas, un `groupSlug` y serait orphelin).
  */
 @Injectable()
 export class DrizzleResourcesRepository implements ResourcesRepository {
@@ -35,7 +36,10 @@ export class DrizzleResourcesRepository implements ResourcesRepository {
       .from(resources)
       .innerJoin(fr, and(eq(fr.resourceId, resources.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.resourceId, resources.id), eq(en.locale, locale)))
-      .leftJoin(skillGroups, eq(skillGroups.id, resources.groupId))
+      .leftJoin(
+        skillGroups,
+        and(eq(skillGroups.id, resources.groupId), eq(skillGroups.published, true)),
+      )
       .where(eq(resources.published, true))
       .orderBy(asc(resources.sortOrder), asc(resources.id));
   }
