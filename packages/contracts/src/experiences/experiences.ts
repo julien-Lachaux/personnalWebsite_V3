@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { IsoDateSchema } from '../common/date.js';
 import { ContractTypeSchema, ExperienceKindSchema, WorkModeSchema } from '../common/enums.js';
 import { ImageSchema } from '../common/image.js';
+import { nullable } from '../common/nullable.js';
 import { SlugSchema } from '../common/slug.js';
 import { SkillSchema } from '../skills/skills.js';
 
@@ -20,13 +21,15 @@ export const ExperienceSchema = z
       .nullable()
       .meta({ description: 'Employeur ; `null` pour une pause.' }),
     companyUrl: z.url().nullable().meta({ description: "Site de l'employeur." }),
-    logo: ImageSchema.nullable().meta({
-      description: "Logo de l'employeur et son texte alternatif.",
+    logo: nullable(ImageSchema).meta({
+      description: "Logo de l'employeur et son texte alternatif ; `null` si absent.",
     }),
-    contractType: ContractTypeSchema.nullable(),
-    workMode: WorkModeSchema.nullable(),
-    dateStart: IsoDateSchema.meta({ description: 'Début (premier jour du mois).' }),
-    dateEnd: IsoDateSchema.nullable().meta({ description: 'Fin ; `null` = en cours.' }),
+    contractType: nullable(ContractTypeSchema),
+    workMode: nullable(WorkModeSchema),
+    // Premier jour du mois.
+    dateStart: IsoDateSchema,
+    // `null` = en cours.
+    dateEnd: nullable(IsoDateSchema),
     jobTitle: z
       .string()
       .min(1)

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { CefrLevelSchema } from '../common/enums.js';
+import { nullable } from '../common/nullable.js';
 import { SlugSchema } from '../common/slug.js';
 
 /** Langue parlée. */
@@ -14,7 +15,7 @@ export const LanguageSchema = z
         description: 'Code ISO 639-1 en minuscules.',
         examples: ['fr'],
       }),
-    cefrLevel: CefrLevelSchema.nullable().meta({
+    cefrLevel: nullable(CefrLevelSchema).meta({
       description: 'Niveau CECRL ; `null` pour la langue maternelle.',
     }),
     name: z

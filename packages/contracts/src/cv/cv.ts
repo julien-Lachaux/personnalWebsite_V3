@@ -18,7 +18,8 @@ import { ToolSchema } from '../tools/tools.js';
  */
 export const CvSchema = z
   .strictObject({
-    locale: LocaleSchema.meta({ description: 'Langue effectivement demandée (`lang`).' }),
+    // Langue effectivement demandée (`lang`).
+    locale: LocaleSchema,
     profile: ProfileSchema,
     socialLinks: z.array(SocialLinkSchema),
     skillGroups: z.array(SkillGroupSchema),

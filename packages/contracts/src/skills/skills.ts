@@ -24,7 +24,8 @@ export const SkillSchema = z
     iconPath: z.string().min(1).nullable().meta({
       description: "Chemin d'une icône statique propre ; `null` si `icon` suffit.",
     }),
-    groupSlug: SlugSchema.meta({ description: 'Slug du groupe de compétences parent.' }),
+    // Slug du groupe de compétences parent.
+    groupSlug: SlugSchema,
   })
   .meta({ id: 'Skill', description: 'Compétence technique.' });
 

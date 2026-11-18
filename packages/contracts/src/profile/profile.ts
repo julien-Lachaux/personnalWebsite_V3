@@ -25,7 +25,8 @@ export const ProfileSchema = z
         description: 'Localisation publique.',
         examples: ['Melun, Île-de-France'],
       }),
-    picture: ImageSchema.meta({ description: 'Photo de profil et son texte alternatif.' }),
+    // Photo de profil et son texte alternatif.
+    picture: ImageSchema,
     title: z
       .string()
       .min(1)

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { ImageSchema } from '../common/image.js';
+import { nullable } from '../common/nullable.js';
 import { SlugSchema } from '../common/slug.js';
 import { SkillSchema } from '../skills/skills.js';
 
@@ -10,8 +11,8 @@ export const ProjectSchema = z
     slug: SlugSchema,
     url: z.url().meta({ description: 'Adresse publique du projet.' }),
     repoUrl: z.url().meta({ description: 'Adresse du dépôt de code.' }),
-    imageDesktop: ImageSchema.nullable().meta({ description: "Capture d'écran bureau." }),
-    imageMobile: ImageSchema.nullable().meta({ description: "Capture d'écran mobile." }),
+    imageDesktop: nullable(ImageSchema).meta({ description: "Capture d'écran bureau." }),
+    imageMobile: nullable(ImageSchema).meta({ description: "Capture d'écran mobile." }),
     year: z.int().min(1990).max(2100).meta({ description: 'Année de réalisation.' }),
     title: z.string().min(1),
     description: z.string(),
