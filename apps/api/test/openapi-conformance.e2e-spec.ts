@@ -13,8 +13,7 @@ import { expectProblem } from './support/problem.js';
 import { startTestApp } from './support/test-app.js';
 import { validate } from './support/validate.js';
 
-// Alias récursif : `Record<string, Json>` serait circulaire, la signature d'index est nécessaire.
-// eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style
+// Alias récursif (une signature d'index est nécessaire, `Record` serait circulaire).
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
 interface OpenApiDocument {
