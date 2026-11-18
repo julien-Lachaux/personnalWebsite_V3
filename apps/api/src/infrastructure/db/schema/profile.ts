@@ -1,0 +1,27 @@
+import { pgTable, primaryKey, smallint, text } from 'drizzle-orm/pg-core';
+
+import { localeCode } from './enums.js';
+
+export const profile = pgTable('profile', {
+  id: smallint('id').primaryKey(),
+  firstName: text('first_name').notNull(),
+  lastName: text('last_name').notNull(),
+  picturePath: text('picture_path').notNull(),
+  location: text('location').notNull(),
+});
+
+export const profileTranslations = pgTable(
+  'profile_translations',
+  {
+    profileId: smallint('profile_id')
+      .notNull()
+      .references(() => profile.id, { onDelete: 'cascade' }),
+    locale: localeCode('locale').notNull(),
+    title: text('title').notNull(),
+    headline: text('headline').notNull(),
+    bio: text('bio').notNull(),
+    availability: text('availability').notNull(),
+    pictureAlt: text('picture_alt').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.profileId, table.locale] })],
+);
