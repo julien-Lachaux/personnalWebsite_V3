@@ -1,0 +1,102 @@
+import { type TransactionSql } from 'postgres';
+
+import { type LogFn } from './migrations-runner.js';
+
+/** Table de contenu seedée, avec ses tables dépendantes (traductions, liaisons) et leur clé. */
+interface SeededEntity {
+  table: string;
+  /** `[table dépendante, colonne de clé étrangère vers table.id]`. */
+  children: readonly (readonly [string, string])[];
+  /** `false` pour `profile` : ligne unique sans slug. */
+  hasSlug: boolean;
+}
+
+/** Tables de contenu dont les seeds sont la source de vérité (docs/01). */
+const SEEDED_ENTITIES: readonly SeededEntity[] = [
+  {
+    table: 'profile',
+    children: [['profile_translations', 'profile_id']],
+    hasSlug: false,
+  },
+  {
+    table: 'social_links',
+    children: [['social_links_translations', 'social_link_id']],
+    hasSlug: true,
+  },
+  {
+    table: 'skill_groups',
+    children: [['skill_groups_translations', 'skill_group_id']],
+    hasSlug: true,
+  },
+  { table: 'skills', children: [['skills_translations', 'skill_id']], hasSlug: true },
+  {
+    table: 'experiences',
+    children: [
+      ['experiences_translations', 'experience_id'],
+      ['experience_skills', 'experience_id'],
+    ],
+    hasSlug: true,
+  },
+  {
+    table: 'projects',
+    children: [
+      ['projects_translations', 'project_id'],
+      ['project_skills', 'project_id'],
+    ],
+    hasSlug: true,
+  },
+  { table: 'tools', children: [['tools_translations', 'tool_id']], hasSlug: true },
+  { table: 'resources', children: [['resources_translations', 'resource_id']], hasSlug: true },
+  {
+    table: 'certifications',
+    children: [['certifications_translations', 'certification_id']],
+    hasSlug: true,
+  },
+  { table: 'education', children: [['education_translations', 'education_id']], hasSlug: true },
+  { table: 'languages', children: [['languages_translations', 'language_id']], hasSlug: true },
+];
+
+/**
+ * Fait converger la base vers le contenu des seeds, dans la transaction qui vient de les exécuter.
+ *
+ * Les seeds sont des `insert … on conflict do update` : chaque ligne qu'ils mentionnent est écrite
+ * (nouvelle version de ligne, même sans changement de valeur) par la transaction courante, donc
+ * son `xmin` est l'identifiant de cette transaction. Une ligne dépendante (traduction, liaison
+ * compétence) d'une entité que les seeds viennent d'écrire, et que les seeds n'ont PAS écrite, a
+ * été retirée des fichiers : elle est supprimée. Sans cela, une liaison ou une traduction retirée
+ * d'un seed resterait en production indéfiniment.
+ *
+ * Les entités elles-mêmes (lignes parentes) retirées des fichiers ne sont pas supprimées : leur
+ * politique (suppression ou dépublication) reste à trancher ; elles sont seulement signalées.
+ * Une table dont aucune ligne n'est écrite par les seeds (projets, outils, ressources tant qu'ils
+ * n'ont pas de seed) n'est pas touchée.
+ */
+export async function convergeToSeeds(tx: TransactionSql, log: LogFn): Promise<void> {
+  for (const entity of SEEDED_ENTITIES) {
+    for (const [child, foreignKey] of entity.children) {
+      const removed = await tx`
+        delete from ${tx(child)} c using ${tx(entity.table)} p
+        where c.${tx(foreignKey)} = p.id
+          and p.xmin = pg_current_xact_id()::xid
+          and not (c.xmin = pg_current_xact_id()::xid)
+        returning 1`;
+      if (removed.count > 0) {
+        log(`${child} : ${removed.count} ligne(s) absente(s) des seeds supprimée(s)`);
+      }
+    }
+
+    if (entity.hasSlug) {
+      const absent = await tx<{ slug: string }[]>`
+        select p.slug from ${tx(entity.table)} p
+        where not (p.xmin = pg_current_xact_id()::xid)
+          and exists (select 1 from ${tx(entity.table)} q where q.xmin = pg_current_xact_id()::xid)
+        order by p.slug`;
+      if (absent.length > 0) {
+        log(
+          `ATTENTION ${entity.table} : ${absent.length} ligne(s) absente(s) des seeds, conservée(s) ` +
+            `en base (${absent.map((row) => row.slug).join(', ')})`,
+        );
+      }
+    }
+  }
+}

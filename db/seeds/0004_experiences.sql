@@ -347,6 +347,6 @@ from (values
   ('openclassrooms-mentor', 'html5', 3),
   ('openclassrooms-mentor', 'css', 4)
 ) as v (experience_slug, skill_slug, sort_order)
-join experiences e on e.slug = v.experience_slug
-join skills s on s.slug = v.skill_slug
+left join experiences e on e.slug = v.experience_slug -- left join : un slug inconnu viole not null au lieu d'être ignoré
+left join skills s on s.slug = v.skill_slug
 on conflict (experience_id, skill_id) do update set sort_order = excluded.sort_order;
