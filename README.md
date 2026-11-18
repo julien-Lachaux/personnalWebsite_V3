@@ -6,7 +6,7 @@ Décisions et modèle de données : `docs/`. Conventions pour les agents : `CLAU
 
 ## Lancer en 4 commandes
 
-Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 9. Node 26 (dernière ligne
+Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 10 (>= 10.34.5 : les versions 9.x sont visées par des avis de sécurité sans correctif). Node 26 (dernière ligne
 stable) est téléchargé par pnpm (`.npmrc`, `use-node-version`), rien d'autre à installer.
 
 ```sh

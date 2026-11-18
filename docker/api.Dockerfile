@@ -9,7 +9,7 @@ ARG NODE_VERSION=26.13.1
 FROM node:${NODE_VERSION}-alpine AS deps
 ENV CI=true
 WORKDIR /repo
-RUN npm install --global pnpm@9.0.0 --no-fund --no-audit
+RUN npm install --global pnpm@10.34.9 --no-fund --no-audit
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
@@ -24,7 +24,7 @@ RUN pnpm turbo run build --filter=@siteperso/api...
 
 # --- prune : API seule avec ses dépendances de production ---------------------------------
 FROM build AS prune
-RUN pnpm deploy --filter=@siteperso/api --prod /out
+RUN pnpm deploy --legacy --filter=@siteperso/api --prod /out
 
 # --- runtime ------------------------------------------------------------------------------
 FROM node:${NODE_VERSION}-alpine AS runtime

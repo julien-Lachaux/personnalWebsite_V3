@@ -97,7 +97,7 @@ autres ressources : il les importe par leurs modules, sans dupliquer de requête
 
 ## Commandes
 
-Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 9. pnpm télécharge lui-même
+Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 10 (>= 10.34.5 : les versions 9.x sont visées par des avis de sécurité sans correctif). pnpm télécharge lui-même
 la version de Node fixée dans `.npmrc` (`use-node-version`, Node 26 = dernière ligne stable,
 docs/02) et l'utilise pour tous les scripts ; `engines.node` vaut `>=26 <27`.
 

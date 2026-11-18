@@ -4,10 +4,10 @@
   "private": true,
   "description": "Site perso V3 : monorepo back-end (API NestJS/Fastify, contrats Zod/OpenAPI, SQL)",
   "type": "module",
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@10.34.9",
   "engines": {
     "node": ">=26 <27",
-    "pnpm": ">=9.0.0"
+    "pnpm": ">=10.34.5"
   },
   "scripts": {
     "build": "turbo run build",
