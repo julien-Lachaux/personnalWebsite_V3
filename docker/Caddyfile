@@ -11,6 +11,14 @@ http://{$SITE_DOMAIN:localhost} {
 {$SITE_DOMAIN:localhost} {
 	encode gzip zstd
 
+	# Journal d'accès (JSON, sortie standard) : sert à vérifier l'IP réelle des clients, surtout IPv6
+	# (voir docs/deploiement.md, « IP des clients et rate limiting »). Contient des adresses IP :
+	# rotation et durée de conservation limitées (compose.prod.yml, `logging`).
+	log {
+		output stdout
+		format json
+	}
+
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"

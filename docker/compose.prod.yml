@@ -41,6 +41,12 @@ services:
       - no-new-privileges:true
     mem_limit: 256m
     pids_limit: 100
+    # Journal d'accès avec adresses IP : conservation bornée (3 x 10 Mo) sur le VPS.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
 
   api:
     build:

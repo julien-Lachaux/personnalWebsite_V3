@@ -70,6 +70,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
     global: false,
     max: env.RATE_LIMIT_MAX,
     timeWindow: env.RATE_LIMIT_WINDOW_MS,
+    // Un client IPv6 reçoit un préfixe entier (/64) : il ne multiplie pas son quota en changeant
+    // d'adresse dans son préfixe. Valeur par défaut du plugin, posée explicitement.
+    ipv6Subnet: 64,
   });
   const fastify = app.getHttpAdapter().getInstance();
   const limit = fastify.rateLimit();

@@ -89,6 +89,27 @@ gunzip -c DEPLOY_DIR/backups/<fichier>.sql.gz | \
   ni `wget`/`nc` dans l'image, pas de `db:reset`.
 - `apps/api/test/prod-compose.e2e-spec.ts` vérifie ces propriétés sur la configuration résolue par compose.
 
+## IP des clients et rate limiting
+
+L'API compte le quota par IP cliente, lue dans `X-Forwarded-For` ajouté par Caddy (`TRUST_PROXY=uniquelocal`).
+Les clients IPv6 sont regroupés par préfixe /64 (`ipv6Subnet`). **À vérifier après le premier déploiement** :
+sur certains hôtes Docker, le trafic IPv6 est relayé par `docker-proxy` et Caddy voit alors la même adresse
+privée (`172.x.0.1`) pour tous ces visiteurs, qui partageraient un seul quota (constaté sous WSL, jamais
+observé sur le trafic IPv4 d'un VPS Linux, qui garde son IP source).
+
+```sh
+# 1. Depuis une machine en IPv6, quelques requêtes :
+curl -6 https://<domaine>/api/v1/health
+# 2. Sur le VPS, l'adresse vue par Caddy (champ request.remote_ip, ou client_ip) :
+docker compose -f docker/compose.prod.yml --env-file DEPLOY_DIR/.env.prod logs caddy | grep '"uri":"/api/v1/health"' | tail -3
+```
+
+Si l'adresse affichée est une `172.x.0.1` (ou `::ffff:172.x.0.1`) au lieu de l'IP publique du client : les
+visiteurs IPv6 partagent un quota. Corrections possibles, à choisir selon l'hôte : désactiver le proxy
+utilisateur de Docker (`"userland-proxy": false` dans `/etc/docker/daemon.json`, puis redémarrer Docker) ou
+activer l'IPv6 sur le réseau `edge` (`enable_ipv6: true` avec un sous-réseau). Consigner ici le résultat de la
+vérification. Le journal d'accès contient des adresses IP : sa rotation est bornée (3 fichiers de 10 Mo).
+
 ## Ce que Caddy filtre et annonce
 
 - Sous `/api/*` : toute méthode hors `GET`, `HEAD`, `OPTIONS` reçoit un 405 `application/problem+json` sans
