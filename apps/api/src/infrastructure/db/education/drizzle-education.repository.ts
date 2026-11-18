@@ -1,11 +1,10 @@
-import { Injectable } from '@nestjs/common';
 import { type Locale } from '@siteperso/contracts';
 import { and, asc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { type EducationRepository } from '../../../application/education/ports/education-repository.port.js';
 import { type Education } from '../../../domain/education/education.js';
-import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
+import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { education, educationTranslations } from '../schema/index.js';
 import { translated } from '../translated.js';
 
@@ -13,7 +12,6 @@ import { translated } from '../translated.js';
  * Dépôt Drizzle des formations. Repli de langue en SQL, en une requête : `fr` obligatoire
  * (inner join), `locale` optionnelle (left join), `coalesce(en, fr)` par champ traduit.
  */
-@Injectable()
 export class DrizzleEducationRepository implements EducationRepository {
   constructor(private readonly client: DrizzleDatabaseClient) {}
 

@@ -5,6 +5,7 @@ import {
   LANGUAGES_REPOSITORY,
   type LanguagesRepository,
 } from '../../../application/languages/ports/languages-repository.port.js';
+import { DrizzleDatabaseClient } from '../../db/drizzle-database-client.js';
 import { DrizzleLanguagesRepository } from '../../db/languages/drizzle-languages.repository.js';
 import { LanguagesController } from './languages.controller.js';
 
@@ -12,7 +13,11 @@ import { LanguagesController } from './languages.controller.js';
 @Module({
   controllers: [LanguagesController],
   providers: [
-    { provide: LANGUAGES_REPOSITORY, useClass: DrizzleLanguagesRepository },
+    {
+      provide: LANGUAGES_REPOSITORY,
+      useFactory: (client: DrizzleDatabaseClient) => new DrizzleLanguagesRepository(client),
+      inject: [DrizzleDatabaseClient],
+    },
     {
       provide: ListLanguagesUseCase,
       useFactory: (languages: LanguagesRepository) => new ListLanguagesUseCase(languages),

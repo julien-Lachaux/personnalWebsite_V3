@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { type Locale } from '@siteperso/contracts';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -6,7 +5,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { type ProjectsRepository } from '../../../application/projects/ports/projects-repository.port.js';
 import { type Project } from '../../../domain/projects/projects.js';
 import { type Skill } from '../../../domain/skills/skill.js';
-import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
+import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { projects, projectSkills, projectsTranslations, skills } from '../schema/index.js';
 import { selectPublishedSkills } from '../skills/select-published-skills.js';
 import { translated } from '../translated.js';
@@ -16,7 +15,6 @@ import { translated } from '../translated.js';
  * optionnelle (left join), `coalesce(en, fr)` par champ. Deux requêtes au plus : les projets, puis
  * leurs compétences (pas de N+1).
  */
-@Injectable()
 export class DrizzleProjectsRepository implements ProjectsRepository {
   constructor(private readonly client: DrizzleDatabaseClient) {}
 

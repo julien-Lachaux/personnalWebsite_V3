@@ -5,6 +5,7 @@ import {
   PROFILE_REPOSITORY,
   type ProfileRepository,
 } from '../../../application/profile/ports/profile-repository.port.js';
+import { DrizzleDatabaseClient } from '../../db/drizzle-database-client.js';
 import { DrizzleProfileRepository } from '../../db/profile/drizzle-profile.repository.js';
 import { ProfileController } from './profile.controller.js';
 
@@ -12,7 +13,11 @@ import { ProfileController } from './profile.controller.js';
 @Module({
   controllers: [ProfileController],
   providers: [
-    { provide: PROFILE_REPOSITORY, useClass: DrizzleProfileRepository },
+    {
+      provide: PROFILE_REPOSITORY,
+      useFactory: (client: DrizzleDatabaseClient) => new DrizzleProfileRepository(client),
+      inject: [DrizzleDatabaseClient],
+    },
     {
       provide: GetProfileUseCase,
       useFactory: (profiles: ProfileRepository) => new GetProfileUseCase(profiles),

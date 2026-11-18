@@ -1,16 +1,14 @@
-import { Injectable } from '@nestjs/common';
 import { type Locale } from '@siteperso/contracts';
 import { and, asc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { type SocialLinksRepository } from '../../../application/social-links/ports/social-links-repository.port.js';
 import { type SocialLink } from '../../../domain/social-links/social-link.js';
-import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
+import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { socialLinks, socialLinksTranslations } from '../schema/index.js';
 import { translated } from '../translated.js';
 
 /** Implémentation Drizzle du dépôt de liens sociaux : une seule requête. */
-@Injectable()
 export class DrizzleSocialLinksRepository implements SocialLinksRepository {
   constructor(private readonly client: DrizzleDatabaseClient) {}
 

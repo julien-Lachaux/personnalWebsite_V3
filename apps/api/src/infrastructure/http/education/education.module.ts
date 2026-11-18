@@ -5,6 +5,7 @@ import {
   EDUCATION_REPOSITORY,
   type EducationRepository,
 } from '../../../application/education/ports/education-repository.port.js';
+import { DrizzleDatabaseClient } from '../../db/drizzle-database-client.js';
 import { DrizzleEducationRepository } from '../../db/education/drizzle-education.repository.js';
 import { EducationController } from './education.controller.js';
 
@@ -12,7 +13,11 @@ import { EducationController } from './education.controller.js';
 @Module({
   controllers: [EducationController],
   providers: [
-    { provide: EDUCATION_REPOSITORY, useClass: DrizzleEducationRepository },
+    {
+      provide: EDUCATION_REPOSITORY,
+      useFactory: (client: DrizzleDatabaseClient) => new DrizzleEducationRepository(client),
+      inject: [DrizzleDatabaseClient],
+    },
     {
       provide: ListEducationUseCase,
       useFactory: (repository: EducationRepository) => new ListEducationUseCase(repository),

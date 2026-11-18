@@ -1,16 +1,14 @@
-import { Injectable } from '@nestjs/common';
 import { type Locale } from '@siteperso/contracts';
 import { and, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { type ProfileRepository } from '../../../application/profile/ports/profile-repository.port.js';
 import { type Profile } from '../../../domain/profile/profile.js';
-import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
+import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { profile, profileTranslations } from '../schema/index.js';
 import { translated } from '../translated.js';
 
 /** Implémentation Drizzle du dépôt de profil : une seule requête, repli `en` → `fr` en SQL. */
-@Injectable()
 export class DrizzleProfileRepository implements ProfileRepository {
   constructor(private readonly client: DrizzleDatabaseClient) {}
 

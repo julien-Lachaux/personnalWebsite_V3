@@ -5,6 +5,7 @@ import {
   EXPERIENCES_REPOSITORY,
   type ExperiencesRepository,
 } from '../../../application/experiences/ports/experiences-repository.port.js';
+import { DrizzleDatabaseClient } from '../../db/drizzle-database-client.js';
 import { DrizzleExperiencesRepository } from '../../db/experiences/drizzle-experiences.repository.js';
 import { ExperiencesController } from './experiences.controller.js';
 
@@ -12,7 +13,11 @@ import { ExperiencesController } from './experiences.controller.js';
 @Module({
   controllers: [ExperiencesController],
   providers: [
-    { provide: EXPERIENCES_REPOSITORY, useClass: DrizzleExperiencesRepository },
+    {
+      provide: EXPERIENCES_REPOSITORY,
+      useFactory: (client: DrizzleDatabaseClient) => new DrizzleExperiencesRepository(client),
+      inject: [DrizzleDatabaseClient],
+    },
     {
       provide: ListExperiencesUseCase,
       useFactory: (experiences: ExperiencesRepository) => new ListExperiencesUseCase(experiences),

@@ -5,6 +5,7 @@ import {
   SKILLS_REPOSITORY,
   type SkillsRepository,
 } from '../../../application/skills/ports/skills-repository.port.js';
+import { DrizzleDatabaseClient } from '../../db/drizzle-database-client.js';
 import { DrizzleSkillsRepository } from '../../db/skills/drizzle-skills.repository.js';
 import { SkillsController } from './skills.controller.js';
 
@@ -12,7 +13,11 @@ import { SkillsController } from './skills.controller.js';
 @Module({
   controllers: [SkillsController],
   providers: [
-    { provide: SKILLS_REPOSITORY, useClass: DrizzleSkillsRepository },
+    {
+      provide: SKILLS_REPOSITORY,
+      useFactory: (client: DrizzleDatabaseClient) => new DrizzleSkillsRepository(client),
+      inject: [DrizzleDatabaseClient],
+    },
     {
       provide: ListSkillsUseCase,
       useFactory: (skills: SkillsRepository) => new ListSkillsUseCase(skills),
