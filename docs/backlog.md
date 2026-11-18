@@ -35,7 +35,7 @@ Conventions de ce document :
   (code, SQL, docs, tests, fixtures, `.env.example`). Les exemples utilisent des placeholders
   (`contact@example.com`, `+33 0 00 00 00 00`). Le nom, le titre, la localisation et les URL publiques de
   profils professionnels sont du contenu de CV publié et sont seedés ; l'e-mail et le téléphone jamais.
-- Sur l'hôte : Docker (avec `docker compose`) et pnpm 9 seulement. Node 22 est téléchargé par pnpm
+- Sur l'hôte : Docker (avec `docker compose`) et pnpm 10 (>= 10.34.5, lot 6) seulement. Node 26 est téléchargé par pnpm
   (`.npmrc`, `use-node-version=26.13.1`). PostgreSQL tourne uniquement en Docker (`docker-compose.yml`).
   Rien d'autre n'est installé globalement : `psql` s'exécute dans le conteneur (`docker compose exec`).
 - Versions : chaque paquet est ajouté à sa version stable courante vérifiée avec `pnpm view <pkg> version`,
@@ -194,7 +194,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 ### L0-01 — Monorepo pnpm + Turborepo — livré `00064c0`
 
 - **Livré** : `package.json` racine privé `siteperso-v3` (`packageManager: pnpm@9.0.0`, `engines.node:
-  ">=22.11.0 <23"`), `pnpm-workspace.yaml` (`apps/*`, `packages/*`), `turbo.json` (tâches `build`, `lint`,
+  ">=22.11.0 <23"` à la livraison ; Node 26 depuis le lot 0 bis, pnpm 10.34.9 depuis le lot 6), `pnpm-workspace.yaml` (`apps/*`, `packages/*`), `turbo.json` (tâches `build`, `lint`,
   `typecheck`, `test`, `test:e2e`, toutes `dependsOn: ["^build"]`, `test:e2e` sans cache avec `env`
   `DATABASE_URL`, `PORT`, `HOST`, `CORS_ORIGIN`, `NODE_ENV`), `.npmrc` (`use-node-version=26.13.1`,
   `engine-strict`), `.nvmrc` (22), `.editorconfig`, `tsconfig.base.json` strict (`module: NodeNext`),
@@ -207,7 +207,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
   (lot 1), Node téléchargé par pnpm plutôt qu'installé sur l'hôte.
 - **Critères d'acceptation** (vérifiés) :
   - `pnpm install --frozen-lockfile` passe.
-  - `node -e "const p=require('./package.json');process.exit(/^pnpm@9\./.test(p.packageManager)?0:1)"` passe.
+  - `node -e "const p=require('./package.json');process.exit(/^pnpm@10\./.test(p.packageManager)?0:1)"` passe.
   - `pnpm turbo run lint typecheck build --dry-run=json` liste les tâches pour `@siteperso/api` et `@siteperso/contracts`.
   - `pnpm lint` et `pnpm format:check` passent.
 
@@ -1161,4 +1161,4 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 (la 7.x est `latest` mais `typescript-eslint` exige `< 6.1`) · `typescript-eslint` 8.73.0 · `eslint` 10.15.0 ·
 `@eslint/js` 10.0.1 · `eslint-config-prettier` 10.1.8 · `prettier` 3.10.1 · `turbo` 2.11.12 · `husky` 9.1.7 ·
 `@types/node` 22.20.5. Image `postgres:16-alpine`.
-Hôte : pnpm 9.0.0 (`packageManager`), Node 26.13.1 téléchargé par pnpm (`.npmrc`), Docker Compose v2.40.
+Hôte : pnpm 10.34.9 (`packageManager`, lot 6), Node 26.13.1 téléchargé par pnpm (`.npmrc`), Docker Compose v2.40.
