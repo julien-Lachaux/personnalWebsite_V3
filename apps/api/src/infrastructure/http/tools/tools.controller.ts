@@ -1,13 +1,22 @@
-import { Controller, Get, NotImplementedException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { LocaleQuerySchema, type Tool, ToolSchema } from '@siteperso/contracts';
 
-/**
- * Ressource « outils » (`GET /api/v1/tools`). Squelette du lot 0 : la route répond 501
- * problem+json jusqu'à son implémentation au lot 3 (voir docs/01 pour le contrat).
- */
+import { ListToolsUseCase } from '../../../application/tools/list-tools.use-case.js';
+
+/** Ressource « outils » : `GET /api/v1/tools?lang=fr|en`. */
 @Controller('tools')
 export class ToolsController {
+  constructor(private readonly listTools: ListToolsUseCase) {}
+
   @Get()
-  list(): never {
-    throw new NotImplementedException('Ressource « tools » : implémentation prévue au lot 3.');
+  async list(@Query() query: unknown): Promise<Tool[]> {
+    const parsed = LocaleQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        'Paramètre « lang » invalide : valeurs permises « fr » ou « en ».',
+      );
+    }
+    // Validation stricte de la réponse avant envoi : un écart avec le contrat donne un 500.
+    return ToolSchema.array().parse(await this.listTools.execute(parsed.data.lang));
   }
 }

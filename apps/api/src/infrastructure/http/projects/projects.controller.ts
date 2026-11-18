@@ -1,13 +1,22 @@
-import { Controller, Get, NotImplementedException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { LocaleQuerySchema, type Project, ProjectSchema } from '@siteperso/contracts';
 
-/**
- * Ressource « projets » (`GET /api/v1/projects`). Squelette du lot 0 : la route répond 501
- * problem+json jusqu'à son implémentation au lot 3 (voir docs/01 pour le contrat).
- */
+import { ListProjectsUseCase } from '../../../application/projects/list-projects.use-case.js';
+
+/** Ressource « projets » : `GET /api/v1/projects?lang=fr|en`. */
 @Controller('projects')
 export class ProjectsController {
+  constructor(private readonly listProjects: ListProjectsUseCase) {}
+
   @Get()
-  list(): never {
-    throw new NotImplementedException('Ressource « projects » : implémentation prévue au lot 3.');
+  async list(@Query() query: unknown): Promise<Project[]> {
+    const parsed = LocaleQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        'Paramètre « lang » invalide : valeurs permises « fr » ou « en ».',
+      );
+    }
+    // Validation stricte de la réponse avant envoi : un écart avec le contrat donne un 500.
+    return ProjectSchema.array().parse(await this.listProjects.execute(parsed.data.lang));
   }
 }
