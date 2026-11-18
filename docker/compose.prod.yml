@@ -16,6 +16,7 @@ services:
       - '${HTTPS_PORT:-443}:443/udp'
     environment:
       SITE_DOMAIN: ${SITE_DOMAIN:?SITE_DOMAIN requis}
+      PUBLIC_HTTPS_PORT: ${HTTPS_PORT:-443}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./placeholder:/srv/placeholder:ro

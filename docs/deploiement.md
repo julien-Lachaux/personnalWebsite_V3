@@ -77,6 +77,15 @@ gunzip -c DEPLOY_DIR/backups/<fichier>.sql.gz | \
   exec -T postgres psql -U siteperso -d siteperso
 ```
 
+## Ce que Caddy filtre et annonce
+
+- Sous `/api/*` : toute méthode hors `GET`, `HEAD`, `OPTIONS` reçoit un 405 `application/problem+json` sans
+  que le corps soit lu, et tout corps est plafonné à 1 Kio (413). L'API refuse elle aussi les corps > 1 Kio.
+- Réponses sans `Server` ni `Via` (le logiciel n'est pas annoncé), y compris la redirection HTTP vers HTTPS
+  (écrite à la main dans le `Caddyfile` ; `PUBLIC_HTTPS_PORT`, alimenté par `HTTPS_PORT`, fixe son port).
+- `Content-Security-Policy` : `default-src 'none'; frame-ancestors 'none'` sous `/api/*`, `default-src 'self'`
+  pour la page statique. À adapter quand le front sera servi.
+
 ## Rôles PostgreSQL
 
 Deux rôles, pour que l'API en lecture seule ne puisse rien écrire même si elle est compromise :
