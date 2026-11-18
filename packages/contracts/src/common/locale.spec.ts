@@ -18,4 +18,8 @@ describe('LocaleQuerySchema', () => {
   it('replie sur la locale par défaut quand lang est absent', () => {
     expect(LocaleQuerySchema.parse({})).toEqual({ lang: DEFAULT_LOCALE });
   });
+
+  it('refuse une locale inconnue', () => {
+    expect(LocaleQuerySchema.safeParse({ lang: 'de' }).success).toBe(false);
+  });
 });
