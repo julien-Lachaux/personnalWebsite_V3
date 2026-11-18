@@ -49,11 +49,11 @@ describe('GET /api/v1/projects', () => {
   describe('avec des fixtures', () => {
     beforeAll(async () => {
       // « premier » (sort_order 1) : fr seul, 2 compétences dont l'ordre de lien inverse l'id.
-      // « second » (sort_order 2) : fr + en, sans image. « cache » : non publié.
+      // « second » (sort_order 2) : fr + en, sans image ni année. « cache » : non publié.
       await sql`
         insert into projects (slug, url, repo_url, image_desktop_path, image_mobile_path, year, sort_order, published)
         values
-          ('second', null, null, null, null, 2024, 2, true),
+          ('second', null, null, null, null, null, 2, true),
           ('premier', 'https://example.org/premier', null, '/images/projects/premier-desktop.webp', '/images/projects/premier-mobile.webp', 2025, 1, true),
           ('cache', null, null, null, null, 2023, 0, false)`;
       await sql`
@@ -86,7 +86,12 @@ describe('GET /api/v1/projects', () => {
         imageDesktop: { path: '/images/projects/premier-desktop.webp', alt: 'Capture FR' },
         imageMobile: { path: '/images/projects/premier-mobile.webp', alt: 'Capture FR' },
       });
-      expect(projects[1]).toMatchObject({ url: null, imageDesktop: null, imageMobile: null });
+      expect(projects[1]).toMatchObject({
+        url: null,
+        year: null,
+        imageDesktop: null,
+        imageMobile: null,
+      });
     });
 
     it('trie les compétences par project_skills.sort_order', async () => {

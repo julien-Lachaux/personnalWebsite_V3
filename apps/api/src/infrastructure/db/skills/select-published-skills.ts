@@ -1,9 +1,10 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, eq, type SQL, sql } from 'drizzle-orm';
+import { and, eq, type SQL } from 'drizzle-orm';
 import { alias, type SelectedFields } from 'drizzle-orm/pg-core';
 
 import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { skillGroups, skills, skillsTranslations } from '../schema/index.js';
+import { translated } from '../translated.js';
 
 /**
  * Requête de base partagée par les dépôts `skills`, `skill-groups` et `experiences` : compétences
@@ -24,7 +25,7 @@ export function selectPublishedSkills<TExtra extends SelectedFields>(
   return db
     .select({
       slug: skills.slug,
-      name: sql<string>`coalesce(${en.name}, ${fr.name})`,
+      name: translated(en.name, fr.name),
       level: skills.level,
       icon: skills.icon,
       iconPath: skills.iconPath,

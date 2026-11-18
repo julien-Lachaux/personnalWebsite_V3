@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { type ExperiencesRepository } from '../../../application/experiences/ports/experiences-repository.port.js';
 import { type Experience } from '../../../domain/experiences/experience.js';
@@ -9,9 +9,7 @@ import { type Skill } from '../../../domain/skills/skill.js';
 import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { experiences, experienceSkills, experiencesTranslations, skills } from '../schema/index.js';
 import { selectPublishedSkills } from '../skills/select-published-skills.js';
-
-/** Repli de langue en SQL : la traduction demandée si elle existe, sinon le français. */
-const translated = <T>(en: AnyPgColumn, fr: AnyPgColumn) => sql<T>`coalesce(${en}, ${fr})`;
+import { translated } from '../translated.js';
 
 /**
  * Implémentation Drizzle du dépôt d'expériences : deux requêtes au total (les expériences, puis les

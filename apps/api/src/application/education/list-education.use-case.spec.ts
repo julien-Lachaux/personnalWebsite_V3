@@ -59,12 +59,12 @@ describe('ListEducationUseCase', () => {
     expect(EducationSchema.parse(result).yearEnd).toBeNull();
   });
 
-  it('remplace une description absente par une chaîne vide (contrat)', async () => {
+  it('renvoie une description absente telle quelle, null (contrat nullable)', async () => {
     const repository = new InMemoryEducationRepository([education({ description: null })]);
 
     const [result] = await new ListEducationUseCase(repository).execute('fr');
 
-    expect(EducationSchema.parse(result).description).toBe('');
+    expect(EducationSchema.parse(result).description).toBeNull();
   });
 
   it("renvoie une liste vide quand il n'y a aucune formation", async () => {

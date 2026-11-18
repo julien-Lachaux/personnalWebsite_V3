@@ -16,7 +16,10 @@ export const EducationSchema = z
       .meta({ description: 'Fin ; `null` = en cours.' }),
     url: z.url().nullable().meta({ description: "Site de l'établissement." }),
     title: z.string().min(1),
-    description: z.string(),
+    description: z
+      .string()
+      .nullable()
+      .meta({ description: 'Détail de la formation ; `null` si absent.' }),
   })
   .refine((value) => value.yearEnd === null || value.yearEnd >= value.yearStart, {
     path: ['yearEnd'],

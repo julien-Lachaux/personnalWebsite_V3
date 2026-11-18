@@ -1,15 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq, sql } from 'drizzle-orm';
-import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { and, asc, eq } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { type LanguagesRepository } from '../../../application/languages/ports/languages-repository.port.js';
 import { type CefrLevel, type Language } from '../../../domain/languages/language.js';
 import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { languages, languagesTranslations } from '../schema/index.js';
-
-/** Repli de langue en SQL : la traduction demandée si elle existe, sinon le français. */
-const translated = (en: AnyPgColumn, fr: AnyPgColumn) => sql<string>`coalesce(${en}, ${fr})`;
+import { translated } from '../translated.js';
 
 /** Implémentation Drizzle du dépôt de langues : une seule requête. */
 @Injectable()

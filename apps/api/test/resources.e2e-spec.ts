@@ -105,6 +105,20 @@ describe('GET /api/v1/resources', () => {
       });
     });
 
+    it("groupSlug vaut null quand le groupe rattaché n'est pas publié", async () => {
+      await sql`update skill_groups set published = false where slug = 'languages-frameworks'`;
+      try {
+        const resources = ResourcesSchema.parse((await get('/api/v1/resources')).json());
+
+        expect(resources.map((resource) => resource.slug)).toEqual(['avec-groupe', 'sans-groupe']);
+        expect(resources[0]?.groupSlug).toBeNull();
+      } finally {
+        await sql`update skill_groups set published = true where slug = 'languages-frameworks'`;
+      }
+      const restored = ResourcesSchema.parse((await get('/api/v1/resources')).json());
+      expect(restored[0]?.groupSlug).toBe('languages-frameworks');
+    });
+
     it('?lang=fr renvoie le français même si une version anglaise existe', async () => {
       const resources = ResourcesSchema.parse((await get('/api/v1/resources?lang=fr')).json());
 

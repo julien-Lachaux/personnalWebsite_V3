@@ -19,6 +19,10 @@ describe('EducationSchema', () => {
     expect(EducationSchema.safeParse({ ...valid, yearEnd: 2008 }).success).toBe(true);
   });
 
+  it('accepte une description nulle (colonne description nullable en SQL)', () => {
+    expect(EducationSchema.safeParse({ ...valid, description: null }).success).toBe(true);
+  });
+
   it('rejette yearEnd antérieur à yearStart', () => {
     const result = EducationSchema.safeParse({ ...valid, yearEnd: 2007 });
     expect(result.success).toBe(false);

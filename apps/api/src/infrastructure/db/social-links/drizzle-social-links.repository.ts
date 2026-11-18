@@ -1,15 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq, sql } from 'drizzle-orm';
-import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { and, asc, eq } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { type SocialLinksRepository } from '../../../application/social-links/ports/social-links-repository.port.js';
 import { type SocialLink } from '../../../domain/social-links/social-link.js';
 import { DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { socialLinks, socialLinksTranslations } from '../schema/index.js';
-
-/** Repli de langue en SQL : la traduction demandée si elle existe, sinon le français. */
-const translated = (en: AnyPgColumn, fr: AnyPgColumn) => sql<string>`coalesce(${en}, ${fr})`;
+import { translated } from '../translated.js';
 
 /** Implémentation Drizzle du dépôt de liens sociaux : une seule requête. */
 @Injectable()
