@@ -1,6 +1,6 @@
 # Caddy obtient et renouvelle seul le certificat TLS de {$SITE_DOMAIN}.
 # (`SITE_DOMAIN=localhost` donne un certificat interne auto-signé pour l'essai local.)
-{$SITE_DOMAIN} {
+{$SITE_DOMAIN:localhost} {
 	encode gzip zstd
 
 	header {
