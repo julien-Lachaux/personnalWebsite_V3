@@ -1,8 +1,5 @@
-import 'reflect-metadata';
+import { type NestFastifyApplication } from '@nestjs/platform-fastify';
 
-import { type INestApplication } from '@nestjs/common';
-import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { CERTIFICATIONS_REPOSITORY } from '../src/application/certifications/ports/certifications-repository.port.js';
@@ -17,9 +14,7 @@ import { SKILL_GROUPS_REPOSITORY } from '../src/application/skill-groups/ports/s
 import { SKILLS_REPOSITORY } from '../src/application/skills/ports/skills-repository.port.js';
 import { SOCIAL_LINKS_REPOSITORY } from '../src/application/social-links/ports/social-links-repository.port.js';
 import { TOOLS_REPOSITORY } from '../src/application/tools/ports/tools-repository.port.js';
-import { GLOBAL_PREFIX } from '../src/infrastructure/http/create-app.js';
-import { AppModule } from '../src/infrastructure/http/app.module.js';
-import { ProblemDetailsFilter } from '../src/infrastructure/http/problem/problem-details.filter.js';
+import { appWithOverrides } from './support/override-app.js';
 import { ALLOWED_ORIGIN, startTestApp } from './support/test-app.js';
 import { expectNoLeak, expectProblem } from './support/problem.js';
 
@@ -38,28 +33,6 @@ function throwingRepository(): object {
           : () => Promise.reject(new Error(TRAP_MESSAGE)),
     },
   );
-}
-
-/**
- * Application montée comme `createApp` (même préfixe, même filtre) mais sur un module de test
- * dont on peut remplacer les dépôts. Helmet, CORS et rate limit ne sont pas utiles ici.
- */
-async function appWithOverrides(
-  overrides: readonly [symbol, unknown][],
-): Promise<NestFastifyApplication> {
-  let builder = Test.createTestingModule({ imports: [AppModule] });
-  for (const [token, value] of overrides) {
-    builder = builder.overrideProvider(token).useValue(value);
-  }
-  const moduleRef = await builder.compile();
-  const app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
-    logger: false,
-  });
-  app.setGlobalPrefix(GLOBAL_PREFIX);
-  app.useGlobalFilters(new ProblemDetailsFilter());
-  await app.init();
-  await app.getHttpAdapter().getInstance().ready();
-  return app;
 }
 
 const REPOSITORIES: [string, symbol][] = [
@@ -241,15 +214,13 @@ describe('Erreurs au format RFC 9457 (problem+json)', () => {
 
 describe('Erreurs 500 simulées (dépôt qui lève)', () => {
   let app: NestFastifyApplication;
-  let httpApp: INestApplication;
 
   beforeAll(async () => {
     app = await appWithOverrides(REPOSITORIES.map(([, token]) => [token, throwingRepository()]));
-    httpApp = app;
   });
 
   afterAll(async () => {
-    await httpApp.close();
+    await app.close();
   });
 
   it.each([...REPOSITORIES.map(([name]) => name), 'cv'])(
