@@ -1,9 +1,22 @@
 # Lot 0 : fondations, compte rendu du lead back-end
 
-Branche `lot/0-fondations` (worktree), 11 commits atomiques au-dessus de `v3/backend`.
+Branche `lot/0-fondations` (worktree), 14 commits atomiques au-dessus de `v3/backend`
+(11 de la livraison initiale, 3 de correction après recette).
 Vérification finale le 18 novembre 2026 : `pnpm install --frozen-lockfile` propre, `pnpm check`
-vert (lint, typecheck, 11 tests unitaires, 20 tests e2e contre le postgres de test), API démarrée
+vert (lint, typecheck, 14 tests unitaires, 23 tests e2e contre le postgres de test), API démarrée
 contre le postgres de dev et vérifiée avec curl.
+
+## Corrections après recette
+
+1. Rate limiting global (docs/02 « sécurité dès le départ ») : `@fastify/rate-limit` posé dans
+   `create-app.ts`, seuil `RATE_LIMIT_MAX` (défaut 100) par fenêtre `RATE_LIMIT_WINDOW_MS`
+   (défaut 60 000 ms) et par IP, `TRUST_PROXY` (défaut `false`) pour lire l'IP cliente derrière
+   Caddy ; 429 `application/problem+json` avec `retry-after`. Tests unitaires de la
+   configuration, e2e des en-têtes `x-ratelimit-limit`/`remaining`/`reset`, du 429 et du
+   comptage par IP. Vérifié avec curl : `x-ratelimit-limit: 5`, `x-ratelimit-remaining: 3`,
+   puis `429 Too Many Requests` problem+json une fois le quota épuisé.
+2. `CLAUDE.md` reprend la règle de docs/03 sur les traductions EN : produites par l'agent base
+   de données au lot 1, listées dans `docs/traductions-a-relire.md` pour relecture par Julien.
 
 ## Fait
 
@@ -15,6 +28,7 @@ contre le postgres de dev et vérifiée avec curl.
 - `apps/api` : NestJS sur Fastify (ESM), architecture hexagonale `domain` / `application` /
   `infrastructure` ; configuration validée par Zod (`APP_CONFIG`) ; client Drizzle + driver
   `postgres` derrière un port (`DATABASE_CLIENT`) ; helmet, CORS restreint (GET/HEAD/OPTIONS),
+  rate limiting global par IP (`@fastify/rate-limit`, 100 requêtes/minute par défaut),
   préfixe global `api/v1`, shutdown hooks.
 - Erreurs RFC 9457 : filtre global `ProblemDetailsFilter` (`application/problem+json`),
   traduction `HttpException` / `EntityNotFoundError` / erreurs Fastify, 500 au détail générique,
@@ -24,23 +38,23 @@ contre le postgres de dev et vérifiée avec curl.
 - Un module Nest vide par ressource de docs/01 (profile, social-links, skill-groups, skills,
   experiences, projects, tools, resources, certifications, education, languages, cv), déjà
   enregistré dans `AppModule`, chaque GET répond 501 problem+json.
-- Tests e2e Vitest via `app.inject` : health, en-têtes de sécurité, CORS, docs.json, les
-  12 routes en 501, 404 sous et hors préfixe, absence de pile dans les réponses.
+- Tests e2e Vitest via `app.inject` : health, en-têtes de sécurité, CORS, rate limiting
+  (en-têtes, 429, par IP), docs.json, les 12 routes en 501, 404 sous et hors préfixe, absence
+  de pile dans les réponses.
 - `db/migrations` et `db/seeds` avec `db/README.md` (convention `NNNN_description.sql`,
   idempotence par `slug`, runner prévu au lot 1).
 - `docker-compose.yml` : `postgres` (dev, volume nommé, 127.0.0.1:5432) et `postgres-test`
   (tmpfs, 127.0.0.1:5433), healthchecks ; `.env.example` sans secret.
 - Hook pre-commit husky : `turbo run lint typecheck test`. Les e2e sont dans `pnpm check`.
 - `CLAUDE.md` (conventions, règles hexagonales, règle « modules isolés » pour le lot 3,
-  fichiers partagés interdits aux agents de ressource, flux git, interdictions) et `README.md`.
+  fichiers partagés interdits aux agents de ressource, flux git, interdictions, traductions EN
+  à relire dans `docs/traductions-a-relire.md`) et `README.md`.
 - Vérifications curl : `/api/v1/health` 200 `{"status":"ok","checks":{"database":"up"}}` ;
   `/api/v1/docs.json` 200 avec `"openapi":"3.1.0"` ; `/api/v1/profile` 501
   `application/problem+json` ; `/api/v1/inconnue` 404 `application/problem+json`.
 
 ## Non fait
 
-- Rate limiting global léger (docs/02, « sécurité dès le départ ») : non posé au lot 0, voir
-  points ouverts.
 - Dockerfile multi-stage, compose de prod (Caddy), CI GitHub Actions : lot 5, hors périmètre.
 - Runner de migrations, schéma Drizzle dérivé du SQL, seeds : lot 1.
 - Schémas Zod et chemins OpenAPI des ressources : lot 2. Le document ne décrit pour l'instant
@@ -58,7 +72,7 @@ Versions (stables au 18 novembre 2026, vérifiées sur npm, épinglées exacteme
 | Monorepo | pnpm workspaces, turbo 2.11.12 (`lint`/`typecheck`/`test`/`test:e2e` dépendent de `^build`) |
 | Langage | typescript 6.0.3, `module: NodeNext`, ESM partout, imports relatifs avec `.js` |
 | Qualité | eslint 10.15.0 + typescript-eslint 8.73.0 (recommendedTypeChecked + stylisticTypeChecked), prettier 3.10.1, husky 9.1.7 |
-| API | @nestjs/common, core, platform-fastify, testing 12.5.1 ; fastify 5.12.8 ; @fastify/helmet 13.2.0 ; @fastify/cors 11.4.3 ; reflect-metadata 0.2.2 ; rxjs 7.8.2 |
+| API | @nestjs/common, core, platform-fastify, testing 12.5.1 ; fastify 5.12.8 ; @fastify/helmet 13.2.0 ; @fastify/cors 11.4.3 ; @fastify/rate-limit 11.2.2 ; reflect-metadata 0.2.2 ; rxjs 7.8.2 |
 | Données | drizzle-orm 0.45.4 (`drizzle-orm/postgres-js`), postgres 4.1.1 |
 | Validation / contrat | zod 4.6.7, zod-openapi 6.0.2 |
 | Tests | vitest 5.1.1, unplugin-swc 2.0.0 + @swc/core 1.16.22 (métadonnées de décorateurs), @swc-node/register 1.12.1 pour `pnpm dev` (`node --watch --import`) |
@@ -81,7 +95,11 @@ Structure et conventions :
   processus (`fileParallelism: false`) ; configuration de test par défaut dans
   `vitest.e2e.config.ts` (postgres de test sur 5433), surchargeable par l'environnement.
 - Sécurité : helmet sans CSP (API JSON), CORS limité aux origines de `CORS_ORIGIN` et aux
-  méthodes GET/HEAD/OPTIONS, `x-powered-by` absent, 5xx jamais détaillées.
+  méthodes GET/HEAD/OPTIONS, rate limiting global par IP (`RATE_LIMIT_MAX` par
+  `RATE_LIMIT_WINDOW_MS`, défaut 100/minute, 429 problem+json), `x-powered-by` absent, 5xx
+  jamais détaillées. `createApp` lit la configuration (`loadEnv`) avant de construire Fastify
+  car `trustProxy` se fixe à la création de l'adaptateur ; `ConfigModule` fournit la même
+  configuration validée au reste de l'application.
 - Un module Nest vide par ressource dès le lot 0 pour que les deux agents du lot 3 ne touchent
   que leurs propres dossiers (règle « modules isolés » et liste des fichiers partagés dans
   `CLAUDE.md`).
@@ -93,15 +111,16 @@ Structure et conventions :
 - « Node.js LTS courant » : l'hôte a Node 22.11 ; ESLint 10, Vite et Vitest 5 exigent
   >= 22.13, donc pnpm télécharge 22.23.5 (`use-node-version`), rien d'installé globalement.
 - « Vitest + supertest/app.inject » : `app.inject` seul, supertest non ajouté.
-- « rate limiting global léger » : reporté (voir points ouverts).
 - `docs/` est exclu de Prettier pour ne pas reformater les documents validés ; les comptes
   rendus y sont donc écrits à la main au même format.
 
 ## Points ouverts
 
-1. Rate limiting : `@fastify/rate-limit` dans `create-app.ts` (fichier partagé). À poser par
-   l'orchestrateur ou le lead en un commit dédié avant le lot 4 (QA teste les en-têtes de
-   sécurité), avec un seuil à valider par Julien (par exemple 100 requêtes/minute/IP).
+1. Rate limiting : seuil par défaut de 100 requêtes/minute/IP à confirmer par Julien
+   (modifiable sans code via `RATE_LIMIT_MAX` et `RATE_LIMIT_WINDOW_MS`). En prod derrière
+   Caddy, le compose du lot 5 doit poser `TRUST_PROXY=true`, sinon toutes les requêtes
+   partagent le quota de l'IP du proxy. Le store est en mémoire (une seule instance d'API) ;
+   un store partagé n'est pas prévu.
 2. Lot 2 et lot 3 touchent des fichiers partagés (`packages/contracts/src/index.ts`,
    `openapi/document.ts`) : un seul agent au lot 2, pas de conflit ; au lot 3, chaque agent
    signale ses besoins dans son compte rendu et l'orchestrateur applique.
