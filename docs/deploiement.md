@@ -1,7 +1,7 @@
 # Déploiement en production (VPS)
 
 La production tourne avec `docker/compose.prod.yml` : Caddy (TLS automatique, seul service qui publie
-des ports 80/443), l'API (réseau interne, `TRUST_PROXY=true`), un service `migrate` à usage unique
+des ports 80/443), l'API (réseau interne, `TRUST_PROXY=uniquelocal`), un service `migrate` à usage unique
 (migrations, seeds, rôle de lecture seule de l'API) et PostgreSQL 16 (volume nommé, aucun port publié). Le front viendra plus tard :
 en attendant, Caddy sert `docker/placeholder/index.html` sur `/` et proxifie `/api/*` vers l'API.
 

@@ -40,8 +40,9 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN requis}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
-      # Obligatoire derrière Caddy : sinon tout le trafic partage le quota de l'IP du proxy.
-      TRUST_PROXY: 'true'
+      # Obligatoire derrière Caddy : sinon tout le trafic partage le quota de l'IP du proxy. Seuls les pairs
+      # des réseaux privés (Caddy, sur le réseau Docker interne) sont crus ; jamais `true` (refusé).
+      TRUST_PROXY: 'uniquelocal'
     depends_on:
       migrate:
         condition: service_completed_successfully

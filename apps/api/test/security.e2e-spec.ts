@@ -373,29 +373,48 @@ describe('Rate limiting sur les routes de contenu', () => {
     });
   });
 
-  it('avec TRUST_PROXY=true, l’IP du client vient de X-Forwarded-For', async () => {
-    await withEnv({ RATE_LIMIT_MAX: String(MAX), TRUST_PROXY: 'true' }, async (app) => {
-      for (let count = 0; count < MAX; count += 1) {
-        await app.inject({
+  it('avec un proxy de confiance, l’IP du client est le dernier saut non fiable de X-Forwarded-For', async () => {
+    await withEnv({ RATE_LIMIT_MAX: String(MAX), TRUST_PROXY: 'loopback' }, async (app) => {
+      const request = (forwardedFor: string) =>
+        app.inject({
           method: 'GET',
           url: '/api/v1/skills',
-          headers: { 'x-forwarded-for': '198.51.100.1' },
+          headers: { 'x-forwarded-for': forwardedFor },
         });
+      // Le client falsifie le début de l'en-tête ; le proxy ajoute la vraie IP à la fin.
+      for (let count = 0; count < MAX; count += 1) {
+        await request(`9.9.9.${count}, 198.51.100.1`);
       }
 
-      const sameClient = await app.inject({
-        method: 'GET',
-        url: '/api/v1/skills',
-        headers: { 'x-forwarded-for': '198.51.100.1' },
-      });
-      const otherClient = await app.inject({
-        method: 'GET',
-        url: '/api/v1/skills',
-        headers: { 'x-forwarded-for': '198.51.100.2' },
-      });
+      const sameClient = await request('9.9.9.200, 198.51.100.1');
+      const otherClient = await request('9.9.9.200, 198.51.100.2');
 
       expectProblem(sameClient, 429);
       expect(otherClient.statusCode).toBe(200);
+    });
+  });
+
+  it('avec une liste de CIDR, seul un proxy listé est cru ; un autre pair est ignoré', async () => {
+    await withEnv({ RATE_LIMIT_MAX: String(MAX), TRUST_PROXY: '10.0.0.0/8' }, async (app) => {
+      const request = (forwardedFor: string, remoteAddress: string) =>
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/skills',
+          remoteAddress,
+          headers: { 'x-forwarded-for': forwardedFor },
+        });
+      for (let count = 0; count < MAX; count += 1) {
+        await request('198.51.100.1', '10.1.2.3');
+      }
+
+      // Proxy de confiance : l'IP vient de l'en-tête.
+      expectProblem(await request('198.51.100.1', '10.1.2.3'), 429);
+      expect((await request('198.51.100.2', '10.1.2.3')).statusCode).toBe(200);
+      // Pair hors de la liste : X-Forwarded-For est ignoré, son IP propre est comptée.
+      for (let count = 0; count < MAX; count += 1) {
+        await request(`198.51.100.${count + 50}`, '203.0.113.7');
+      }
+      expectProblem(await request('198.51.100.99', '203.0.113.7'), 429);
     });
   });
 });

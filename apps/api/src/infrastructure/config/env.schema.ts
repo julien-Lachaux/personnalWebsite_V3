@@ -1,5 +1,38 @@
 import { z } from 'zod';
 
+/** Adresse IP, plage CIDR (IPv4 ou IPv6) ou plage nommée de proxy-addr. */
+const ProxyAddressSchema = z.union([
+  z.ipv4(),
+  z.ipv6(),
+  z.cidrv4(),
+  z.cidrv6(),
+  z.enum(['loopback', 'linklocal', 'uniquelocal']),
+]);
+
+/** Valeur de `trustProxy` de Fastify : `false` ou une liste d'IP, de CIDR ou de plages nommées. */
+export type TrustProxy = false | string[];
+
+const TrustProxySchema = z
+  .string()
+  .trim()
+  .transform((value, ctx): TrustProxy => {
+    if (value === '' || value === 'false') {
+      return false;
+    }
+    const addresses = value.split(',').map((address) => address.trim());
+    if (addresses.every((address) => ProxyAddressSchema.safeParse(address).success)) {
+      return addresses;
+    }
+    ctx.addIssue({
+      code: 'custom',
+      message:
+        'attendu : false ou une liste d’IP, de CIDR ou de plages nommées (loopback, linklocal, uniquelocal) ' +
+        'séparés par des virgules ; « true » est refusé (il ferait confiance à tous les sauts) ' +
+        'et Fastify 5 refuse un simple nombre de sauts',
+    });
+    return z.NEVER;
+  });
+
 /**
  * Variables d'environnement de l'API, validées au démarrage.
  * Toute variable absente ou invalide empêche le démarrage avec un message explicite.
@@ -27,13 +60,14 @@ export const EnvSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(100),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
   /**
-   * Derrière un reverse proxy (Caddy en prod), l'IP du client est lue dans `X-Forwarded-For`
-   * uniquement si cette option est à `true` ; sinon le rate limiting verrait l'IP du proxy.
+   * Proxys de confiance pour lire l'IP du client dans `X-Forwarded-For` (sinon le rate limiting
+   * verrait l'IP du proxy). `false` (défaut) : aucun. Sinon une liste d'IP, de CIDR ou de plages
+   * nommées (`uniquelocal` = réseaux privés, pour Caddy sur le réseau Docker interne) séparés par
+   * des virgules : seuls ces pairs sont des proxys et seul leur `X-Forwarded-For` est cru. Jamais
+   * « tous les sauts » (`true`) : un client qui atteint l'API sans passer par le proxy falsifierait
+   * l'en-tête et contournerait le quota.
    */
-  TRUST_PROXY: z
-    .enum(['true', 'false'])
-    .default('false')
-    .transform((value) => value === 'true'),
+  TRUST_PROXY: z.string().default('false').pipe(TrustProxySchema),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
