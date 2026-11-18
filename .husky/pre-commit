@@ -1,0 +1,2 @@
+# Lint, typecheck et tests unitaires avant chaque commit (les e2e sont dans `pnpm check` et en CI).
+pnpm turbo run lint typecheck test

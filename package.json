@@ -22,12 +22,14 @@
     "db:test:up": "docker compose up -d --wait postgres-test",
     "db:down": "docker compose down",
     "dev": "pnpm --filter @siteperso/api dev",
-    "start": "pnpm --filter @siteperso/api start"
+    "start": "pnpm --filter @siteperso/api start",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "eslint": "10.15.0",
     "eslint-config-prettier": "10.1.8",
+    "husky": "9.1.7",
     "prettier": "3.10.1",
     "turbo": "2.11.12",
     "typescript": "6.0.3",
