@@ -57,3 +57,25 @@ millions de tokens au total ; le lot 3 et le lot 6 sont les plus coûteux.
 - Jamais de push par un agent. Les conflits sont résolus par l'orchestrateur avant fusion.
 - Le lot 0 crée des modules NestJS vides déjà enregistrés pour chaque ressource : les deux agents
   API du lot 3 ne touchent ensuite que leurs propres fichiers.
+
+## Modèles et efforts par rôle (décidé le 18 novembre 2026)
+
+Objectif : économiser le quota du modèle haut de gamme. Le modèle monte avec le niveau de
+jugement exigé, l'effort de raisonnement avec la difficulté de la tâche.
+
+| Rôle / tâche | Modèle | Effort |
+|---|---|---|
+| Orchestrateur (session principale) | Fable 5.1 jusqu'à la limite hebdomadaire, puis Opus 5.5 | session |
+| Chef de projet : backlog, alignement, comptes rendus | Sonnet 5.5 | medium |
+| Chef de projet : recette d'un lot (exécution de commandes, contrôle de critères) | Sonnet 5.5 | medium |
+| Dev base de données (SQL, runner, seeds, traductions EN) | Sonnet 5.5 | medium |
+| Dev contrats (Zod, OpenAPI) | Sonnet 5.5 | medium |
+| Dev API (lot 3, deux agents) | Sonnet 5.5 | high |
+| QA (tests e2e) | Sonnet 5.5 | medium |
+| DevOps (Dockerfile, compose prod, CI) | Sonnet 5.5 | low |
+| Corrections après recette | Sonnet 5.5 | medium |
+| Revue code et revue sécurité (lot 6, adversariales) | Opus 5.5 | high |
+| Arbitrage d'un désaccord entre recette et dev, recette finale | Opus 5.5 | high |
+
+Règle : on commence au niveau indiqué ; si un agent échoue deux fois sur la même tâche, on monte
+d'un cran (effort puis modèle) plutôt que de boucler.
