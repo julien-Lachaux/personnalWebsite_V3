@@ -6,8 +6,9 @@ import postgres, { type Sql } from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { runMigrations } from '../../src/infrastructure/db/migrations-runner.js';
+import { resetTestDatabase, testDatabaseUrl } from '../support/database.js';
 
-const databaseUrl = process.env['DATABASE_URL'] ?? '';
+const databaseUrl = testDatabaseUrl();
 
 describe('runner de migrations (base de test)', () => {
   let sql: Sql;
@@ -19,8 +20,9 @@ describe('runner de migrations (base de test)', () => {
   });
 
   afterAll(async () => {
-    await sql.unsafe('drop schema public cascade; create schema public');
     await sql.end({ timeout: 5 });
+    // Laisse la base de test migrée et seedée pour les e2e suivants.
+    await resetTestDatabase();
   });
 
   beforeEach(async () => {

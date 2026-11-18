@@ -7,6 +7,9 @@ import { resetDatabase } from '../../src/infrastructure/db/reset-database.js';
 /** Racine du dépôt, depuis `apps/api/test/support/`. */
 const repositoryRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 
+export const migrationsDirectory = `${repositoryRoot}db/migrations`;
+export const seedsDirectory = `${repositoryRoot}db/seeds`;
+
 /** URL de la base de test (`DATABASE_URL` posé par `vitest.e2e.config.ts`). */
 export function testDatabaseUrl(): string {
   const url = process.env['DATABASE_URL'];
@@ -20,8 +23,8 @@ export function testDatabaseUrl(): string {
 export async function resetTestDatabase(): Promise<void> {
   await resetDatabase({
     databaseUrl: testDatabaseUrl(),
-    migrationsDirectory: `${repositoryRoot}db/migrations`,
-    seedsDirectory: `${repositoryRoot}db/seeds`,
+    migrationsDirectory,
+    seedsDirectory,
     log: () => undefined,
   });
 }
