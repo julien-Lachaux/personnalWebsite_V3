@@ -36,7 +36,7 @@ Conventions de ce document :
   (`contact@example.com`, `+33 0 00 00 00 00`). Le nom, le titre, la localisation et les URL publiques de
   profils professionnels sont du contenu de CV publié et sont seedés ; l'e-mail et le téléphone jamais.
 - Sur l'hôte : Docker (avec `docker compose`) et pnpm 9 seulement. Node 22 est téléchargé par pnpm
-  (`.npmrc`, `use-node-version=22.23.5`). PostgreSQL tourne uniquement en Docker (`docker-compose.yml`).
+  (`.npmrc`, `use-node-version=26.13.1`). PostgreSQL tourne uniquement en Docker (`docker-compose.yml`).
   Rien d'autre n'est installé globalement : `psql` s'exécute dans le conteneur (`docker compose exec`).
 - Versions : chaque paquet est ajouté à sa version stable courante vérifiée avec `pnpm view <pkg> version`,
   jamais une version mémorisée, et épinglée exactement. Les versions installées au lot 0 sont en section 9.
@@ -110,7 +110,7 @@ personnalWebsite_V3/
     test/db/*.e2e-spec.ts                     e2e du runner, du schéma et des seeds (lot 1)
     vitest.config.ts                          unitaires src/**/*.spec.ts (SWC, pas d'accès réseau)
     vitest.e2e.config.ts                      e2e, DATABASE_URL par défaut = postgres de test (5433)
-  packages/contracts/                         @siteperso/contracts : schémas Zod + OpenAPI 3.1
+  packages/contracts/                         @siteperso/contracts : schémas Zod + OpenAPI 3.2.0
     src/common/                               locale.ts (LocaleSchema, LocaleQuerySchema, DEFAULT_LOCALE), problem-details.ts
     src/health/health.ts                      HealthResponseSchema
     src/<resource>/                           schémas Zod de la ressource (lot 2)
@@ -162,7 +162,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 | Commande | Effet |
 |---|---|
-| `pnpm install` | dépendances, Node 22.23.5 via pnpm, hook pre-commit husky |
+| `pnpm install` | dépendances, Node 26.13.1 via pnpm, hook pre-commit husky |
 | `pnpm db:up` / `pnpm db:test:up` / `pnpm db:down` | Postgres de dev / Postgres de test (`--wait` sur le healthcheck) / arrêt des conteneurs |
 | `pnpm dev` | compile `@siteperso/contracts` puis API en watch sur `http://localhost:3000/api/v1` (config dans `apps/api/.env`, modèle `.env.example`) |
 | `pnpm lint` / `pnpm typecheck` / `pnpm build` | via Turborepo, chaque tâche dépend de `^build` (les contrats sont compilés avant) |
@@ -196,7 +196,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 - **Livré** : `package.json` racine privé `siteperso-v3` (`packageManager: pnpm@9.0.0`, `engines.node:
   ">=22.11.0 <23"`), `pnpm-workspace.yaml` (`apps/*`, `packages/*`), `turbo.json` (tâches `build`, `lint`,
   `typecheck`, `test`, `test:e2e`, toutes `dependsOn: ["^build"]`, `test:e2e` sans cache avec `env`
-  `DATABASE_URL`, `PORT`, `HOST`, `CORS_ORIGIN`, `NODE_ENV`), `.npmrc` (`use-node-version=22.23.5`,
+  `DATABASE_URL`, `PORT`, `HOST`, `CORS_ORIGIN`, `NODE_ENV`), `.npmrc` (`use-node-version=26.13.1`,
   `engine-strict`), `.nvmrc` (22), `.editorconfig`, `tsconfig.base.json` strict (`module: NodeNext`),
   `eslint.config.js` flat (typescript-eslint `recommendedTypeChecked` + `stylisticTypeChecked`,
   `consistent-type-imports`, Prettier en dernier), `.prettierrc.json`, `.prettierignore` (`docs/` exclu),
@@ -214,8 +214,8 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 ### L0-02 — Squelette `packages/contracts` — livré `3ac1d62`
 
 - **Livré** : paquet `@siteperso/contracts` (ESM, consommé via `dist/` : `main`, `types`, `exports`),
-  dépendances `zod` 4.6.7 et `zod-openapi` 6.0.2 (lit les `.meta({ id, description })` natifs de Zod 4,
-  produit de l'OpenAPI 3.1 sans registre parallèle). `src/common/locale.ts` (`LocaleSchema` = `z.enum(['fr',
+  dépendances `zod` 4.6.7 et `@asteasolutions/zod-to-openapi` 9.1.0 + `openapi3-ts` 4.6.2 (générateur V32, OpenAPI 3.2.0, lit les `.meta({ id, description })` natifs de Zod 4,
+  produit de l'OpenAPI 3.2.0 sans registre parallèle). `src/common/locale.ts` (`LocaleSchema` = `z.enum(['fr',
   'en'])`, `DEFAULT_LOCALE`, `LocaleQuerySchema` = `{ lang: LocaleSchema.default('fr') }`),
   `src/common/problem-details.ts` (`ProblemDetailsSchema` RFC 9457, `PROBLEM_JSON_CONTENT_TYPE`),
   `src/health/health.ts` (`HealthResponseSchema` = `{ status: 'ok', checks: { database: 'up'|'down' } }`),
@@ -223,13 +223,13 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
   `servers`, chemin `/health` avec 200 et 503, composant `ProblemDetails`), `src/index.ts`. Scripts `build`
   (tsc + `openapi:export`), `openapi:export` (`tsx scripts/export-openapi.ts` → `dist/openapi.json`), `lint`,
   `typecheck`, `test`. Tests : `locale.spec.ts`, `document.spec.ts`.
-- **Écarts acceptés** : `zod-openapi` plutôt que `@asteasolutions/zod-to-openapi` ; `openapi:export` écrit
+- **Écarts acceptés** : `@asteasolutions/zod-to-openapi` (OpenAPI 3.2.0, décision du lot 0 bis) plutôt que `zod-openapi` ; `openapi:export` écrit
   `dist/openapi.json` (non commité, produit au build) au lieu d'un `openapi/openapi.json` commité ; le document
   est aussi servi en direct par `GET /api/v1/docs.json` (voir L0-03). Les chemins du document sont relatifs à
   `/api/v1` (`servers`), donc `/health` et non `/api/v1/health`.
 - **Critères d'acceptation** (vérifiés) :
   - `pnpm --filter @siteperso/contracts build` passe et produit `packages/contracts/dist/index.js`, `dist/index.d.ts` et `dist/openapi.json`.
-  - `node -e "const o=require('./packages/contracts/dist/openapi.json');process.exit(o.openapi.startsWith('3.1')&&o.paths['/health']&&o.servers[0].url==='/api/v1'?0:1)"` passe.
+  - `node -e "const o=require('./packages/contracts/dist/openapi.json');process.exit(o.openapi.startsWith('3.2')&&o.paths['/health']&&o.servers[0].url==='/api/v1'?0:1)"` passe.
   - `pnpm --filter @siteperso/contracts test` passe.
 
 ### L0-03 — API NestJS/Fastify hexagonale et socle HTTP — livré `8eadf96`, `0fa664c`, `b07626d`
@@ -318,7 +318,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
   l'environnement). `test/support/test-app.ts` : `startTestApp()` (`createApp({ logger: false })`, `init`,
   `ready`, pas de port ouvert, requêtes par `app.inject`), `ALLOWED_ORIGIN`. Tests : `health.e2e-spec.ts`
   (200 avec base joignable, en-têtes helmet, CORS origine autorisée/refusée, préflight sans POST),
-  `docs.e2e-spec.ts` (OpenAPI 3.1 avec `/health` et `ProblemDetails`), `errors.e2e-spec.ts` (12 routes en
+  `docs.e2e-spec.ts` (OpenAPI 3.2.0 avec `/health` et `ProblemDetails`), `errors.e2e-spec.ts` (12 routes en
   501 problem+json avec `instance`, 404 sous et hors préfixe, aucune pile), `rate-limit.e2e-spec.ts`
   (en-têtes `x-ratelimit-*`, 429 problem+json avec `retry-after`, comptage par IP). Unitaires :
   `get-health.use-case.spec.ts`, `env.spec.ts`, `problem-details.filter.spec.ts`.
@@ -598,14 +598,14 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 ## 3. Lot 2 — Contrats : schémas Zod, types, OpenAPI
 
 - **Objectif** : `@siteperso/contracts` décrit entièrement l'API en lecture seule (chaque ressource, `/cv`,
-  `/health`, erreurs) sous forme de schémas Zod, de types exportés et d'un document OpenAPI 3.1 servi tel
+  `/health`, erreurs) sous forme de schémas Zod, de types exportés et d'un document OpenAPI 3.2.0 servi tel
   quel par `GET /api/v1/docs.json` et honoré à l'identique par le futur portage Rust.
 - **Dépendances** : lot 0 fusionné. Indépendant du lot 1 (parallèle).
 - **Agent responsable** : Dev contrats (branche `lot/2-contrats`).
 - **Périmètre autorisé** : `packages/contracts/**`, `docs/comptes-rendus/lot-2-*.md`. Les fichiers partagés
   `src/index.ts`, `src/common/*` et `src/openapi/document.ts` sont à lui seul pendant ce lot.
 - **Conventions livrées au lot 0 à respecter** : un dossier `src/<resource>/` par ressource ; métadonnées
-  OpenAPI par `.meta({ id: 'Nom', description })` (zod-openapi lit les `.meta` natifs de Zod 4, pas de
+  OpenAPI par `.meta({ id: 'Nom', description })` (zod-to-openapi lit les `.meta` natifs de Zod 4, pas de
   `.openapi()`) ; chemins déclarés dans `src/openapi/document.ts` relatifs à `/api/v1` (`servers`) ; schémas
   réutilisés tels quels par l'API (`safeParse` explicite) et par le front.
 
@@ -664,7 +664,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 - **Critères d'acceptation** :
   - Test : un exemple complet passe ; l'absence de `languages` est rejetée ; une clé supplémentaire est rejetée.
 
-### L2-06 — Document OpenAPI 3.1 complet
+### L2-06 — Document OpenAPI 3.2.0 complet
 
 - **Description** : `src/openapi/document.ts` déclare les 13 chemins (`/profile`, `/social-links`,
   `/skill-groups`, `/skills`, `/experiences`, `/projects`, `/tools`, `/resources`, `/certifications`,
@@ -674,7 +674,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
   pour toutes, `503` pour `/health`. Tags par ressource. `info` inchangé (titre, version `1.0.0`,
   description en français). `GET /docs.json` est une méta-route hors contrat : elle n'apparaît pas dans
   `paths`. `openapi:export` reste déterministe (ordre stable des clés, indentation 2). Test :
-  `document.spec.ts` valide le document avec un validateur OpenAPI 3.1 (dépendance de dev choisie avec `pnpm
+  `document.spec.ts` valide le document avec un validateur OpenAPI 3.2 (dépendance de dev choisie avec `pnpm
   view`, consignée dans le compte rendu) et vérifie les 13 chemins, le paramètre `lang` sur 12 d'entre eux et
   les composants.
 - **Fichiers** : `packages/contracts/src/openapi/document.ts`, `document.spec.ts`, `package.json` (dépendance de dev du validateur).
@@ -972,8 +972,8 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 - **Périmètre autorisé** : `docker/**`, `docker-compose.yml` (modifications minimales et justifiées :
   `name:`, service `api` sous profil), `scripts/**`, `.github/**`, `.dockerignore`, `docs/deploiement.md`,
   `docs/comptes-rendus/lot-5-*.md`.
-- **Contraintes livrées au lot 0** : `.npmrc` `use-node-version=22.23.5` fait télécharger Node par pnpm ;
-  dans l'image, utiliser `node:22.23.5-alpine` (même version) et neutraliser le téléchargement
+- **Contraintes livrées au lot 0** : `.npmrc` `use-node-version=26.13.1` fait télécharger Node par pnpm ;
+  dans l'image, utiliser `node:26.13.1-alpine` (même version) et neutraliser le téléchargement
   (`pnpm config set use-node-version` vide ou `--config.use-node-version=` au `pnpm install`). L'API lit
   `HOST`, `PORT`, `DATABASE_URL`, `CORS_ORIGIN`, `RATE_LIMIT_*`, `TRUST_PROXY` ; derrière Caddy,
   `TRUST_PROXY=true` est obligatoire (sinon tout le trafic partage le quota de l'IP du proxy). `/health`
@@ -981,9 +981,9 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 ### L5-01 — Dockerfile multi-stage de l'API
 
-- **Description** : `docker/api.Dockerfile` : étape `deps` (`node:22.23.5-alpine`, `corepack enable`, `pnpm
+- **Description** : `docker/api.Dockerfile` : étape `deps` (`node:26.13.1-alpine`, `corepack enable`, `pnpm
   install --frozen-lockfile`), `build` (`pnpm turbo run build --filter=@siteperso/api...`), `prune` (`pnpm
-  deploy --filter=@siteperso/api --prod`), `runtime` (`node:22.23.5-alpine`, utilisateur non root `node`,
+  deploy --filter=@siteperso/api --prod`), `runtime` (`node:26.13.1-alpine`, utilisateur non root `node`,
   `NODE_ENV=production`, `HOST=0.0.0.0`, copie de `apps/api/dist`, `node_modules` prunés et `db/`,
   `HEALTHCHECK` sur `/api/v1/health`, `CMD node dist/main.js`). `.dockerignore` strict. Image sans `pnpm`,
   sans sources TS, sans `.env`. Service optionnel `api` (profil `api`, `build` du Dockerfile, `depends_on`
@@ -1033,7 +1033,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 - **Description** : `.github/workflows/ci.yml` déclenché sur `push` et `pull_request` : job `qualite`
   (`pnpm/action-setup` lisant `packageManager`, Node via `.npmrc` `use-node-version` ou
-  `actions/setup-node` 22.23.5 avec cache pnpm, `pnpm install --frozen-lockfile`, `pnpm format:check`,
+  `actions/setup-node` 26.13.1 avec cache pnpm, `pnpm install --frozen-lockfile`, `pnpm format:check`,
   `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm test`), job `e2e` (service `postgres:16-alpine` avec
   base `siteperso_test`, `DATABASE_URL` pointant dessus, `CORS_ORIGIN` de test, `pnpm test:e2e`), job
   `docker` (`docker build -f docker/api.Dockerfile`, sans push). Concurrence annulant les runs obsolètes,
@@ -1139,7 +1139,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 | # | Risque | Impact | Mitigation |
 |---|---|---|---|
 | R1 | Versions majeures récentes (TypeScript 6.0.3, ESLint 10, Vitest 5, NestJS 12, Zod 4, postgres 4) : tout passe au lot 0, incompatibilité possible au lot 3. | Lint, build ou tests cassés. | Rétrograder la brique concernée en un commit `chore` dédié plutôt que de contourner ; consigner dans le compte rendu. |
-| R2 | Zod 4 et `zod-openapi` 6 : schémas composés (`strict`, `nullable`, raffinements) mal rendus en OpenAPI 3.1. | Document non conforme pour le portage Rust. | Validateur OpenAPI 3.1 dans `document.spec.ts` (L2-06), conformité Ajv des réponses (L4-06). |
+| R2 | Zod 4 et `zod-to-openapi` 9 : schémas composés (`strict`, `nullable`, raffinements, `.default()` qui rend un champ optionnel) mal rendus en OpenAPI 3.2. | Document non conforme pour le portage Rust. | Validateur OpenAPI 3.2 dans `document.spec.ts` (L2-06), conformité Ajv des réponses (L4-06). |
 | R3 | NestJS 12 + Fastify 5 : plugins `@fastify/*` enregistrés sur l'instance Fastify. | En-têtes absents, CORS inopérant. | Vérifié par les e2e du lot 0 (`health`, `rate-limit`), complété au lot 4 (L4-05). |
 | R4 | Repli de locale en SQL : jointure double (`fr` + `en`) sur chaque table de traduction, risque de N+1 ou d'oubli dans un module. | Réponses incohérentes entre modules A et B. | Patron de requête imposé (lot 3), test de repli par module, matrice de repli (L4-02), revue de la duplication (L6-01). |
 | R5 | Parallélisme A/B au lot 3 : `cv` (B) dépend des cas d'usage de A. | `cv` non testable e2e avant fusion. | Signatures et noms de classes fixés dans ce backlog ; unitaires avec doublures ; e2e `cv` joué par le CdP à l'intégration. |
@@ -1150,15 +1150,15 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 | R10 | Compose prod : Caddy sans front (`apps/web` différé). | Page d'accueil vide en production. | Placeholder statique minimal (L5-02), à remplacer lors du lot front. |
 | R11 | Dérive entre le document OpenAPI et les réponses réelles de l'API (le document est généré depuis Zod, mais les contrôleurs pourraient renvoyer autre chose). | Contrat faux pour le portage Rust. | Validation `strict` des réponses dans chaque contrôleur (lot 3), test L4-06. |
 | R12 | `TRUST_PROXY` oublié en prod derrière Caddy. | Rate limiting appliqué à l'IP du proxy : tout le trafic partagé. | `TRUST_PROXY=true` imposé dans `compose.prod.yml` (L5-02), vérifié en revue sécurité (L6-02). |
-| R13 | Node téléchargé par pnpm (`use-node-version`) : accès réseau au premier `pnpm install`, comportement différent en CI et dans l'image Docker. | Build CI ou Docker cassé. | Même version 22.23.5 partout (`.npmrc`, `node:22.23.5-alpine`, CI), téléchargement neutralisé dans l'image (L5-01). |
+| R13 | Node téléchargé par pnpm (`use-node-version`) : accès réseau au premier `pnpm install`, comportement différent en CI et dans l'image Docker. | Build CI ou Docker cassé. | Même version 26.13.1 partout (`.npmrc`, `node:26.13.1-alpine`, CI), téléchargement neutralisé dans l'image (L5-01). |
 
 ## 9. Versions installées au lot 0 (épinglées exactement ; à revérifier avec `pnpm view <pkg> version` avant tout ajout)
 
 `@nestjs/common`, `@nestjs/core`, `@nestjs/platform-fastify`, `@nestjs/testing` 12.5.1 · `fastify` 5.12.8 ·
 `@fastify/helmet` 13.2.0 · `@fastify/cors` 11.4.3 · `@fastify/rate-limit` 11.2.2 · `reflect-metadata` 0.2.2 ·
-`rxjs` 7.8.2 · `drizzle-orm` 0.45.4 · `postgres` 4.1.1 · `zod` 4.6.7 · `zod-openapi` 6.0.2 · `vitest` 5.1.1 ·
+`rxjs` 7.8.2 · `drizzle-orm` 0.45.4 · `postgres` 4.1.1 · `zod` 4.6.7 · `@asteasolutions/zod-to-openapi` 9.1.0 · `openapi3-ts` 4.6.2 · `vitest` 5.1.1 ·
 `unplugin-swc` 2.0.0 · `@swc/core` 1.16.22 · `@swc-node/register` 1.12.1 · `tsx` 4.23.15 · `typescript` 6.0.3
 (la 7.x est `latest` mais `typescript-eslint` exige `< 6.1`) · `typescript-eslint` 8.73.0 · `eslint` 10.15.0 ·
 `@eslint/js` 10.0.1 · `eslint-config-prettier` 10.1.8 · `prettier` 3.10.1 · `turbo` 2.11.12 · `husky` 9.1.7 ·
 `@types/node` 22.20.5. Image `postgres:16-alpine`.
-Hôte : pnpm 9.0.0 (`packageManager`), Node 22.23.5 téléchargé par pnpm (`.npmrc`), Docker Compose v2.40.
+Hôte : pnpm 9.0.0 (`packageManager`), Node 26.13.1 téléchargé par pnpm (`.npmrc`), Docker Compose v2.40.
