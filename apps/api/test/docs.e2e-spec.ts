@@ -21,14 +21,16 @@ describe('GET /api/v1/docs.json', () => {
     await app.close();
   });
 
-  it('sert le contrat OpenAPI 3.1 généré depuis @siteperso/contracts', async () => {
+  it('sert le contrat OpenAPI 3.2.0 généré depuis @siteperso/contracts', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/v1/docs.json' });
 
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toContain('application/json');
 
     const document = response.json<OpenApiShape>();
-    expect(document.openapi).toBe('3.1.0');
+    expect(document.openapi).toBe('3.2.0');
+    expect(response.body).toContain('"openapi":"3.2.0"');
+    expect(document.info.version).toBe('1.0.0');
     expect(document.info.version).toMatch(/^\d+\.\d+\.\d+$/);
     expect(Object.keys(document.paths)).toContain('/health');
     expect(Object.keys(document.components?.schemas ?? {})).toContain('ProblemDetails');

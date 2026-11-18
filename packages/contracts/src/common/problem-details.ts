@@ -6,8 +6,11 @@ import { z } from 'zod';
  */
 export const ProblemDetailsSchema = z
   .object({
-    type: z.string().default('about:blank').meta({
+    // `default` est une annotation du contrat (RFC 9457), pas une valeur injectée au parse :
+    // l'API renvoie toujours `type`, le champ reste donc `required` dans le document OpenAPI.
+    type: z.string().meta({
       description: 'URI identifiant le type de problème. `about:blank` = statut HTTP seul.',
+      default: 'about:blank',
     }),
     title: z.string().meta({ description: 'Résumé court et stable du type de problème.' }),
     status: z.int().min(100).max(599).meta({ description: 'Code de statut HTTP.' }),
