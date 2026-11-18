@@ -3,12 +3,13 @@ import { z } from 'zod';
 import { ImageSchema } from '../common/image.js';
 import { nullable } from '../common/nullable.js';
 import { SlugSchema } from '../common/slug.js';
+import { HttpUrlSchema } from '../common/url.js';
 
 /** Ressource recommandée (ex-favoris), éventuellement rattachée à un groupe de compétences. */
 export const ResourceSchema = z
   .strictObject({
     slug: SlugSchema,
-    url: z.url(),
+    url: HttpUrlSchema,
     groupSlug: nullable(SlugSchema).meta({
       description: 'Slug du groupe de compétences associé ; `null` si aucun.',
     }),

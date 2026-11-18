@@ -7,6 +7,7 @@ export * from './common/locale.js';
 export * from './common/nullable.js';
 export * from './common/problem-details.js';
 export * from './common/slug.js';
+export * from './common/url.js';
 export * from './cv/cv.js';
 export * from './education/education.js';
 export * from './experiences/experiences.js';

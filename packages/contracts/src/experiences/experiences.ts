@@ -6,6 +6,7 @@ import { ImageSchema } from '../common/image.js';
 import { nullable } from '../common/nullable.js';
 import { SlugSchema } from '../common/slug.js';
 import { SkillSchema } from '../skills/skills.js';
+import { HttpUrlSchema } from '../common/url.js';
 
 /**
  * Expérience professionnelle (ou pause, mentorat). Triée par `dateStart` décroissant par défaut.
@@ -20,7 +21,7 @@ export const ExperienceSchema = z
       .min(1)
       .nullable()
       .meta({ description: 'Employeur ; `null` pour une pause.' }),
-    companyUrl: z.url().nullable().meta({ description: "Site de l'employeur." }),
+    companyUrl: HttpUrlSchema.nullable().meta({ description: "Site de l'employeur." }),
     logo: nullable(ImageSchema).meta({
       description: "Logo de l'employeur et son texte alternatif ; `null` si absent.",
     }),

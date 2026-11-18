@@ -128,4 +128,45 @@ describe('contraintes du schéma SQL', () => {
       await sql`delete from resources where slug = 't-ressource-image'`;
     }
   });
+
+  it.each([
+    'javascript:alert(document.domain)',
+    'data:text/html,x',
+    'mailto:contact@example.test',
+    'tel:+33100000000',
+    'ftp://example.test',
+  ])('refuse l’URL %s dans toute colonne d’adresse (XSS stockée)', async (url) => {
+    await expect(
+      sql`insert into social_links (slug, kind, url) values ('t-lien', 'github', ${url})`,
+    ).rejects.toThrow(/social_links_url_check/);
+    await expect(
+      sql`insert into resources (slug, url) values ('t-ressource-url', ${url})`,
+    ).rejects.toThrow(/resources_url_check/);
+    await expect(sql`insert into tools (slug, url) values ('t-outil', ${url})`).rejects.toThrow(
+      /tools_url_check/,
+    );
+    await expect(sql`insert into projects (slug, url) values ('t-p1', ${url})`).rejects.toThrow(
+      /projects_url_check/,
+    );
+    await expect(
+      sql`insert into projects (slug, repo_url) values ('t-p2', ${url})`,
+    ).rejects.toThrow(/projects_repo_url_check/);
+    await expect(
+      sql`insert into certifications (slug, issuer, year, url) values ('t-cert', 'x', 2020, ${url})`,
+    ).rejects.toThrow(/certifications_url_check/);
+    await expect(
+      sql`insert into education (slug, institution, year_start, url) values ('t-edu', 'x', 2010, ${url})`,
+    ).rejects.toThrow(/education_url_check/);
+    await expect(
+      sql`insert into experiences (slug, kind, date_start, company_url) values ('t-xp', 'freelance', '2020-01-01', ${url})`,
+    ).rejects.toThrow(/experiences_company_url_check/);
+  });
+
+  it('accepte http, https et l’absence d’URL', async () => {
+    await sql`insert into resources (slug, url) values ('t-http', 'http://example.test')`;
+    await sql`insert into resources (slug, url) values ('t-https', 'HTTPS://example.test/a')`;
+    await sql`insert into tools (slug, url) values ('t-sans-url', null)`;
+    await sql`delete from resources where slug in ('t-http', 't-https')`;
+    await sql`delete from tools where slug = 't-sans-url'`;
+  });
 });
