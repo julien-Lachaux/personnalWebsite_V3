@@ -1,7 +1,8 @@
-# Site perso V3 : back-end
+# Site perso V3
 
 Monorepo pnpm + Turborepo : API NestJS/Fastify en architecture hexagonale (`apps/api`),
-contrats Zod + OpenAPI 3.2.0 (`packages/contracts`), schéma et contenu en SQL (`db/`).
+front Nuxt 4 en génération statique FR/EN (`apps/web`), contrats Zod + OpenAPI 3.2.0
+(`packages/contracts`), schéma et contenu en SQL (`db/`).
 Décisions et modèle de données : `docs/`. Conventions pour les agents : `CLAUDE.md`.
 Agents spécialisés et garde-fous contre le contournement des tests : `.claude/agents/`,
 `.claude/hooks/` et `scripts/ci/check-tests-integrity.sh` (lancés par `pnpm check` et la CI).
@@ -32,8 +33,12 @@ curl -s http://localhost:3000/api/v1/inconnue    # 404 application/problem+json
 curl -si http://localhost:3000/api/v1/health | grep -i x-ratelimit   # quota par IP (défaut 100/min), 429 au-delà
 ```
 
-`pnpm build` compile les contrats puis l'API dans `dist/` ; `pnpm start` lance la version
-compilée.
+`pnpm build` compile les contrats puis l'API dans `dist/` et génère les pages statiques du front
+dans `apps/web/.output/public` ; `pnpm start` lance la version compilée de l'API.
+
+Front : `pnpm dev:web` sert le site en watch sur http://localhost:3001 (`/` en français, `/en` en
+anglais) ; `pnpm e2e:browsers:up` démarre les navigateurs Playwright (Docker) pour
+`pnpm --filter @siteperso/web test:e2e`. Conventions et commandes : `CLAUDE.md`, « Front ».
 
 Pile locale complète identique à la production (Caddy, API, PostgreSQL, même compose et même image) pour
 reproduire un problème de prod : `pnpm stack:up` puis `curl -k https://localhost:8443/api/v1/health` (voir

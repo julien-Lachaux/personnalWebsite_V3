@@ -1,9 +1,10 @@
 # CLAUDE.md : conventions du dépôt pour tous les agents
 
-Site perso V3 de Julien, back-end TypeScript. Les décisions de référence sont dans `docs/` :
-`00-etat-des-lieux-v2.md`, `01-modele-de-donnees.md` (tables et contrat d'API),
-`02-stack-technique.md`, `03-organisation-agents.md` (lots, rôles, flux git). Elles sont validées :
-on les applique, on ne les rediscute pas dans le code.
+Site perso V3 de Julien, back-end TypeScript et front Nuxt. Les décisions de référence sont dans
+`docs/` : `00-etat-des-lieux-v2.md`, `01-modele-de-donnees.md` (tables et contrat d'API),
+`02-stack-technique.md`, `03-organisation-agents.md` (lots, rôles, flux git), `04-front-donnees.md`
+(données du front), `05-front-organisation.md` (décisions D1 à D8, lots F0 à F10). Elles sont
+validées : on les applique, on ne les rediscute pas dans le code.
 
 ## Structure
 
@@ -20,14 +21,16 @@ apps/api/                 API NestJS 12 sur Fastify (ESM), architecture hexagona
                           provision-api-role.ts (rôle PostgreSQL de lecture seule de l'API, prod)
   test/                   tests e2e (*.e2e-spec.ts) via app.inject contre le Postgres de test ;
                           test/support/database.ts : resetTestDatabase(), openTestSql()
+apps/web/                 front Nuxt 4 en génération statique (FR, EN) : voir « Front » plus bas
 packages/contracts/       schémas Zod partagés + document OpenAPI 3.2.0 (createOpenApiDocument)
 db/migrations/            SQL manuel NNNN_description.sql (source de vérité du schéma)
 db/seeds/                 contenu SQL idempotent (upsert sur slug)
-docker-compose.yml        postgres (dev, :5432) et postgres-test (:5433, tmpfs) ; ports et nom de
-                          projet surchargeables par un `.env` racine (worktrees en parallèle)
+docker-compose.yml        postgres (dev, :5432), postgres-test (:5433, tmpfs) et playwright
+                          (navigateurs des e2e du front, :3100) ; ports et nom de projet
+                          surchargeables par un `.env` racine (worktrees en parallèle)
 docs/                     décisions validées ; ne pas reformater (exclu de Prettier)
 docs/comptes-rendus/      compte rendu de chaque agent (lot-N-role.md)
-.claude/agents/           les onze agents spécialisés (rôle, fichiers, méthode, interdits)
+.claude/agents/           les quatorze agents spécialisés (rôle, fichiers, méthode, interdits)
 .claude/hooks/            garde-fous contre le contournement des tests (hooks de .claude/settings.json)
 scripts/ci/               check-tests-integrity.sh : intégrité des tests (CI et pnpm check)
 ```
@@ -93,6 +96,74 @@ tout fichier de configuration racine. Si une ressource a besoin d'un changement 
 l'orchestrateur l'applique en un commit dédié. Le module `cv` agrège les cas d'usage des
 autres ressources : il les importe par leurs modules, sans dupliquer de requête.
 
+## Front (`apps/web`, docs/05)
+
+Nuxt 4 (`@siteperso/web`), TypeScript strict (options de `tsconfig.base.json` reportées dans
+`nuxt.config.ts`), génération statique (`nuxt generate` → `.output/public`) : aucun serveur Node du
+front en production. Référence du design : `apps/web/design/handoff-v6/` (copie versionnée du
+handoff v6, D7 ; `SPEC.md` fait foi, captures de `design/reference/` = oracles de régression
+visuelle ; exclu de Prettier et d'ESLint).
+
+```
+apps/web/
+  nuxt.config.ts          modules, i18n, prérendu, runtimeConfig (fichier partagé)
+  app/
+    app.vue               lang, hreflang, canonical (useLocaleHead) ; fichier partagé
+    architecture.spec.ts  règles d'import des couches, vérifiées par le code
+    domain/               logique pure : AUCUN import de vue, nuxt, #imports, #app, ni des
+                          composants, composables ou données ; testée sans Nuxt (projet unit)
+    data/                 port CvSource, ApiCvSource, FixtureCvSource, mapping contrat → vue
+                          (docs/04) ; n'importe aucun composant ni aucune page
+    components/base/      éléments de base (lot F1, puis partagés)
+    components/<section>/ un dossier par section : profile, experience, recommendations, ai, shell
+    composables/          pont entre domain et composants (état, URL, préférences) ;
+                          sous-dossier par section importé explicitement
+    pages/                index, accessibilite, 404 (fichiers partagés)
+    assets/css/           tokens.css du handoff, base, thèmes (fichiers partagés)
+  i18n/locales/           fr.json, en.json : libellés d'interface (clés communes partagées,
+                          clés `<section>.` à la section)
+  public/                 polices auto-hébergées (D6), CV PDF, favicon
+  test/                   parcours Playwright (*.e2e.ts), support et fixtures de test
+```
+
+- **Couches** : la logique décide dans `domain/`, le composable relie l'état, le composant affiche.
+  Les auto-imports de Nuxt ne servent pas dans `domain/` ni `data/` : ces dossiers sont testés dans
+  le projet Vitest `unit`, sans Nuxt, où un `ref()` non importé échoue. Les contenus viennent de
+  l'API (`GET /cv?lang=` au build) ou de fixtures validées par `@siteperso/contracts`, jamais de
+  `site-content.json` à l'exécution.
+- **Règle « modules isolés » du front** : un agent de section n'écrit que dans
+  `components/<section>/`, `composables/<section>/`, ses tests et ses clés i18n `<section>.` ; les
+  fichiers partagés (configuration Nuxt, `app.vue`, `pages/`, `assets/css/`, `components/base/`
+  après F1, `data/` hors F4, clés i18n communes, configurations de test et de lint) sont réservés
+  au lead-architecte (détail dans `.claude/agents/dev-front.md`).
+- **i18n** : `@nuxtjs/i18n`, FR par défaut sans préfixe, EN sous `/en/...`
+  (`prefix_except_default`), pas de redirection selon le navigateur ; `useLocaleHead` pose `lang`,
+  `hreflang` (fr, en, x-default) et `canonical` en URL absolue (`NUXT_PUBLIC_I18N_BASE_URL`).
+  Toute chaîne visible passe par `t()`, dans les deux langues au même commit.
+- **Accessibilité** : WCAG 2.2 AA (D4, SPEC § 10) ; vrais `button`, `a`, `input` + `label`, jamais
+  de clic sur un `div` ; focus visible ; cibles de 44 px sur mobile et tablette ; contrastes
+  ≥ 4,5:1 dans les deux thèmes et en contraste renforcé ; `prefers-reduced-motion` ; tailles en
+  `rem`. ESLint (`eslint-plugin-vue`, `eslint-plugin-vuejs-accessibility`, zéro avertissement)
+  interdit `v-html` ; axe tourne dans chaque parcours Playwright (étiquettes WCAG 2.2 AA).
+- **Configuration et données personnelles** : valeurs publiques en `NUXT_PUBLIC_*`, figées au build,
+  modèle `apps/web/.env.example` (à copier en `apps/web/.env`, jamais commité). L'adresse du bouton
+  « Lancer l'entretien » est `NUXT_PUBLIC_CONTACT_EMAIL` (`useRuntimeConfig().public.contactEmail`) :
+  jamais de vraie adresse dans le dépôt (code, tests, fixtures), placeholder `contact@example.org`.
+  Liens externes en `rel="noopener noreferrer"`.
+- **Tests** : deux projets Vitest dans `apps/web/vitest.config.ts`, `unit` (`app/domain/`,
+  `app/data/`, `app/architecture.spec.ts`, environnement Node) et `nuxt` (tout autre
+  `app/**/*.spec.ts` : composants, composables, pages, montés par `mountSuspended` de
+  `@nuxt/test-utils`) ; `*.spec.ts` à côté du code. Couverture 100 % sur `apps/web/app` (`.ts` et
+  `.vue`), mêmes règles que le back, dans `pnpm test:coverage`. Mutation Stryker sur `app/domain/` et
+  `app/data/` (seuil 100). Parcours Playwright `test/**/*.e2e.ts` contre le site généré : un projet
+  par taille d'écran des maquettes (390, 834, 1024, 1280, 1440, 1920, 3440), schémas clair et
+  sombre, fr et en ; ils ne comptent pas dans la couverture (D3). Navigateurs dans le service
+  docker `playwright` (image officielle épinglée par digest, même version que `@playwright/test`),
+  le lanceur et le serveur statique (`sirv`) sur l'hôte.
+- Après un changement de `nuxt.config.ts` (module, i18n), relancer
+  `pnpm --filter @siteperso/web exec nuxt prepare` (fait aussi par `pnpm install`, `dev` et
+  `generate`) pour régénérer `.nuxt/` (types et tsconfig lus par le lint et le typecheck).
+
 ## Conventions de code
 
 - TypeScript strict (`tsconfig.base.json`), ESM, imports relatifs avec extension `.js`.
@@ -103,8 +174,8 @@ autres ressources : il les importe par leurs modules, sans dupliquer de requête
   code, `pnpm test`) et `e2e` (`test/**/*.e2e-spec.ts`, `pnpm test:e2e`), tous deux transformés
   avec SWC (`unplugin-swc`) : esbuild n'émet pas les métadonnées de décorateurs dont Nest dépend.
   Un module de ressource livre les deux.
-- Couverture 100 % obligatoire (lignes, branches, fonctions, instructions) sur `apps/api/src` et
-  `packages/contracts/src`, mesurée en une passe fusionnée unitaires + e2e (`pnpm test:coverage`,
+- Couverture 100 % obligatoire (lignes, branches, fonctions, instructions) sur `apps/api/src`,
+  `packages/contracts/src` et `apps/web/app` (unitaires + composants), mesurée en une passe fusionnée unitaires + e2e (`pnpm test:coverage`,
   dans `pnpm check` et en CI). Aucun fichier de production exclu de la mesure, aucun commentaire
   d'ignore (`v8 ignore`, `c8 ignore`, `istanbul ignore`) : du code que l'application n'exécute
   jamais se supprime, il ne se masque pas. Un point d'entrée (`main.ts`, `cli/*.ts`) se teste en
@@ -119,8 +190,8 @@ autres ressources : il les importe par leurs modules, sans dupliquer de requête
   schéma Drizzle, contexte des messages de journal).
 - `@siteperso/contracts` est consommé via son `dist/` : Turborepo le compile avant `lint`,
   `typecheck`, `test`, `test:e2e`, `test:coverage` et `build` (`dependsOn: ^build`), et
-  `pnpm dev` le compile avant de lancer l'API. Après une modification des contrats pendant
-  `pnpm dev`, relancer `pnpm --filter @siteperso/contracts build`.
+  `pnpm dev` (ou `pnpm dev:web`) le compile avant de lancer l'API (ou le front). Après une
+  modification des contrats pendant `pnpm dev`, relancer `pnpm --filter @siteperso/contracts build`.
 - Pas de `console.log` : `Logger` de Nest dans `infrastructure`, rien dans `domain`/`application`.
 - Prettier et ESLint font foi : `pnpm format` avant de committer.
 
@@ -141,10 +212,17 @@ pnpm db:deleted:purge --older-than <jours> [--confirm]   # purge physique manuel
                              # refusée en production sans ALLOW_PRODUCTION_PURGE=yes
 pnpm db:test:up              # postgres de test
 pnpm dev                     # compile les contrats puis API en watch sur http://localhost:3000/api/v1
-pnpm lint | typecheck | test | test:e2e | build
+pnpm dev:web                 # compile les contrats puis front Nuxt en watch sur http://localhost:3001 (/ et /en)
+pnpm e2e:browsers:up         # navigateurs Playwright des e2e du front (service docker playwright)
+pnpm lint | typecheck | test | test:e2e | build   # build du front = nuxt generate
 pnpm test:coverage           # unitaires + e2e en une passe, couverture fusionnée, échoue sous 100 %
-pnpm test:mutation           # Stryker sur les unitaires (contrats puis API), rapports dans reports/mutation/ ; échoue sous le seuil de chaque paquet ; hors check, job CI dédié
-pnpm check                   # tout : garde-fous, intégrité des tests, postgres de test, lint, typecheck, unit, e2e, couverture
+pnpm test:mutation           # Stryker sur les unitaires (contrats, API, front), rapports dans reports/mutation/ ; échoue sous le seuil de chaque paquet ; hors check, job CI dédié
+pnpm check                   # tout : garde-fous, intégrité des tests, postgres de test, navigateurs, lint, typecheck, unit, e2e (API et front), couverture
+pnpm --filter @siteperso/web generate        # pages statiques fr et en dans apps/web/.output/public
+pnpm --filter @siteperso/web test            # unitaires + composants (projets unit et nuxt)
+pnpm --filter @siteperso/web test:coverage   # idem avec couverture, échoue sous 100 %
+pnpm --filter @siteperso/web test:e2e        # nuxt generate puis Playwright + axe (navigateurs démarrés)
+pnpm --filter @siteperso/web test:mutation   # Stryker sur app/domain et app/data
 pnpm hooks:test              # tests des hooks garde-fous (.claude/hooks/tests)
 pnpm integrity [base]        # intégrité des tests depuis la base (défaut origin/develop, sinon develop)
 pnpm format                  # Prettier sur tout le dépôt (docs/ exclu)
@@ -156,30 +234,34 @@ pnpm stack:down [--volumes]  # arrête la pile locale ; --volumes supprime aussi
 
 La configuration de l'API est lue dans `apps/api/.env` (modèle : `.env.example`, à copier,
 jamais commité). Les e2e n'en ont pas besoin : le projet `e2e` de `vitest.config.ts` pointe par
-défaut sur le postgres de test.
+défaut sur le postgres de test. Celle du front dans `apps/web/.env` (modèle `apps/web/.env.example`,
+facultatif : des valeurs par défaut sans donnée réelle sont dans `nuxt.config.ts`).
 
 ## Worktrees en parallèle
 
 Deux agents qui lancent `pnpm check` en même temps doivent isoler leurs conteneurs : chacun
 crée un `.env` à la racine de SON worktree (gitignoré) avec `COMPOSE_PROJECT_NAME`,
 `POSTGRES_PORT` et `POSTGRES_TEST_PORT` qui lui sont propres (ex. `siteperso-v3-b`, 5442, 5443),
-et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docker compose` et
-`apps/api/vitest.config.ts` lisent ce `.env` racine. `pnpm db:down` n'arrête alors que ses conteneurs.
+plus `PLAYWRIGHT_PORT` (serveur de navigateurs) et `WEB_E2E_PORT` (site statique servi pendant les
+parcours du front), et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`.
+`docker compose`, `apps/api/vitest.config.ts` et `apps/web/playwright.config.ts` lisent ce `.env`
+racine. `pnpm db:down` n'arrête alors que ses conteneurs. La session front prend la plage 58xx.
 
 ## Agents et garde-fous
 
 - Les rôles sont des fichiers : `.claude/agents/<nom>.md` (lead-architecte, chef-de-projet,
-  dev-sql, dev-contrats, dev-api, dev-devops, qa, revue-code, revue-securite, triage,
-  correcteur). L'orchestrateur est la session principale (rôle `main` des hooks) ; il fournit à
+  dev-sql, dev-contrats, dev-api, dev-devops, dev-front, qa, qa-front, revue-code,
+  revue-securite, revue-a11y, triage, correcteur). L'orchestrateur est la session principale (rôle `main` des hooks) ; il fournit à
   chaque appel branche, worktree, isolation Docker, tickets et date, fusionne les lots dans
   `develop` et est le seul à pousser, uniquement `develop` vers `origin`. Tableau et flux :
   `docs/03-organisation-agents.md`.
 - Un test se protège, il ne se négocie pas. Interdits à tout agent : modifier ou supprimer un test
-  existant, ajouter un marqueur de saut ou de focus de Vitest ou un commentaire d'ignore de
-  couverture, coder en dur une sortie pour une entrée de test, surcharger une comparaison, garder
+  existant, ajouter un marqueur de saut ou de focus de Vitest ou de Playwright (dont `test.fixme`
+  et `test.slow`) ou un commentaire d'ignore de couverture, désactiver une règle axe, régénérer une
+  capture attendue pour faire passer un test, coder en dur une sortie pour une entrée de test, surcharger une comparaison, garder
   un état caché, affaiblir l'oracle (fixtures, snapshots, seuils, configuration de test, délais,
-  sélection des tests, épinglages, CI). Les dev-\* ajoutent des tests ; la qa n'écrit que des
-  tests ; seul le correcteur modifie un test existant, quand le triage l'a établi faux. Exception
+  sélection des tests, épinglages, CI). Les dev-\* ajoutent des tests ; la qa et la qa-front
+  n'écrivent que des tests ; seul le correcteur modifie un test existant, quand le triage l'a établi faux. Exception
   (décision du 19 nov. 2026) : dev-contrats, dev-sql et dev-api modifient un test existant rendu
   obsolète par un brief validé (`docs/briefs/`), sous autorisation « tests » et `Justification-test: BF-n`.
 - **Justification-test** : tout commit qui modifie ou supprime un test existant, ajoute un test en
@@ -191,7 +273,7 @@ et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docke
   l'orchestrateur décider. C'est un résultat acceptable, pas un échec, et le seul chemin autorisé.
 - Garde-fous mécaniques : hooks de `.claude/settings.json` (`.claude/hooks/README.md`). Ils
   refusent ces écritures et comparent les oracles à un instantané en fin de tâche. Une exception
-  (correcteur, qa, lead-architecte, dev-devops) passe par une autorisation nominative que seule la
+  (correcteur, qa, qa-front, lead-architecte, dev-devops) passe par une autorisation nominative que seule la
   session principale crée (`node .claude/hooks/authorize.mjs grant …`), journalisée dans
   `.claude/hooks/audit.log`.
 - **Illisible donc refusé** (lot 13 bis) : l'analyseur des commandes des hooks lit bash et zsh
