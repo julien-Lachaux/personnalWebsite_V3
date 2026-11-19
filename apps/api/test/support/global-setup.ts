@@ -11,7 +11,7 @@ import { migrationsDirectory, seedsDirectory } from './database.js';
 export default async function setup(project: TestProject): Promise<void> {
   const databaseUrl = project.config.env['DATABASE_URL'];
   if (typeof databaseUrl !== 'string' || databaseUrl === '') {
-    throw new Error('DATABASE_URL absent de la configuration vitest.e2e.config.ts.');
+    throw new Error('DATABASE_URL absent de la configuration du projet e2e (vitest.config.ts).');
   }
   await resetDatabase({
     databaseUrl,
