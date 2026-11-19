@@ -33,3 +33,12 @@ stryker.log
 .claude/hooks/state/
 .claude/hooks/audit.log
 .claude/settings.local.json
+
+# Clés, certificats et sauvegardes : jamais versionnés (revue de pré-publication RSP-3)
+*.key
+*.pem
+*.crt
+id_*
+*.sql.gz
+*.dump
+backups/
