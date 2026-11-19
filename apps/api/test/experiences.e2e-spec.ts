@@ -83,6 +83,8 @@ describe('GET /api/v1/experiences', () => {
       'mastra',
       'posthog',
       'docker',
+      'ocr',
+      'agentic-development',
     ]);
   });
 
@@ -140,7 +142,15 @@ describe('GET /api/v1/experiences', () => {
       expect(skillSlugs).not.toContain('docker');
       expect(
         experiences.find((experience) => experience.slug === 'nopillo')?.skills.map((s) => s.slug),
-      ).toEqual(['typescript', 'elysia', 'solidjs', 'mastra', 'posthog']);
+      ).toEqual([
+        'typescript',
+        'elysia',
+        'solidjs',
+        'mastra',
+        'posthog',
+        'ocr',
+        'agentic-development',
+      ]);
     });
 
     it('place en tête l’expérience en cours (dateEnd null, logo null)', async () => {
