@@ -16,7 +16,7 @@
 // la session principale, sans agent_type, a le rôle « main ».
 
 import { existsSync, readFileSync } from 'node:fs';
-import { isAbsolute, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import {
   classify,
   countMarkers,
@@ -171,12 +171,33 @@ function simulateEdit(tool, ti, before) {
 
 const CODE_FILE = /\.(c|m)?[jt]sx?$|\.(sh|bash|zsh|py|rb|pl)$/;
 const STATE_HINT = /\.claude\/hooks\/state|authorizations\.json|\.claude\/hooks\/audit\.log/;
+/** Mention de la configuration git dans un code opaque. */
+const GIT_CONFIG_HINT =
+  /(^|[^\w.])\.git\/(\S+\/)?config\b|\.gitconfig\b|\.config\/git\/config\b|\/etc\/gitconfig\b/;
+const GIT_CONFIG = 'la configuration git';
+const GIT_CONFIG_MOTIF =
+  'elle peut redéfinir la destination des push (remote, url, branche suivie) : réservé à Julien';
+
+/**
+ * Fichier de configuration git (T3 du lot 13 bis) : .git/config, config.worktree (dépôt, worktree,
+ * sous-module), ~/.gitconfig, $XDG_CONFIG_HOME/git/config, /etc/gitconfig. Personne ne l'édite.
+ */
+function isGitConfigFile(abs) {
+  if (/(^|\/)\.git\/(.+\/)?config(\.worktree)?$/.test(abs)) return true;
+  const home = process.env.HOME;
+  const xdg = process.env.XDG_CONFIG_HOME || (home ? join(home, '.config') : null);
+  return [home && join(home, '.gitconfig'), xdg && join(xdg, 'git', 'config'), '/etc/gitconfig']
+    .filter(Boolean)
+    .some((file) => abs === file || abs === normalize(file));
+}
 
 function checkFileTool(ctx, tool, ti) {
   const filePath = ti.file_path ?? ti.notebook_path;
   if (typeof filePath !== 'string' || filePath === '')
     throw new InputError(`${tool} sans file_path`);
   const abs = normalize(isAbsolute(filePath) ? filePath : resolve(ctx.cwd, filePath));
+  if (isGitConfigFile(abs))
+    deny(ctx, `la configuration git (${abs}) ne s'édite pas : ${GIT_CONFIG_MOTIF}`, { path: abs });
   if (inScratch(ctx, abs)) return;
 
   const before = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
@@ -233,6 +254,10 @@ function checkFileTool(ctx, tool, ti) {
 
 /** Classe une cible d'écriture shell et applique la règle correspondante. */
 function checkShellTarget(ctx, abs, raw) {
+  if (isGitConfigFile(abs))
+    deny(ctx, `écriture shell de la configuration git (${raw}) : ${GIT_CONFIG_MOTIF}`, {
+      path: abs,
+    });
   if (inScratch(ctx, abs)) return;
   const top = toplevelOf(abs);
   if (!top) return;
@@ -284,6 +309,7 @@ function checkShellTarget(ctx, abs, raw) {
 
 /** Recherche, dans un code opaque, un chemin qui désigne un oracle ou l'état des garde-fous. */
 function opaqueHit(ctx, text, base) {
+  if (GIT_CONFIG_HINT.test(text)) return GIT_CONFIG;
   if (ctx.role !== 'main' && STATE_HINT.test(text)) return "l'état des garde-fous";
   const tops = [toplevelOf(base), toplevelOf(ctx.cwd)].filter(Boolean);
   for (const cand of pathCandidates(text)) {
@@ -357,6 +383,11 @@ function checkShell(ctx, ti) {
         o.what.startsWith('xargs') || ['find', 'patch', 'git apply', 'git am'].includes(o.what);
       if (!always && !hasWritePrimitive(o.text)) continue;
       const hit = opaqueHit(ctx, o.text, o.base);
+      if (hit === GIT_CONFIG)
+        deny(
+          ctx,
+          `écriture opaque (${o.what}) qui vise la configuration git : ${GIT_CONFIG_MOTIF}`,
+        );
       if (hit) {
         deny(
           ctx,

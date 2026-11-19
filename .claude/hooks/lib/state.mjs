@@ -107,13 +107,19 @@ export function untrackedFiles(top) {
 // ---------------------------------------------------------------------------------------------
 // Racine d'état, journal
 
-/** Checkout principal du dépôt qui contient `cwd` (le même pour tous ses worktrees), ou null. */
+/**
+ * Checkout principal du dépôt qui contient `cwd` (le même pour tous ses worktrees), ou null.
+ * `--git-common-dir` sans `--path-format=absolute` (git 2.31) : git 2.30 renvoyait l'option telle
+ * quelle sur une ligne, et l'état partait dans un dossier « --path-format=absolute » du worktree.
+ * Le chemin rendu est relatif au dossier de la commande (`top`) quand il n'est pas absolu.
+ */
 export function mainCheckoutOf(cwd) {
   const top = toplevelOf(cwd);
   if (!top) return null;
   try {
-    const common = git(top, ['rev-parse', '--path-format=absolute', '--git-common-dir']).trim();
-    return normalize(dirname(common));
+    const common = git(top, ['rev-parse', '--git-common-dir']).replace(/\n$/, '');
+    if (common === '' || common.includes('\n')) return top;
+    return normalize(dirname(resolve(top, common)));
   } catch {
     return top;
   }
