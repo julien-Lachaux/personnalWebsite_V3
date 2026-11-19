@@ -4,7 +4,9 @@ Synthèse, lot par lot, de ce qui a été fait depuis le 18 novembre 2026. Chaqu
 `lot/N-nom`, un worktree isolé, un agent (ou deux) qui livre, une recette du chef de projet, puis une
 fusion `--no-ff` dans `v3/backend` par l'orchestrateur. Le détail de chaque lot est dans
 `docs/comptes-rendus/lot-N-*.md` ; les tickets et critères dans `docs/backlog.md` ; les décisions de
-référence dans `docs/01` à `docs/03`. Rien n'est poussé sur GitHub à ce jour.
+référence dans `docs/01` à `docs/03`. Premier push sur GitHub (dépôt privé) le 19 novembre 2026 au soir,
+après la revue de sécurité de pré-publication (`docs/revues/securite-pre-publication-2026-11-19.md`) :
+branches `main` (avance rapide depuis `v3/backend`) et `v3/backend`.
 
 | Lot | Nom | Agent(s), modèle | Fusionné | Tests après fusion |
 | --- | --- | --- | --- | --- |
