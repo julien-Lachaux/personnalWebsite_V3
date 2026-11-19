@@ -1,0 +1,1277 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "Site perso V3 : API de contenu",
+    "version": "1.0.0",
+    "description": "API publique en lecture seule exposant le contenu du CV (profil, compétences, expériences, projets…). Le contenu est multilingue (`?lang=fr|en`, défaut `fr`). Les erreurs suivent la RFC 9457 (`application/problem+json`)."
+  },
+  "servers": [{ "url": "/api/v1", "description": "Préfixe de version de l’API" }],
+  "tags": [
+    { "name": "Profil", "description": "Profil public" },
+    { "name": "Liens sociaux", "description": "Profils publics en ligne" },
+    { "name": "Groupes de compétences", "description": "Compétences regroupées par domaine" },
+    { "name": "Compétences", "description": "Compétences techniques" },
+    { "name": "Expériences", "description": "Parcours professionnel" },
+    { "name": "Projets", "description": "Réalisations" },
+    { "name": "Outils", "description": "Outils du quotidien" },
+    { "name": "Ressources", "description": "Ressources recommandées" },
+    { "name": "Certifications", "description": "Certifications obtenues" },
+    { "name": "Formations", "description": "Parcours de formation" },
+    { "name": "Langues", "description": "Langues parlées" },
+    { "name": "CV", "description": "Agrégat de tout le contenu en un appel" },
+    { "name": "Système", "description": "Supervision de l’API" }
+  ],
+  "components": {
+    "schemas": {
+      "CefrLevel": {
+        "type": "string",
+        "enum": ["A1", "A2", "B1", "B2", "C1", "C2"],
+        "description": "Niveau CECRL (Cadre européen commun de référence pour les langues).",
+        "examples": ["C1"]
+      },
+      "Certification": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "issuer": { "type": "string", "minLength": 1, "description": "Organisme émetteur." },
+          "year": {
+            "type": "integer",
+            "minimum": 1990,
+            "maximum": 2100,
+            "description": "Année d'obtention."
+          },
+          "url": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "description": "Lien de vérification ; `null` si absent."
+          },
+          "name": { "type": "string", "minLength": 1 }
+        },
+        "required": ["slug", "issuer", "year", "url", "name"],
+        "additionalProperties": false,
+        "description": "Certification."
+      },
+      "ContractType": {
+        "type": "string",
+        "enum": ["cdi", "freelance", "none"],
+        "description": "Type de contrat.",
+        "examples": ["cdi"]
+      },
+      "Cv": {
+        "type": "object",
+        "properties": {
+          "locale": { "$ref": "#/components/schemas/Locale" },
+          "profile": { "$ref": "#/components/schemas/Profile" },
+          "socialLinks": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SocialLink" }
+          },
+          "skillGroups": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SkillGroup" }
+          },
+          "experiences": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Experience" }
+          },
+          "projects": { "type": "array", "items": { "$ref": "#/components/schemas/Project" } },
+          "tools": { "type": "array", "items": { "$ref": "#/components/schemas/Tool" } },
+          "resources": { "type": "array", "items": { "$ref": "#/components/schemas/Resource" } },
+          "certifications": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Certification" }
+          },
+          "education": { "type": "array", "items": { "$ref": "#/components/schemas/Education" } },
+          "languages": { "type": "array", "items": { "$ref": "#/components/schemas/Language" } }
+        },
+        "required": [
+          "locale",
+          "profile",
+          "socialLinks",
+          "skillGroups",
+          "experiences",
+          "projects",
+          "tools",
+          "resources",
+          "certifications",
+          "education",
+          "languages"
+        ],
+        "additionalProperties": false,
+        "description": "CV complet : agrégat de toutes les ressources."
+      },
+      "Education": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "institution": { "type": "string", "minLength": 1 },
+          "yearStart": { "type": "integer", "minimum": 1950, "maximum": 2100 },
+          "yearEnd": {
+            "type": ["integer", "null"],
+            "minimum": 1950,
+            "maximum": 2100,
+            "description": "Fin ; `null` = en cours."
+          },
+          "url": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "description": "Site de l'établissement."
+          },
+          "title": { "type": "string", "minLength": 1 },
+          "description": {
+            "type": ["string", "null"],
+            "description": "Détail de la formation ; `null` si absent."
+          }
+        },
+        "required": ["slug", "institution", "yearStart", "yearEnd", "url", "title", "description"],
+        "additionalProperties": false,
+        "description": "Formation."
+      },
+      "Experience": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "kind": { "$ref": "#/components/schemas/ExperienceKind" },
+          "company": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "description": "Employeur ; `null` pour une pause."
+          },
+          "companyUrl": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "description": "Site de l'employeur."
+          },
+          "logo": {
+            "anyOf": [{ "$ref": "#/components/schemas/Image" }, { "type": "null" }],
+            "description": "Logo de l'employeur et son texte alternatif ; `null` si absent."
+          },
+          "contractType": {
+            "anyOf": [{ "$ref": "#/components/schemas/ContractType" }, { "type": "null" }]
+          },
+          "workMode": {
+            "anyOf": [{ "$ref": "#/components/schemas/WorkMode" }, { "type": "null" }]
+          },
+          "dateStart": { "$ref": "#/components/schemas/IsoDate" },
+          "dateEnd": { "anyOf": [{ "$ref": "#/components/schemas/IsoDate" }, { "type": "null" }] },
+          "jobTitle": { "type": "string", "minLength": 1, "examples": ["Développeur full-stack"] },
+          "location": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "description": "Lieu de travail."
+          },
+          "summary": { "type": "string", "description": "Résumé de l'expérience." },
+          "achievements": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Réalisations marquantes, une par entrée."
+          },
+          "stackLabel": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "description": "Libellé affiché devant la pile technique (ex. « Huile de coude » pour la pause)."
+          },
+          "skills": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Skill" },
+            "description": "Compétences mobilisées, par ordre de tri."
+          }
+        },
+        "required": [
+          "slug",
+          "kind",
+          "company",
+          "companyUrl",
+          "logo",
+          "contractType",
+          "workMode",
+          "dateStart",
+          "dateEnd",
+          "jobTitle",
+          "location",
+          "summary",
+          "achievements",
+          "stackLabel",
+          "skills"
+        ],
+        "additionalProperties": false,
+        "description": "Expérience professionnelle."
+      },
+      "ExperienceKind": {
+        "type": "string",
+        "enum": ["employment", "freelance", "break", "mentoring"],
+        "description": "Nature de l'expérience. La pause professionnelle est un `break`.",
+        "examples": ["employment"]
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["ok"],
+            "description": "`ok` dès que l'API répond."
+          },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "database": {
+                "type": "string",
+                "enum": ["up", "down"],
+                "description": "Résultat du ping PostgreSQL."
+              }
+            },
+            "required": ["database"],
+            "description": "Détail des dépendances vérifiées."
+          }
+        },
+        "required": ["status", "checks"]
+      },
+      "Image": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Chemin relatif d'un fichier statique servi par le front.",
+            "examples": ["/images/profile.webp"]
+          },
+          "alt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Texte alternatif (accessibilité), dans la langue demandée.",
+            "examples": ["Portrait de profil"]
+          }
+        },
+        "required": ["path", "alt"],
+        "additionalProperties": false,
+        "description": "Image statique avec son texte alternatif traduit."
+      },
+      "IsoDate": {
+        "type": "string",
+        "format": "date",
+        "description": "Date calendaire `YYYY-MM-DD` (ISO 8601), sans heure ni fuseau.",
+        "examples": ["2026-01-01"]
+      },
+      "Language": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z]{2}$",
+            "description": "Code ISO 639-1 en minuscules.",
+            "examples": ["fr"]
+          },
+          "cefrLevel": {
+            "anyOf": [{ "$ref": "#/components/schemas/CefrLevel" }, { "type": "null" }],
+            "description": "Niveau CECRL ; `null` pour la langue maternelle."
+          },
+          "name": { "type": "string", "minLength": 1, "examples": ["Français"] },
+          "levelLabel": { "type": "string", "minLength": 1, "examples": ["langue maternelle"] }
+        },
+        "required": ["slug", "code", "cefrLevel", "name", "levelLabel"],
+        "additionalProperties": false,
+        "description": "Langue parlée."
+      },
+      "Locale": {
+        "type": "string",
+        "enum": ["fr", "en"],
+        "examples": ["fr"],
+        "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`."
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "about:blank",
+            "description": "URI identifiant le type de problème. `about:blank` = statut HTTP seul."
+          },
+          "title": {
+            "type": "string",
+            "description": "Résumé court et stable du type de problème."
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 599,
+            "description": "Code de statut HTTP."
+          },
+          "detail": { "type": "string", "description": "Explication propre à cette occurrence." },
+          "instance": { "type": "string", "description": "URI de la requête concernée." }
+        },
+        "required": ["type", "title", "status"]
+      },
+      "Profile": {
+        "type": "object",
+        "properties": {
+          "firstName": { "type": "string", "minLength": 1, "examples": ["Prénom"] },
+          "lastName": { "type": "string", "minLength": 1, "examples": ["Nom"] },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Localisation publique.",
+            "examples": ["Melun, Île-de-France"]
+          },
+          "picture": { "$ref": "#/components/schemas/Image" },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Titre professionnel.",
+            "examples": ["Développeur full-stack TypeScript senior"]
+          },
+          "headline": { "type": "string", "description": "Phrase d'accroche." },
+          "bio": {
+            "type": "string",
+            "description": "Présentation (texte brut ou Markdown léger)."
+          },
+          "availability": {
+            "type": "string",
+            "description": "Statut de disponibilité.",
+            "examples": ["Disponible pour des missions"]
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "location",
+          "picture",
+          "title",
+          "headline",
+          "bio",
+          "availability"
+        ],
+        "additionalProperties": false,
+        "description": "Profil public, traduit selon `lang`."
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "url": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "description": "Adresse publique du projet, si elle existe."
+          },
+          "repoUrl": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "description": "Adresse du dépôt de code, si public."
+          },
+          "imageDesktop": {
+            "anyOf": [{ "$ref": "#/components/schemas/Image" }, { "type": "null" }],
+            "description": "Capture d'écran bureau."
+          },
+          "imageMobile": {
+            "anyOf": [{ "$ref": "#/components/schemas/Image" }, { "type": "null" }],
+            "description": "Capture d'écran mobile."
+          },
+          "year": {
+            "type": ["integer", "null"],
+            "minimum": 1990,
+            "maximum": 2100,
+            "description": "Année de réalisation ; `null` si inconnue."
+          },
+          "title": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "skills": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Skill" },
+            "description": "Compétences mobilisées, par ordre de tri."
+          }
+        },
+        "required": [
+          "slug",
+          "url",
+          "repoUrl",
+          "imageDesktop",
+          "imageMobile",
+          "year",
+          "title",
+          "description",
+          "skills"
+        ],
+        "additionalProperties": false,
+        "description": "Réalisation (projet)."
+      },
+      "Resource": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "url": { "type": "string", "format": "uri" },
+          "groupSlug": {
+            "anyOf": [{ "$ref": "#/components/schemas/Slug" }, { "type": "null" }],
+            "description": "Slug du groupe de compétences associé ; `null` si aucun."
+          },
+          "picture": {
+            "anyOf": [{ "$ref": "#/components/schemas/Image" }, { "type": "null" }],
+            "description": "Visuel et son texte alternatif."
+          },
+          "name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" }
+        },
+        "required": ["slug", "url", "groupSlug", "picture", "name", "description"],
+        "additionalProperties": false,
+        "description": "Ressource recommandée."
+      },
+      "Skill": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Nom affiché (le plus souvent un nom propre, identique en `en`).",
+            "examples": ["TypeScript"]
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Niveau de maîtrise, de 1 à 5."
+          },
+          "icon": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Slug devicon ou chemin SVG.",
+            "examples": ["typescript"]
+          },
+          "iconPath": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "description": "Chemin d'une icône statique propre ; `null` si `icon` suffit."
+          },
+          "groupSlug": { "$ref": "#/components/schemas/Slug" }
+        },
+        "required": ["slug", "name", "level", "icon", "iconPath", "groupSlug"],
+        "additionalProperties": false,
+        "description": "Compétence technique."
+      },
+      "SkillGroup": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "name": { "type": "string", "minLength": 1, "examples": ["Langages"] },
+          "description": {
+            "type": ["string", "null"],
+            "description": "Présentation du groupe ; `null` si le groupe n’en a pas."
+          },
+          "skills": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Skill" },
+            "description": "Compétences du groupe."
+          }
+        },
+        "required": ["slug", "name", "description", "skills"],
+        "additionalProperties": false,
+        "description": "Groupe de compétences et ses compétences."
+      },
+      "Slug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "description": "Identifiant stable en minuscules, chiffres et tirets (`^[a-z0-9]+(-[a-z0-9]+)*$`).",
+        "examples": ["typescript"]
+      },
+      "SocialLink": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "kind": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Type de lien, ouvert : `github`, `linkedin`, `website`…",
+            "examples": ["github"]
+          },
+          "url": { "type": "string", "format": "uri", "examples": ["https://github.com/example"] },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Libellé affiché.",
+            "examples": ["GitHub"]
+          }
+        },
+        "required": ["slug", "kind", "url", "label"],
+        "additionalProperties": false,
+        "description": "Lien vers un profil public."
+      },
+      "Tool": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "url": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "description": "Site de l'outil, s'il existe."
+          },
+          "iconPath": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "description": "Chemin de l'icône statique, si disponible."
+          },
+          "name": { "type": "string", "minLength": 1 },
+          "family": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Famille d'outils.",
+            "examples": ["IDE", "API"]
+          },
+          "description": { "type": "string" }
+        },
+        "required": ["slug", "url", "iconPath", "name", "family", "description"],
+        "additionalProperties": false,
+        "description": "Outil du quotidien."
+      },
+      "WorkMode": {
+        "type": "string",
+        "enum": ["onsite", "hybrid", "remote"],
+        "description": "Mode de travail : sur site, hybride ou à distance.",
+        "examples": ["hybrid"]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/profile": {
+      "get": {
+        "operationId": "getProfile",
+        "summary": "Profil public",
+        "tags": ["Profil"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le profil, traduit selon `lang`.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Profile" } }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/social-links": {
+      "get": {
+        "operationId": "listSocialLinks",
+        "summary": "Liens vers les profils publics",
+        "tags": ["Liens sociaux"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les liens publiés, par ordre de tri.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/SocialLink" }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skill-groups": {
+      "get": {
+        "operationId": "listSkillGroups",
+        "summary": "Groupes de compétences avec leurs compétences",
+        "tags": ["Groupes de compétences"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les groupes publiés, chacun avec ses compétences imbriquées.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/SkillGroup" }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills": {
+      "get": {
+        "operationId": "listSkills",
+        "summary": "Compétences à plat",
+        "tags": ["Compétences"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Toutes les compétences publiées, par ordre de tri.",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Skill" } }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/experiences": {
+      "get": {
+        "operationId": "listExperiences",
+        "summary": "Expériences avec leurs compétences",
+        "tags": ["Expériences"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les expériences publiées, de la plus récente à la plus ancienne.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Experience" }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "summary": "Réalisations avec leurs compétences",
+        "tags": ["Projets"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les projets publiés, par ordre de tri.",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Project" } }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools": {
+      "get": {
+        "operationId": "listTools",
+        "summary": "Outils du quotidien",
+        "tags": ["Outils"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les outils publiés, par ordre de tri.",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Tool" } }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resources": {
+      "get": {
+        "operationId": "listResources",
+        "summary": "Ressources recommandées",
+        "tags": ["Ressources"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les ressources publiées, par ordre de tri.",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Resource" } }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certifications": {
+      "get": {
+        "operationId": "listCertifications",
+        "summary": "Certifications",
+        "tags": ["Certifications"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les certifications publiées, par ordre de tri.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Certification" }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/education": {
+      "get": {
+        "operationId": "listEducation",
+        "summary": "Formations",
+        "tags": ["Formations"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les formations publiées, par ordre de tri.",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Education" } }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/languages": {
+      "get": {
+        "operationId": "listLanguages",
+        "summary": "Langues parlées",
+        "tags": ["Langues"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les langues publiées, par ordre de tri.",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Language" } }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cv": {
+      "get": {
+        "operationId": "getCv",
+        "summary": "CV complet en un appel",
+        "tags": ["CV"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agrégat de toutes les ressources, pour la génération statique du front.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Cv" } } }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "État de l'API",
+        "tags": ["Système"],
+        "responses": {
+          "200": {
+            "description": "L'API répond et sa base de données est joignable.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "503": {
+            "description": "La base de données est injoignable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}
