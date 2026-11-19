@@ -90,6 +90,12 @@ export function hasTestSegment(rel) {
 // directement ou après un enchaînement (each, concurrent…) ; « it.fails » cité en prose ne
 // compte pas.
 const MARKER_RE = /\.(skip|only|todo|fails|skipIf|runIf)(?=\s*\(|\.\w+\s*[(`])/g;
+// Playwright (front, lot F0) : skip et only sont déjà couverts ci-dessus ; fixme saute un test et
+// slow triple son délai (toujours interdits), fail inverse le résultat (échec attendu, comme fails
+// de Vitest). Repérés seulement après `test` (ou `test.describe`) pour ne pas confondre avec
+// l'appel `expect` du même nom, qui fait échouer un test.
+const PLAYWRIGHT_MARKER_RE =
+  /(?<![\w$.])test(?:\.describe)?(?:\.(?:serial|parallel))?\.(fixme|slow|fail)(?=\s*\()/g;
 // Commentaires qui retirent du code de la mesure de couverture.
 const IGNORE_RE = /\b(?:v8|c8|istanbul)\s+ignore\b|node:coverage\s+(?:ignore|disable)/g;
 
@@ -101,6 +107,11 @@ export function countMarkers(text) {
     if (m[1] === 'fails') result.fails += 1;
     else result.forbidden += 1;
     result.kinds.add(`.${m[1]}`);
+  }
+  for (const m of text.matchAll(PLAYWRIGHT_MARKER_RE)) {
+    if (m[1] === 'fail') result.fails += 1;
+    else result.forbidden += 1;
+    result.kinds.add(`test.${m[1]}`);
   }
   for (const m of text.matchAll(IGNORE_RE)) {
     result.forbidden += 1;
