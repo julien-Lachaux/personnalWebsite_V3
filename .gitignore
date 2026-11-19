@@ -8,6 +8,7 @@ dist/
 .env.*
 !.env.example
 !.env.prod.example
+!.env.local.example
 
 # Caches et rapports
 coverage/
