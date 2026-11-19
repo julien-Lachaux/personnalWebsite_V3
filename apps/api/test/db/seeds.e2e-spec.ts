@@ -253,6 +253,34 @@ describe('convergence de la base vers les seeds', () => {
     expect(await snapshot(sql, tables)).toEqual(before);
   });
 
+  it('cite l’instruction fautive en entier dans le message d’erreur quand elle est courte', async () => {
+    const directory = await seedsWith('0002_social_links.sql', (content) => content);
+    const statement = "update social_links set sort_order = sort_order\n  where slug = 'inconnu'";
+    await writeFile(join(directory, '0099_courte.sql'), `${statement};`);
+
+    await expect(run(directory)).rejects.toThrow(
+      "0099_courte : une instruction n'a touché aucune ligne (slug inconnu ?) : " +
+        "update social_links set sort_order = sort_order where slug = 'inconnu'",
+    );
+  });
+
+  it('tronque à 200 caractères l’extrait de l’instruction fautive dans le message d’erreur', async () => {
+    const directory = await seedsWith('0002_social_links.sql', (content) => content);
+    const padding = `/* ${'x'.repeat(260)} */`;
+    await writeFile(
+      join(directory, '0099_longue.sql'),
+      `update social_links set sort_order = sort_order where slug = 'inconnu' ${padding};`,
+    );
+
+    const failure = await run(directory).catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(Error);
+    const message = (failure as Error).message;
+    expect(message).toMatch(/^0099_longue : une instruction n'a touché aucune ligne/);
+    expect(message.endsWith('…')).toBe(true);
+    expect(message.split(' : ').at(-1)).toHaveLength(201);
+  });
+
   it('refuse un slug inconnu dans une liste de liaisons, même si les autres lignes existent', async () => {
     const tables = await tableNames(sql);
     const before = await snapshot(sql, tables);
@@ -301,6 +329,24 @@ describe('convergence de la base vers les seeds', () => {
     ).toBe(true);
     const rows = await sql`select 1 from certifications where slug = 'qa-retiree'`;
     expect(rows).toHaveLength(1);
+  });
+
+  it('refuse de seeder tant qu’une migration est en attente, sans rien appliquer', async () => {
+    const tables = await tableNames(sql);
+    const before = await snapshot(sql, tables);
+    const migrations = join(workDirectory, 'migrations');
+    await cp(migrationsDirectory, migrations, { recursive: true });
+    await writeFile(join(migrations, '9999_en_attente.sql'), 'select 1;');
+
+    await expect(
+      runSeeds({
+        databaseUrl: testDatabaseUrl(),
+        directory: seedsDirectory,
+        migrationsDirectory: migrations,
+        log: () => undefined,
+      }),
+    ).rejects.toThrow(/Migrations en attente \(9999_en_attente\) : lancer « pnpm db:migrate »/);
+    expect(await snapshot(sql, tables)).toEqual(before);
   });
 
   it('ne touche pas aux tables que les seeds ne mentionnent pas (projets sans seed)', async () => {
