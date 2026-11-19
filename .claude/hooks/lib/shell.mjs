@@ -1697,9 +1697,19 @@ const PUSH_BRANCH = 'develop';
 const PUSH_REFSPECS = new Set([PUSH_BRANCH, `${PUSH_BRANCH}:${PUSH_BRANCH}`]);
 const PUSH_UPSTREAM = new Set(['-u', '--set-upstream']);
 /** Options globales de git qui changent le dépôt, l'espace de noms ou la configuration du push. */
-const PUSH_GLOBAL_DENIED = new Set(['--git-dir', '--work-tree', '--namespace', '--config-env']);
+const PUSH_GLOBAL_DENIED = new Set([
+  '--git-dir',
+  '--work-tree',
+  '--namespace',
+  '--config-env',
+  '--exec-path',
+]);
+/** Seules options globales admises avec git push. */
+const PUSH_GLOBAL_ALLOWED = new Set(['-C', '-c', '--no-pager', '-P']);
 /** Clés de configuration (-c) qui changent la destination, les références ou la commande poussées. */
 const PUSH_CONFIG_KEYS = /^(remote|url|push|branch|alias)\./i;
+/** Clés -c admises avec git push : sans effet sur la destination ni sur la connexion. */
+const PUSH_CONFIG_ALLOWED = /^((color|advice|user|i18n)\.[^=]+|core\.quotepath)=/i;
 const PUSH_FORM = `seule la forme git push origin ${PUSH_BRANCH} (avec -u ou --set-upstream au besoin) est permise`;
 
 /** Clés dont l'écriture redéfinit la destination d'un push (T3 du lot 13 bis). */
@@ -1760,10 +1770,18 @@ function pushRefusal(rest, { role, globals, assignments, dashed }) {
     );
   }
   for (const [opt, value] of globals) {
-    if (PUSH_GLOBAL_DENIED.has(opt.split('=')[0]))
+    const name = opt.split('=')[0];
+    if (PUSH_GLOBAL_DENIED.has(name))
       return `option globale ${opt} : elle change le dépôt ou la configuration du push ; ${PUSH_FORM}`;
+    if (!PUSH_GLOBAL_ALLOWED.has(name))
+      return `option globale ${opt} non permise avec git push (seules -C, -c, --no-pager et -P) ; ${PUSH_FORM}`;
     if (opt === '-c' && PUSH_CONFIG_KEYS.test(value))
       return `git -c ${value} : cette configuration change ce que pousse git push ; ${PUSH_FORM}`;
+    if (opt === '-c' && !PUSH_CONFIG_ALLOWED.test(value))
+      return (
+        `git -c ${shown(value)} : seules les clés color.*, advice.*, user.*, i18n.* et ` +
+        `core.quotepath sont des clés admises avec git push ; ${PUSH_FORM}`
+      );
   }
   const env = assignments.find((a) => /^GIT_/.test(a));
   if (env)
@@ -1875,10 +1893,17 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
       moveBase(args[k + 1]);
       globals.push([a, args[k + 1]]);
       k += 1;
+    } else if (/^-C./.test(a)) {
+      moveBase(a.slice(2));
+      globals.push(['-C', a.slice(2)]);
     } else if (a === '-c' && args[k + 1] !== undefined) {
       configValue(args[k + 1]);
       globals.push([a, args[k + 1]]);
       k += 1;
+    } else if (/^-c./.test(a)) {
+      // T4 : -c collé à sa valeur se lit comme -c séparé.
+      configValue(a.slice(2));
+      globals.push(['-c', a.slice(2)]);
     } else if (GIT_GLOBAL_VALUED.has(a)) {
       globals.push([a, args[k + 1]]);
       k += 1;
