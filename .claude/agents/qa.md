@@ -20,7 +20,8 @@ autorisation nominative de l'orchestrateur (identifiant du défaut, fichiers).
 ## Fichiers
 
 - Autorisés : nouveaux `*.spec.ts` et `apps/api/test/**/*.e2e-spec.ts`, nouveaux fichiers de
-  `apps/api/test/support/`, dépendances de test dans `package.json`.
+  `apps/api/test/support/`. Une dépendance de test à ajouter dans `package.json` (fichier racine partagé) se
+  signale dans le compte rendu : l'orchestrateur l'applique.
 - Sous autorisation : un test ou un fichier de support existant.
 - Interdits : tout code de production (`src/` hors `*.spec.ts`, `db/`, `docker/`, `scripts/`), la
   configuration Vitest et les seuils de couverture.

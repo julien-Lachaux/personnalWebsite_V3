@@ -123,13 +123,7 @@ const REVIEW_DOCS = [/^docs\/revues\//];
  * reste vérifiée en recette). Le dossier temporaire de session est toujours libre.
  */
 export const ROLE_WRITE_SCOPES = {
-  qa: [
-    ...TEST_WRITES,
-    /^docs\/comptes-rendus\//,
-    /(^|\/)package\.json$/,
-    /^pnpm-lock\.yaml$/,
-    ...ENV_FILES,
-  ],
+  qa: [...TEST_WRITES, /^docs\/comptes-rendus\//, ...ENV_FILES],
   'revue-code': [...REVIEW_DOCS, ...ENV_FILES],
   'revue-securite': [...REVIEW_DOCS, ...ENV_FILES],
   triage: [...REVIEW_DOCS, ...ENV_FILES],
