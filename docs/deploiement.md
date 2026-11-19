@@ -112,8 +112,10 @@ vérification. Le journal d'accès contient des adresses IP : sa rotation est bo
 
 ## Ce que Caddy filtre et annonce
 
-- Sous `/api/*` : toute méthode hors `GET`, `HEAD`, `OPTIONS` reçoit un 405 `application/problem+json` sans
-  que le corps soit lu, et tout corps est plafonné à 1 Kio (413). L'API refuse elle aussi les corps > 1 Kio.
+- Parité développement / production (docs/02) : sous `/api/*`, Caddy laisse passer toutes les requêtes à
+  l'API, qui répond elle-même, à l'identique en dev et en prod. Une méthode hors `GET`, `HEAD`, `OPTIONS`
+  sur une route existante reçoit de l'API un 405 `application/problem+json` avec `Allow: GET, HEAD,
+  OPTIONS` ; sur une route inconnue, un 404. Tout corps est plafonné à 1 Kio (Caddy, et l'API en double).
 - Réponses sans `Server` ni `Via` (le logiciel n'est pas annoncé), y compris la redirection HTTP vers HTTPS
   (écrite à la main dans le `Caddyfile` ; `PUBLIC_HTTPS_PORT`, alimenté par `HTTPS_PORT`, fixe son port).
 - `Content-Security-Policy` : `default-src 'none'; frame-ancestors 'none'` sous `/api/*`, `default-src 'self'`

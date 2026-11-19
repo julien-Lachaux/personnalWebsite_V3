@@ -93,25 +93,55 @@ describe('Erreurs au format RFC 9457 (problem+json)', () => {
   });
 
   describe('méthodes autres que GET', () => {
-    // Décision consignée : Nest/Fastify ne connaissent que les routes déclarées, donc une méthode
-    // non déclarée donne 404 (« Cannot POST … »), pas 405. Pas d'en-tête `allow`.
+    // DEC-2 (docs/01) : une méthode non déclarée sur une route existante répond 405 problem+json avec
+    // `Allow: GET, HEAD, OPTIONS`, produit par l'API elle-même (même réponse en dev et en prod).
     it.each(['POST', 'PUT', 'PATCH', 'DELETE'] as const)(
-      '%s /api/v1/profile : 404 problem+json (pas de 405 livré)',
+      '%s /api/v1/profile : 405 problem+json avec l’en-tête Allow',
       async (method) => {
         const response = await app.inject({ method, url: '/api/v1/profile' });
 
-        const problem = expectProblem(response, 404);
-        expect(problem.detail).toBe(`Cannot ${method} /api/v1/profile`);
-        expect(response.headers.allow).toBeUndefined();
+        const problem = expectProblem(response, 405);
+        expect(problem).toMatchObject({
+          type: 'about:blank',
+          title: 'Method Not Allowed',
+          instance: '/api/v1/profile',
+        });
+        expect(response.headers.allow).toBe('GET, HEAD, OPTIONS');
       },
     );
 
     it.each(['/api/v1/cv', '/api/v1/skills', '/api/v1/health', '/api/v1/docs.json'])(
-      'POST %s : 404 sans exécuter de cas d’usage',
+      'POST %s : 405 avec Allow, sans exécuter de cas d’usage',
       async (url) => {
-        expectProblem(await app.inject({ method: 'POST', url, payload: { a: 1 } }), 404);
+        const response = await app.inject({ method: 'POST', url, payload: { a: 1 } });
+
+        expectProblem(response, 405);
+        expect(response.headers.allow).toBe('GET, HEAD, OPTIONS');
       },
     );
+
+    it('garde la query string dans instance', async () => {
+      const response = await app.inject({ method: 'POST', url: '/api/v1/profile?lang=en' });
+
+      expect(expectProblem(response, 405).instance).toBe('/api/v1/profile?lang=en');
+    });
+
+    it.each(['POST', 'PUT', 'PATCH', 'DELETE'] as const)(
+      '%s sur une route inconnue : 404 sans en-tête Allow (seule une route existante donne 405)',
+      async (method) => {
+        const response = await app.inject({ method, url: '/api/v1/inconnu' });
+
+        const problem = expectProblem(response, 404);
+        expect(problem.detail).toBe(`Cannot ${method} /api/v1/inconnu`);
+        expect(response.headers.allow).toBeUndefined();
+      },
+    );
+
+    it('le 405 garde les en-têtes de sécurité', async () => {
+      const response = await app.inject({ method: 'POST', url: '/api/v1/profile' });
+
+      expect(response.headers['x-content-type-options']).toBe('nosniff');
+    });
 
     it('corps JSON invalide : 400 problem+json sans fuite', async () => {
       const response = await app.inject({

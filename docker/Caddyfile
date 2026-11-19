@@ -28,21 +28,16 @@ http://{$SITE_DOMAIN:localhost} {
 		-Server
 	}
 
-	# API en lecture seule : aucune route n'attend de corps ni de méthode d'écriture. Caddy les
-	# écarte avant l'API (405 sans lire le corps) et plafonne tout corps restant à 1 Kio.
+	# API en lecture seule : l'API répond elle-même aux méthodes d'écriture (405 problem+json avec
+	# `Allow` sur une route existante, 404 sinon) : ce qu'elle répond en production est ce qu'elle
+	# répond en développement (docs/02, « Parité développement / production »). Tout corps est plafonné
+	# à 1 Kio.
 	handle /api/* {
 		# Réponses JSON : rien à charger ni à afficher dans un cadre. `-Via` : Caddy ne s'annonce pas
 		# (reverse_proxy ajoute `Via: 1.1 Caddy` et `header_down -Via` ne le retire pas).
 		header {
 			Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
 			-Via
-		}
-
-		@writes not method GET HEAD OPTIONS
-		header @writes Allow "GET, HEAD, OPTIONS"
-		header @writes Content-Type "application/problem+json"
-		respond @writes `{"type":"about:blank","title":"Method Not Allowed","status":405}` 405 {
-			close
 		}
 
 		request_body {

@@ -1,7 +1,7 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import { type LoggerService, type LogLevel } from '@nestjs/common';
+import { type LoggerService, type LogLevel, MethodNotAllowedException } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { type FastifyError, type FastifyReply, type FastifyRequest } from 'fastify';
@@ -26,6 +26,9 @@ const FRAMEWORK_ERROR_HEADERS = {
   'referrer-policy': 'no-referrer',
   'cross-origin-resource-policy': 'same-origin',
 } as const;
+
+/** Méthodes déclarées sur chaque route de l'API (lecture seule) : valeur de l'en-tête `Allow` des 405. */
+const ALLOWED_METHODS = ['GET', 'HEAD', 'OPTIONS'] as const;
 
 /** Durée maximale de réception d'une requête complète (en-têtes et corps), en ms. */
 export const REQUEST_TIMEOUT_MS = 10_000;
@@ -87,6 +90,27 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
       return reply;
     }
     return undefined;
+  });
+
+  // Méthode non déclarée sur une route existante : 405 problem+json avec `Allow` (docs/01), produit
+  // par l'API et non par le proxy (parité dev/prod). Une route inconnue reste un 404. Posé en
+  // `preHandler` : le 413 (corps trop gros) et le 400 (JSON invalide) restent prioritaires, comme
+  // pour le 404 de Nest que ce hook précède sur les routes de l'API.
+  fastify.addHook('preHandler', (request, reply, done) => {
+    const declared = (ALLOWED_METHODS as readonly string[]).includes(request.method);
+    if (declared || fastify.findRoute({ method: 'GET', url: request.url }) === null) {
+      done();
+      return;
+    }
+    const allow = ALLOWED_METHODS.join(', ');
+    sendProblem(
+      new MethodNotAllowedException(
+        `Méthode ${request.method} non autorisée sur cette ressource (méthodes admises : ${allow}).`,
+      ),
+      request,
+      reply,
+      { allow },
+    );
   });
 
   // CORS restreint au(x) domaine(s) du front, lecture seule. Enregistré ici et non par
