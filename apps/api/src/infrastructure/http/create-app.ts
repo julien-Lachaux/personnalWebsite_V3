@@ -1,7 +1,7 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import { type LoggerService, type LogLevel } from '@nestjs/common';
+import { type LoggerService, type LogLevel, MethodNotAllowedException } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { type FastifyError, type FastifyReply, type FastifyRequest } from 'fastify';
@@ -19,13 +19,25 @@ export const GLOBAL_PREFIX = 'api/v1';
  */
 export const MAX_BODY_BYTES = 1024;
 
+/**
+ * Politique de sécurité de contenu de l'API (docs/02) : des réponses JSON, rien à charger ni à
+ * afficher dans un cadre. Posée par l'API ; `docker/Caddyfile` ne fait que la doubler, sans la
+ * contredire (la valeur de Caddy ne s'applique que si l'API n'en a pas posé).
+ */
+const CSP_DIRECTIVES = { defaultSrc: ["'none'"], frameAncestors: ["'none'"] };
+const CONTENT_SECURITY_POLICY = "default-src 'none';frame-ancestors 'none'";
+
 /** En-têtes de sécurité des réponses que helmet ne voit pas (erreurs levées avant le routage). */
 const FRAMEWORK_ERROR_HEADERS = {
   'x-content-type-options': 'nosniff',
-  'x-frame-options': 'SAMEORIGIN',
+  'x-frame-options': 'DENY',
+  'content-security-policy': CONTENT_SECURITY_POLICY,
   'referrer-policy': 'no-referrer',
   'cross-origin-resource-policy': 'same-origin',
 } as const;
+
+/** Méthodes déclarées sur chaque route de l'API (lecture seule) : valeur de l'en-tête `Allow` des 405. */
+const ALLOWED_METHODS = ['GET', 'HEAD', 'OPTIONS'] as const;
 
 /** Durée maximale de réception d'une requête complète (en-têtes et corps), en ms. */
 export const REQUEST_TIMEOUT_MS = 10_000;
@@ -60,8 +72,11 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
     { logger: options.logger ?? ['error', 'warn', 'log'] },
   );
 
-  // En-têtes de sécurité (CSP inutile sur une API JSON, le reste reste actif).
-  await app.register(helmet, { contentSecurityPolicy: false });
+  // En-têtes de sécurité : X-Frame-Options DENY et CSP « rien » (docs/01, docs/02), le reste par défaut.
+  await app.register(helmet, {
+    contentSecurityPolicy: { useDefaults: false, directives: CSP_DIRECTIVES },
+    frameguard: { action: 'deny' },
+  });
 
   // Rate limiting global léger par IP (en-têtes x-ratelimit-*, 429 problem+json via le filtre).
   // `global: false` + un hook `onRequest` racine plutôt que l'accroche par route du plugin : le
@@ -87,6 +102,27 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
       return reply;
     }
     return undefined;
+  });
+
+  // Méthode non déclarée sur une route existante : 405 problem+json avec `Allow` (docs/01), produit
+  // par l'API et non par le proxy (parité dev/prod). Une route inconnue reste un 404. Posé en
+  // `preHandler` : le 413 (corps trop gros) et le 400 (JSON invalide) restent prioritaires, comme
+  // pour le 404 de Nest que ce hook précède sur les routes de l'API.
+  fastify.addHook('preHandler', (request, reply, done) => {
+    const declared = (ALLOWED_METHODS as readonly string[]).includes(request.method);
+    if (declared || fastify.findRoute({ method: 'GET', url: request.url }) === null) {
+      done();
+      return;
+    }
+    const allow = ALLOWED_METHODS.join(', ');
+    sendProblem(
+      new MethodNotAllowedException(
+        `Méthode ${request.method} non autorisée sur cette ressource (méthodes admises : ${allow}).`,
+      ),
+      request,
+      reply,
+      { allow },
+    );
   });
 
   // CORS restreint au(x) domaine(s) du front, lecture seule. Enregistré ici et non par

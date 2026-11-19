@@ -1,4 +1,13 @@
-import { boolean, index, integer, pgTable, primaryKey, smallint, text } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  smallint,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 
 import { localeCode } from './enums.js';
 
@@ -13,6 +22,7 @@ export const education = pgTable(
     url: text('url'),
     sortOrder: integer('sort_order').notNull().default(0),
     published: boolean('published').notNull().default(true),
+    deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
   },
   (table) => [index('education_published_sort_order_idx').on(table.published, table.sortOrder)],
 );

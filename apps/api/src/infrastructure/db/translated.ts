@@ -9,20 +9,37 @@ export type ColumnValue<TColumn extends AnyPgColumn> = TColumn['_']['notNull'] e
   ? TColumn['_']['data']
   : TColumn['_']['data'] | null;
 
+/** Table de traductions : sa colonne `locale`, non nulle, sert de témoin de présence de la ligne. */
+type TranslationTable = PgTable & { locale: AnyPgColumn };
+
+/** Clés d'un alias de table de traductions qui désignent une colonne de données. */
+type FieldKey<TTable extends TranslationTable> = {
+  [K in keyof TTable & string]: TTable[K] extends AnyPgColumn ? K : never;
+}[keyof TTable & string];
+
 /**
- * Repli de langue en SQL, champ par champ : la traduction demandée (`en`, jointure `left join`
- * sur la langue demandée) si elle existe et n'est pas nulle, sinon le français (`fr`, jointure
- * `inner join`). Les dépôts joignent deux alias de la table de traductions
- * (`translationAliases`) ; pour `lang = fr`, l'alias `en` est vide (ou porte la même ligne), le
- * résultat est le français.
+ * Repli de langue PAR LIGNE, en SQL (docs/01, décision du 19 nov. 2026) : si la traduction demandée
+ * (`en`, jointure `left join` sur la langue demandée) existe, la valeur vient d'elle, nulle comprise ;
+ * sinon elle vient de la traduction française (`fr`, jointure `inner join`). Un champ nul de la ligne
+ * `en` n'est donc jamais complété par le français : une entité n'est jamais servie en deux langues
+ * (la complétude de la ligne `en` est garantie à l'écriture, par le contrôle des seeds).
+ *
+ * Les dépôts joignent deux alias de la table de traductions (`translationAliases`) ; pour
+ * `lang = fr`, l'alias `en` porte la même ligne que `fr`, le résultat est le français. La présence
+ * de la ligne `en` se lit sur sa colonne `locale`, non nulle dans la table : nulle seulement si la
+ * jointure ne trouve rien.
  *
  * Le type TypeScript du champ est celui de la colonne (`ColumnValue`) : `string`, `string | null`
  * pour une colonne nullable, `string[]` pour un tableau. Il n'a aucun effet sur le SQL produit.
  */
-export const translated = <TColumn extends AnyPgColumn>(
-  en: AnyPgColumn & { _: { data: TColumn['_']['data'] } },
-  fr: TColumn,
-): SQL<ColumnValue<TColumn>> => sql<ColumnValue<TColumn>>`coalesce(${en}, ${fr})`;
+export const translated = <TTable extends TranslationTable, TKey extends FieldKey<TTable>>(
+  en: TTable,
+  fr: Record<TKey, AnyPgColumn>,
+  key: TKey,
+): SQL<ColumnValue<Extract<TTable[TKey], AnyPgColumn>>> =>
+  sql<
+    ColumnValue<Extract<TTable[TKey], AnyPgColumn>>
+  >`case when ${en.locale} is null then ${fr[key]} else ${en[key]} end`;
 
 /**
  * Les deux alias `fr` (langue de référence, `inner join`) et `en` (langue demandée, `left join`)

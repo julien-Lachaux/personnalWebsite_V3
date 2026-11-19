@@ -1,4 +1,4 @@
-import { boolean, index, integer, pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core';
 
 import { CEFR_LEVELS } from '../../../domain/languages/language.js';
 import { localeCode } from './enums.js';
@@ -13,6 +13,7 @@ export const languages = pgTable(
     cefrLevel: text('cefr_level', { enum: CEFR_LEVELS }),
     sortOrder: integer('sort_order').notNull().default(0),
     published: boolean('published').notNull().default(true),
+    deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
   },
   (table) => [index('languages_published_sort_order_idx').on(table.published, table.sortOrder)],
 );

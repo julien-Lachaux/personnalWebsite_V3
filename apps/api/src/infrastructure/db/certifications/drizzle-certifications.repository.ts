@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import { type CertificationsRepository } from '../../../application/certifications/ports/certifications-repository.port.js';
 import { type Certification } from '../../../domain/certifications/certifications.js';
@@ -9,7 +9,7 @@ import { translated, translationAliases } from '../translated.js';
 
 /**
  * Dépôt Drizzle des certifications. Repli de langue en SQL, en une requête : `fr` obligatoire
- * (inner join), `locale` optionnelle (left join), `coalesce(en, fr)` sur le nom.
+ * (inner join), `locale` optionnelle (left join), repli par ligne (`translated`).
  */
 export class DrizzleCertificationsRepository implements CertificationsRepository {
   constructor(private readonly client: DrizzleDatabaseClient) {}
@@ -23,12 +23,12 @@ export class DrizzleCertificationsRepository implements CertificationsRepository
         issuer: certifications.issuer,
         year: certifications.year,
         url: certifications.url,
-        name: translated(en.name, fr.name),
+        name: translated(en, fr, 'name'),
       })
       .from(certifications)
       .innerJoin(fr, and(eq(fr.certificationId, certifications.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.certificationId, certifications.id), eq(en.locale, locale)))
-      .where(eq(certifications.published, true))
+      .where(and(eq(certifications.published, true), isNull(certifications.deletedAt)))
       .orderBy(asc(certifications.sortOrder), asc(certifications.id));
   }
 }

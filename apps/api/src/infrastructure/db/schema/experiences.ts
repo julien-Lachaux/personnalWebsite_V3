@@ -1,4 +1,13 @@
-import { boolean, date, index, integer, pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  date,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 
 import { contractType, experienceKind, localeCode, workMode } from './enums.js';
 import { skills } from './skills.js';
@@ -18,6 +27,7 @@ export const experiences = pgTable(
     dateEnd: date('date_end', { mode: 'string' }),
     sortOrder: integer('sort_order').notNull().default(0),
     published: boolean('published').notNull().default(true),
+    deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
   },
   (table) => [
     index('experiences_published_date_start_idx').on(table.published, table.dateStart.desc()),

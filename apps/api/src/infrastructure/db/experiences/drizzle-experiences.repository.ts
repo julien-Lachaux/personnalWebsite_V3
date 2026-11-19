@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 
 import { type ExperiencesRepository } from '../../../application/experiences/ports/experiences-repository.port.js';
 import { type Experience } from '../../../domain/experiences/experience.js';
@@ -27,21 +27,21 @@ export class DrizzleExperiencesRepository implements ExperiencesRepository {
         company: experiences.company,
         companyUrl: experiences.companyUrl,
         logoPath: experiences.logoPath,
-        logoAlt: translated(en.logoAlt, fr.logoAlt),
+        logoAlt: translated(en, fr, 'logoAlt'),
         contractType: experiences.contractType,
         workMode: experiences.workMode,
         dateStart: experiences.dateStart,
         dateEnd: experiences.dateEnd,
-        jobTitle: translated(en.jobTitle, fr.jobTitle),
-        location: translated(en.location, fr.location),
-        summary: translated(en.summary, fr.summary),
-        achievements: translated(en.achievements, fr.achievements),
-        stackLabel: translated(en.stackLabel, fr.stackLabel),
+        jobTitle: translated(en, fr, 'jobTitle'),
+        location: translated(en, fr, 'location'),
+        summary: translated(en, fr, 'summary'),
+        achievements: translated(en, fr, 'achievements'),
+        stackLabel: translated(en, fr, 'stackLabel'),
       })
       .from(experiences)
       .innerJoin(fr, and(eq(fr.experienceId, experiences.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.experienceId, experiences.id), eq(en.locale, locale)))
-      .where(eq(experiences.published, true))
+      .where(and(eq(experiences.published, true), isNull(experiences.deletedAt)))
       .orderBy(desc(experiences.dateStart), asc(experiences.sortOrder), asc(experiences.id));
 
     if (rows.length === 0) {

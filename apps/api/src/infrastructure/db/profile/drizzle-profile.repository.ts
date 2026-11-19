@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { type ProfileRepository } from '../../../application/profile/ports/profile-repository.port.js';
 import { type Profile } from '../../../domain/profile/profile.js';
@@ -20,16 +20,16 @@ export class DrizzleProfileRepository implements ProfileRepository {
         lastName: profile.lastName,
         location: profile.location,
         picturePath: profile.picturePath,
-        pictureAlt: translated(en.pictureAlt, fr.pictureAlt),
-        title: translated(en.title, fr.title),
-        headline: translated(en.headline, fr.headline),
-        bio: translated(en.bio, fr.bio),
-        availability: translated(en.availability, fr.availability),
+        pictureAlt: translated(en, fr, 'pictureAlt'),
+        title: translated(en, fr, 'title'),
+        headline: translated(en, fr, 'headline'),
+        bio: translated(en, fr, 'bio'),
+        availability: translated(en, fr, 'availability'),
       })
       .from(profile)
       .innerJoin(fr, and(eq(fr.profileId, profile.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.profileId, profile.id), eq(en.locale, locale)))
-      .where(eq(profile.id, 1))
+      .where(and(eq(profile.id, 1), isNull(profile.deletedAt)))
       .limit(1);
 
     return rows[0] ?? null;

@@ -23,26 +23,23 @@ http://{$SITE_DOMAIN:localhost} {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "no-referrer"
-		X-Frame-Options "SAMEORIGIN"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server
 	}
 
-	# API en lecture seule : aucune route n'attend de corps ni de méthode d'écriture. Caddy les
-	# écarte avant l'API (405 sans lire le corps) et plafonne tout corps restant à 1 Kio.
+	# API en lecture seule : l'API répond elle-même aux méthodes d'écriture (405 problem+json avec
+	# `Allow` sur une route existante, 404 sinon) et pose ses propres en-têtes de sécurité : ce qu'elle
+	# répond en production est ce qu'elle répond en développement (docs/02, « Parité développement /
+	# production »). Caddy ne fait que doubler ses protections, sans les contredire : le préfixe `?` ne
+	# pose l'en-tête que si l'API ne l'a pas posé. Tout corps est plafonné à 1 Kio.
 	handle /api/* {
-		# Réponses JSON : rien à charger ni à afficher dans un cadre. `-Via` : Caddy ne s'annonce pas
-		# (reverse_proxy ajoute `Via: 1.1 Caddy` et `header_down -Via` ne le retire pas).
+		# Réponses JSON : rien à charger ni à afficher dans un cadre (mêmes valeurs que l'API). `-Via` :
+		# Caddy ne s'annonce pas (reverse_proxy ajoute `Via: 1.1 Caddy` et `header_down -Via` ne le
+		# retire pas).
 		header {
-			Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+			?Content-Security-Policy "default-src 'none';frame-ancestors 'none'"
+			?X-Frame-Options "DENY"
 			-Via
-		}
-
-		@writes not method GET HEAD OPTIONS
-		header @writes Allow "GET, HEAD, OPTIONS"
-		header @writes Content-Type "application/problem+json"
-		respond @writes `{"type":"about:blank","title":"Method Not Allowed","status":405}` 405 {
-			close
 		}
 
 		request_body {
@@ -54,6 +51,7 @@ http://{$SITE_DOMAIN:localhost} {
 	# Tant que le front n'existe pas : page statique minimale (aucune ressource externe).
 	handle {
 		header Content-Security-Policy "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+		header X-Frame-Options "SAMEORIGIN"
 		root * /srv/placeholder
 		file_server
 	}
@@ -61,6 +59,7 @@ http://{$SITE_DOMAIN:localhost} {
 	# Erreurs produites par Caddy (413 du plafond de corps, 502 si l'API est arrêtée…) : sans `Server`.
 	handle_errors {
 		header -Server
+		header X-Frame-Options "DENY"
 		respond "{err.status_code} {err.status_text}" {err.status_code}
 	}
 }

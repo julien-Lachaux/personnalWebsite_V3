@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 
 import { type ProjectsRepository } from '../../../application/projects/ports/projects-repository.port.js';
 import { type Project } from '../../../domain/projects/projects.js';
@@ -11,7 +11,7 @@ import { translated, translationAliases } from '../translated.js';
 
 /**
  * Dépôt Drizzle des projets. Repli de langue en SQL : `fr` obligatoire (inner join), `locale`
- * optionnelle (left join), `coalesce(en, fr)` par champ. Deux requêtes au plus : les projets, puis
+ * optionnelle (left join), repli par ligne (`translated`). Deux requêtes au plus : les projets, puis
  * leurs compétences (pas de N+1).
  */
 export class DrizzleProjectsRepository implements ProjectsRepository {
@@ -30,14 +30,14 @@ export class DrizzleProjectsRepository implements ProjectsRepository {
         imageDesktopPath: projects.imageDesktopPath,
         imageMobilePath: projects.imageMobilePath,
         year: projects.year,
-        title: translated(en.title, fr.title),
-        description: translated(en.description, fr.description),
-        imageAlt: translated(en.imageAlt, fr.imageAlt),
+        title: translated(en, fr, 'title'),
+        description: translated(en, fr, 'description'),
+        imageAlt: translated(en, fr, 'imageAlt'),
       })
       .from(projects)
       .innerJoin(fr, and(eq(fr.projectId, projects.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.projectId, projects.id), eq(en.locale, locale)))
-      .where(eq(projects.published, true))
+      .where(and(eq(projects.published, true), isNull(projects.deletedAt)))
       .orderBy(asc(projects.sortOrder), asc(projects.id));
 
     if (rows.length === 0) {

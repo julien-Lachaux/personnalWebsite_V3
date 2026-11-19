@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import { type SocialLinksRepository } from '../../../application/social-links/ports/social-links-repository.port.js';
 import { type SocialLink } from '../../../domain/social-links/social-link.js';
@@ -19,12 +19,12 @@ export class DrizzleSocialLinksRepository implements SocialLinksRepository {
         slug: socialLinks.slug,
         kind: socialLinks.kind,
         url: socialLinks.url,
-        label: translated(en.label, fr.label),
+        label: translated(en, fr, 'label'),
       })
       .from(socialLinks)
       .innerJoin(fr, and(eq(fr.socialLinkId, socialLinks.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.socialLinkId, socialLinks.id), eq(en.locale, locale)))
-      .where(eq(socialLinks.published, true))
+      .where(and(eq(socialLinks.published, true), isNull(socialLinks.deletedAt)))
       .orderBy(asc(socialLinks.sortOrder), asc(socialLinks.id));
   }
 }

@@ -27,6 +27,8 @@
     "db:migrate": "pnpm --filter @siteperso/api db:migrate",
     "db:seed": "pnpm --filter @siteperso/api db:seed",
     "db:reset": "pnpm --filter @siteperso/api db:reset",
+    "db:deleted:list": "pnpm --filter @siteperso/api db:deleted:list",
+    "db:deleted:purge": "pnpm --filter @siteperso/api db:deleted:purge",
     "db:down": "docker compose down",
     "dev": "turbo run build --filter=@siteperso/contracts && pnpm --filter @siteperso/api dev",
     "start": "pnpm --filter @siteperso/api start",

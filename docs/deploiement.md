@@ -69,6 +69,24 @@ Exemple, une heure après la sauvegarde, vers une machine ou un stockage objet d
 
 L'image de production ne contient pas `db:reset` (commande destructrice, réservée aux bases de dev et de test).
 
+### Entités supprimées (soft delete)
+
+Une entité qui disparaît des seeds n'est pas supprimée : le seed la marque `deleted_at` et l'API ne la sert
+plus (docs/01). Le nettoyage physique est manuel, jamais automatique, avec le rôle propriétaire (comme
+`migrate`) :
+
+```sh
+# Lister les entités marquées (table, slug, date de marquage) :
+docker compose -f docker/compose.prod.yml --env-file DEPLOY_DIR/.env.prod run --rm migrate node dist/cli/deleted-list.js
+# Simuler, puis supprimer physiquement celles marquées depuis plus de 30 jours (acquittement requis en production) :
+docker compose -f docker/compose.prod.yml --env-file DEPLOY_DIR/.env.prod run --rm migrate node dist/cli/deleted-purge.js --older-than 30
+docker compose -f docker/compose.prod.yml --env-file DEPLOY_DIR/.env.prod run --rm -e ALLOW_PRODUCTION_PURGE=yes migrate node dist/cli/deleted-purge.js --older-than 30 --confirm
+```
+
+Sans `--confirm`, `deleted-purge` ne fait que simuler. En production, la suppression est refusée sans
+`ALLOW_PRODUCTION_PURGE=yes`. Faire une sauvegarde avant (`scripts/deploy/backup.sh`) : la suppression est
+définitive. En dev : `pnpm db:deleted:list`, `pnpm db:deleted:purge --older-than 30 [--confirm]`.
+
 Restauration (la sauvegarde contient `DROP … IF EXISTS`) :
 
 ```sh
@@ -112,12 +130,26 @@ vérification. Le journal d'accès contient des adresses IP : sa rotation est bo
 
 ## Ce que Caddy filtre et annonce
 
-- Sous `/api/*` : toute méthode hors `GET`, `HEAD`, `OPTIONS` reçoit un 405 `application/problem+json` sans
-  que le corps soit lu, et tout corps est plafonné à 1 Kio (413). L'API refuse elle aussi les corps > 1 Kio.
+- Parité développement / production (docs/02) : sous `/api/*`, Caddy laisse passer toutes les requêtes à
+  l'API, qui répond elle-même, à l'identique en dev et en prod. Une méthode hors `GET`, `HEAD`, `OPTIONS`
+  sur une route existante reçoit de l'API un 405 `application/problem+json` avec `Allow: GET, HEAD,
+  OPTIONS` ; sur une route inconnue, un 404. Tout corps est plafonné à 1 Kio (Caddy, et l'API en double).
 - Réponses sans `Server` ni `Via` (le logiciel n'est pas annoncé), y compris la redirection HTTP vers HTTPS
   (écrite à la main dans le `Caddyfile` ; `PUBLIC_HTTPS_PORT`, alimenté par `HTTPS_PORT`, fixe son port).
-- `Content-Security-Policy` : `default-src 'none'; frame-ancestors 'none'` sous `/api/*`, `default-src 'self'`
-  pour la page statique. À adapter quand le front sera servi.
+- En-têtes de sécurité sous `/api/*` : `X-Frame-Options: DENY` et `Content-Security-Policy: default-src
+  'none';frame-ancestors 'none'` sont posés par l'API (helmet). Le `Caddyfile` les double avec les mêmes
+  valeurs et le préfixe `?` (posé seulement si l'API ne l'a pas fait) : jamais deux valeurs divergentes.
+  Pour la page statique : `default-src 'self'` et `X-Frame-Options: SAMEORIGIN`. À adapter quand le front
+  sera servi.
+
+### Écart connu entre développement et production
+
+Un seul écart est connu sur les réponses de l'API : une URL mal encodée (`/api/%zz`) est rejetée par Caddy
+avant l'API, en `400 text/plain`, alors que l'API seule répond en `400 application/problem+json`. Aucun
+réglage de Caddy ne produit du problem+json pour cette erreur : l'écart est accepté et consigné ici.
+Les réponses que Caddy produit lui-même (`502` si l'API est arrêtée, `413` text/plain quand un corps dépasse
+son plafond de 1 Kio, mesuré lors de l'essai du lot 9) sont des réponses d'infrastructure en texte brut, hors
+du comportement de l'API.
 
 ## Rôles PostgreSQL
 
