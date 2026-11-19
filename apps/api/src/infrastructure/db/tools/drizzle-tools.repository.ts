@@ -9,7 +9,7 @@ import { translated, translationAliases } from '../translated.js';
 
 /**
  * Dépôt Drizzle des outils. Repli de langue en SQL, en une requête : `fr` obligatoire
- * (inner join), `locale` optionnelle (left join), `coalesce(en, fr)` par champ.
+ * (inner join), `locale` optionnelle (left join), repli par ligne (`translated`).
  */
 export class DrizzleToolsRepository implements ToolsRepository {
   constructor(private readonly client: DrizzleDatabaseClient) {}
@@ -22,9 +22,9 @@ export class DrizzleToolsRepository implements ToolsRepository {
         slug: tools.slug,
         url: tools.url,
         iconPath: tools.iconPath,
-        name: translated(en.name, fr.name),
-        family: translated(en.family, fr.family),
-        description: translated(en.description, fr.description),
+        name: translated(en, fr, 'name'),
+        family: translated(en, fr, 'family'),
+        description: translated(en, fr, 'description'),
       })
       .from(tools)
       .innerJoin(fr, and(eq(fr.toolId, tools.id), eq(fr.locale, 'fr')))

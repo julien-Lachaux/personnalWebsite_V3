@@ -45,6 +45,10 @@ quel langage (le portage Rust reprendra ces fichiers tels quels).
     (`ATTENTION …`) ; supprimer ou dépublier à la main (politique à trancher) ;
   - en fin de seed, toute ligne publiée (et le profil) doit avoir une traduction `fr`, sinon le seed échoue
     et le déploiement s'arrête (la ligne disparaîtrait sinon de l'API) ;
+  - de même, une traduction `en` d'une entité publiée doit être complète : mêmes colonnes non nulles que
+    la `fr`, tableaux non vides si la `fr` en a (repli de langue par ligne : l'API sert la ligne `en`
+    entière, ou la ligne `fr` entière si aucune ligne `en` n'existe, jamais un mélange). Une `en`
+    lacunaire fait échouer le seed : la compléter (marquée « à relire ») ou retirer la ligne `en` ;
   - tout échec annule l'ensemble : aucun seed n'est appliqué à moitié.
 - Les seeds référencent les lignes par `slug` (sous-requêtes), jamais par id numérique.
 - Aucune donnée personnelle de contact (e-mail, téléphone) : le contact est géré par le front.

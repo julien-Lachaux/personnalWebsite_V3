@@ -19,7 +19,7 @@ export class DrizzleSocialLinksRepository implements SocialLinksRepository {
         slug: socialLinks.slug,
         kind: socialLinks.kind,
         url: socialLinks.url,
-        label: translated(en.label, fr.label),
+        label: translated(en, fr, 'label'),
       })
       .from(socialLinks)
       .innerJoin(fr, and(eq(fr.socialLinkId, socialLinks.id), eq(fr.locale, 'fr')))

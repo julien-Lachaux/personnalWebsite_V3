@@ -27,16 +27,16 @@ export class DrizzleExperiencesRepository implements ExperiencesRepository {
         company: experiences.company,
         companyUrl: experiences.companyUrl,
         logoPath: experiences.logoPath,
-        logoAlt: translated(en.logoAlt, fr.logoAlt),
+        logoAlt: translated(en, fr, 'logoAlt'),
         contractType: experiences.contractType,
         workMode: experiences.workMode,
         dateStart: experiences.dateStart,
         dateEnd: experiences.dateEnd,
-        jobTitle: translated(en.jobTitle, fr.jobTitle),
-        location: translated(en.location, fr.location),
-        summary: translated(en.summary, fr.summary),
-        achievements: translated(en.achievements, fr.achievements),
-        stackLabel: translated(en.stackLabel, fr.stackLabel),
+        jobTitle: translated(en, fr, 'jobTitle'),
+        location: translated(en, fr, 'location'),
+        summary: translated(en, fr, 'summary'),
+        achievements: translated(en, fr, 'achievements'),
+        stackLabel: translated(en, fr, 'stackLabel'),
       })
       .from(experiences)
       .innerJoin(fr, and(eq(fr.experienceId, experiences.id), eq(fr.locale, 'fr')))

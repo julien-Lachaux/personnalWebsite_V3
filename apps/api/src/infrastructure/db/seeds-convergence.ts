@@ -148,3 +148,37 @@ export async function assertFrenchTranslations(tx: TransactionSql): Promise<void
     );
   }
 }
+
+/**
+ * Contrôle de fin de seed : une traduction `en` d'une entité publiée est complète (docs/01,
+ * repli de langue par ligne). Elle est servie entière ; un champ nul ou un tableau vide là où la
+ * traduction `fr` a une valeur livrerait une entité à trous. Une entité sans ligne `en` n'est pas
+ * concernée : l'API sert alors la ligne `fr` entière. Le message liste les champs lacunaires.
+ */
+export async function assertEnglishTranslations(tx: TransactionSql): Promise<void> {
+  const incomplete: string[] = [];
+  for (const entity of SEEDED_ENTITIES) {
+    const [translationTable, foreignKey] = entity.translations;
+    const rows = await tx<{ label: string; fields: string[] }[]>`
+      select ${entity.hasSlug ? tx`p.slug` : tx`'profil'`}::text as label,
+             array_agg(f.key order by f.key) as fields
+      from ${tx(entity.table)} p
+      join ${tx(translationTable)} fr on fr.${tx(foreignKey)} = p.id and fr.locale = 'fr'
+      join ${tx(translationTable)} en on en.${tx(foreignKey)} = p.id and en.locale = 'en'
+      cross join lateral jsonb_each(to_jsonb(fr)) as f(key, value)
+      where ${entity.hasSlug ? tx`p.published` : tx`true`}
+        and f.value not in ('null'::jsonb, '[]'::jsonb)
+        and coalesce(to_jsonb(en) -> f.key, 'null'::jsonb) in ('null'::jsonb, '[]'::jsonb)
+      group by p.id
+      order by 1`;
+    for (const row of rows) {
+      incomplete.push(`${entity.table}/${row.label} (${row.fields.join(', ')})`);
+    }
+  }
+  if (incomplete.length > 0) {
+    throw new Error(
+      `Traduction en incomplète (elle serait servie telle quelle, avec des champs vides) : ` +
+        `${incomplete.join(', ')}. Compléter la ligne en ou la retirer (l'API sert alors le fr entier).`,
+    );
+  }
+}

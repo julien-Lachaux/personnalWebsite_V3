@@ -22,8 +22,8 @@ export class DrizzleSkillGroupsRepository implements SkillGroupsRepository {
     const groupsQuery = this.client.db
       .select({
         slug: skillGroups.slug,
-        name: translated(en.name, fr.name),
-        description: translated(en.description, fr.description),
+        name: translated(en, fr, 'name'),
+        description: translated(en, fr, 'description'),
       })
       .from(skillGroups)
       .innerJoin(fr, and(eq(fr.skillGroupId, skillGroups.id), eq(fr.locale, 'fr')))

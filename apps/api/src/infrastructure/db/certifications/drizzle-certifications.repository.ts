@@ -9,7 +9,7 @@ import { translated, translationAliases } from '../translated.js';
 
 /**
  * Dépôt Drizzle des certifications. Repli de langue en SQL, en une requête : `fr` obligatoire
- * (inner join), `locale` optionnelle (left join), `coalesce(en, fr)` sur le nom.
+ * (inner join), `locale` optionnelle (left join), repli par ligne (`translated`).
  */
 export class DrizzleCertificationsRepository implements CertificationsRepository {
   constructor(private readonly client: DrizzleDatabaseClient) {}
@@ -23,7 +23,7 @@ export class DrizzleCertificationsRepository implements CertificationsRepository
         issuer: certifications.issuer,
         year: certifications.year,
         url: certifications.url,
-        name: translated(en.name, fr.name),
+        name: translated(en, fr, 'name'),
       })
       .from(certifications)
       .innerJoin(fr, and(eq(fr.certificationId, certifications.id), eq(fr.locale, 'fr')))

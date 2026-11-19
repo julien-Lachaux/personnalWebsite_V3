@@ -8,7 +8,7 @@ import { translated, translationAliases } from '../translated.js';
 
 /**
  * Requête de base partagée par les dépôts `skills`, `skill-groups` et `experiences` : compétences
- * publiées dont le groupe est lui aussi publié, avec leur nom traduit (repli `en` → `fr` en SQL).
+ * publiées dont le groupe est lui aussi publié, avec leur nom traduit (repli par ligne `en` → `fr` en SQL).
  * L'appelant ajoute ses jointures et son tri, ses colonnes propres via `extra` et une condition
  * supplémentaire via `condition` (le `where` est déjà posé : il ne faut pas le rappeler). Les
  * colonnes de base correspondent au type de domaine `Skill`.
@@ -24,7 +24,7 @@ export function selectPublishedSkills<TExtra extends SelectedFields>(
   return db
     .select({
       slug: skills.slug,
-      name: translated(en.name, fr.name),
+      name: translated(en, fr, 'name'),
       level: skills.level,
       icon: skills.icon,
       iconPath: skills.iconPath,

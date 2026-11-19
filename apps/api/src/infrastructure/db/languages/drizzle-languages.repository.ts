@@ -19,8 +19,8 @@ export class DrizzleLanguagesRepository implements LanguagesRepository {
         slug: languages.slug,
         code: languages.code,
         cefrLevel: languages.cefrLevel,
-        name: translated(en.name, fr.name),
-        levelLabel: translated(en.levelLabel, fr.levelLabel),
+        name: translated(en, fr, 'name'),
+        levelLabel: translated(en, fr, 'levelLabel'),
       })
       .from(languages)
       .innerJoin(fr, and(eq(fr.languageId, languages.id), eq(fr.locale, 'fr')))
