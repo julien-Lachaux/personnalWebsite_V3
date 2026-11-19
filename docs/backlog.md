@@ -1213,6 +1213,13 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   88 commandes de l'orchestrateur rejouées en recette du lot 13 bis (une règle plus stricte ne doit pas
   casser le travail courant), et le rejeu des refus de push couvre tous les rôles d'agent, pas
   seulement `dev-api`.
+- **L14-08** (dev-devops, portée `config`), décidé par Julien le 20 nov. 2026 : **actionlint** valide
+  les workflows GitHub (syntaxe, expressions, déclencheurs, épinglages, scripts `run:` par shellcheck)
+  dans `pnpm check` et dans un job CI, lancé par Docker avec une image épinglée par digest (rien installé
+  sur l'hôte), en remplacement de la validation de l'extension VS Code GitHub Actions, désactivée par
+  Julien sur ce projet : elle signalait à tort « Unable to resolve action » sur des SHA pourtant
+  vérifiés (commit, étiquette et `action.yml` servis par GitHub). Un workflow invalide est alors
+  refusé avant le push.
 - **Ordre** : le lot 14 touche les hooks et la CI, fichiers que `docs/05-front-organisation.md` laisse
   à la session front pendant son lot F0 ; il passe donc **après la fusion de F0**, et après le lot 15.
 
