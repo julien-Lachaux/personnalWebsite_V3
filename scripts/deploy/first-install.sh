@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Premier déploiement sur le VPS. Idempotent : peut être relancé sans effet de bord.
 #
-# Étapes : vérifie Docker/Compose, crée DEPLOY_DIR, crée .env.prod depuis le modèle (mots de passe
+# Étapes : vérifie Docker/Compose et que le dépôt est sur main (git flow), crée DEPLOY_DIR, crée .env.prod depuis le modèle (mots de passe
 # générés) puis s'arrête pour que l'opérateur le remplisse, construit l'image, lance la pile,
 # attend le healthcheck de l'API, affiche l'état.
 #
@@ -14,6 +14,7 @@ set -euo pipefail
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-180}"
 
 require_docker
+require_deploy_branch
 
 log "Dossier de déploiement : ${DEPLOY_DIR}"
 mkdir -p "${DEPLOY_DIR}"
