@@ -171,13 +171,95 @@ rolname, rolsuper from pg_roles where rolname like 'siteperso%'"`.
 Aucun secret n'est versionné : `.env.prod` vit dans `DEPLOY_DIR`, hors du dépôt, en droits 600. Le fichier
 `docker/.env.prod.example` ne contient que des placeholders.
 
-## Essai local de la pile de production
+## Pile locale complète
+
+Objectif (décision du 19 novembre 2026) : reproduire sur le poste tout comportement observé en production. La
+pile locale **est** la pile de production : mêmes `docker/compose.prod.yml`, `docker/Caddyfile` et image
+`siteperso-api:prod` (Dockerfile `docker/api.Dockerfile`). Il n'existe ni second compose ni second Caddyfile ;
+la variation locale tient dans un seul fichier d'environnement, `docker/.env.local` (copie ignorée par git de
+`docker/.env.local.example`).
 
 ```sh
-SITE_DOMAIN=localhost CORS_ORIGIN=https://localhost POSTGRES_PASSWORD=essai API_DB_PASSWORD=essai-api \
-  docker compose -f docker/compose.prod.yml up -d --build
-curl -sk https://localhost/api/v1/health
-docker compose -f docker/compose.prod.yml down -v   # supprime aussi les volumes
+pnpm stack:up                    # crée docker/.env.local si besoin (mots de passe générés), construit l'image,
+                                 # démarre, attend /api/v1/health via Caddy
+pnpm stack:ps                    # état des conteneurs (migrate apparaît « Exited (0) » : normal)
+pnpm stack:logs [service]        # journaux (Caddy : journal d'accès JSON)
+pnpm stack:down                  # arrête et supprime conteneurs et réseaux, garde la base et les certificats
+pnpm stack:down --volumes        # supprime aussi la base et les certificats de Caddy (option explicite)
+curl -sk https://localhost:8443/api/v1/health
 ```
 
-Caddy émet un certificat interne auto-signé pour `localhost` (d'où `-k`).
+Les scripts sont `scripts/deploy/local-stack.sh` (`DRY_RUN=1` affiche les commandes sans les lancer ;
+`STACK_ENV_FILE` choisit un autre fichier d'environnement). Aucune variable à taper : les secrets locaux sont
+tirés au hasard à la première exécution et restent dans `docker/.env.local` (droits 600, jamais commité). Si
+la base locale existe déjà et que ce fichier est supprimé, faire `pnpm stack:down --volumes` avant de relancer.
+Plusieurs piles (worktrees) : un `COMPOSE_PROJECT_NAME` et des ports distincts dans chaque `.env.local`.
+
+### Différences entre local et production
+
+Toutes passent par `docker/.env.local` ; aucune ne modifie un fichier compose ou le `Caddyfile`.
+
+| Élément                  | Production                      | Local                                    | Raison                                                                 |
+| ------------------------ | ------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------- |
+| Nom de projet compose    | `siteperso-v3-prod`             | `siteperso-v3-local` (`COMPOSE_PROJECT_NAME`) | conteneurs, réseaux et volumes séparés de ceux d'une prod sur la même machine |
+| Ports hôte               | 80 et 443                       | 8080 et 8443 (`HTTP_PORT`, `HTTPS_PORT`) | ports privilégiés et souvent occupés sur un poste                      |
+| Domaine (`SITE_DOMAIN`)  | nom de domaine public           | `localhost`                              | pas de DNS public ; Caddy émet un certificat interne                   |
+| Certificat TLS           | Let's Encrypt                   | autorité interne de Caddy (auto-signé)   | aucune validation ACME possible pour `localhost` (voir ci-dessous)     |
+| `CORS_ORIGIN`            | `https://<domaine>`             | `https://localhost:8443`                 | l'origine suit le domaine et le port                                   |
+| Mots de passe PostgreSQL | secrets du serveur              | générés au hasard, propres au poste      | aucun secret réel hors du serveur                                      |
+| `alt-svc` (HTTP/3)       | `h3=":443"` correct             | annonce `:443` alors que le port publié est 8443 | Caddy annonce son port interne ; sans effet pour curl (HTTP/1.1 et 2) |
+| Sauvegardes, `restart`   | `backup.sh`, `unless-stopped`   | non planifiées ; `restart` identique     | scripts de déploiement réservés au serveur                             |
+| Quota (`RATE_LIMIT_*`)   | 100 par 60 s                    | idem                                     | volontairement identique : le 429 se reproduit avec 100 requêtes      |
+
+Rien d'autre ne diffère : même image, mêmes réseaux `edge`/`app`/`data`, mêmes durcissements, mêmes en-têtes,
+mêmes rôles PostgreSQL. La limite connue côté IP cliente (trafic IPv6 relayé par `docker-proxy`, voir « IP des
+clients et rate limiting ») vaut aussi en local : toutes les requêtes viennent de la passerelle Docker, donc
+d'une seule IP pour le quota.
+
+### Certificat
+
+Caddy émet pour `localhost` un certificat signé par sa propre autorité interne. Sans rien installer :
+`curl -k`. Pour que le navigateur ou `curl` lui fassent confiance (optionnel, action volontaire de
+l'opérateur sur son poste), extraire le certificat racine de l'autorité depuis le volume de Caddy puis
+l'importer dans le magasin de confiance de la machine ou du navigateur :
+
+```sh
+docker compose -f docker/compose.prod.yml --env-file docker/.env.local cp \
+  caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
+curl --cacert ./caddy-root.crt https://localhost:8443/api/v1/health
+```
+
+Ce certificat est propre à la pile locale : le retirer du magasin avec la pile (`stack:down --volumes`).
+
+### Scénarios de reproduction
+
+Chaque scénario est rejoué automatiquement par `apps/api/test/local-stack.e2e-spec.ts` (voir plus bas).
+Ports d'exemple : 8443 (HTTPS) et 8080 (HTTP).
+
+Si le port 8080 (ou 8443) est déjà pris sur le poste, changer `HTTP_PORT` et `HTTPS_PORT` dans `docker/.env.local`, puis aligner `CORS_ORIGIN` sur le nouveau port HTTPS (`https://localhost:<HTTPS_PORT>`) et relancer `pnpm stack:up`. Les commandes ci-dessous s'adaptent en remplaçant les ports d'exemple.
+
+| #   | Scénario                         | Commande                                                                                     | Réponse attendue                                                                                                                                  |
+| --- | -------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Lecture nominale                 | `curl -ski https://localhost:8443/api/v1/profile`                                            | 200 `application/json` ; un seul `x-frame-options: DENY` et un seul `content-security-policy: default-src 'none';frame-ancestors 'none'` ; ni `server` ni `via` |
+| 2   | Méthode d'écriture               | `curl -ski -X POST https://localhost:8443/api/v1/profile`                                    | 405 `application/problem+json`, `allow: GET, HEAD, OPTIONS` (réponse de l'API, identique en dev)                                                  |
+| 3   | Corps de 2 Kio                   | `head -c 2048 /dev/zero \| tr '\0' a \| curl -ski -X POST --data-binary @- https://localhost:8443/api/v1/profile` | 413 `text/plain` produit par Caddy (plafond 1 Kio) : **écart documenté**                                                         |
+| 4   | Route inconnue                   | `curl -ski https://localhost:8443/api/v1/inconnue`                                           | 404 `application/problem+json`                                                                                                                    |
+| 5   | URL mal encodée                  | `curl -ski --http1.1 --path-as-is 'https://localhost:8443/api/%zz'`                          | 400 `text/plain` produit par Caddy : **écart documenté** (en HTTP/2, curl signale une erreur de flux, code 92)                                    |
+| 6   | HTTP vers HTTPS                  | `curl -si 'http://localhost:8080/api/v1/profile?a=1'`                                        | 301 `Location: https://localhost:8443/api/v1/profile?a=1`, sans `server`                                                                          |
+| 7   | Quota dépassé                    | `for i in $(seq 105); do curl -sk -o /dev/null -w '%{http_code}\n' https://localhost:8443/api/v1/health; done \| sort \| uniq -c` | 100 fois 200 puis 429 `application/problem+json` avec `retry-after` (le quota se libère après 60 s)                                               |
+| 8   | API arrêtée                      | `docker compose -f docker/compose.prod.yml --env-file docker/.env.local stop api` puis `curl -ski https://localhost:8443/api/v1/profile` | 502 `text/plain` produit par Caddy : **écart documenté** ; redémarrer avec `start api`                                           |
+| 9   | Rôle PostgreSQL en lecture seule | `docker compose … exec postgres psql -U siteperso_api -d siteperso -c 'create table t (i int)'` | `ERROR: permission denied for schema public`                                                                                                      |
+| 10  | Réseaux internes                 | `docker compose … exec caddy nc -z -w 3 postgres 5432` ; `exec api node -e "require('node:net').connect(443,'1.1.1.1').on('error',e=>console.log(e.code))"` | le premier échoue (Caddy ne joint pas la base) ; le second n'aboutit pas (l'API ne sort pas sur Internet)                                          |
+
+Les scénarios 1 à 10 contre une pile démarrée : `pnpm --filter @siteperso/api exec vitest run --project e2e
+local-stack`. Sans pile (pas de `docker/.env.local`, ou aucune réponse sur son port), un test unique
+l'indique et réussit : `pnpm check` reste utilisable sur un poste qui n'a pas la pile. Avec
+`STACK_REQUIRED=1`, l'absence de la pile fait échouer ce test (c'est le réglage de la CI). Le scénario 7
+épuise le quota : le fichier d'essai attend la fin de la fenêtre avant de commencer, et le scénario 8 termine
+en redémarrant l'API, qui remet le quota à zéro.
+
+### Image
+
+L'image construite pour la pile s'appelle `siteperso-api:prod`, comme en production : `stack:up` la
+reconstruit à chaque lancement (le cache de couches la rend quasi instantanée si rien n'a changé). Elle peut
+rester sur le poste après `stack:down` ; `docker image rm siteperso-api:prod` la supprime.

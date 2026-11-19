@@ -30,6 +30,10 @@
     "db:deleted:list": "pnpm --filter @siteperso/api db:deleted:list",
     "db:deleted:purge": "pnpm --filter @siteperso/api db:deleted:purge",
     "db:down": "docker compose down",
+    "stack:up": "bash scripts/deploy/local-stack.sh up",
+    "stack:logs": "bash scripts/deploy/local-stack.sh logs",
+    "stack:ps": "bash scripts/deploy/local-stack.sh ps",
+    "stack:down": "bash scripts/deploy/local-stack.sh down",
     "dev": "turbo run build --filter=@siteperso/contracts && pnpm --filter @siteperso/api dev",
     "start": "pnpm --filter @siteperso/api start",
     "prepare": "husky"

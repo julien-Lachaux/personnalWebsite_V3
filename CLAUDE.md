@@ -141,6 +141,9 @@ pnpm hooks:test              # tests des hooks garde-fous (.claude/hooks/tests)
 pnpm integrity [base]        # intégrité des tests depuis la base (défaut origin/v3/backend, sinon v3/backend)
 pnpm format                  # Prettier sur tout le dépôt (docs/ exclu)
 pnpm db:down                 # arrête les conteneurs
+pnpm stack:up                # pile locale complète = prod (Caddy, API, PostgreSQL) : build, démarrage, attente de /health
+pnpm stack:ps | stack:logs   # état et journaux de la pile locale
+pnpm stack:down [--volumes]  # arrête la pile locale ; --volumes supprime aussi sa base (docs/deploiement.md)
 ```
 
 La configuration de l'API est lue dans `apps/api/.env` (modèle : `.env.example`, à copier,
