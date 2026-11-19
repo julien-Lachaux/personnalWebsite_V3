@@ -1,7 +1,10 @@
 name: CI
 
+# Git flow (décision de Julien du 19 nov. 2026) : intégration sur develop, production sur main,
+# branches release/* et hotfix/* fusionnées dans main par Julien, branches de lot lot/*.
 on:
   push:
+    branches: [develop, main, 'release/**', 'hotfix/**', 'lot/**']
   pull_request:
 
 # Annule les runs obsolètes d'une même branche ou PR.
@@ -56,10 +59,10 @@ jobs:
       - name: Tests du script d'intégrité
         run: for t in scripts/ci/tests/*.test.sh; do bash "$t" || exit 1; done
       # Test existant modifié ou supprimé, configuration de test changée sans Justification-test,
-      # marqueur de saut ou commentaire d'ignore : échec. Base = cible de la PR, sinon v3/backend.
+      # marqueur de saut ou commentaire d'ignore : échec. Base = cible de la PR, sinon develop.
       - name: Intégrité des tests depuis la branche d'intégration
         env:
-          BASE_REF: ${{ github.base_ref || 'v3/backend' }}
+          BASE_REF: ${{ github.base_ref || 'develop' }}
         run: bash scripts/ci/check-tests-integrity.sh "origin/${BASE_REF}"
 
   e2e:
