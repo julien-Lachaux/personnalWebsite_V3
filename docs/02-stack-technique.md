@@ -20,6 +20,12 @@ d'API et le schéma SQL pourront être portés en Rust sans réécriture du mod�
 ### Politique de versions
 Toujours les versions majeures les plus récentes de chaque brique (vérifiées sur le registre au moment de l'ajout, épinglées exactement). Si une incompatibilité apparaît, on en discute avec Julien avant de rétrograder.
 
+
+### Parité développement / production
+Aucun écart fonctionnel entre dev et prod (décision du 19 nov. 2026) : ce que l'API répond en production,
+elle le répond en développement, pour faciliter le débogage et éviter les bugs non reproductibles.
+Les protections posées par Caddy (405 sur les écritures, limite de taille de corps, en-têtes de sécurité,
+CSP) sont d'abord implémentées dans l'API ; Caddy ne fait que les doubler en première ligne.
 ## Règles « Rust-friendly »
 - Architecture hexagonale : `domain` (types, règles, aucune dépendance Nest), `application`
   (cas d'usage), `infrastructure` (Drizzle, HTTP). Nest n'apparaît que dans `infrastructure/http`.

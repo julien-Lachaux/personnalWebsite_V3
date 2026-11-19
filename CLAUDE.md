@@ -162,4 +162,7 @@ et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docke
   (https://nodejs.org/dist/index.json) ; en cas d'incompatibilité, on en discute avec Julien
   avant de rétrograder quoi que ce soit.
 - Périmètre : lecture seule, pas d'auth, pas de CRUD, pas de contact côté API (docs/01).
+- Aucun écart fonctionnel entre développement et production (décision du 19 nov. 2026) : un
+  comportement visible d'un client (code HTTP, en-têtes, format d'erreur, limites) est produit par
+  l'API elle-même, pas seulement par le proxy ; Caddy ne fait que doubler ce que l'API fait déjà.
 - Chaque agent termine par un compte rendu court : fait, non fait, décisions, points ouverts.

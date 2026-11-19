@@ -18,6 +18,13 @@ dès le départ. Accessibilité complète : toute image a un texte alternatif tr
   traduction `en` d'une entité publiée doit être complète : le seed échoue sinon (même contrôle que
   pour `fr`).
 - Chaque entité publiable a `published boolean not null default true` et `sort_order int`.
+- Soft delete partout (décision du 19 nov. 2026) : chaque table d'entité porte `deleted_at timestamptz null`,
+  distinct de `published` (dépublié = gardé mais non servi ; supprimé = marqué pour nettoyage). Le seed
+  marque `deleted_at` quand une entité disparaît des fichiers ; l'API ne sert jamais une ligne marquée ;
+  les traductions suivent leur entité. Le nettoyage physique est manuel, par des commandes `db:*`
+  (lister, purger au-delà d'un délai, avec confirmation), jamais automatique.
+- Méthode non déclarée sur une route existante : `405` problem+json avec en-tête `Allow` (décision du
+  19 nov. 2026), produit par l'API elle-même. `X-Frame-Options: DENY` côté API.
 - `slug` unique et stable sur chaque entité : c'est la clé naturelle d'upsert des seeds.
 - Images : chemins relatifs vers des fichiers statiques servis par le front (`/images/...`),
   jamais de binaire en base. Le texte alternatif est traduit.

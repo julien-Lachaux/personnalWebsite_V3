@@ -84,11 +84,11 @@ Pour Julien, chacun avec le choix appliqué aujourd'hui par défaut :
 |---|---|
 | RC-7 : repli de langue par champ ou par ligne | **Tranché le 19 nov. 2026 : repli par ligne** + contrôle de complétude de la traduction `en` au seed (inscrit dans `docs/01`). Implémentation à venir (lot 9). |
 | RS-10 : adresse e-mail dans les métadonnées des commits | **Tranché le 19 nov. 2026 : acceptée.** Adresse de contact publique (site, profils) ; aucune réécriture d'historique. |
-| Entités retirées des seeds | Signalées (`ATTENTION …` au rejeu) et conservées en base ; options : suppression ou `published = false`. |
+| Entités retirées des seeds | **Tranché le 19 nov. 2026 : soft delete partout** (`deleted_at` sur chaque entité, marqué par le seed, jamais servi ; purge manuelle par commandes `db:*`). Lot 9. |
 | RS-4 : IP vue par Caddy pour les visiteurs IPv6 sur le VPS | Non relevée. Procédure dans `docs/deploiement.md` ; en local (WSL), Caddy voit `172.29.0.1` pour tous les clients, comme documenté. |
-| `X-Frame-Options` `SAMEORIGIN` ou `DENY`, CSP | Livré après RS-12 : `X-Frame-Options: SAMEORIGIN` (helmet et Caddy) ; CSP posée par Caddy seulement, `default-src 'none'; frame-ancestors 'none'` sous `/api/*` et `default-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'` sur la page statique ; l'API seule n'envoie pas de CSP. |
-| 404 ou 405 sur une méthode non déclarée | API seule : 404 problem+json (« Cannot POST … »). Derrière Caddy en production : 405 problem+json avec `Allow: GET, HEAD, OPTIONS`. |
-| `/cv` sur base vide | 404 problem+json (profil absent), pas de CV partiel. |
+| `X-Frame-Options` `SAMEORIGIN` ou `DENY`, CSP | **Tranché le 19 nov. 2026 : `DENY` côté API**, CSP posée aussi par l'API (parité dev/prod). Lot 9. |
+| 404 ou 405 sur une méthode non déclarée | **Tranché le 19 nov. 2026 : 405 problem+json avec `Allow`, produit par l'API** ; règle générale : aucun écart fonctionnel dev/prod. Lot 9. |
+| `/cv` sur base vide | **Tranché le 19 nov. 2026 : 404 conservé.** |
 | 68 traductions EN à relire (`docs/traductions-a-relire.md`) | Servies telles quelles en `?lang=en`. Voir la recette, étape 8, pour les tournures à revoir en priorité. |
 | Résumé Contentsquare | Rédigé par l'agent base de données à partir des réalisations (le CV n'en donne pas) : à valider. |
 | Formation autodidacte | Début 2015 par défaut, fin nulle ; `institution` « Autodidacte » non traduite (identique en EN). |
@@ -101,6 +101,7 @@ Pour Julien, chacun avec le choix appliqué aujourd'hui par défaut :
 | Seuil de rate limiting | 100 requêtes par minute par IP, store en mémoire (une instance) ; réglable par `RATE_LIMIT_MAX` et `RATE_LIMIT_WINDOW_MS`. |
 | Texte brut ou Markdown léger (P7) | Texte brut ; paragraphes de `bio` séparés par une ligne vide. |
 | Domaine de production (P10) | Placeholders `example.test` dans `docker/.env.prod.example`. |
+| Dépôt public et données | **Tranché le 19 nov. 2026** : le contenu (prénom, nom, ville, LinkedIn) est public par nature ; avant le premier push, passe de l'agent de revue sécurité sur tout le dépôt (migrations, seeds, docs, comptes rendus, historique) pour vérifier qu'aucune information n'y facilite une attaque (secrets, détails d'infrastructure, adresses). |
 
 ## Dette
 
