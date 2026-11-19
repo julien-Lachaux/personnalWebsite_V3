@@ -17,7 +17,8 @@
 #      l'identifiant (<PAQUET>-EQ-<n>) d'un mutant équivalent déclaré dans un stryker.equivalents.json.
 #
 # Usage : check-tests-integrity.sh [référence de base]
-#         (défaut : origin/v3/backend, sinon v3/backend). Code 0 : intègre ; 1 : écart ; 2 : usage.
+#         (défaut : origin/develop, sinon develop : la branche d'intégration de git flow, décision
+#         de Julien du 19 nov. 2026). Code 0 : intègre ; 1 : écart ; 2 : usage.
 #
 # Ce script ne contient volontairement aucun marqueur littéral (motifs écrits en alternatives).
 
@@ -25,7 +26,7 @@ set -euo pipefail
 
 base_ref="${1:-}"
 if [ -z "$base_ref" ]; then
-  for candidate in origin/v3/backend v3/backend; do
+  for candidate in origin/develop develop; do
     if git rev-parse --verify -q "${candidate}^{commit}" >/dev/null; then
       base_ref="$candidate"
       break
@@ -33,7 +34,7 @@ if [ -z "$base_ref" ]; then
   done
 fi
 if [ -z "$base_ref" ] || ! git rev-parse --verify -q "${base_ref}^{commit}" >/dev/null; then
-  echo "Intégrité des tests : base « ${base_ref:-origin/v3/backend} » introuvable (git fetch ?)." >&2
+  echo "Intégrité des tests : base « ${base_ref:-origin/develop ou develop} » introuvable (git fetch ?)." >&2
   exit 2
 fi
 merge_base="$(git merge-base HEAD "$base_ref")"
