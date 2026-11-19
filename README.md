@@ -35,6 +35,10 @@ curl -si http://localhost:3000/api/v1/health | grep -i x-ratelimit   # quota par
 `pnpm build` compile les contrats puis l'API dans `dist/` ; `pnpm start` lance la version
 compilée.
 
+Pile locale complète identique à la production (Caddy, API, PostgreSQL, même compose et même image) pour
+reproduire un problème de prod : `pnpm stack:up` puis `curl -k https://localhost:8443/api/v1/health` (voir
+`docs/deploiement.md`, « Pile locale complète »).
+
 ## Qualité
 
 ```sh
