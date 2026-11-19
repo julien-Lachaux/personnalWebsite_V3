@@ -21,6 +21,12 @@ const CONFIG_PATTERNS = [
   /(^|\/)vitest(\.[\w-]+)*\.(config|workspace)\.[cm]?[jt]s$/,
   /(^|\/)vite\.config\.[cm]?[jt]s$/,
   /(^|\/)\.(c8rc|nycrc)(\.json|\.ya?ml)?$/,
+  // Test par mutation (Stryker) : configuration sous tous les noms que Stryker lit
+  // (stryker.config.mjs, stryker.conf.json, .stryker.config.mjs…), projet TypeScript de son
+  // vérificateur (tsconfig.stryker.json : des options plus lâches ou plus strictes changeraient
+  // les mutants classés « CompileError », donc le score) et fichier des mutants équivalents
+  // déclarés (stryker.equivalents.json, phase 2) ; le motif couvre toute variante stryker.<x>.<ext>.
+  /(^|\/)(\.|tsconfig\.)?stryker(\.[\w-]+)*\.(json|[cm]?[jt]s)$/,
   /^turbo\.json$/,
   /^pnpm-workspace\.yaml$/,
   /^\.husky\//,
@@ -148,7 +154,7 @@ export function startReminder(role) {
     : '';
   return (
     `Garde-fous actifs (agent ${role}). Refusés : modifier ou supprimer un test existant, ses fixtures ` +
-    'ou test/support, une configuration de test ou de couverture, turbo.json, pnpm-workspace.yaml, ' +
+    'ou test/support, une configuration de test, de couverture ou de mutation (Stryker), turbo.json, pnpm-workspace.yaml, ' +
     '.husky, .github/workflows, scripts/ci, .claude ; écrire un marqueur de saut ou de focus de ' +
     "Vitest ou un commentaire d'ignore de couverture. Créer un nouveau fichier de test est permis." +
     limits +
