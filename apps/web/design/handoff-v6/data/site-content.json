@@ -1,0 +1,424 @@
+{
+  "$description": "Contenu du site perso V3, extrait des maquettes v6. Sert de seed pour la base et de contrat d'API.",
+  "meta": {
+    "name": "Julien Lachaux",
+    "handle": "julien-lachaux",
+    "lang": "fr",
+    "availableLangs": [
+      "fr",
+      "[À COMPLÉTER : en ?]"
+    ]
+  },
+  "profile": {
+    "title": {
+      "line1": "Développeur",
+      "line2": "full-stack",
+      "badge": "senior"
+    },
+    "taglines": [
+      "NestJS, Vue.js — données, ETL et analytics",
+      "Développement assisté par IA et agentique"
+    ],
+    "mission": "Je souhaite mettre ce savoir-faire au service de structures utiles : associations, ONG, économie sociale et solidaire, écologie, service public.",
+    "intro": "Depuis 2017, je conçois des API, des interfaces et des flux de données fiables. Mon fil rouge : faire circuler la donnée entre des systèmes qui ne se parlent pas.",
+    "currently": "Bénévole 2 jours par semaine : je développe un outil d’aide au parcours de soins en milieu psychiatrique",
+    "lookingFor": {
+      "format": "Temps partiel (3 jours par semaine) ou missions freelance courtes",
+      "location": "Paris, Île-de-France · hybride ou à distance",
+      "availability": "Immédiate"
+    },
+    "links": {
+      "github": "[À COMPLÉTER : URL GitHub]",
+      "linkedin": "https://linkedin.com/in/julien-lachaux",
+      "linkedinRecommendations": "https://www.linkedin.com/in/julien-lachaux/details/recommendations/",
+      "cvPdf": "[À COMPLÉTER : URL du CV PDF]"
+    }
+  },
+  "experiences": [
+    {
+      "id": "nopillo",
+      "role": "Senior Software Engineer",
+      "organisation": "Nopillo",
+      "organisationPrefix": "@",
+      "period": "janv. 2026 – mai 2026",
+      "location": "Paris, hybride · CDI",
+      "summary": "Intégration de fonctionnalités d’IA dans le produit.",
+      "highlights": [
+        "Développement d’un système d’OCR pour les tickets de caisse et les factures",
+        "Développement du remplissage automatique des déclarations fiscales",
+        "Participation au cadrage et aux premiers développements d’une IA agentique de recommandation fiscale",
+        "Participation au développement des bases du projet en full-stack (front et back, principalement back-end)"
+      ],
+      "stack": [
+        "TypeScript",
+        "Elysia.js",
+        "Solid.js",
+        "Mastra",
+        "PostHog",
+        "Docker"
+      ],
+      "searchKeywords": [
+        "ocr",
+        "développement agentique"
+      ]
+    },
+    {
+      "id": "pause",
+      "role": "Pause professionnelle",
+      "organisation": "Projet personnel",
+      "organisationPrefix": "›",
+      "period": "avr. 2024 – déc. 2025",
+      "location": null,
+      "summary": "Pause consacrée à un projet immobilier personnel. En parallèle, veille technique active, avec un usage quotidien de l’IA dans ma pratique de développement.",
+      "highlights": [],
+      "stack": [
+        "Huile de coude"
+      ],
+      "searchKeywords": []
+    },
+    {
+      "id": "contentsquare",
+      "role": "Software Engineer",
+      "organisation": "Contentsquare",
+      "organisationPrefix": "@",
+      "period": "mars 2021 – mars 2024",
+      "location": "Paris, hybride · CDI",
+      "summary": null,
+      "highlights": [
+        "Pendant deux ans, analyse et diagnostic des écarts de collecte de données entre outils d’analytics (Contentsquare, Google Analytics, Adobe Analytics)",
+        "Conception d’outils internes pour faciliter ce diagnostic au support technique",
+        "Puis développeur full-stack dans l’équipe Intégrations : back-end TypeScript (NestJS, Kafka, Redis, PostgreSQL), front-end Vue 2 et Vue 3"
+      ],
+      "stack": [
+        "TypeScript",
+        "NestJS",
+        "Vue.js",
+        "PostgreSQL",
+        "Apache Kafka",
+        "Redis",
+        "Docker"
+      ],
+      "searchKeywords": [
+        "google analytics",
+        "adobe analytics",
+        "diagnostic en production"
+      ]
+    },
+    {
+      "id": "wynd-run",
+      "role": "Expert Intégration SI & Flux",
+      "organisation": "Wynd",
+      "organisationPrefix": "@",
+      "period": "juil. 2020 – févr. 2021",
+      "location": "Paris, hybride · CDI",
+      "summary": "Équipe RUN, en charge de la production et de la maintenance applicative.",
+      "highlights": [
+        "Cadrage et réalisation de chantiers d’intégration du produit : API, front e-commerce (Magento), flux ETL avec le SI des clients",
+        "Diagnostic et correction de bugs en production sur toute la stack",
+        "Référent StreamSets pour l’entreprise"
+      ],
+      "stack": [
+        "PHP (Symfony)",
+        "StreamSets",
+        "RabbitMQ",
+        "MySQL",
+        "Magento",
+        "Docker"
+      ],
+      "searchKeywords": [
+        "api rest",
+        "diagnostic en production"
+      ]
+    },
+    {
+      "id": "wynd-etl",
+      "role": "Head of Chapter ETL",
+      "organisation": "Wynd",
+      "organisationPrefix": "@",
+      "period": "mars 2019 – juil. 2020",
+      "location": "Paris, hybride · CDI",
+      "summary": "Responsable de StreamSets, l’ETL open source utilisé par l’entreprise.",
+      "highlights": [
+        "Définition et diffusion des bonnes pratiques",
+        "Accompagnement des équipes sur la conception, le déploiement et l’amélioration des flux d’intégration, pour le produit comme pour les projets clients",
+        "Industrialisation de l’usage de StreamSets dans l’entreprise"
+      ],
+      "stack": [
+        "StreamSets",
+        "Apache Kafka",
+        "RabbitMQ",
+        "MySQL",
+        "Docker"
+      ],
+      "searchKeywords": []
+    },
+    {
+      "id": "leboncoin",
+      "role": "Développeur web freelance",
+      "organisation": "leboncoin",
+      "organisationPrefix": "@",
+      "period": "oct. 2018 – nov. 2018",
+      "location": "Paris, hybride · Freelance",
+      "summary": "Mission back-end en PHP 7 : nouvelles fonctionnalités pour le back-office et le CRM.",
+      "highlights": [],
+      "stack": [
+        "PHP 7",
+        "JavaScript"
+      ],
+      "searchKeywords": []
+    },
+    {
+      "id": "afluens",
+      "role": "Développeur full-stack",
+      "organisation": "Afluens",
+      "organisationPrefix": "@",
+      "period": "août 2017 – juin 2018",
+      "location": "Saint-Cloud, hybride · CDI",
+      "summary": "Développement de l’outil collaboratif de l’entreprise, de la conception à la production.",
+      "highlights": [
+        "Nouvelles fonctionnalités et nouveaux écrans, connexions avec des API externes (ERP, routeur e-mail et SMS), exports Excel",
+        "Refactoring en PHP orienté objet ; monitoring et optimisation du système de fichiers cloud (Node.js)",
+        "Exploitation : maintien du service, administration du serveur, gestion des incidents, support de niveau 2"
+      ],
+      "stack": [
+        "PHP",
+        "JavaScript",
+        "Node.js",
+        "MongoDB",
+        "HTML5",
+        "CSS"
+      ],
+      "searchKeywords": [
+        "api rest"
+      ]
+    },
+    {
+      "id": "openclassrooms",
+      "role": "Mentor en développement web",
+      "organisation": "OpenClassrooms",
+      "organisationPrefix": "@",
+      "period": "mai 2015 – nov. 2015",
+      "location": "Remote",
+      "summary": "Mentorat d’étudiants en développement web, avec cours individuels en visioconférence.",
+      "highlights": [],
+      "stack": [
+        "PHP",
+        "JavaScript",
+        "HTML5",
+        "CSS"
+      ],
+      "searchKeywords": []
+    }
+  ],
+  "technos": [
+    {
+      "group": "langages et frameworks",
+      "items": [
+        "TypeScript",
+        "JavaScript",
+        "Node.js",
+        "NestJS",
+        "Vue.js (2 et 3)",
+        "PHP (Symfony)"
+      ]
+    },
+    {
+      "group": "données et messagerie",
+      "items": [
+        "PostgreSQL",
+        "MySQL",
+        "Redis",
+        "Apache Kafka",
+        "RabbitMQ"
+      ]
+    },
+    {
+      "group": "intégration et ETL",
+      "items": [
+        "StreamSets",
+        "API REST",
+        "Magento"
+      ]
+    },
+    {
+      "group": "analytics",
+      "items": [
+        "PostHog",
+        "Google Analytics",
+        "Adobe Analytics"
+      ]
+    },
+    {
+      "group": "IA appliquée",
+      "items": [
+        "OCR",
+        "Mastra",
+        "Développement agentique"
+      ]
+    },
+    {
+      "group": "devops",
+      "items": [
+        "Docker",
+        "Cloud managé"
+      ]
+    },
+    {
+      "group": "pratiques",
+      "items": [
+        "Méthodes agiles",
+        "Git",
+        "Diagnostic en production"
+      ]
+    }
+  ],
+  "mainStack": [
+    "TypeScript",
+    "Node.js",
+    "NestJS",
+    "Vue.js (2 et 3)",
+    "PostgreSQL",
+    "Apache Kafka",
+    "Docker"
+  ],
+  "recommendations": [
+    {
+      "author": "Alexis Coudeyras",
+      "authorRole": "CTO",
+      "context": "Responsable direct de Julien · 8 décembre 2025",
+      "paragraphs": [
+        "Julien a été recruté chez Contentsquare pour un poste de liaison entre l'équipe support et l'équipe tech.",
+        "Il s'agissait d'investiguer nos problèmes les plus complexes, impliquant différentes équipes (Data, App et des solutions tierces) avec de fortes volumétries et sur lesquelles on avait beaucoup de mal à avancer.",
+        "C'était un poste inconfortable car unique chez Contentsquare, très transverse et donc sans appui managérial évident.",
+        "Julien a su très vite s'approprier la forte complexité technique des différentes stack (Clickhouse, nodejs, kubernetes, adobe et google analytics), nouer une relation professionnelle forte avec l'ensemble des équipes.",
+        "Il a su par la suite créer des outils pour systématiser sa méthode d'investigation pour que l'équipe support puisse être autonome.",
+        "Cette mission a été un gros succès pour Contentsquare."
+      ]
+    },
+    {
+      "author": "Steeve Chevry",
+      "authorRole": "CTO de transition & CTO as a service",
+      "context": "Responsable direct de Julien · 4 novembre 2020",
+      "paragraphs": [
+        "Julien, malgré son manque d'expérience lors de son arrivée dans mon équipe, a été extrêmement rapide à s'intégrer et à appréhender nos technologies.",
+        "Il a sur faire preuve de sérieux, d'investissement et a été curieux et intéressé même par les aspects les moins excitants de ses responsabilités.",
+        "Il a montré une extraordinaire qualité d'adaptation et d'apprentissage, et n'a jamais eu peur du moindre challenge. Il se donne toujours à fond dans ce qu'il produit, et j'ai toujours été extrêmement satisfait de la qualité de nos échanges, et du travail fournis.",
+        "Pour conclure, je recommanderais fortement Julien, surtout qu'il sait être autonome et être force de proposition, et est très efficace en télétravail, ce qui est une vrai force et une qualité indéniable de nos jours."
+      ]
+    },
+    {
+      "author": "Eric Bisceglia",
+      "authorRole": "Consulting technique",
+      "context": "Responsable direct de Julien · 25 septembre 2020",
+      "paragraphs": [
+        "Pendant le temps que j'ai eu Julien dans mon équipe, j'ai été systématiquement impressionné par sa capacité à prendre en main des sujets qui lui sont étrangers. Il a par exemple su devenir notre expert Streamsets en quelques mois d'utilisation de la plateforme, ou travailler efficacement avec du legacy iOS en une journée alors qu'il n'y connaissait rien. Via ce talent d'adaptabilité, de montée en compétence express, et de debug de l'impossible, il a sauvé plus d'une fois la peau de notre équipe TMA, qui devait régulièrement prendre dans son scope sans avertissement préalable de nouveaux sujets complexes sur lesquels nous n'avions pas encore eu le temps de monter en expertise."
+      ]
+    }
+  ],
+  "ai": {
+    "title": "L’IA, dans le produit et au quotidien",
+    "inProduct": {
+      "label": "dans le produit · Nopillo, 2026",
+      "items": [
+        "OCR pour les tickets de caisse et les factures",
+        "Remplissage automatique des déclarations fiscales",
+        "Cadrage et premiers développements d’une IA agentique de recommandation fiscale"
+      ]
+    },
+    "daily": {
+      "label": "au quotidien",
+      "text": "Usage quotidien de l’IA dans ma pratique de développement, développement agentique avec Mastra, veille technique active.",
+      "tags": [
+        "Mastra",
+        "Développement agentique"
+      ]
+    },
+    "todo": "[À COMPLÉTER : outils utilisés, méthode de travail, exemples concrets]"
+  },
+  "contact": {
+    "cta": "Lancer l’entretien",
+    "intro": "Un message suffit, pas de visio ni de test à ce stade. Dites-moi qui vous êtes et ce que vous cherchez (poste, mission, coup de main) : je réponds sous 48 h ouvrées.",
+    "fields": [
+      {
+        "name": "name",
+        "label": "nom",
+        "type": "text",
+        "required": true,
+        "autocomplete": "name"
+      },
+      {
+        "name": "organisation",
+        "label": "structure",
+        "type": "text",
+        "required": false,
+        "autocomplete": "organization"
+      },
+      {
+        "name": "email",
+        "label": "e-mail",
+        "type": "email",
+        "required": true,
+        "autocomplete": "email"
+      },
+      {
+        "name": "message",
+        "label": "message",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "submit": "Envoyer",
+    "responseDelayToConfirm": "48 h ouvrées"
+  },
+  "easterEgg": {
+    "trigger": "badge « Huile de coude » de l’expérience Pause professionnelle",
+    "file": "huile-de-coude.sh",
+    "lines": [
+      "npm install huile-de-coude",
+      "1 paquet ajouté, 0 dépendance, en 21 mois",
+      "[ok] muscles",
+      "[ok] patience",
+      "[ok] tests en conditions réelles",
+      "build projet-immobilier",
+      "Terminé. 0 vulnérabilité (sauf le dos)."
+    ],
+    "close": "Retour au CV"
+  },
+  "accessibility": {
+    "textSizes": {
+      "md": 1,
+      "lg": 1.15,
+      "xl": 1.3
+    },
+    "switches": [
+      {
+        "key": "contrast",
+        "label": "Contraste renforcé"
+      },
+      {
+        "key": "readableFont",
+        "label": "Police plus lisible"
+      },
+      {
+        "key": "textSpacing",
+        "label": "Espacement du texte",
+        "values": {
+          "lineHeight": 1.5,
+          "letterSpacing": "0.12em",
+          "wordSpacing": "0.16em"
+        }
+      },
+      {
+        "key": "underlineLinks",
+        "label": "Souligner les liens"
+      },
+      {
+        "key": "reduceMotion",
+        "label": "Réduire les animations",
+        "defaultFrom": "prefers-reduced-motion"
+      }
+    ],
+    "statementUrl": "[À COMPLÉTER : /accessibilite]",
+    "rgaa": "[À COMPLÉTER après audit — RGAA 4.1.2 ou RGAA 5 selon la date]"
+  }
+}
