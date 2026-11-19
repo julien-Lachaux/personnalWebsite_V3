@@ -36,13 +36,17 @@ compilée.
 ## Qualité
 
 ```sh
-pnpm check       # démarre le Postgres de test puis lint, typecheck, tests unitaires et e2e
-pnpm db:down     # arrête les conteneurs
+pnpm check           # démarre le Postgres de test puis lint, typecheck, tests unitaires, e2e et couverture
+pnpm test:coverage   # unitaires + e2e en une passe : couverture fusionnée, échoue sous 100 %
+pnpm db:down         # arrête les conteneurs
 ```
 
-Le hook pre-commit (husky) lance lint, typecheck et tests unitaires ; les e2e tournent dans
-`pnpm check` et en CI (lot 5). `pnpm format` applique Prettier (les documents de `docs/` sont
-exclus).
+Le hook pre-commit (husky) lance lint, typecheck et tests unitaires ; les e2e et la couverture
+tournent dans `pnpm check` et en CI. La couverture (lignes, branches, fonctions, instructions) de
+`apps/api/src` et `packages/contracts/src` doit être de 100 %, mesurée en une seule passe
+unitaires + e2e (`@vitest/coverage-v8`, rapports `text`, `lcov` et `json-summary` dans
+`coverage/`, gitignoré) ; aucun fichier de production n'est exclu et aucun commentaire d'ignore
+n'est admis. `pnpm format` applique Prettier (les documents de `docs/` sont exclus).
 
 ## Arborescence
 
