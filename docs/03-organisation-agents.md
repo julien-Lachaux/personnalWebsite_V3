@@ -4,6 +4,9 @@ Proposition du 18 novembre 2026, à valider par Julien avant lancement.
 
 ## Rôles
 
+Rôles historiques des lots 0 à 7, conservés pour mémoire. Depuis le 19 novembre 2026, les rôles
+sont des fichiers d'agents : voir « Agents spécialisés » plus bas.
+
 | Rôle | Mission | Livrables |
 |---|---|---|
 | Orchestrateur | Script de workflow déterministe : enchaîne les lots, parallélise ce qui est indépendant, transmet les comptes rendus d'un lot au suivant, s'arrête aux points de contrôle. | journal d'exécution |
@@ -57,6 +60,45 @@ millions de tokens au total ; le lot 3 et le lot 6 sont les plus coûteux.
 - Jamais de push par un agent. Les conflits sont résolus par l'orchestrateur avant fusion.
 - Le lot 0 crée des modules NestJS vides déjà enregistrés pour chaque ressource : les deux agents
   API du lot 3 ne touchent ensuite que leurs propres fichiers.
+- Depuis le lot 8 : l'orchestrateur lance les agents de `.claude/agents/` par leur nom, dans le
+  worktree du lot ; avant de fusionner, la recette du chef-de-projet et `pnpm integrity` doivent
+  passer, et toute violation signalée par les garde-fous est tranchée (fichier restauré ou
+  modification justifiée).
+
+## Agents spécialisés (décidé le 19 novembre 2026)
+
+Chaque rôle est un fichier `.claude/agents/<nom>.md` au format natif de Claude Code (frontmatter
+`name`, `description`, `model`, `effort`, `tools` ; corps = prompt). L'orchestrateur est la
+session principale (pas de fichier) : il choisit l'agent par sa description et lui fournit à
+l'appel branche, worktree, isolation Docker, tickets, date et, si besoin, une autorisation
+nominative des garde-fous. Aucun agent n'a l'outil `Agent` : aucun ne lance de sous-agent.
+
+| Agent | Mission | Écrit | Modèle, effort |
+|---|---|---|---|
+| lead-architecte | Fondations, fichiers partagés, outillage de test, de CI et garde-fous, arbitrage | tout le dépôt (oracles sous autorisation) | Opus, high |
+| chef-de-projet | Backlog, recette d'un lot (critères et processus), recette finale depuis un clone, synthèses, points de contrôle | backlog et comptes rendus seulement | Sonnet, medium (Opus à l'appel pour la recette finale) |
+| dev-sql | Migrations, seeds, runner, traductions EN « à relire » | `db/`, runner et CLI, nouveaux tests | Sonnet, medium |
+| dev-contrats | Schémas Zod, OpenAPI 3.2.0, nullabilité alignée sur le SQL | `packages/contracts/src/<resource>/` | Sonnet, medium |
+| dev-api | Une ressource hexagonale, règle « modules isolés », tests à 100 % | dossiers de sa ressource | Sonnet, high |
+| dev-devops | Docker, compose prod, Caddy, CI, déploiement, durcissement | `docker/`, `scripts/deploy/`, CI sous autorisation | Sonnet, low |
+| qa | Matrices, conformité OpenAPI, sécurité HTTP, couverture, tests en échec attendu des défauts | tests seulement | Sonnet, medium |
+| revue-code | Revue adversariale en lecture seule, chaque finding reproduit, quatre contournements par le code | `docs/revues/code-<date>.md` | Opus, high |
+| revue-securite | Même méthode, grille sécurité, constats sans charge utile | `docs/revues/securite-<date>.md` | Opus, high |
+| triage | Rejoue, rejette les faux positifs, fusionne, ordonne, établit si un test est faux | `docs/revues/triage-<date>.md` | Sonnet, medium |
+| correcteur | Corrige une liste de findings, un commit par finding, deux `pnpm check` verts sur base neuve ; seul à modifier un test établi faux | fichiers des findings | Sonnet, medium |
+
+Contre le contournement des tests (décision de Julien, quatre couches) :
+
+1. hooks de `.claude/settings.json` (`.claude/hooks/`) : refus des écritures d'oracles et de
+   marqueurs, instantané comparé en fin de tâche, exception par autorisation nominative journalisée ;
+2. `scripts/ci/check-tests-integrity.sh` dans la CI et `pnpm check` : test existant ou
+   configuration protégée modifiés sans ligne `Justification-test`, marqueurs, commentaires
+   d'ignore ; les tests de réserve ne sont pas dans le dépôt, le chef-de-projet les génère à chaque
+   recette depuis le contrat OpenAPI ;
+3. séparation des rôles et sortie honorable dans chaque fichier d'agent (CLAUDE.md,
+   « Agents et garde-fous ») ;
+4. recette du processus : diff des tests, journal des garde-fous, cycles édition-test, retrait
+   d'un test au hasard ; les revues cherchent les contournements par le code.
 
 ## Modèles et efforts par rôle (décidé le 18 novembre 2026)
 

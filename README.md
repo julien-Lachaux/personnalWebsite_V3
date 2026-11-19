@@ -3,6 +3,8 @@
 Monorepo pnpm + Turborepo : API NestJS/Fastify en architecture hexagonale (`apps/api`),
 contrats Zod + OpenAPI 3.2.0 (`packages/contracts`), schéma et contenu en SQL (`db/`).
 Décisions et modèle de données : `docs/`. Conventions pour les agents : `CLAUDE.md`.
+Agents spécialisés et garde-fous contre le contournement des tests : `.claude/agents/`,
+`.claude/hooks/` et `scripts/ci/check-tests-integrity.sh` (lancés par `pnpm check` et la CI).
 
 ## Lancer en 4 commandes
 

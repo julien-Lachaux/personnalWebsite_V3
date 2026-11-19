@@ -27,6 +27,9 @@ docker-compose.yml        postgres (dev, :5432) et postgres-test (:5433, tmpfs) 
                           projet surchargeables par un `.env` racine (worktrees en parallèle)
 docs/                     décisions validées ; ne pas reformater (exclu de Prettier)
 docs/comptes-rendus/      compte rendu de chaque agent (lot-N-role.md)
+.claude/agents/           les onze agents spécialisés (rôle, fichiers, méthode, interdits)
+.claude/hooks/            garde-fous contre le contournement des tests (hooks de .claude/settings.json)
+scripts/ci/               check-tests-integrity.sh : intégrité des tests (CI et pnpm check)
 ```
 
 ## Règles hexagonales
@@ -121,7 +124,9 @@ pnpm db:test:up              # postgres de test
 pnpm dev                     # compile les contrats puis API en watch sur http://localhost:3000/api/v1
 pnpm lint | typecheck | test | test:e2e | build
 pnpm test:coverage           # unitaires + e2e en une passe, couverture fusionnée, échoue sous 100 %
-pnpm check                   # tout : démarre le postgres de test puis lint, typecheck, unit, e2e, couverture
+pnpm check                   # tout : garde-fous, intégrité des tests, postgres de test, lint, typecheck, unit, e2e, couverture
+pnpm hooks:test              # tests des hooks garde-fous (.claude/hooks/tests)
+pnpm integrity [base]        # intégrité des tests depuis la base (défaut origin/v3/backend, sinon v3/backend)
 pnpm format                  # Prettier sur tout le dépôt (docs/ exclu)
 pnpm db:down                 # arrête les conteneurs
 ```
@@ -137,6 +142,31 @@ crée un `.env` à la racine de SON worktree (gitignoré) avec `COMPOSE_PROJECT_
 `POSTGRES_PORT` et `POSTGRES_TEST_PORT` qui lui sont propres (ex. `siteperso-v3-b`, 5442, 5443),
 et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docker compose` et
 `apps/api/vitest.config.ts` lisent ce `.env` racine. `pnpm db:down` n'arrête alors que ses conteneurs.
+
+## Agents et garde-fous
+
+- Les rôles sont des fichiers : `.claude/agents/<nom>.md` (lead-architecte, chef-de-projet,
+  dev-sql, dev-contrats, dev-api, dev-devops, qa, revue-code, revue-securite, triage,
+  correcteur). L'orchestrateur est la session principale ; il fournit à chaque appel branche,
+  worktree, isolation Docker, tickets et date. Tableau et flux : `docs/03-organisation-agents.md`.
+- Un test se protège, il ne se négocie pas. Interdits à tout agent : modifier ou supprimer un test
+  existant, ajouter un marqueur de saut ou de focus de Vitest ou un commentaire d'ignore de
+  couverture, coder en dur une sortie pour une entrée de test, surcharger une comparaison, garder
+  un état caché, affaiblir l'oracle (fixtures, snapshots, seuils, configuration de test, délais,
+  sélection des tests, épinglages, CI). Les dev-\* ajoutent des tests ; la qa n'écrit que des
+  tests ; seul le correcteur modifie un test existant, quand le triage l'a établi faux.
+- **Justification-test** : tout commit qui modifie ou supprime un test existant, ajoute un test en
+  échec attendu ou change une configuration protégée porte la ligne
+  `Justification-test: <identifiant du finding> <raison>`, avec la démonstration dans le compte
+  rendu. `scripts/ci/check-tests-integrity.sh` (CI et `pnpm check`) refuse sinon.
+- **Sortie honorable** : si un test paraît impossible, contradictoire ou faux, l'agent s'arrête sur
+  ce point, le consigne dans son compte rendu avec sa démonstration (commande, sortie) et laisse
+  l'orchestrateur décider. C'est un résultat acceptable, pas un échec, et le seul chemin autorisé.
+- Garde-fous mécaniques : hooks de `.claude/settings.json` (`.claude/hooks/README.md`). Ils
+  refusent ces écritures et comparent les oracles à un instantané en fin de tâche. Une exception
+  (correcteur, qa, lead-architecte, dev-devops) passe par une autorisation nominative que seule la
+  session principale crée (`node .claude/hooks/authorize.mjs grant …`), journalisée dans
+  `.claude/hooks/audit.log`.
 
 ## Flux git et interdictions
 
