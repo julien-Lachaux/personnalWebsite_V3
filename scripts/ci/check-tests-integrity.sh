@@ -4,8 +4,8 @@
 # Compare la branche courante à son point de divergence avec la branche d'intégration et échoue si :
 #   1. un fichier de test existant est modifié ou supprimé sans qu'un commit qui le touche porte une
 #      ligne « Justification-test: <identifiant du finding> <raison> » ;
-#   2. une configuration protégée (Vitest, couverture, Stryker et mutants équivalents, turbo.json,
-#      pnpm-workspace.yaml, .husky, .github/workflows, scripts/ci, .claude/settings.json,
+#   2. une configuration protégée (Vitest, couverture, Stryker et mutants équivalents, Playwright,
+#      turbo.json, pnpm-workspace.yaml, .husky, .github/workflows, scripts/ci, .claude/settings.json,
 #      .claude/hooks) ou un script de test d'un package.json change sans la même justification ;
 #   3. une ligne ajoutée (commitée, modifiée ou non suivie) contient un marqueur de saut ou de focus
 #      de Vitest ou un commentaire d'ignore de couverture ; le marqueur d'échec attendu (fails) est
@@ -40,8 +40,10 @@ fi
 merge_base="$(git merge-base HEAD "$base_ref")"
 
 # Motifs (expressions régulières étendues, chemins relatifs à la racine du dépôt).
-TEST_RE='(^|/)[^/]+\.(spec|e2e-spec|test)\.[cm]?[jt]sx?$|(^|/)[^/]+\.test\.sh$|(^|/)[^/]+\.fixtures?\.[cm]?[jt]sx?$|(^|/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__)/|\.snap$'
-CONFIG_RE='(^|/)vitest(\.[A-Za-z0-9_-]+)*\.(config|workspace)\.[cm]?[jt]s$|(^|/)vite\.config\.[cm]?[jt]s$|(^|/)\.(c8rc|nycrc)(\.json|\.ya?ml)?$|(^|/)(\.|tsconfig\.)?stryker(\.[A-Za-z0-9_-]+)*\.(json|[cm]?[jt]s)$|^turbo\.json$|^pnpm-workspace\.yaml$|^\.husky/|^\.github/workflows/|^scripts/ci/|^\.claude/settings\.json$|^\.claude/hooks/'
+# Front (lot F0) : parcours Playwright `*.e2e.ts`, captures attendues `<test>-snapshots/`, captures
+# de référence du handoff de design ; configuration Playwright et turbo.json de paquet.
+TEST_RE='(^|/)[^/]+\.(spec|e2e-spec|test|e2e)\.[cm]?[jt]sx?$|(^|/)[^/]+\.test\.sh$|(^|/)[^/]+\.fixtures?\.[cm]?[jt]sx?$|(^|/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__)/|\.snap$|(^|/)[^/]+-snapshots/|^apps/web/design/handoff-v6/design/reference/'
+CONFIG_RE='(^|/)vitest(\.[A-Za-z0-9_-]+)*\.(config|workspace)\.[cm]?[jt]s$|(^|/)vite\.config\.[cm]?[jt]s$|(^|/)\.(c8rc|nycrc)(\.json|\.ya?ml)?$|(^|/)(\.|tsconfig\.)?stryker(\.[A-Za-z0-9_-]+)*\.(json|[cm]?[jt]s)$|(^|/)playwright(\.[A-Za-z0-9_-]+)*\.config\.[cm]?[jt]s$|(^|/)turbo\.json$|^pnpm-workspace\.yaml$|^\.husky/|^\.github/workflows/|^scripts/ci/|^\.claude/settings\.json$|^\.claude/hooks/'
 SCRIPT_RE='^[-+][[:space:]]*"(test|test:[^"]*|check|hooks:test|integrity|integrity:[^"]*|pretest|posttest|prepare)"[[:space:]]*:'
 FORBIDDEN_RE='\.(skip|only|todo|skipIf|runIf)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])|(v8|c8|istanbul)[[:space:]]+ignore|node:coverage[[:space:]]+(ignore|disable)'
 FAILS_RE='\.(fails)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])'
