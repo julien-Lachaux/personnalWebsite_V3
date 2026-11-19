@@ -22,7 +22,8 @@ référence dans `docs/01` à `docs/03`. Rien n'est poussé sur GitHub à ce jou
 | 8 | Agents spécialisés et garde-fous | lead-architecte, Opus | b16f9e7 | 30 tests hooks, 19 cas d'intégrité |
 | 9 | Décisions du 19 novembre | correcteur (agent du dépôt), Sonnet | c4af5fd | 859 tests API, 100 % |
 | 10 | Pile locale complète avec Caddy | dev-devops (agent du dépôt), Sonnet | ecb6d7f | 561 e2e avec la pile, 100 % |
-| 11 | Test par mutation, phase 1 | lead-architecte (agent du dépôt), Opus | fusionné | score de référence 32 % (contrats et API) |
+| 11 | Test par mutation, phase 1 | lead-architecte (agent du dépôt), Opus | dc0d9d4 | score de référence 32 % (contrats et API) |
+| 12 | Test par mutation, phase 2 : la règle | qa Sonnet, lead-architecte Opus, chef-de-projet Sonnet | 5ee5690 | 133 + 389 unitaires, 552 e2e, mutation 100 % / 40,87 % |
 
 ## Lot 0 : fondations
 
@@ -192,6 +193,37 @@ référence dans `docs/01` à `docs/03`. Rien n'est poussé sur GitHub à ce jou
   avec une base par processus, 11 à 16 h avec une seule base.
 - **Phase 2 à cadrer** : portée de la règle (unitaires seuls d'abord), motifs d'exclusion à confirmer,
   seuil de rupture initial à 32, test d'instantané du document OpenAPI pour les contrats.
+
+## Lot 12 : test par mutation, phase 2, la règle
+
+- **Décision** : « aucun mutant survivant non justifié » sur le code atteignable par les unitaires ;
+  un équivalent se déclare nominativement, une exclusion se motive, le seuil de rupture suit le score.
+- **Livré par la qa** (tests seulement, aucun test existant touché) : test d'instantané du document
+  OpenAPI généré (`document.snapshot.spec.ts`, `__snapshots__/openapi.json`, oracle protégé) et quatre
+  fichiers sur les assertions faibles des contrats ; onze fichiers unitaires côté API (cas d'usage,
+  bornes et protocoles de la configuration, lexeur SQL, runner de migrations, client Drizzle contre un
+  faux serveur PostgreSQL, message du 503 de santé, problème sans `detail`). Contrats 104 → 133 tests,
+  API 315 → 389 unitaires.
+- **Livré par le lead-architecte** : neuf équivalents vérifiés un par un (le lexeur SQL par
+  comparaison exhaustive) dans `apps/api/stryker.equivalents.json` (API-EQ-01 à 09 ; fichier vide côté
+  contrats), deux exclusions par motif en greffons « ignorer » (métadonnées déclaratives du schéma
+  Drizzle, 204 mutants, les noms de tables et colonnes restant mutés ; contexte de journal, 1 mutant),
+  seuils de rupture 100 pour les contrats et 40 pour l'API, job CI « mutation » dédié (hors `pnpm
+  check`, 45 min de marge, rapport HTML en artefact), script d'intégrité qui refuse toute directive
+  `Stryker disable` sans Justification-test ou sans identifiant déclaré (8 cas shell, 5 cas hooks),
+  prettier déclaré dans les contrats.
+- **Scores** : contrats 32,06 % → 100 % (483 mutants, 0 survivant, 2 min 36) ; API unitaires
+  32,33 % → 40,87 % total, 67,93 % sur le code couvert (1598 mutants, 374 tués, 186 survivants tous
+  justifiés : 169 noms du schéma et 11 cas e2e en réserve de la phase 3, 6 équivalents déclarés ;
+  384 sans couverture unitaire ; 7 min 37 à 9 min 52).
+- **Recette** : renvoyée une fois (un mutant de `problem-details.ts` déclaré équivalent à tort par la
+  qa, requalifié par le lead, tué par un test de la qa), puis acceptée : épreuve de mutation manuelle
+  détectée par trois tests, test retiré au hasard sans effet sur la couverture signalé, onze
+  scénarios de réserve contre le contrat, `pnpm check` vert sur clone neuf.
+- **Points ouverts** : les hooks ne bloquent pas une directive `Stryker disable` (seul le script
+  d'intégrité le fait) ; le contrôle Justification-test des directives est par fichier, pas par
+  ligne ; durée réelle du job CI inconnue avant le premier push ; défaut latent `detailOf` sur une
+  réponse `null`. Phase 3 (e2e sous Stryker) à cadrer.
 
 ## Transverse
 
