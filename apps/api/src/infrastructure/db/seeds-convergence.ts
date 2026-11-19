@@ -74,6 +74,12 @@ export const SEEDED_ENTITIES: readonly SeededEntity[] = [
     links: [],
     hasSlug: true,
   },
+  {
+    table: 'recommendations',
+    translations: ['recommendations_translations', 'recommendation_id'],
+    links: [],
+    hasSlug: true,
+  },
 ];
 
 /**
