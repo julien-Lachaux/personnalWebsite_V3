@@ -129,6 +129,37 @@ jobs:
       # Seconde passe e2e dans un ordre de fichiers aléatoire : détecte une dépendance entre fichiers.
       - run: pnpm --filter @siteperso/api exec vitest run --project e2e --sequence.shuffle.files
 
+  mutation:
+    name: Test par mutation (Stryker, seuil de rupture par paquet)
+    runs-on: ubuntu-latest
+    # Hors de `pnpm check` (trop long pour chaque commit), job dédié et indépendant des autres.
+    # Durée attendue : 12 à 15 min ; mesurée en local (16 fils) à 2 min 30 pour les contrats et
+    # 9 min pour l'API. Stryker lance un processus par cœur : sur un exécuteur à 4 cœurs la durée
+    # peut tripler, d'où une marge large, à resserrer après les premiers passages.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Contrats puis API (turbo --concurrency=1) : chaque paquet échoue sous le `thresholds.break`
+      # de son stryker.config.mjs (score total, survivants déclarés et sans couverture compris).
+      - run: pnpm test:mutation
+      # Rapports HTML des deux paquets (mutants survivants, ignorés avec leur motif), même en échec ;
+      # `warn` : si les contrats passent sous leur seuil, turbo s'arrête avant le rapport de l'API.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mutation-html
+          path: |
+            packages/contracts/reports/mutation/mutation.html
+            apps/api/reports/mutation/mutation.html
+          if-no-files-found: warn
+          retention-days: 14
+
   docker:
     name: Image Docker de l'API (build sans push)
     runs-on: ubuntu-latest
