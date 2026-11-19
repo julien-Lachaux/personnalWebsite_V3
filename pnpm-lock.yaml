@@ -145,6 +145,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 5.1.1
         version: 5.1.1(vitest@5.1.1)
+      prettier:
+        specifier: 3.10.1
+        version: 3.10.1
       tsx:
         specifier: 4.23.15
         version: 4.23.15
