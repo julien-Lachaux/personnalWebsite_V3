@@ -1282,8 +1282,16 @@ function analyzeSegment(seg, env) {
     return;
   }
   if (head.length > 1 && head.startsWith('=')) head = head.slice(1); // zsh : =git
-  const cmd = basename(head);
-  const args = w.slice(1);
+  let cmd = basename(head);
+  let args = w.slice(1);
+  // Exécutable git-<commande> appelé directement (git-send-pack, /usr/lib/git-core/git-push…).
+  let dashed = false;
+  const plumbing = /^git-([a-z][a-z0-9-]*)$/.exec(cmd);
+  if (plumbing) {
+    args = [plumbing[1], ...args];
+    cmd = 'git';
+    dashed = true;
+  }
 
   if (viaXargs && (XARGS_WRITERS.has(cmd) || INTERPRETERS.has(cmd))) {
     // Les arguments viennent de l'entrée standard : la cible est illisible.
@@ -1513,7 +1521,7 @@ function analyzeSegment(seg, env) {
       break;
     }
     case 'git':
-      analyzeGit(args, env, seg, { assignments });
+      analyzeGit(args, env, seg, { assignments, dashed });
       break;
     case 'docker':
       if (args[0] === 'cp' && args.length >= 3) {
@@ -1733,7 +1741,12 @@ function refspecRefusal(spec) {
 }
 
 /** Motif du refus d'un git push, ou null s'il est permis. `globals` : options globales de git. */
-function pushRefusal(rest, { role, globals, assignments }) {
+function pushRefusal(rest, { role, globals, assignments, dashed }) {
+  if (dashed)
+    return (
+      `git-push appelé directement : écris git push ; seule la session principale pousse, et ` +
+      `uniquement ${PUSH_BRANCH} vers ${PUSH_REMOTE}`
+    );
   if (role !== 'main') {
     return (
       `git push est interdit aux agents (rôle ${role ?? 'inconnu'}) : seule la session principale ` +
@@ -1789,7 +1802,7 @@ function gitAlias(base, sub, globals) {
   }
 }
 
-function analyzeGit(args, env, seg, { assignments, aliasDepth = 0 }) {
+function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 0 }) {
   const { st, role, result, deny, target, opaque, nested } = env;
   let gitBase = st.base;
   const globals = [];
@@ -1858,6 +1871,7 @@ function analyzeGit(args, env, seg, { assignments, aliasDepth = 0 }) {
       const prefix = args.slice(0, k);
       analyzeGit([...prefix, ...expansion, ...rest], env, seg, {
         assignments,
+        dashed,
         aliasDepth: aliasDepth + 1,
       });
     }
@@ -1871,10 +1885,25 @@ function analyzeGit(args, env, seg, { assignments, aliasDepth = 0 }) {
         role,
         globals,
         assignments: [...assignments, ...st.gitEnv],
+        dashed,
       });
       if (refusal) deny(refusal);
       break;
     }
+    case 'send-pack':
+    case 'http-push':
+      deny(
+        `git ${sub} est une plomberie de push : interdite à tous ; seule la session principale ` +
+          `pousse, par git push ${PUSH_REMOTE} ${PUSH_BRANCH}`,
+      );
+      break;
+    case 'svn':
+      if (['dcommit', 'set-tree'].includes(rest[0]))
+        deny(`git svn ${rest[0]} publie vers un autre dépôt : réservé à Julien`);
+      break;
+    case 'p4':
+      if (rest[0] === 'submit') deny('git p4 submit publie vers un autre dépôt : réservé à Julien');
+      break;
     case 'commit': {
       for (let j = 0; j < rest.length; j += 1) {
         const a = rest[j];
