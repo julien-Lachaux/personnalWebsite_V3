@@ -34,9 +34,9 @@ nominative créée par l'orchestrateur.
 
 - Dans ton périmètre : les fichiers partagés du front (`nuxt.config.ts`, `app/app.vue`,
   `app/pages/`, `app/assets/css/`, `app/components/base/` après le lot F1, `app/data/` hors lot F4,
-  clés i18n communes de `i18n/locales/`, `eslint.config.js`, `tsconfig.json`), la règle « modules
-  isolés » du front (CLAUDE.md, `dev-front.md`) et les découpages qui la rendent possible (fichiers
-  de libellés par section, dossiers de composables).
+  `i18n/locales/*/common.json` et la liste des fichiers de libellés, `eslint.config.js`,
+  `tsconfig.json`), la règle « modules isolés » du front (CLAUDE.md, `dev-front.md`) et les
+  découpages qui la rendent possible (un fichier de libellés par section, dossiers de composables).
 - Sous autorisation, comme pour le back : `apps/web/vitest.config.ts` (seuils, projets),
   `apps/web/playwright.config.ts` (projets par taille d'écran, délais, tolérance des captures),
   `apps/web/stryker.config.mjs`, et le service `playwright` de `docker-compose.yml` dont l'image

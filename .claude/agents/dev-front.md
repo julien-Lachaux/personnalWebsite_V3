@@ -28,10 +28,11 @@ la couche `data/`), les sections du handoff à lire (`apps/web/design/handoff-v6
   - logique pure (lot F2) : `apps/web/app/domain/<module>.ts` et son test ;
   - données (lot F4) : `apps/web/app/data/` et ses fixtures ;
   - tests : `*.spec.ts` à côté du code, nouveaux parcours `apps/web/test/<section>.e2e.ts`.
-  - libellés : clés sous l'espace `<section>.` de `apps/web/i18n/locales/fr.json` et `en.json`,
-    les deux langues dans le même commit.
+  - libellés : `apps/web/i18n/locales/fr/<section>.json` et `en/<section>.json`, clés sous
+    l'espace `<section>` seulement, les deux langues avec les mêmes clés dans le même commit
+    (`app/i18n-messages.spec.ts` le vérifie).
 - Interdits : les fichiers PARTAGÉS du front (`nuxt.config.ts`, `app.vue`, `app/pages/`,
-  `app/assets/css/`, `components/base/` après le lot F1, `data/` hors lot F4, clés i18n communes,
+  `app/assets/css/`, `components/base/` après le lot F1, `data/` hors lot F4, `i18n/locales/*/common.json`,
   configurations de test et de lint), les dossiers des autres sections, `apps/api/`, `db/`,
   `packages/contracts/`, les tests existants, `apps/web/design/` (captures de référence).
   Un besoin partagé (token, élément de base, clé commune, route) s'écrit dans le compte rendu ;

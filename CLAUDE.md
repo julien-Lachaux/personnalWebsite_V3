@@ -120,8 +120,10 @@ apps/web/
                           sous-dossier par section importé explicitement
     pages/                index, accessibilite, 404 (fichiers partagés)
     assets/css/           tokens.css du handoff, base, thèmes (fichiers partagés)
-  i18n/locales/           fr.json, en.json : libellés d'interface (clés communes partagées,
-                          clés `<section>.` à la section)
+  i18n/locales/<langue>/  libellés d'interface, fr/ et en/ : common.json (partagé) et un fichier
+                          par section (shell, profile, experience, recommendations, ai) qui ne
+                          porte que son espace de clés ; mêmes clés dans les deux langues
+                          (app/i18n-messages.spec.ts)
   public/                 polices auto-hébergées (D6), CV PDF, favicon
   test/                   parcours Playwright (*.e2e.ts), support et fixtures de test
 ```
@@ -132,9 +134,9 @@ apps/web/
   l'API (`GET /cv?lang=` au build) ou de fixtures validées par `@siteperso/contracts`, jamais de
   `site-content.json` à l'exécution.
 - **Règle « modules isolés » du front** : un agent de section n'écrit que dans
-  `components/<section>/`, `composables/<section>/`, ses tests et ses clés i18n `<section>.` ; les
-  fichiers partagés (configuration Nuxt, `app.vue`, `pages/`, `assets/css/`, `components/base/`
-  après F1, `data/` hors F4, clés i18n communes, configurations de test et de lint) sont réservés
+  `components/<section>/`, `composables/<section>/`, ses tests et ses fichiers de libellés
+  `i18n/locales/{fr,en}/<section>.json` ; les fichiers partagés (configuration Nuxt, `app.vue`,
+  `pages/`, `assets/css/`, `components/base/` après F1, `data/` hors F4, `common.json`, configurations de test et de lint) sont réservés
   au lead-architecte (détail dans `.claude/agents/dev-front.md`).
 - **i18n** : `@nuxtjs/i18n`, FR par défaut sans préfixe, EN sous `/en/...`
   (`prefix_except_default`), pas de redirection selon le navigateur ; `useLocaleHead` pose `lang`,

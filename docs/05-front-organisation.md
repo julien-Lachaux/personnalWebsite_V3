@@ -33,14 +33,16 @@ apps/web/
     composables/     pont entre domain et composants (état, URL, préférences)
     pages/           index, accessibilite, page 404
     assets/css/      tokens.css (du handoff), base, thèmes
-  i18n/locales/      fr.json, en.json (libellés d'interface)
+  i18n/locales/      fr/ et en/ : common.json et un fichier par section (libellés d'interface ;
+                     découpage décidé par Julien le 20 nov. 2026, posé en F0)
   public/            polices, CV PDF, favicon
   test/              e2e Playwright (*.e2e.ts), visuel, axe ; fixtures
 ```
 
 Règle « modules isolés » transposée : un agent de section n'écrit que dans
 `components/<section>/`, ses composables et ses tests. Fichiers partagés réservés au lead :
-configuration Nuxt, `app.vue`, `assets/css/`, `components/base/` après le lot F1, i18n communs,
+configuration Nuxt, `app.vue`, `assets/css/`, `components/base/` après le lot F1, i18n communs
+(`common.json` ; chaque section a son fichier de libellés),
 `data/`.
 
 ## Lots
