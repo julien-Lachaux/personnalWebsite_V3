@@ -29,13 +29,15 @@ const config = {
   vitest: { configFile: 'vitest.config.ts' },
 
   // Phase 1 : tests unitaires seulement (projet Vitest « unit »). Le lanceur ne transmet pas
-  // `--project` ; restreindre les fichiers de test exécutés écarte le projet « e2e » (et son
-  // globalSetup qui exige PostgreSQL).
-  // Phase 3, pour inclure les e2e : ajouter 'test/**/*.e2e-spec.ts' ici, démarrer la base de test
-  // (`pnpm db:test:up`), déclarer DATABASE_URL et POSTGRES_TEST_PORT dans `env` de la tâche turbo
-  // `test:mutation`, et fixer `concurrency: 1` : les e2e partagent une seule base et ne tournent
-  // pas en parallèle (`fileParallelism: false`).
-  testFiles: ['src/**/*.spec.ts'],
+  // `--project` : c'est vitest.config.ts qui écarte le projet « e2e » (et son globalSetup qui exige
+  // PostgreSQL) dans les processus de Stryker (variable STRYKER_MUTATOR_WORKER).
+  // L'option `testFiles` de Stryker n'est PAS utilisée : en 10.1.1, elle fait activer les mutants
+  // statiques (code exécuté au chargement des modules) après ce chargement, si bien qu'ils
+  // survivent tous à tort (vérifié sur src/cli/paths.ts, lot 11).
+  // Phase 3, pour inclure les e2e : retirer la condition de vitest.config.ts, démarrer la base de
+  // test (`pnpm db:test:up`), déclarer DATABASE_URL et POSTGRES_TEST_PORT dans `env` de la tâche
+  // turbo `test:mutation`, et fixer `concurrency: 1` : les e2e partagent une seule base et ne
+  // tournent pas en parallèle (`fileParallelism: false`).
 
   // Ne tester un mutant qu'avec les tests qui l'exécutent (le lanceur Vitest l'impose de toute façon).
   coverageAnalysis: 'perTest',

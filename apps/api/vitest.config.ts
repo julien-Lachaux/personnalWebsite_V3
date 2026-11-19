@@ -18,6 +18,14 @@ if (existsSync(rootEnv)) {
 }
 const testPort = process.env['POSTGRES_TEST_PORT'] ?? '5433';
 
+// Test par mutation (Stryker, `pnpm test:mutation`, phase 1 : unitaires seulement). Le lanceur
+// Vitest de Stryker ne transmet pas `--project`, et son option `testFiles` fait activer les
+// mutants statiques après le chargement des modules (ils survivraient tous à tort) : le projet e2e
+// est donc écarté ici quand Stryker exécute les tests (STRYKER_MUTATOR_WORKER, posé par Stryker
+// dans ses processus). Sans effet hors Stryker : `pnpm test:coverage` garde les deux projets.
+// Phase 3 (e2e) : retirer cette condition.
+const mutationRun = process.env['STRYKER_MUTATOR_WORKER'] !== undefined;
+
 export default defineConfig({
   plugins: [
     // SWC émet les métadonnées de décorateurs (design:paramtypes) dont l'injection Nest dépend ;
@@ -56,7 +64,7 @@ export default defineConfig({
           },
         },
       },
-    ],
+    ].filter((project) => !mutationRun || project.test.name === 'unit'),
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
