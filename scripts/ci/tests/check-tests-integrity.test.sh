@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests de scripts/ci/check-tests-integrity.sh : chaque cas crée un dépôt git temporaire avec une
-# branche d'intégration « v3/backend », dérive une branche, applique un scénario et vérifie le code
+# branche d'intégration « develop », dérive une branche, applique un scénario et vérifie le code
 # de sortie du script. Lancé par `pnpm integrity:test` (donc par pnpm check) et par la CI.
 #
 # Les marqueurs sont construits à l'exécution : ce fichier n'en contient aucun littéralement.
@@ -23,7 +23,7 @@ new_repo() {
   repo="$WORK/$1"
   mkdir -p "$repo"
   cd "$repo"
-  git init -q -b v3/backend
+  git init -q -b develop
   git config user.name 'Test'
   git config user.email 'ci@noreply.invalid'
   git config commit.gpgsign false
@@ -46,7 +46,7 @@ commit() {
 
 expect() {
   local expected="$1" name="$2" code=0
-  bash "$SCRIPT" v3/backend >"$WORK/out.txt" 2>&1 || code=$?
+  bash "$SCRIPT" develop >"$WORK/out.txt" 2>&1 || code=$?
   if [ "$code" -eq "$expected" ]; then
     passed=$((passed + 1))
     printf 'ok      %s\n' "$name"

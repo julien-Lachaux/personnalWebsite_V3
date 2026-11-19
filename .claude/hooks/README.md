@@ -42,9 +42,35 @@ l'utilise. Création, usage, refus, révocation et violations sont journalisés 
 Le commit qui modifie un test existant ou une configuration protégée porte en plus la ligne
 `Justification-test: <identifiant> <raison>`, exigée par `scripts/ci/check-tests-integrity.sh`.
 
+## git push (git flow, décision de Julien du 19 nov. 2026)
+
+Seule la session principale (rôle `main`, entrée sans `agent_type`) pousse, et sous une seule
+forme : `git push origin develop`, `git push -u origin develop` ou
+`git push --set-upstream origin develop` (refspec `develop:develop` admise), éventuellement
+précédée de `-C <chemin>` ou d'un `-c <clé>=<valeur>` ordinaire. `lib/shell.mjs` (`pushRefusal`)
+refuse tout le reste avec son motif :
+
+- tout git push d'un agent, quelle que soit la forme ;
+- autre remote qu'`origin` ; autre branche ou refspec (`main`, `master`, `HEAD`, `+…`, `:…`,
+  `lot/*`, `release/*`, étiquette, `refs/tags/…`), plusieurs refspecs ;
+- refspec absente (`git push`, `git push origin`) : le résultat dépend de la configuration ;
+- `--force`, `-f`, `--force-with-lease`, `--force-if-includes`, `--delete`, `-d`, `--prune`,
+  `--all`, `--branches`, `--mirror`, `--tags`, `--follow-tags`, `--push-option`, `-o`,
+  `--no-verify`, `--repo`, `--receive-pack`, `--exec`, `--` et toute autre option ;
+- ce qui change la destination autour du push : `--git-dir`, `--work-tree`, `--namespace`,
+  `--config-env`, `-c remote.*|url.*|push.*|branch.*|alias.*`, variable `GIT_*` en tête de commande ;
+- un push caché : alias git qui lance push (`-c alias.…`, `git config alias.…`), `git … push` dans
+  du code opaque (`bash -c`, `xargs`, script, here-document), hors scripts des garde-fous.
+
+Fusionner dans `main` (branches `release/*`, `hotfix/*`), créer ou pousser une étiquette, pousser
+`main`, supprimer une branche distante et déployer sont réservés à Julien. Les refus de
+`permissions.deny` (`.claude/settings.json`) doublent les variantes dangereuses écrites en préfixe ;
+l'autorité reste ce hook.
+
 ## Limites
 
-Analyse du shell « au mieux » : un programme qui écrit sans nommer le fichier lui échappe. Le
+Analyse du shell « au mieux » : un programme qui écrit sans nommer le fichier lui échappe. Un alias
+git déjà défini dans la configuration de l'hôte (`git p`) échappe aussi à la règle de push. Le
 hook de fin (empreintes) et le script d'intégrité de la CI sont les filets. Les hooks ne sont pas
 un bac à sable : un agent déterminé peut écrire l'état local ; la CI ne dépend pas de cet état.
 

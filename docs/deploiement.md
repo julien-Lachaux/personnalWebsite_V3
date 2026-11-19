@@ -11,7 +11,17 @@ en attendant, Caddy sert `docker/placeholder/index.html` sur `/` et proxifie `/a
 - Un enregistrement DNS A/AAAA du domaine vers le VPS, ports 80 et 443 ouverts (Caddy obtient le
   certificat tout seul). Pour un essai local, `HTTP_PORT` et `HTTPS_PORT` (dans `.env.prod`) changent les
   ports hôte publiés (défaut 80/443).
-- Le dépôt cloné sur le VPS (les scripts se trouvent dans `scripts/deploy/`).
+- Le dépôt cloné sur le VPS **sur la branche `main`** (`git clone --branch main <dépôt>`) ; les scripts se
+  trouvent dans `scripts/deploy/`.
+
+## Branche déployée (git flow)
+
+Décision de Julien du 19 nov. 2026 : le dépôt suit git flow. `develop` est la branche d'intégration (les lots
+y sont fusionnés, la session principale la pousse) ; elle ne se déploie **jamais**. La production se déploie
+depuis `main`, que seul Julien fait avancer : fusion d'une branche `release/*` ou `hotfix/*`, étiquette de
+version, push de `main`, puis lancement du déploiement sur le VPS. `first-install.sh` et `update.sh` refusent
+(code 1) un dépôt qui n'est pas sur `main` (branche fixée dans `scripts/deploy/common.sh`, non surchargeable) ;
+avec `DRY_RUN=1`, ils l'avertissent seulement, pour répéter la procédure depuis une autre branche.
 
 ## Premier déploiement
 
@@ -45,7 +55,8 @@ scripts/deploy/update.sh
 ```
 
 Sauvegarde préalable (`backup.sh`, l'échec arrête la mise à jour avant toute modification ; `SKIP_BACKUP=1`
-la saute), `git pull --ff-only`, reconstruction de l'image, `compose run --rm migrate` (migrations et seeds),
+la saute), `git pull --ff-only origin main` (le dépôt doit être sur `main`, voir « Branche déployée »),
+reconstruction de l'image, `compose run --rm migrate` (migrations et seeds),
 `compose up -d`. Une migration déjà appliquée ne doit jamais être modifiée : le runner compare les
 checksums et échoue (voir `db/README.md`).
 

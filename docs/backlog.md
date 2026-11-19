@@ -40,9 +40,12 @@ Conventions de ce document :
   Rien d'autre n'est installé globalement : `psql` s'exécute dans le conteneur (`docker compose exec`).
 - Versions : chaque paquet est ajouté à sa version stable courante vérifiée avec `pnpm view <pkg> version`,
   jamais une version mémorisée, et épinglée exactement. Les versions installées au lot 0 sont en section 9.
-- Flux Git : branche d'intégration `v3/backend`, une branche et un worktree par lot (`lot/0-fondations`,
+- Flux Git : git flow depuis le lot 13 (décision de Julien du 19 nov. 2026). Branche d'intégration
+  permanente `develop`, une branche et un worktree par lot créés depuis `develop` (`lot/0-fondations`,
   `lot/1-sql`, `lot/2-contrats`, `lot/3-api-a`, `lot/3-api-b`, `lot/4-qa`, `lot/5-devops`,
-  `lot/6-corrections`), fusion `--no-ff` par l'orchestrateur après recette du chef de projet.
+  `lot/6-corrections`, puis `lot/N-nom`), fusion `--no-ff` dans `develop` par l'orchestrateur après recette
+  du chef de projet. Seule la session principale pousse, et uniquement `develop` ; `main` (fusion des
+  `release/*` et `hotfix/*`), les étiquettes, le push de `main` et le déploiement sont réservés à Julien.
 - Traductions EN du contenu : produites par l'agent base de données (lot 1), listées dans
   `docs/traductions-a-relire.md` et marquées « à relire » ; aucune n'est définitive avant relecture de Julien.
 
@@ -57,12 +60,12 @@ tickets le sont et que le chef de projet a validé la livraison contre les crit�
 | D2 | Typecheck propre | `pnpm typecheck` passe |
 | D3 | Tests verts (unitaires et e2e du périmètre touché) | `pnpm check` passe (démarre le Postgres de test puis lint, typecheck, `test` = unitaires, `test:e2e` = e2e) |
 | D4 | Build propre | `pnpm build` passe |
-| D5 | Commits atomiques, un par micro-tâche, Conventional Commits en français avec trailer `Co-Authored-By` | `git log --format=%B v3/backend..HEAD` : chaque message matche `^(feat|fix|docs|chore|refactor|test|ci|build|perf|style)(\([a-z0-9-]+\))?: .+` et contient le trailer (vérification à la main par le chef de projet : pas de hook `commit-msg`) |
+| D5 | Commits atomiques, un par micro-tâche, Conventional Commits en français avec trailer `Co-Authored-By` | `git log --format=%B develop..HEAD` : chaque message matche `^(feat|fix|docs|chore|refactor|test|ci|build|perf|style)(\([a-z0-9-]+\))?: .+` et contient le trailer (vérification à la main par le chef de projet : pas de hook `commit-msg`) |
 | D6 | Hook pre-commit non contourné | aucun commit n'a été fait avec `--no-verify` (déclaré dans le compte rendu) |
 | D7 | Aucune donnée personnelle de contact | `git grep -nE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}' -- ':!pnpm-lock.yaml'` ne remonte que des placeholders `@example.com` ou le trailer `noreply@anthropic.com` ; `git grep -nE '(\+33|0)[1-9]([ .-]?[0-9]{2}){4}' -- ':!pnpm-lock.yaml'` ne remonte que des placeholders `+33 0 00 00 00 00` |
 | D8 | Conventions `CLAUDE.md` respectées (hexagonal par couches, Nest confiné à `infrastructure/http` et aux modules Nest de `config`/`db`, pas de décorateur métier, validation Zod explicite, SQL source de vérité, textes en français, identifiants en anglais) | `grep -rlE "@nestjs|from 'fastify'|drizzle-orm|from 'postgres'" apps/api/src/domain apps/api/src/application` ne renvoie rien ; revue du chef de projet |
 | D9 | Compte rendu court livré | fichier `docs/comptes-rendus/lot-<N>-<role>.md` présent avec les sections « Fait », « Non fait », « Décisions prises », « Points ouverts » |
-| D10 | Aucun fichier hors périmètre du lot modifié | `git diff --stat v3/backend..HEAD` ne liste que les dossiers autorisés du lot |
+| D10 | Aucun fichier hors périmètre du lot modifié | `git diff --stat develop..HEAD` ne liste que les dossiers autorisés du lot |
 
 ### 0.3 Dépendances entre lots
 
@@ -179,15 +182,15 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 - **Objectif** : un monorepo qui s'installe, lint, typecheck, teste et démarre à vide, avec toutes les
   conventions posées pour que les lots suivants n'aient à toucher que leurs propres fichiers.
-- **Dépendances** : aucune (part de `v3/backend` qui ne contient que `docs/`).
+- **Dépendances** : aucune (part de `develop` qui ne contient que `docs/`).
 - **Agent responsable** : Lead back-end (branche `lot/0-fondations`, partie de `6b88d33`).
 - **Périmètre autorisé** : tout le repo sauf `docs/0*.md` et `docs/backlog.md`.
 - **Statut** : livré et recetté le 18 novembre 2026, 14 commits atomiques (11 de livraison, 3 de correction
   après recette). `pnpm check` vert : lint, typecheck, 14 tests unitaires, 23 tests e2e. Compte rendu :
   `docs/comptes-rendus/lot-0-lead.md`. Les descriptions ci-dessous décrivent ce qui est livré ; les écarts
   avec la version initiale du backlog sont acceptés en recette et constituent désormais la convention.
-- **Fusion** : `git merge --no-ff lot/0-fondations` dans `v3/backend`. La branche ne contient pas `5201791`
-  (`docs(pm): backlog`) ; aucun conflit attendu (fichier nouveau côté `v3/backend`).
+- **Fusion** : `git merge --no-ff lot/0-fondations` dans `develop`. La branche ne contient pas `5201791`
+  (`docs(pm): backlog`) ; aucun conflit attendu (fichier nouveau côté `develop`).
 - **Point de contrôle 1** : validation par Julien de la structure et de `CLAUDE.md` avant lancement des
   lots 1, 2 et 5.
 
@@ -373,7 +376,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 - **Objectif** : une base PostgreSQL 16 entièrement créée et remplie par des fichiers SQL versionnés,
   appliqués par un runner minimal, avec le contenu du CV (novembre 2026) en FR et EN.
-- **Dépendances** : lot 0 fusionné dans `v3/backend`.
+- **Dépendances** : lot 0 fusionné dans `develop`.
 - **Agent responsable** : Dev base de données (branche `lot/1-sql`).
 - **Périmètre autorisé** : `db/**`, `apps/api/src/infrastructure/db/**` (y compris `drizzle-database-client.ts`
   pour brancher le schéma, sans changer son API publique `db`/`ping`/`close`), `apps/api/src/cli/**`,
@@ -704,7 +707,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 - **Objectif** : chaque route du contrat répond avec des données issues de PostgreSQL via Drizzle, dans la
   langue demandée avec repli `en → fr`, triées par `sort_order` (ou `date_start desc` pour les
   expériences), limitées au contenu `published`, et validées par les schémas Zod des contrats avant envoi.
-- **Dépendances** : lots 1 et 2 fusionnés dans `v3/backend`.
+- **Dépendances** : lots 1 et 2 fusionnés dans `develop`.
 - **Agents responsables** : Dev API A (branche `lot/3-api-a`) et Dev API B (branche `lot/3-api-b`), en
   parallèle, périmètres disjoints définis par la règle « modules isolés » (section 0.5 et `CLAUDE.md`).
 - **Répartition** (6 modules chacun, équilibrée par complexité : A reçoit `experiences` et `skill-groups`
@@ -754,7 +757,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
   `db/database.module.ts`, `db/drizzle-database-client.ts`, `db/schema/*`, `test/support/*`,
   `packages/contracts/src/{index.ts,common/*,openapi/document.ts}`. Tout besoin (colonne manquante, schéma de
   contrat à ajuster, export) est signalé dans le compte rendu ; l'orchestrateur l'applique en un commit dédié
-  sur `v3/backend` avant la fusion.
+  sur `develop` avant la fusion.
 
 ### L3-01 (A) — Module `profile`
 
@@ -867,7 +870,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 - **Description** : chaque agent livre `docs/comptes-rendus/lot-3-dev-api-{a,b}.md`, avec la liste des
   changements partagés demandés à l'orchestrateur (exports, contrats, schéma).
-- **Critères d'acceptation** : critères D1 à D10 sur chaque branche ; `git diff --stat v3/backend..lot/3-api-a` et `...lot/3-api-b` ne listent aucun fichier commun (périmètres disjoints vérifiés par `comm -12`) ; `pnpm check` vert sur `v3/backend` après fusion des deux branches et des commits partagés de l'orchestrateur.
+- **Critères d'acceptation** : critères D1 à D10 sur chaque branche ; `git diff --stat develop..lot/3-api-a` et `...lot/3-api-b` ne listent aucun fichier commun (périmètres disjoints vérifiés par `comm -12`) ; `pnpm check` vert sur `develop` après fusion des deux branches et des commits partagés de l'orchestrateur.
 
 ---
 
@@ -1049,7 +1052,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 ### L5-05 — Vérification finale et compte rendu
 
-- **Description** : après fusion du lot 4, rejouer L5-01 à L5-04 sur `v3/backend`, puis
+- **Description** : après fusion du lot 4, rejouer L5-01 à L5-04 sur `develop`, puis
   `docs/comptes-rendus/lot-5-devops.md`.
 - **Critères d'acceptation** : critères D1 à D10 ; `docker compose -f docker/compose.prod.yml ... down -v` laisse `docker ps -a | grep siteperso-v3-prod` vide.
 
@@ -1057,7 +1060,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 ## 7. Lot 6 — Revues indépendantes, corrections, recette
 
-- **Objectif** : deux relectures adversariales du diff complet `master..v3/backend` (code et sécurité),
+- **Objectif** : deux relectures adversariales du diff complet `master..develop` (code et sécurité),
   menées sans connaître les conclusions l'une de l'autre, des findings vérifiés puis corrigés, et une
   recette finale par le chef de projet.
 - **Dépendances** : lots 4 et 5 fusionnés.
@@ -1068,7 +1071,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 ### L6-01 — Revue de code indépendante
 
-- **Description** : relecture de `git diff master..v3/backend` : respect de l'architecture hexagonale par
+- **Description** : relecture de `git diff master..develop` : respect de l'architecture hexagonale par
   couches (`CLAUDE.md`), duplication entre modules A et B (parsing de `?lang`, jointures de traduction :
   proposer un helper partagé si la duplication le justifie), gestion d'erreurs, N+1, typage (`any`,
   assertions), dette, lisibilité, pertinence des tests. Chaque finding : fichier, ligne, gravité (bloquant /
@@ -1099,11 +1102,11 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 - **Description** : un commit par finding confirmé (`fix(<scope>): RC-3 …`), avec test de non-régression
   quand un test est possible ; les mineurs non corrigés sont consignés comme dette dans le compte rendu.
 - **Fichiers** : selon findings ; `docs/comptes-rendus/lot-6-corrections.md`.
-- **Critères d'acceptation** : critères D1 à D10 ; `git log --oneline v3/backend..lot/6-corrections | grep -cE "RC-|RS-"` = nombre de findings confirmés bloquants + majeurs ; tous les tests `BUG-<n>` du lot 4 passent (plus aucun `skip`).
+- **Critères d'acceptation** : critères D1 à D10 ; `git log --oneline develop..lot/6-corrections | grep -cE "RC-|RS-"` = nombre de findings confirmés bloquants + majeurs ; tous les tests `BUG-<n>` du lot 4 passent (plus aucun `skip`).
 
 ### L6-05 — Recette finale du chef de projet
 
-- **Description** : sur `v3/backend` après fusion, depuis un clone propre : `pnpm install --frozen-lockfile`,
+- **Description** : sur `develop` après fusion, depuis un clone propre : `pnpm install --frozen-lockfile`,
   `pnpm db:up && pnpm db:migrate && pnpm db:seed`, `pnpm build`, `pnpm check`, `pnpm dev` + curl des 13
   routes et de `/docs.json`, L5-02 (compose prod local), relecture de `docs/traductions-a-relire.md`, puis
   rédaction de `docs/compte-rendu-2026-11-<jj>.md` : périmètre livré, écarts avec `docs/01` et `docs/02`,
@@ -1143,22 +1146,55 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 Synthèse dans `docs/lots.md`, détail dans `docs/comptes-rendus/lot-9-*.md` à `lot-12-*.md`.
 
-## 7 quinquies. Lot 13 — Suites de la recette du lot 12 (tranché par Julien le 19 nov. 2026, à lancer après le premier push)
+## 7 quinquies. Lot 13 — Git flow (tranché par Julien le 19 nov. 2026)
+
+- **Décision de Julien** : le dépôt adopte git flow. `develop` remplace l'ancienne branche d'intégration
+  (renommée ; les sections des lots précédents la citent sous ce nom) comme branche d'intégration
+  permanente. Les lots restent des branches `lot/N-nom` créées depuis `develop` et fusionnées en `--no-ff`
+  par l'orchestrateur. La session principale (rôle `main` des hooks) peut pousser `develop`, et uniquement
+  `develop`, vers `origin` ; les onze agents spécialisés n'ont aucun droit de push. **Réservé à Julien** :
+  toute fusion dans `main` (branches `release/*` et `hotfix/*`), les étiquettes de version, le push de
+  `main` et le lancement du déploiement. Aucune session ni aucun agent ne pousse `main`, ne crée ni ne
+  pousse d'étiquette, ne supprime de branche distante, ne force un push.
+- **Agent** : lead-architecte (branche `lot/13-git-flow`, autorisation `config`, ticket GITFLOW).
+- **L13-01** : hooks (`.claude/hooks/lib/shell.mjs`) : `git push` permis à la seule session principale,
+  sous la forme `git push [-u|--set-upstream] origin develop[:develop]` (options globales `-C` et `-c`
+  ordinaires admises) ; tout le reste refusé avec son motif (agent, autre remote, autre branche ou refspec,
+  push forcé, suppression, `--all`, `--mirror`, `--tags`, `--prune`, `--push-option`, refspec absente,
+  plusieurs refspecs, configuration ou variable qui change la destination, alias, push dans du code
+  opaque). Tests : `.claude/hooks/tests/git-push.test.mjs`.
+- **L13-02** : `.claude/settings.json` : le refus de tout `git push` remplacé par des refus en motif des
+  variantes dangereuses ; l'autorité reste le hook.
+- **L13-03** : `scripts/ci/check-tests-integrity.sh` : base par défaut `origin/develop`, sinon `develop` ;
+  test `scripts/ci/tests/default-base.test.sh`.
+- **L13-04** : CI : déclencheurs `push` sur `develop`, `main`, `release/**`, `hotfix/**`, `lot/**` et
+  `pull_request` ; base d'intégrité hors PR `develop`.
+- **L13-05** : déploiement : `scripts/deploy/update.sh` tire `origin main` ; `first-install.sh` et
+  `update.sh` refusent un dépôt qui n'est pas sur `main` (`docs/deploiement.md`, « Branche déployée »).
+- **L13-06** : documentation : `CLAUDE.md`, `docs/03-organisation-agents.md`, ce backlog.
+- **Réglages GitHub à faire par Julien** : branche par défaut `develop` ; protection de `main` (fusion par
+  pull request, relecture, pas de push direct ni forcé, pas de suppression) ; suppression de l'ancienne
+  branche d'intégration distante.
+- **Critères d'acceptation** : `pnpm hooks:test`, `pnpm integrity:test`, `pnpm integrity develop` et
+  `pnpm check` verts ; aucune mention de l'ancienne branche hors historiques (`docs/comptes-rendus/`,
+  `docs/revues/`, `docs/lots.md`). Compte rendu : `docs/comptes-rendus/lot-13-git-flow.md`.
+
+## 7 sexies. Lot 14 — Suites de la recette du lot 12 (tranché par Julien le 19 nov. 2026, à lancer après le premier push)
 
 Quatre questions fermées remontées par la recette du lot 12, toutes tranchées **oui** par Julien :
 
-- **L13-01** (lead-architecte, portée `config`) : les hooks bloquent dès l'écriture toute directive
+- **L14-01** (lead-architecte, portée `config`) : les hooks bloquent dès l'écriture toute directive
   `Stryker disable` qui ne cite pas un identifiant d'équivalent déclaré, comme ils bloquent déjà les
   marqueurs de saut de Vitest ; aujourd'hui seul `scripts/ci/check-tests-integrity.sh` la refuse, au commit
   et en CI. Tests dans `.claude/hooks/tests/`.
-- **L13-02** (lead-architecte, portée `config`) : le contrôle Justification-test des directives passe du
+- **L14-02** (lead-architecte, portée `config`) : le contrôle Justification-test des directives passe du
   fichier à la ligne : la justification d'un commit cite l'identifiant de chaque directive ajoutée, et cet
   identifiant pointe sur la ligne et le mutateur déclarés dans le fichier d'équivalents. Ferme le trou
   constaté en recette (directive glissée dans un fichier qu'un commit justifié touche déjà).
-- **L13-03** (dev-devops) : job CI « mutation » laissé complet jusqu'aux premiers passages réels sur
+- **L14-03** (dev-devops) : job CI « mutation » laissé complet jusqu'aux premiers passages réels sur
   GitHub ; durée mesurée, puis arbitrage chiffré (mode incremental de Stryker ou limitation au diff).
   Décision différée, pas de travail avant la mesure.
-- **L13-04** (correcteur, en phase 3 du test par mutation) : garde `response !== null` dans `detailOf`
+- **L14-04** (correcteur, en phase 3 du test par mutation) : garde `response !== null` dans `detailOf`
   (`problem-details.ts`), avec son test ; aujourd'hui `'message' in null` lèverait une TypeError dans le
   filtre global, cas inatteignable par les clients mais défaut latent.
 

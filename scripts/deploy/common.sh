@@ -11,6 +11,11 @@ ENV_FILE="${DEPLOY_DIR}/.env.prod"
 COMPOSE_FILE="${REPO_DIR}/docker/compose.prod.yml"
 DRY_RUN="${DRY_RUN:-0}"
 
+# Branche de production (git flow, décision de Julien du 19 nov. 2026) : la production se déploie
+# depuis main, jamais depuis develop ni depuis une branche de travail. Volontairement non
+# surchargeable.
+DEPLOY_BRANCH=main
+
 # Codes de sortie documentés (docs/deploiement.md)
 EXIT_NEEDS_ENV=10 # .env.prod créé ou incomplet : l'opérateur doit le remplir puis relancer
 export EXIT_NEEDS_ENV
@@ -38,6 +43,20 @@ run() {
 require_docker() {
   command -v docker >/dev/null 2>&1 || die "docker est introuvable"
   docker compose version >/dev/null 2>&1 || die "le plugin « docker compose » est introuvable"
+}
+
+# Refuse un dépôt qui n'est pas sur la branche de production (en DRY_RUN=1 : avertit seulement,
+# pour pouvoir répéter la procédure depuis n'importe quelle branche).
+require_deploy_branch() {
+  local current
+  current="$(git -C "${REPO_DIR}" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  [ "${current}" = "${DEPLOY_BRANCH}" ] && return 0
+  current="${current:-HEAD détachée ou dépôt git absent}"
+  if [ "${DRY_RUN}" = "1" ]; then
+    log "(dry-run) dépôt sur « ${current} », pas sur ${DEPLOY_BRANCH} : une vraie exécution s'arrêterait ici"
+    return 0
+  fi
+  die "dépôt sur « ${current} » : la production se déploie depuis ${DEPLOY_BRANCH} uniquement (git -C ${REPO_DIR} switch ${DEPLOY_BRANCH})"
 }
 
 require_env_file() {

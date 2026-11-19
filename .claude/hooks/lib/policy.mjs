@@ -158,6 +158,7 @@ export function startReminder(role) {
     '.husky, .github/workflows, scripts/ci, .claude ; écrire un marqueur de saut ou de focus de ' +
     "Vitest ou un commentaire d'ignore de couverture. Créer un nouveau fichier de test est permis." +
     limits +
+    ' Aucun git push : seule la session principale pousse, et uniquement develop vers origin.' +
     ' Un refus ne se contourne pas : si un test paraît impossible, contradictoire ou faux, applique ' +
     'la sortie honorable (CLAUDE.md, « Agents et garde-fous »). Les oracles sont comparés à un ' +
     'instantané à la fin de ta tâche.'

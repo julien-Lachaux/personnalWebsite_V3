@@ -1,7 +1,9 @@
 // Analyse « au mieux » d'une commande shell : découpe en segments, repère les cibles d'écriture
 // (redirections, rm, mv, cp, tee, sed -i, perl -i, dd, git checkout/restore/rm/mv, find -delete…),
 // les écritures opaques (interpréteurs avec code en ligne ou script, xargs, git apply, patch) et
-// les commandes toujours interdites (git push, --no-verify, core.hooksPath…).
+// les commandes interdites (--no-verify, core.hooksPath…). git push n'est permis qu'à la session
+// principale et sous une seule forme (git flow, décision de Julien du 19 nov. 2026) : voir
+// pushRefusal.
 //
 // Ce n'est pas un interpréteur bash complet : le hook de fin (comparaison des empreintes) et le
 // script d'intégrité de la CI sont les filets pour ce qui échappe à cette analyse.
@@ -385,8 +387,17 @@ export function patchPaths(text) {
   return [...out];
 }
 
+/** Vrai si le chemin désigne un script des garde-fous (.claude/hooks/), réservé à la session principale. */
+function isGuardScript(path, base) {
+  return /(^|\/)\.claude\/hooks\//.test(resolve(base, path));
+}
+
+/** Une ligne de code opaque qui lance git push (shell, sous-processus, tableau d'arguments). */
+const PUSH_IN_CODE = /\bgit\b[^\n]*\bpush\b/;
+
 /**
- * Analyse une commande. `cwd` est le dossier courant de l'agent (entrée du hook).
+ * Analyse une commande. `cwd` est le dossier courant de l'agent (entrée du hook) ; `role` son rôle
+ * (« main » pour la session principale), qui décide seul du droit de push.
  * Résultat :
  * - deny      : raison d'un refus inconditionnel (ou null) ;
  * - targets   : [{ path, base }] cibles d'écriture explicites, à classer par l'appelant ;
@@ -395,7 +406,7 @@ export function patchPaths(text) {
  * - scripts   : [{ path, base }] scripts exécutés (pour repérer les scripts des garde-fous) ;
  * - writes    : vrai si la commande écrit quelque chose (pour les marqueurs dans le texte).
  */
-export function analyzeCommand(command, cwd) {
+export function analyzeCommand(command, cwd, role = null) {
   const result = {
     deny: null,
     targets: [],
@@ -410,9 +421,16 @@ export function analyzeCommand(command, cwd) {
     result.targets.push({ path, base: b });
     result.writes = true;
   };
-  const opaque = (what, text, b = base) => {
+  // `script` : chemin du script lu, le cas échéant ; ceux des garde-fous (tests des hooks compris)
+  // citent git push sans le lancer et ne sont lancés que par la session principale.
+  const opaque = (what, text, b = base, script = null) => {
     result.opaque.push({ what, text, base: b });
     result.writes = true;
+    if (PUSH_IN_CODE.test(text) && !(script !== null && isGuardScript(script, b))) {
+      result.deny =
+        `git push dans du code opaque (${what}) : la branche et le remote ne sont pas vérifiables ; ` +
+        'seule la session principale pousse, par la commande git push origin develop écrite telle quelle';
+    }
   };
 
   for (const seg of segments) {
@@ -511,7 +529,7 @@ export function analyzeCommand(command, cwd) {
         if (hasInline) opaque(cmd, `${args.join(' ')}\n${seg.heredoc}`);
         else if (!inPlace && ops[0]) {
           result.scripts.push({ path: ops[0], base });
-          opaque(cmd, readSmallFile(resolve(base, ops[0])));
+          opaque(cmd, readSmallFile(resolve(base, ops[0])), base, ops[0]);
         } else if (!inPlace) opaque(cmd, seg.heredoc);
         break;
       }
@@ -597,7 +615,7 @@ export function analyzeCommand(command, cwd) {
         break;
       }
       case 'git':
-        analyzeGit(args, base, result, target, opaque, seg);
+        analyzeGit(args, base, result, target, opaque, seg, { role, assignments });
         break;
       case 'docker':
         if (args[0] === 'cp' && args.length >= 3) {
@@ -616,7 +634,7 @@ export function analyzeCommand(command, cwd) {
             opaque(cmd, `${args.join(' ')}\n${seg.heredoc}`);
           } else if (ops.length > 0 && ops[0] !== '-') {
             result.scripts.push({ path: ops[0], base });
-            opaque(cmd, `${readSmallFile(resolve(base, ops[0]))}\n${seg.heredoc}`);
+            opaque(cmd, `${readSmallFile(resolve(base, ops[0]))}\n${seg.heredoc}`, base, ops[0]);
           } else {
             opaque(cmd, seg.heredoc || command);
           }
@@ -633,10 +651,102 @@ const GIT_GLOBAL_VALUED = new Set([
   '--work-tree',
   '--namespace',
   '--exec-path',
+  '--config-env',
+  '--attr-source',
 ]);
 
-function analyzeGit(args, base, result, target, opaque, seg) {
+// git push (git flow, décision de Julien du 19 nov. 2026). Seule forme permise, et seulement à la
+// session principale (rôle « main », sans agent_type) :
+//   git [-C <chemin>] [-c <clé>=<valeur>] push [-u | --set-upstream] origin develop[:develop]
+// Tout le reste est refusé avec son motif : rôle d'agent, autre remote, autre branche ou refspec
+// (main, HEAD, +…, :…, lot/*, étiquette), push forcé, suppression, plusieurs références, options
+// transmises au serveur, refspec absente (git push nu dépend de la configuration). Fusionner dans
+// main, créer ou pousser une étiquette, pousser main et déployer sont réservés à Julien.
+const PUSH_REMOTE = 'origin';
+const PUSH_BRANCH = 'develop';
+const PUSH_REFSPECS = new Set([PUSH_BRANCH, `${PUSH_BRANCH}:${PUSH_BRANCH}`]);
+const PUSH_UPSTREAM = new Set(['-u', '--set-upstream']);
+/** Options globales de git qui changent le dépôt, l'espace de noms ou la configuration du push. */
+const PUSH_GLOBAL_DENIED = new Set(['--git-dir', '--work-tree', '--namespace', '--config-env']);
+/** Clés de configuration (-c) qui changent la destination, les références ou la commande poussées. */
+const PUSH_CONFIG_KEYS = /^(remote|url|push|branch|alias)\./i;
+const PUSH_FORM = `seule la forme git push origin ${PUSH_BRANCH} (avec -u ou --set-upstream au besoin) est permise`;
+
+function pushOptionRefusal(a) {
+  if (a.startsWith('--force') || /^-[a-zA-Z]*f/.test(a))
+    return `push forcé (${a}) interdit à tous : il réécrit l'historique distant`;
+  if (a === '--delete' || /^-[a-zA-Z]*d/.test(a))
+    return `suppression d'une branche distante (${a}) réservée à Julien`;
+  if (a === '--prune') return `${a} supprime des branches distantes : réservé à Julien`;
+  if (['--all', '--branches', '--mirror'].includes(a))
+    return `${a} pousse plusieurs références : ${PUSH_FORM}`;
+  if (a === '--tags' || a === '--follow-tags')
+    return `${a} pousse des étiquettes : les étiquettes de version sont réservées à Julien`;
+  if (a.startsWith('--push-option') || /^-[a-zA-Z]*o/.test(a))
+    return `options transmises au serveur (${a}) interdites : ${PUSH_FORM}`;
+  if (a === '--no-verify') return `${a} contourne le hook pre-push : interdit`;
+  if (['--repo', '--receive-pack', '--exec'].some((o) => a === o || a.startsWith(`${o}=`)))
+    return `${a} change le dépôt ou la commande distante : ${PUSH_FORM}`;
+  return `option ${a} non permise : ${PUSH_FORM}`;
+}
+
+function refspecRefusal(spec) {
+  if (spec.startsWith('+')) return `refspec forcée (${spec}) interdite à tous`;
+  if (spec === '' || spec.startsWith(':'))
+    return `refspec « ${spec} » : supprime une branche distante, réservé à Julien`;
+  const refs = spec.split(':');
+  if (refs.some((r) => /^(refs\/heads\/)?(main|master)$/.test(r)))
+    return `${spec} : main est réservée à Julien (fusion des release/* et hotfix/*, push de main)`;
+  if (refs.some((r) => r.startsWith('refs/tags/')))
+    return `${spec} : les étiquettes de version sont réservées à Julien`;
+  if (refs.some((r) => /^HEAD\b/.test(r) || r === '@'))
+    return `${spec} : HEAD dépend de la branche courante ; ${PUSH_FORM}`;
+  if (refs.some((r) => /^(refs\/heads\/)?lot\//.test(r)))
+    return `${spec} : les branches de lot restent locales, seule ${PUSH_BRANCH} se pousse`;
+  return `refspec ${spec} refusée : ${PUSH_FORM}`;
+}
+
+/** Motif du refus d'un git push, ou null s'il est permis. `globals` : options globales de git. */
+function pushRefusal(rest, { role, globals, assignments }) {
+  if (role !== 'main') {
+    return (
+      `git push est interdit aux agents (rôle ${role ?? 'inconnu'}) : seule la session principale ` +
+      `pousse, et uniquement ${PUSH_BRANCH} vers ${PUSH_REMOTE}`
+    );
+  }
+  for (const [opt, value] of globals) {
+    if (PUSH_GLOBAL_DENIED.has(opt.split('=')[0]))
+      return `option globale ${opt} : elle change le dépôt ou la configuration du push ; ${PUSH_FORM}`;
+    if (opt === '-c' && PUSH_CONFIG_KEYS.test(value))
+      return `git -c ${value} : cette configuration change ce que pousse git push ; ${PUSH_FORM}`;
+  }
+  const env = assignments.find((a) => /^GIT_/.test(a));
+  if (env)
+    return `variable ${env.split('=')[0]} : elle change le dépôt ou la configuration du push`;
+  const ops = [];
+  for (const a of rest) {
+    // « -- » compris : la forme permise n'en a pas besoin, toute autre option est refusée.
+    if (a.startsWith('-') && !PUSH_UPSTREAM.has(a)) return pushOptionRefusal(a);
+    if (!a.startsWith('-')) ops.push(a);
+  }
+  if (ops.length < 2) {
+    return (
+      `git push sans ${ops.length === 0 ? 'remote ni ' : ''}branche explicite dépend de la configuration ` +
+      `(push.default, branche suivie) : ${PUSH_FORM}`
+    );
+  }
+  const [remote, ...specs] = ops;
+  if (specs[0] === 'tag')
+    return 'git push … tag : les étiquettes de version sont réservées à Julien';
+  if (specs.length > 1) return `plusieurs refspecs (${specs.join(' ')}) : ${PUSH_FORM}`;
+  if (remote !== PUSH_REMOTE) return `remote ${remote} refusé : seul ${PUSH_REMOTE} est permis`;
+  if (!PUSH_REFSPECS.has(specs[0])) return refspecRefusal(specs[0]);
+  return null;
+}
+
+function analyzeGit(args, base, result, target, opaque, seg, { role, assignments }) {
   let gitBase = base;
+  const globals = [];
   let k = 0;
   for (; k < args.length; k += 1) {
     const a = args[k];
@@ -646,20 +756,28 @@ function analyzeGit(args, base, result, target, opaque, seg) {
     } else if (a === '-c' && args[k + 1]) {
       if (/^core\.hookspath=/i.test(args[k + 1]))
         result.deny = 'changer core.hooksPath désactive le hook pre-commit';
+      if (/^alias\.[^=]*=.*\bpush\b/i.test(args[k + 1]))
+        result.deny = `un alias qui lance git push (${args[k + 1]}) contourne la règle de push`;
+      globals.push([a, args[k + 1]]);
       k += 1;
     } else if (GIT_GLOBAL_VALUED.has(a)) {
+      globals.push([a, args[k + 1]]);
       k += 1;
     } else if (!a.startsWith('-')) {
       break;
+    } else {
+      globals.push([a, null]);
     }
   }
   const sub = args[k];
   const rest = args.slice(k + 1);
   const t = (p) => target(p, gitBase);
   switch (sub) {
-    case 'push':
-      result.deny = 'git push est interdit à tous les agents';
+    case 'push': {
+      const refusal = pushRefusal(rest, { role, globals, assignments });
+      if (refusal) result.deny = refusal;
       break;
+    }
     case 'commit': {
       for (let j = 0; j < rest.length; j += 1) {
         const a = rest[j];
@@ -688,6 +806,11 @@ function analyzeGit(args, base, result, target, opaque, seg) {
     case 'config':
       if (rest.some((a) => /^core\.hookspath$/i.test(a)))
         result.deny = 'changer core.hooksPath désactive le hook pre-commit';
+      if (
+        rest.some((a) => /^alias\./i.test(a)) &&
+        rest.some((a) => !/^alias\./i.test(a) && /\bpush\b/i.test(a))
+      )
+        result.deny = 'un alias qui lance git push contourne la règle de push';
       break;
     case 'update-index':
       if (rest.some((a) => ['--assume-unchanged', '--skip-worktree'].includes(a))) {
