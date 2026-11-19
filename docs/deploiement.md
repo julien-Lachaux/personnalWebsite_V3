@@ -142,6 +142,15 @@ vérification. Le journal d'accès contient des adresses IP : sa rotation est bo
   Pour la page statique : `default-src 'self'` et `X-Frame-Options: SAMEORIGIN`. À adapter quand le front
   sera servi.
 
+### Écart connu entre développement et production
+
+Un seul écart est connu sur les réponses de l'API : une URL mal encodée (`/api/%zz`) est rejetée par Caddy
+avant l'API, en `400 text/plain`, alors que l'API seule répond en `400 application/problem+json`. Aucun
+réglage de Caddy ne produit du problem+json pour cette erreur : l'écart est accepté et consigné ici.
+Les réponses que Caddy produit lui-même (`502` si l'API est arrêtée, `413` text/plain quand un corps dépasse
+son plafond de 1 Kio, mesuré lors de l'essai du lot 9) sont des réponses d'infrastructure en texte brut, hors
+du comportement de l'API.
+
 ## Rôles PostgreSQL
 
 Deux rôles, pour que l'API en lecture seule ne puisse rien écrire même si elle est compromise :
