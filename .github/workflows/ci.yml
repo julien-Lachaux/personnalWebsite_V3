@@ -39,7 +39,7 @@ jobs:
       - run: pnpm test
 
   e2e:
-    name: Tests e2e (PostgreSQL 16)
+    name: Tests e2e et couverture 100 % (PostgreSQL 16)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -67,9 +67,44 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:e2e
-      # Seconde passe dans un ordre de fichiers aléatoire : détecte une dépendance entre fichiers.
-      - run: pnpm --filter @siteperso/api exec vitest run --config vitest.e2e.config.ts --sequence.shuffle.files
+      # Passe fusionnée unitaires + e2e : échoue sous 100 % (lignes, branches, fonctions,
+      # instructions) pour apps/api comme pour packages/contracts (seuils dans vitest.config.ts).
+      - run: pnpm test:coverage
+      # Résumé de couverture dans le récapitulatif du run (coverage-summary.json des deux paquets).
+      - name: Publier le résumé de couverture
+        if: always()
+        run: |
+          node --input-type=module - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import { existsSync, readFileSync } from 'node:fs';
+          const packages = [
+            ['apps/api', 'apps/api/coverage/coverage-summary.json'],
+            ['packages/contracts', 'packages/contracts/coverage/coverage-summary.json'],
+          ];
+          console.log('## Couverture de test (unitaires + e2e, seuil 100 %)\n');
+          console.log('| Paquet | Lignes | Branches | Fonctions | Instructions |');
+          console.log('|---|---|---|---|---|');
+          for (const [name, file] of packages) {
+            if (!existsSync(file)) {
+              console.log(`| ${name} | rapport absent | | | |`);
+              continue;
+            }
+            const { total } = JSON.parse(readFileSync(file, 'utf8'));
+            const cell = (metric) => `${total[metric].pct} % (${total[metric].covered}/${total[metric].total})`;
+            console.log(`| ${name} | ${cell('lines')} | ${cell('branches')} | ${cell('functions')} | ${cell('statements')} |`);
+          }
+          EOF
+      # Rapports lcov des deux paquets, consultables depuis le run.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: couverture-lcov
+          path: |
+            apps/api/coverage/lcov.info
+            packages/contracts/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 14
+      # Seconde passe e2e dans un ordre de fichiers aléatoire : détecte une dépendance entre fichiers.
+      - run: pnpm --filter @siteperso/api exec vitest run --project e2e --sequence.shuffle.files
 
   docker:
     name: Image Docker de l'API (build sans push)
