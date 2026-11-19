@@ -1136,8 +1136,8 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
   échec attendu ou change une configuration protégée porte `Justification-test: <finding> <raison>` ;
   la CI refuse sinon. **Sortie honorable** : un test impossible, contradictoire ou faux s'arrête, se
   consigne, se décide par l'orchestrateur. Détail : `docs/comptes-rendus/lot-8-agents.md`, `CLAUDE.md`.
-- **À trancher par Julien** : portée `config` accordée aussi à lead-architecte et dev-devops ; marqueur
-  `fails` admis pour la qa sous autorisation et Justification-test.
+- **Tranché par Julien le 19 nov. 2026 (acceptés)** : portée `config` accordée aussi à lead-architecte et
+  dev-devops ; marqueur `fails` admis pour la qa sous autorisation et Justification-test.
 
 ## 8. Points ouverts et risques
 
