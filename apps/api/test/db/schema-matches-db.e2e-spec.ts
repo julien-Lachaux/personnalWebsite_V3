@@ -1,5 +1,5 @@
 import { getTableConfig, PgTable } from 'drizzle-orm/pg-core';
-import { is } from 'drizzle-orm';
+import { getTableName, is } from 'drizzle-orm';
 import { type Sql } from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -25,6 +25,26 @@ function drizzleColumns(): Map<string, ColumnShape> {
     }
   }
   return columns;
+}
+
+/**
+ * Clés étrangères déclarées par le schéma Drizzle (`.references(() => …)`), sous la forme
+ * `table.colonne -> table_cible.colonne on delete <action>` (`no action` par défaut, comme SQL).
+ */
+function drizzleForeignKeys(): string[] {
+  const keys: string[] = [];
+  for (const value of Object.values(schema)) {
+    if (!is(value, PgTable)) continue;
+    const config = getTableConfig(value);
+    for (const foreignKey of config.foreignKeys) {
+      const reference = foreignKey.reference();
+      const target = getTableName(reference.foreignTable);
+      const from = reference.columns.map((column) => `${config.name}.${column.name}`).join(',');
+      const to = reference.foreignColumns.map((column) => `${target}.${column.name}`).join(',');
+      keys.push(`${from} -> ${to} on delete ${foreignKey.onDelete ?? 'no action'}`);
+    }
+  }
+  return keys.sort();
 }
 
 describe('schéma Drizzle et base migrée', () => {
@@ -65,6 +85,37 @@ describe('schéma Drizzle et base migrée', () => {
     for (const [key, shape] of expected) {
       expect({ column: key, ...actual.get(key) }).toEqual({ column: key, ...shape });
     }
+  });
+
+  it('déclare les mêmes clés étrangères (colonnes, cible, on delete) que la base', async () => {
+    const rows = await sql<
+      {
+        table_name: string;
+        column_name: string;
+        target: string;
+        target_column: string;
+        rule: string;
+      }[]
+    >`
+      select kcu.table_name, kcu.column_name,
+        ccu.table_name as target, ccu.column_name as target_column, lower(rc.delete_rule) as rule
+      from information_schema.table_constraints tc
+      join information_schema.key_column_usage kcu
+        on kcu.constraint_name = tc.constraint_name and kcu.table_schema = tc.table_schema
+      join information_schema.constraint_column_usage ccu
+        on ccu.constraint_name = tc.constraint_name and ccu.table_schema = tc.table_schema
+      join information_schema.referential_constraints rc
+        on rc.constraint_name = tc.constraint_name and rc.constraint_schema = tc.table_schema
+      where tc.constraint_type = 'FOREIGN KEY' and tc.table_schema = 'public'`;
+    const actual = rows
+      .map(
+        (row) =>
+          `${row.table_name}.${row.column_name} -> ${row.target}.${row.target_column} on delete ${row.rule}`,
+      )
+      .sort();
+
+    expect(actual.length).toBeGreaterThan(0);
+    expect(drizzleForeignKeys()).toEqual(actual);
   });
 
   it('déclare les 24 tables du schéma', () => {
