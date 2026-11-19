@@ -63,9 +63,10 @@ export function hasTestSegment(rel) {
 
 // Marqueurs de Vitest qui sautent, isolent ou inversent un test : skip, only, todo, skipIf et
 // runIf toujours interdits ; fails admis seulement sous autorisation (qa, correcteur) pour un
-// test en échec attendu. Repérés quand ils suivent un point et précèdent une parenthèse, un
-// point ou un gabarit.
-const MARKER_RE = /\.(skip|only|todo|fails|skipIf|runIf)(?=\s*[(.`])/g;
+// test en échec attendu. Repérés quand ils suivent un point et précèdent une parenthèse
+// directement ou après un enchaînement (each, concurrent…) ; « it.fails » cité en prose ne
+// compte pas.
+const MARKER_RE = /\.(skip|only|todo|fails|skipIf|runIf)(?=\s*\(|\.\w+\s*[(`])/g;
 // Commentaires qui retirent du code de la mesure de couverture.
 const IGNORE_RE = /\b(?:v8|c8|istanbul)\s+ignore\b|node:coverage\s+(?:ignore|disable)/g;
 
