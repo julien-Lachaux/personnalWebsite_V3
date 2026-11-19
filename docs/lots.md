@@ -2,11 +2,12 @@
 
 Synthèse, lot par lot, de ce qui a été fait depuis le 18 novembre 2026. Chaque lot a sa branche
 `lot/N-nom`, un worktree isolé, un agent (ou deux) qui livre, une recette du chef de projet, puis une
-fusion `--no-ff` dans `v3/backend` par l'orchestrateur. Le détail de chaque lot est dans
+fusion `--no-ff` dans la branche d'intégration par l'orchestrateur : `v3/backend` jusqu'au lot 12,
+`develop` depuis le lot 13 (git flow). Le détail de chaque lot est dans
 `docs/comptes-rendus/lot-N-*.md` ; les tickets et critères dans `docs/backlog.md` ; les décisions de
 référence dans `docs/01` à `docs/03`. Premier push sur GitHub (dépôt privé) le 19 novembre 2026 au soir,
 après la revue de sécurité de pré-publication (`docs/revues/securite-pre-publication-2026-11-19.md`) :
-branches `main` (avance rapide depuis `v3/backend`) et `v3/backend`.
+`main` (avance rapide depuis l'intégration) et l'ancienne `v3/backend`, renommée `develop` au lot 13.
 
 | Lot | Nom | Agent(s), modèle | Fusionné | Tests après fusion |
 | --- | --- | --- | --- | --- |
@@ -26,6 +27,7 @@ branches `main` (avance rapide depuis `v3/backend`) et `v3/backend`.
 | 10 | Pile locale complète avec Caddy | dev-devops (agent du dépôt), Sonnet | ecb6d7f | 561 e2e avec la pile, 100 % |
 | 11 | Test par mutation, phase 1 | lead-architecte (agent du dépôt), Opus | dc0d9d4 | score de référence 32 % (contrats et API) |
 | 12 | Test par mutation, phase 2 : la règle | qa Sonnet, lead-architecte Opus, chef-de-projet Sonnet | 5ee5690 | 133 + 389 unitaires, 552 e2e, mutation 100 % / 40,87 % |
+| 13 | Git flow : `develop`, push de la session principale | lead-architecte Opus, chef-de-projet Sonnet | 802360b | 115 tests hooks, 133 + 391 unitaires, 552 e2e, 100 % |
 
 ## Lot 0 : fondations
 
@@ -226,6 +228,26 @@ branches `main` (avance rapide depuis `v3/backend`) et `v3/backend`.
   d'intégrité le fait) ; le contrôle Justification-test des directives est par fichier, pas par
   ligne ; durée réelle du job CI inconnue avant le premier push ; défaut latent `detailOf` sur une
   réponse `null`. Phase 3 (e2e sous Stryker) à cadrer.
+
+## Lot 13 : git flow
+
+- **Décision de Julien (19 nov. 2026, après le premier push)** : git flow. `develop` remplace
+  `v3/backend` comme branche d'intégration ; la session principale, et elle seule, pousse `develop` ;
+  les onze agents ne poussent jamais ; toute fusion dans `main` (`release/*`, `hotfix/*`), les
+  étiquettes, le push de `main` et le déploiement sont réservés à Julien.
+- **Livré** : le hook n'accepte plus que `git push [-u] origin develop` (avec `-C <chemin>`), pour la
+  session principale ; tout le reste est refusé avec son motif (agents, force, suppression, `main`,
+  étiquettes, refspec absente ou multiple, redéfinition de destination, alias). `.claude/settings.json`
+  remplace le refus de tout push par des refus ciblés. Base du script d'intégrité et de la CI :
+  `develop` ; CI déclenchée sur `develop`, `main`, `release/**`, `hotfix/**`, `lot/**` et les PR. Les
+  scripts de déploiement refusent toute branche autre que `main`, sans surcharge possible. 69 tests de
+  push ajoutés (115 tests de hooks).
+- **Recette** : acceptée avec réserves, environ 115 formes de push rejouées. Trous hérités de
+  l'analyseur de commandes, non introduits par le lot : push enveloppé dans un bloc (`{ }`, `if`, `for`,
+  `!`, fonction), plomberie `send-pack` et `http-push`, redéfinition d'`origin` par `git remote set-url`
+  ou `git config`, option `-c` collée, commandes `gh` qui fusionnent ou étiquettent côté GitHub. Plus un
+  défaut de l'outil d'autorisation hors session (option `--path-format` inconnue du git 2.30 de l'hôte).
+  Durcissement confié au lot suivant.
 
 ## Transverse
 
