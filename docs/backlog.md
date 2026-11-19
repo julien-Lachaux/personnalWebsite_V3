@@ -1220,6 +1220,15 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   Julien sur ce projet : elle signalait à tort « Unable to resolve action » sur des SHA pourtant
   vérifiés (commit, étiquette et `action.yml` servis par GitHub). Un workflow invalide est alors
   refusé avant le push.
+- **L14-09** (lead-architecte, portée `config`), décidé par Julien le 20 nov. 2026 : le **formatage** est
+  vérifié avant le push, plus seulement en CI. `pnpm format:check` entre dans `pnpm check`, et le hook
+  pre-commit vérifie Prettier sur les seuls fichiers indexés (rapide). Aujourd'hui un fichier mal
+  formaté passe en local et ne casse qu'au job « Qualité » de GitHub.
+- **L14-10** (dev-devops, portée `config`), décidé par Julien le 20 nov. 2026 : **shellcheck** analyse
+  les scripts shell du dépôt (`scripts/**/*.sh`, `.claude/hooks/run.sh`, `.husky/pre-commit`), dans
+  `pnpm check` et dans un job CI, lancé par Docker avec une image épinglée par digest, comme actionlint
+  (L14-08). Les avertissements existants sont corrigés, ou justifiés ligne par ligne par une directive
+  `# shellcheck disable=SCxxxx` commentée.
 - **Ordre** : le lot 14 touche les hooks et la CI, fichiers que `docs/05-front-organisation.md` laisse
   à la session front pendant son lot F0 ; il passe donc **après la fusion de F0**, et après le lot 15.
 
