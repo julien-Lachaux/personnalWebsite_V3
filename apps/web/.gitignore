@@ -1,0 +1,11 @@
+# Sorties de Nuxt (prepare, dev, generate ; `dist` est un lien vers .output/public) et de Playwright
+.nuxt/
+.output/
+.data/
+.nitro/
+.cache/
+dist
+# État local des modules de Nuxt (@nuxt/test-utils y note sa version installée)
+.nuxtrc
+test-results/
+playwright-report/
