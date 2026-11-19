@@ -23,3 +23,8 @@ coverage/
 
 # Worktrees des agents
 .claude/worktrees/
+
+# État local des garde-fous (instantanés, autorisations nominatives, violations, journal d'audit)
+.claude/hooks/state/
+.claude/hooks/audit.log
+.claude/settings.local.json
