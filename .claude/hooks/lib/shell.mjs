@@ -3,7 +3,8 @@
 // find -delete…), les écritures opaques (interpréteurs avec code en ligne ou script, xargs, git
 // apply, patch) et les commandes interdites (--no-verify, core.hooksPath…). git push n'est permis
 // qu'à la session principale et sous une seule forme (git flow, décision de Julien du 19 nov. 2026) :
-// voir pushRefusal.
+// voir pushRefusal. La plomberie de push, la redéfinition de la destination (git remote, git config)
+// et les actions de gh qui fusionnent, étiquettent, publient ou suppriment sont refusées à tous.
 //
 // L'analyseur descend dans les constructions composées comme dans les listes : accolades, sous-shells,
 // if, for, while, until, case, !, fonctions, coproc, substitutions de commande (y compris entre
@@ -1523,6 +1524,9 @@ function analyzeSegment(seg, env) {
     case 'git':
       analyzeGit(args, env, seg, { assignments, dashed });
       break;
+    case 'gh':
+      analyzeGh(args, env);
+      break;
     case 'docker':
       if (args[0] === 'cp' && args.length >= 3) {
         const dest = args[args.length - 1];
@@ -2142,6 +2146,83 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
     }
     default:
       break;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// gh (GitHub CLI) : fusionner, étiqueter, publier, supprimer sont réservés à Julien (T5).
+
+const GH_COMMANDS = new Set(
+  (
+    'accessibility agent-task alias api attestation auth browse cache co codespace completion ' +
+    'config copilot extension gist gpg-key help issue label org pr preview project release repo ' +
+    'ruleset run search secret ssh-key status variable version workflow'
+  ).split(' '),
+);
+const GH_VALUED = new Set([
+  '-R',
+  '--repo',
+  '--hostname',
+  '-X',
+  '--method',
+  '-q',
+  '--jq',
+  '-t',
+  '--template',
+]);
+const GH_RESERVED = {
+  pr: new Set(['merge']),
+  release: new Set(['create', 'delete', 'delete-asset', 'edit', 'upload']),
+  repo: new Set(['delete', 'edit', 'rename', 'archive', 'unarchive', 'sync']),
+  alias: new Set(['set', 'import']),
+};
+
+function analyzeGh(args, env) {
+  const { deny } = env;
+  const ops = operands(args, GH_VALUED);
+  const [group, action] = ops;
+  if (group === undefined) return;
+  if (group.includes(UNKNOWN) || (action !== undefined && action.includes(UNKNOWN))) {
+    deny(`gh ${shown(ops.slice(0, 2).join(' '))} : commande illisible, donc refusée`);
+    return;
+  }
+  if (!GH_COMMANDS.has(group)) {
+    deny(`gh ${group} : ni une commande gh connue (alias ou extension) ; illisible, donc refusée`);
+    return;
+  }
+  const reserved = `gh ${group} ${action} fusionne, étiquette, publie ou supprime : réservé à Julien`;
+  if (GH_RESERVED[group]?.has(action)) {
+    deny(reserved);
+    return;
+  }
+  if (action === 'delete' || action === 'delete-asset') {
+    deny(reserved);
+    return;
+  }
+  if (group === 'api') {
+    const methods = [];
+    let fields = false;
+    for (let k = 0; k < args.length; k += 1) {
+      const a = args[k];
+      if (a === '-X' || a === '--method') methods.push(args[k + 1] ?? '');
+      else if (a.startsWith('--method=')) methods.push(a.slice(9));
+      else if (/^-X./.test(a)) methods.push(a.slice(2));
+      else if (
+        ['-f', '-F', '--field', '--raw-field', '--input'].includes(a) ||
+        /^-[fF]./.test(a) ||
+        /^--(field|raw-field|input)=/.test(a)
+      )
+        fields = true;
+    }
+    const method = methods.find((m) => m.toUpperCase() !== 'GET');
+    if (method !== undefined)
+      deny(
+        `gh api -X ${shown(method)} : seule la lecture (GET) est permise, le reste est réservé à Julien`,
+      );
+    else if (fields)
+      deny(
+        'gh api avec -f, -F, --field, --raw-field ou --input écrit sur GitHub : réservé à Julien',
+      );
   }
 }
 
