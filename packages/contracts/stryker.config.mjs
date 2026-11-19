@@ -30,8 +30,9 @@ const config = {
 
   // Vérificateur TypeScript : un mutant qui ne compile pas est classé « CompileError » sans lancer
   // de test, au lieu d'être compté tué ou survivant.
+  // tsconfig.stryker.json = tsconfig.json, sans réécriture de chemins par Stryker (voir ce fichier).
   checkers: ['typescript'],
-  tsconfigFile: 'tsconfig.json',
+  tsconfigFile: 'tsconfig.stryker.json',
 
   // Rapports dans reports/mutation/ (gitignoré) : HTML à ouvrir, JSON pour l'analyse, texte en console.
   reporters: ['html', 'json', 'clear-text', 'progress'],
