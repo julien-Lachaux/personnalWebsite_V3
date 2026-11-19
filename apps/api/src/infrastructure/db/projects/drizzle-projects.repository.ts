@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 
 import { type ProjectsRepository } from '../../../application/projects/ports/projects-repository.port.js';
 import { type Project } from '../../../domain/projects/projects.js';
@@ -37,7 +37,7 @@ export class DrizzleProjectsRepository implements ProjectsRepository {
       .from(projects)
       .innerJoin(fr, and(eq(fr.projectId, projects.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.projectId, projects.id), eq(en.locale, locale)))
-      .where(eq(projects.published, true))
+      .where(and(eq(projects.published, true), isNull(projects.deletedAt)))
       .orderBy(asc(projects.sortOrder), asc(projects.id));
 
     if (rows.length === 0) {

@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { type ProfileRepository } from '../../../application/profile/ports/profile-repository.port.js';
 import { type Profile } from '../../../domain/profile/profile.js';
@@ -29,7 +29,7 @@ export class DrizzleProfileRepository implements ProfileRepository {
       .from(profile)
       .innerJoin(fr, and(eq(fr.profileId, profile.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.profileId, profile.id), eq(en.locale, locale)))
-      .where(eq(profile.id, 1))
+      .where(and(eq(profile.id, 1), isNull(profile.deletedAt)))
       .limit(1);
 
     return rows[0] ?? null;

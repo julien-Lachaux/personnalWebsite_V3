@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import { type LanguagesRepository } from '../../../application/languages/ports/languages-repository.port.js';
 import { type Language } from '../../../domain/languages/language.js';
@@ -25,7 +25,7 @@ export class DrizzleLanguagesRepository implements LanguagesRepository {
       .from(languages)
       .innerJoin(fr, and(eq(fr.languageId, languages.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.languageId, languages.id), eq(en.locale, locale)))
-      .where(eq(languages.published, true))
+      .where(and(eq(languages.published, true), isNull(languages.deletedAt)))
       .orderBy(asc(languages.sortOrder), asc(languages.id));
   }
 }

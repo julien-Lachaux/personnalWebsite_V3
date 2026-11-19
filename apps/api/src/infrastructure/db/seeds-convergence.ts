@@ -6,7 +6,7 @@ import { type LogFn } from './migrations-runner.js';
 type Dependent = readonly [string, string];
 
 /** Table de contenu seedée, avec sa table de traductions, ses liaisons éventuelles et leur clé. */
-interface SeededEntity {
+export interface SeededEntity {
   table: string;
   /** Table de traductions (chaque entité en a une) : contrôle `fr` et convergence. */
   translations: Dependent;
@@ -17,7 +17,7 @@ interface SeededEntity {
 }
 
 /** Tables de contenu dont les seeds sont la source de vérité (docs/01). */
-const SEEDED_ENTITIES: readonly SeededEntity[] = [
+export const SEEDED_ENTITIES: readonly SeededEntity[] = [
   {
     table: 'profile',
     translations: ['profile_translations', 'profile_id'],
@@ -86,13 +86,28 @@ const SEEDED_ENTITIES: readonly SeededEntity[] = [
  * été retirée des fichiers : elle est supprimée. Sans cela, une liaison ou une traduction retirée
  * d'un seed resterait en production indéfiniment.
  *
- * Les entités elles-mêmes (lignes parentes) retirées des fichiers ne sont pas supprimées : leur
- * politique (suppression ou dépublication) reste à trancher ; elles sont seulement signalées.
- * Une table dont aucune ligne n'est écrite par les seeds (projets, outils, ressources tant qu'ils
- * n'ont pas de seed) n'est pas touchée.
+ * Soft delete (docs/01, décision du 19 nov. 2026) : une entité (ligne parente) retirée des fichiers
+ * est marquée `deleted_at = now()`, jamais supprimée ; ses traductions et ses liaisons restent en base
+ * et ne sont plus servies. Une entité marquée que les seeds écrivent de nouveau (elle est réapparue
+ * dans les fichiers) est remise en service (`deleted_at = null`). Le nettoyage physique est manuel
+ * (`db:deleted:list`, `db:deleted:purge`). Une table dont aucune ligne n'est écrite par les seeds
+ * (projets, outils, ressources tant qu'ils n'ont pas de seed) n'est pas touchée.
  */
 export async function convergeToSeeds(tx: TransactionSql, log: LogFn): Promise<void> {
   for (const entity of SEEDED_ENTITIES) {
+    const label = entity.hasSlug ? tx`p.slug` : tx`'profil'`;
+
+    const restored = await tx<{ label: string }[]>`
+      update ${tx(entity.table)} p set deleted_at = null
+      where p.deleted_at is not null and p.xmin = pg_current_xact_id()::xid
+      returning ${label}::text as label`;
+    if (restored.length > 0) {
+      log(
+        `${entity.table} : ${restored.length} entité(s) réapparue(s) dans les seeds, remise(s) en service ` +
+          `(${restored.map((row) => row.label).join(', ')})`,
+      );
+    }
+
     for (const [child, foreignKey] of [entity.translations, ...entity.links]) {
       const removed = await tx`
         delete from ${tx(child)} c using ${tx(entity.table)} p
@@ -107,14 +122,18 @@ export async function convergeToSeeds(tx: TransactionSql, log: LogFn): Promise<v
 
     if (entity.hasSlug) {
       const absent = await tx<{ slug: string }[]>`
-        select p.slug from ${tx(entity.table)} p
-        where not (p.xmin = pg_current_xact_id()::xid)
+        update ${tx(entity.table)} p set deleted_at = now()
+        where p.deleted_at is null
+          and not (p.xmin = pg_current_xact_id()::xid)
           and exists (select 1 from ${tx(entity.table)} q where q.xmin = pg_current_xact_id()::xid)
-        order by p.slug`;
+        returning p.slug`;
       if (absent.length > 0) {
         log(
-          `ATTENTION ${entity.table} : ${absent.length} ligne(s) absente(s) des seeds, conservée(s) ` +
-            `en base (${absent.map((row) => row.slug).join(', ')})`,
+          `${entity.table} : ${absent.length} entité(s) absente(s) des seeds marquée(s) supprimée(s) ` +
+            `(${absent
+              .map((row) => row.slug)
+              .sort()
+              .join(', ')})`,
         );
       }
     }
@@ -122,7 +141,7 @@ export async function convergeToSeeds(tx: TransactionSql, log: LogFn): Promise<v
 }
 
 /**
- * Contrôle de fin de seed : chaque ligne publiée a une traduction `fr`, et le profil aussi. Sans
+ * Contrôle de fin de seed : chaque ligne publiée et non marquée supprimée a une traduction `fr`, et le profil aussi. Sans
  * traduction `fr`, une ligne publiée disparaîtrait silencieusement de toutes les réponses (la
  * jointure `fr` est interne) : mieux vaut arrêter le déploiement.
  */
@@ -134,6 +153,7 @@ export async function assertFrenchTranslations(tx: TransactionSql): Promise<void
       select ${entity.hasSlug ? tx`p.slug` : tx`'profil'`}::text as label
       from ${tx(entity.table)} p
       where ${entity.hasSlug ? tx`p.published` : tx`true`}
+        and p.deleted_at is null
         and not exists (
           select 1 from ${tx(translationTable)} t
           where t.${tx(foreignKey)} = p.id and t.locale = 'fr')
@@ -150,7 +170,7 @@ export async function assertFrenchTranslations(tx: TransactionSql): Promise<void
 }
 
 /**
- * Contrôle de fin de seed : une traduction `en` d'une entité publiée est complète (docs/01,
+ * Contrôle de fin de seed : une traduction `en` d'une entité publiée et non marquée supprimée est complète (docs/01,
  * repli de langue par ligne). Elle est servie entière ; un champ nul ou un tableau vide là où la
  * traduction `fr` a une valeur livrerait une entité à trous. Une entité sans ligne `en` n'est pas
  * concernée : l'API sert alors la ligne `fr` entière. Le message liste les champs lacunaires.
@@ -167,6 +187,7 @@ export async function assertEnglishTranslations(tx: TransactionSql): Promise<voi
       join ${tx(translationTable)} en on en.${tx(foreignKey)} = p.id and en.locale = 'en'
       cross join lateral jsonb_each(to_jsonb(fr)) as f(key, value)
       where ${entity.hasSlug ? tx`p.published` : tx`true`}
+        and p.deleted_at is null
         and f.value not in ('null'::jsonb, '[]'::jsonb)
         and coalesce(to_jsonb(en) -> f.key, 'null'::jsonb) in ('null'::jsonb, '[]'::jsonb)
       group by p.id

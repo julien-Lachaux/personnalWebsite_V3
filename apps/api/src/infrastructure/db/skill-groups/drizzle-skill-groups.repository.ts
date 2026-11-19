@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import { type SkillGroupsRepository } from '../../../application/skill-groups/ports/skill-groups-repository.port.js';
 import { type SkillGroup } from '../../../domain/skill-groups/skill-group.js';
@@ -28,7 +28,7 @@ export class DrizzleSkillGroupsRepository implements SkillGroupsRepository {
       .from(skillGroups)
       .innerJoin(fr, and(eq(fr.skillGroupId, skillGroups.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.skillGroupId, skillGroups.id), eq(en.locale, locale)))
-      .where(eq(skillGroups.published, true))
+      .where(and(eq(skillGroups.published, true), isNull(skillGroups.deletedAt)))
       .orderBy(asc(skillGroups.sortOrder), asc(skillGroups.id));
 
     // Les compétences des groupes non publiés sont exclues par la requête de base (jointure sur

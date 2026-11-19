@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, eq, type SQL } from 'drizzle-orm';
+import { and, eq, isNull, type SQL } from 'drizzle-orm';
 import { type SelectedFields } from 'drizzle-orm/pg-core';
 
 import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
@@ -34,10 +34,14 @@ export function selectPublishedSkills<TExtra extends SelectedFields>(
     .from(skills)
     .innerJoin(
       skillGroups,
-      and(eq(skillGroups.id, skills.groupId), eq(skillGroups.published, true)),
+      and(
+        eq(skillGroups.id, skills.groupId),
+        eq(skillGroups.published, true),
+        isNull(skillGroups.deletedAt),
+      ),
     )
     .innerJoin(fr, and(eq(fr.skillId, skills.id), eq(fr.locale, 'fr')))
     .leftJoin(en, and(eq(en.skillId, skills.id), eq(en.locale, locale)))
-    .where(and(eq(skills.published, true), condition))
+    .where(and(eq(skills.published, true), isNull(skills.deletedAt), condition))
     .$dynamic();
 }

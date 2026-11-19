@@ -1,4 +1,4 @@
-import { pgTable, primaryKey, smallint, text } from 'drizzle-orm/pg-core';
+import { pgTable, primaryKey, smallint, text, timestamp } from 'drizzle-orm/pg-core';
 
 import { localeCode } from './enums.js';
 
@@ -8,6 +8,7 @@ export const profile = pgTable('profile', {
   lastName: text('last_name').notNull(),
   picturePath: text('picture_path').notNull(),
   location: text('location').notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 });
 
 export const profileTranslations = pgTable(

@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import { type CertificationsRepository } from '../../../application/certifications/ports/certifications-repository.port.js';
 import { type Certification } from '../../../domain/certifications/certifications.js';
@@ -28,7 +28,7 @@ export class DrizzleCertificationsRepository implements CertificationsRepository
       .from(certifications)
       .innerJoin(fr, and(eq(fr.certificationId, certifications.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.certificationId, certifications.id), eq(en.locale, locale)))
-      .where(eq(certifications.published, true))
+      .where(and(eq(certifications.published, true), isNull(certifications.deletedAt)))
       .orderBy(asc(certifications.sortOrder), asc(certifications.id));
   }
 }

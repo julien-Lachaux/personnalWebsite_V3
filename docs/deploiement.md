@@ -69,6 +69,24 @@ Exemple, une heure après la sauvegarde, vers une machine ou un stockage objet d
 
 L'image de production ne contient pas `db:reset` (commande destructrice, réservée aux bases de dev et de test).
 
+### Entités supprimées (soft delete)
+
+Une entité qui disparaît des seeds n'est pas supprimée : le seed la marque `deleted_at` et l'API ne la sert
+plus (docs/01). Le nettoyage physique est manuel, jamais automatique, avec le rôle propriétaire (comme
+`migrate`) :
+
+```sh
+# Lister les entités marquées (table, slug, date de marquage) :
+docker compose -f docker/compose.prod.yml --env-file DEPLOY_DIR/.env.prod run --rm migrate node dist/cli/deleted-list.js
+# Simuler, puis supprimer physiquement celles marquées depuis plus de 30 jours (acquittement requis en production) :
+docker compose -f docker/compose.prod.yml --env-file DEPLOY_DIR/.env.prod run --rm migrate node dist/cli/deleted-purge.js --older-than 30
+docker compose -f docker/compose.prod.yml --env-file DEPLOY_DIR/.env.prod run --rm -e ALLOW_PRODUCTION_PURGE=yes migrate node dist/cli/deleted-purge.js --older-than 30 --confirm
+```
+
+Sans `--confirm`, `deleted-purge` ne fait que simuler. En production, la suppression est refusée sans
+`ALLOW_PRODUCTION_PURGE=yes`. Faire une sauvegarde avant (`scripts/deploy/backup.sh`) : la suppression est
+définitive. En dev : `pnpm db:deleted:list`, `pnpm db:deleted:purge --older-than 30 [--confirm]`.
+
 Restauration (la sauvegarde contient `DROP … IF EXISTS`) :
 
 ```sh

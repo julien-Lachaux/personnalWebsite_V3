@@ -312,7 +312,7 @@ describe('convergence de la base vers les seeds', () => {
     expect(await snapshot(sql, tables)).toEqual(before);
   });
 
-  it('signale sans la supprimer une entité absente des seeds', async () => {
+  it('marque supprimée (soft delete) sans la supprimer une entité absente des seeds', async () => {
     await sql`
       insert into certifications (slug, issuer, year) values ('qa-retiree', 'Organisme', 2020)`;
     await sql`
@@ -324,11 +324,17 @@ describe('convergence de la base vers les seeds', () => {
 
     expect(
       lines.some(
-        (line) => line.includes('ATTENTION certifications') && line.includes('qa-retiree'),
+        (line) =>
+          line.includes(
+            'certifications : 1 entité(s) absente(s) des seeds marquée(s) supprimée(s)',
+          ) && line.includes('qa-retiree'),
       ),
     ).toBe(true);
-    const rows = await sql`select 1 from certifications where slug = 'qa-retiree'`;
+    expect(lines.some((line) => line.includes('ATTENTION'))).toBe(false);
+    const rows = await sql<{ deleted_at: Date | null }[]>`
+      select deleted_at from certifications where slug = 'qa-retiree'`;
     expect(rows).toHaveLength(1);
+    expect(rows[0]?.deleted_at).toBeInstanceOf(Date);
   });
 
   it('refuse de seeder tant qu’une migration est en attente, sans rien appliquer', async () => {

@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import { type ResourcesRepository } from '../../../application/resources/ports/resources-repository.port.js';
 import { type Resource } from '../../../domain/resources/resources.js';
@@ -34,9 +34,13 @@ export class DrizzleResourcesRepository implements ResourcesRepository {
       .leftJoin(en, and(eq(en.resourceId, resources.id), eq(en.locale, locale)))
       .leftJoin(
         skillGroups,
-        and(eq(skillGroups.id, resources.groupId), eq(skillGroups.published, true)),
+        and(
+          eq(skillGroups.id, resources.groupId),
+          eq(skillGroups.published, true),
+          isNull(skillGroups.deletedAt),
+        ),
       )
-      .where(eq(resources.published, true))
+      .where(and(eq(resources.published, true), isNull(resources.deletedAt)))
       .orderBy(asc(resources.sortOrder), asc(resources.id));
   }
 }

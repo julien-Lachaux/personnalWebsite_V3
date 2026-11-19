@@ -1,5 +1,5 @@
 import { type Locale } from '@siteperso/contracts';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import { type EducationRepository } from '../../../application/education/ports/education-repository.port.js';
 import { type Education } from '../../../domain/education/education.js';
@@ -30,7 +30,7 @@ export class DrizzleEducationRepository implements EducationRepository {
       .from(education)
       .innerJoin(fr, and(eq(fr.educationId, education.id), eq(fr.locale, 'fr')))
       .leftJoin(en, and(eq(en.educationId, education.id), eq(en.locale, locale)))
-      .where(eq(education.published, true))
+      .where(and(eq(education.published, true), isNull(education.deletedAt)))
       .orderBy(asc(education.sortOrder), asc(education.id));
   }
 }

@@ -41,8 +41,9 @@ quel langage (le portage Rust reprendra ces fichiers tels quels).
   - une traduction ou une liaison (`experience_skills`, `project_skills`) qu'un seed ne mentionne plus est
     supprimée, pour toute entité que les seeds ont écrite ; une table que les seeds ne mentionnent pas du
     tout (projets, outils, ressources tant qu'ils n'ont pas de seed) n'est pas touchée ;
-  - une entité (ligne parente) retirée des fichiers n'est pas supprimée : le runner la signale
-    (`ATTENTION …`) ; supprimer ou dépublier à la main (politique à trancher) ;
+  - une entité (ligne parente) retirée des fichiers n'est pas supprimée : le runner la marque
+    `deleted_at = now()` (soft delete, voir ci-dessous) et le journal la liste ; si elle réapparaît dans les
+    fichiers, `deleted_at` repasse à `null` ;
   - en fin de seed, toute ligne publiée (et le profil) doit avoir une traduction `fr`, sinon le seed échoue
     et le déploiement s'arrête (la ligne disparaîtrait sinon de l'API) ;
   - de même, une traduction `en` d'une entité publiée doit être complète : mêmes colonnes non nulles que
@@ -50,6 +51,16 @@ quel langage (le portage Rust reprendra ces fichiers tels quels).
     entière, ou la ligne `fr` entière si aucune ligne `en` n'existe, jamais un mélange). Une `en`
     lacunaire fait échouer le seed : la compléter (marquée « à relire ») ou retirer la ligne `en` ;
   - tout échec annule l'ensemble : aucun seed n'est appliqué à moitié.
+- Soft delete (docs/01) : chaque table d'entité (`profile`, `social_links`, `skill_groups`, `skills`,
+  `experiences`, `projects`, `tools`, `resources`, `certifications`, `education`, `languages`) porte
+  `deleted_at timestamptz null` (migration `0010_soft_delete.sql`), distinct de `published` (dépublié = gardé
+  mais non servi ; supprimé = marqué pour nettoyage). L'API ne sert jamais une ligne marquée ; ses
+  traductions et ses liaisons restent en base et suivent leur entité. Le nettoyage physique est manuel :
+  - `pnpm db:deleted:list` liste les entités marquées, par table, avec le slug et la date de marquage ;
+  - `pnpm db:deleted:purge --older-than <jours>` supprime physiquement (traductions et liaisons en cascade,
+    une seule transaction) celles marquées depuis plus de N jours (0 : toutes). Sans `--confirm`, simule ;
+    avec `--confirm`, supprime. En production (`NODE_ENV=production`), la suppression est refusée sans
+    `ALLOW_PRODUCTION_PURGE=yes`.
 - Les seeds référencent les lignes par `slug` (sous-requêtes), jamais par id numérique.
 - Aucune donnée personnelle de contact (e-mail, téléphone) : le contact est géré par le front.
 - Traductions `fr` obligatoires, `en` fournies et marquées « à relire » dans un commentaire SQL
