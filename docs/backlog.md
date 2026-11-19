@@ -1115,6 +1115,30 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 
 ---
 
+## 7 bis. Lot 7 — Couverture de test à 100 % (LIVRÉ le 19 nov. 2026)
+
+- **Décision de Julien** : couverture 100 % (lignes, branches, fonctions, instructions) de toute la base,
+  unitaires + e2e cumulés, sans exclusion de production ni commentaire d'ignore ; le code jamais exécuté se
+  supprime. Détail : `docs/comptes-rendus/lot-7-couverture.md`.
+- **Livré** : projets Vitest `unit` et `e2e` dans la configuration Vitest de l'API, couverture v8 fusionnée
+  avec seuils 100 sur les deux paquets, `pnpm test:coverage` (Turborepo, dans `pnpm check` et dans le job
+  e2e de la CI avec résumé et artefact lcov), 776 tests API et 104 tests contrats.
+
+## 7 ter. Lot 8 — Agents spécialisés et garde-fous (LIVRÉ le 19 nov. 2026)
+
+- **Livré** : onze agents dans `.claude/agents/` (lead-architecte, chef-de-projet, dev-sql, dev-contrats,
+  dev-api, dev-devops, qa, revue-code, revue-securite, triage, correcteur) ; hooks de `.claude/settings.json`
+  (`.claude/hooks/`, 30 tests, `pnpm hooks:test`) qui refusent la modification des oracles (tests existants,
+  configurations de test et de CI, marqueurs de saut, commentaires d'ignore) et comparent les empreintes en
+  fin de tâche ; exception nominative journalisée (`authorize.mjs`, `audit.log`) ; script
+  `scripts/ci/check-tests-integrity.sh` (19 cas, job CI, `pnpm integrity` dans `pnpm check`).
+- **Règle Justification-test** : tout commit qui modifie ou supprime un test existant, ajoute un test en
+  échec attendu ou change une configuration protégée porte `Justification-test: <finding> <raison>` ;
+  la CI refuse sinon. **Sortie honorable** : un test impossible, contradictoire ou faux s'arrête, se
+  consigne, se décide par l'orchestrateur. Détail : `docs/comptes-rendus/lot-8-agents.md`, `CLAUDE.md`.
+- **À trancher par Julien** : portée `config` accordée aussi à lead-architecte et dev-devops ; marqueur
+  `fails` admis pour la qa sous autorisation et Justification-test.
+
 ## 8. Points ouverts et risques
 
 ### Points ouverts (à trancher par Julien, valeurs par défaut proposées pour ne pas bloquer)
