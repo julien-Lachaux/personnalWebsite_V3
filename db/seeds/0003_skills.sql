@@ -1,6 +1,7 @@
 -- Groupes de compétences (7 catégories du CV, novembre 2026) et compétences.
 -- Niveaux : 3 partout (point ouvert P2) ; icônes : slug devicon quand il existe, sinon slug
 -- de la compétence avec icon_path null (point ouvert P3).
+-- main_stack_order : rang dans la stack principale du site (BF-3), null pour les autres compétences.
 
 insert into skill_groups (slug, sort_order, published)
 values
@@ -132,21 +133,21 @@ from skill_groups p
 where p.slug = 'practices'
 on conflict (skill_group_id, locale) do update set name = excluded.name, description = excluded.description;
 
-insert into skills (slug, group_id, level, icon, icon_path, sort_order, published)
-select v.slug, g.id, 3, v.icon, null, v.sort_order, true
+insert into skills (slug, group_id, level, icon, icon_path, sort_order, published, main_stack_order)
+select v.slug, g.id, 3, v.icon, null, v.sort_order, true, v.main_stack_order
 from (values
-  ('typescript', 'typescript', 1),
-  ('javascript', 'javascript', 2),
-  ('nodejs', 'nodejs', 3),
-  ('nestjs', 'nestjs', 4),
-  ('vuejs', 'vuejs', 5),
-  ('php', 'php', 6),
-  ('symfony', 'symfony', 7),
-  ('elysia', 'elysia', 8),
-  ('solidjs', 'solidjs', 9),
-  ('html5', 'html5', 10),
-  ('css', 'css3', 11)
-) as v (slug, icon, sort_order)
+  ('typescript', 'typescript', 1, 1),
+  ('javascript', 'javascript', 2, null::smallint),
+  ('nodejs', 'nodejs', 3, 2),
+  ('nestjs', 'nestjs', 4, 3),
+  ('vuejs', 'vuejs', 5, 4),
+  ('php', 'php', 6, null::smallint),
+  ('symfony', 'symfony', 7, null::smallint),
+  ('elysia', 'elysia', 8, null::smallint),
+  ('solidjs', 'solidjs', 9, null::smallint),
+  ('html5', 'html5', 10, null::smallint),
+  ('css', 'css3', 11, null::smallint)
+) as v (slug, icon, sort_order, main_stack_order)
 join skill_groups g on g.slug = 'languages-frameworks'
 on conflict (slug) do update set
   group_id = excluded.group_id,
@@ -154,18 +155,19 @@ on conflict (slug) do update set
   icon = excluded.icon,
   icon_path = excluded.icon_path,
   sort_order = excluded.sort_order,
-  published = excluded.published;
+  published = excluded.published,
+  main_stack_order = excluded.main_stack_order;
 
-insert into skills (slug, group_id, level, icon, icon_path, sort_order, published)
-select v.slug, g.id, 3, v.icon, null, v.sort_order, true
+insert into skills (slug, group_id, level, icon, icon_path, sort_order, published, main_stack_order)
+select v.slug, g.id, 3, v.icon, null, v.sort_order, true, v.main_stack_order
 from (values
-  ('postgresql', 'postgresql', 1),
-  ('mysql', 'mysql', 2),
-  ('redis', 'redis', 3),
-  ('kafka', 'apachekafka', 4),
-  ('rabbitmq', 'rabbitmq', 5),
-  ('mongodb', 'mongodb', 6)
-) as v (slug, icon, sort_order)
+  ('postgresql', 'postgresql', 1, 5),
+  ('mysql', 'mysql', 2, null::smallint),
+  ('redis', 'redis', 3, null::smallint),
+  ('kafka', 'apachekafka', 4, 6),
+  ('rabbitmq', 'rabbitmq', 5, null::smallint),
+  ('mongodb', 'mongodb', 6, null::smallint)
+) as v (slug, icon, sort_order, main_stack_order)
 join skill_groups g on g.slug = 'data-messaging'
 on conflict (slug) do update set
   group_id = excluded.group_id,
@@ -173,16 +175,17 @@ on conflict (slug) do update set
   icon = excluded.icon,
   icon_path = excluded.icon_path,
   sort_order = excluded.sort_order,
-  published = excluded.published;
+  published = excluded.published,
+  main_stack_order = excluded.main_stack_order;
 
-insert into skills (slug, group_id, level, icon, icon_path, sort_order, published)
-select v.slug, g.id, 3, v.icon, null, v.sort_order, true
+insert into skills (slug, group_id, level, icon, icon_path, sort_order, published, main_stack_order)
+select v.slug, g.id, 3, v.icon, null, v.sort_order, true, v.main_stack_order
 from (values
-  ('streamsets', 'streamsets', 1),
-  ('rest-api', 'rest-api', 2),
-  ('ecommerce-integrations', 'ecommerce-integrations', 3),
-  ('magento', 'magento', 4)
-) as v (slug, icon, sort_order)
+  ('streamsets', 'streamsets', 1, null::smallint),
+  ('rest-api', 'rest-api', 2, null::smallint),
+  ('ecommerce-integrations', 'ecommerce-integrations', 3, null::smallint),
+  ('magento', 'magento', 4, null::smallint)
+) as v (slug, icon, sort_order, main_stack_order)
 join skill_groups g on g.slug = 'integration-etl'
 on conflict (slug) do update set
   group_id = excluded.group_id,
@@ -190,15 +193,16 @@ on conflict (slug) do update set
   icon = excluded.icon,
   icon_path = excluded.icon_path,
   sort_order = excluded.sort_order,
-  published = excluded.published;
+  published = excluded.published,
+  main_stack_order = excluded.main_stack_order;
 
-insert into skills (slug, group_id, level, icon, icon_path, sort_order, published)
-select v.slug, g.id, 3, v.icon, null, v.sort_order, true
+insert into skills (slug, group_id, level, icon, icon_path, sort_order, published, main_stack_order)
+select v.slug, g.id, 3, v.icon, null, v.sort_order, true, v.main_stack_order
 from (values
-  ('posthog', 'posthog', 1),
-  ('google-analytics', 'google-analytics', 2),
-  ('adobe-analytics', 'adobe-analytics', 3)
-) as v (slug, icon, sort_order)
+  ('posthog', 'posthog', 1, null::smallint),
+  ('google-analytics', 'google-analytics', 2, null::smallint),
+  ('adobe-analytics', 'adobe-analytics', 3, null::smallint)
+) as v (slug, icon, sort_order, main_stack_order)
 join skill_groups g on g.slug = 'analytics'
 on conflict (slug) do update set
   group_id = excluded.group_id,
@@ -206,17 +210,18 @@ on conflict (slug) do update set
   icon = excluded.icon,
   icon_path = excluded.icon_path,
   sort_order = excluded.sort_order,
-  published = excluded.published;
+  published = excluded.published,
+  main_stack_order = excluded.main_stack_order;
 
-insert into skills (slug, group_id, level, icon, icon_path, sort_order, published)
-select v.slug, g.id, 3, v.icon, null, v.sort_order, true
+insert into skills (slug, group_id, level, icon, icon_path, sort_order, published, main_stack_order)
+select v.slug, g.id, 3, v.icon, null, v.sort_order, true, v.main_stack_order
 from (values
-  ('ai-features', 'ai-features', 1),
-  ('ocr', 'ocr', 2),
-  ('agentic-development', 'agentic-development', 3),
-  ('mastra', 'mastra', 4),
-  ('ai-daily-use', 'ai-daily-use', 5)
-) as v (slug, icon, sort_order)
+  ('ai-features', 'ai-features', 1, null::smallint),
+  ('ocr', 'ocr', 2, null::smallint),
+  ('agentic-development', 'agentic-development', 3, null::smallint),
+  ('mastra', 'mastra', 4, null::smallint),
+  ('ai-daily-use', 'ai-daily-use', 5, null::smallint)
+) as v (slug, icon, sort_order, main_stack_order)
 join skill_groups g on g.slug = 'applied-ai'
 on conflict (slug) do update set
   group_id = excluded.group_id,
@@ -224,14 +229,15 @@ on conflict (slug) do update set
   icon = excluded.icon,
   icon_path = excluded.icon_path,
   sort_order = excluded.sort_order,
-  published = excluded.published;
+  published = excluded.published,
+  main_stack_order = excluded.main_stack_order;
 
-insert into skills (slug, group_id, level, icon, icon_path, sort_order, published)
-select v.slug, g.id, 3, v.icon, null, v.sort_order, true
+insert into skills (slug, group_id, level, icon, icon_path, sort_order, published, main_stack_order)
+select v.slug, g.id, 3, v.icon, null, v.sort_order, true, v.main_stack_order
 from (values
-  ('docker', 'docker', 1),
-  ('managed-cloud-deployment', 'managed-cloud-deployment', 2)
-) as v (slug, icon, sort_order)
+  ('docker', 'docker', 1, 7),
+  ('managed-cloud-deployment', 'managed-cloud-deployment', 2, null::smallint)
+) as v (slug, icon, sort_order, main_stack_order)
 join skill_groups g on g.slug = 'devops'
 on conflict (slug) do update set
   group_id = excluded.group_id,
@@ -239,15 +245,16 @@ on conflict (slug) do update set
   icon = excluded.icon,
   icon_path = excluded.icon_path,
   sort_order = excluded.sort_order,
-  published = excluded.published;
+  published = excluded.published,
+  main_stack_order = excluded.main_stack_order;
 
-insert into skills (slug, group_id, level, icon, icon_path, sort_order, published)
-select v.slug, g.id, 3, v.icon, null, v.sort_order, true
+insert into skills (slug, group_id, level, icon, icon_path, sort_order, published, main_stack_order)
+select v.slug, g.id, 3, v.icon, null, v.sort_order, true, v.main_stack_order
 from (values
-  ('agile', 'agile', 1),
-  ('git', 'git', 2),
-  ('production-operations', 'production-operations', 3)
-) as v (slug, icon, sort_order)
+  ('agile', 'agile', 1, null::smallint),
+  ('git', 'git', 2, null::smallint),
+  ('production-operations', 'production-operations', 3, null::smallint)
+) as v (slug, icon, sort_order, main_stack_order)
 join skill_groups g on g.slug = 'practices'
 on conflict (slug) do update set
   group_id = excluded.group_id,
@@ -255,7 +262,8 @@ on conflict (slug) do update set
   icon = excluded.icon,
   icon_path = excluded.icon_path,
   sort_order = excluded.sort_order,
-  published = excluded.published;
+  published = excluded.published,
+  main_stack_order = excluded.main_stack_order;
 
 insert into skills_translations (skill_id, locale, name)
 select s.id, 'fr', v.name
@@ -290,10 +298,10 @@ from (values
   ('mastra', 'Mastra'),
   ('ai-daily-use', 'Usage quotidien de l''IA en développement'),
   ('docker', 'Docker'),
-  ('managed-cloud-deployment', 'Déploiement en environnement cloud managé'),
+  ('managed-cloud-deployment', 'Cloud managé'),
   ('agile', 'Méthodes agiles'),
   ('git', 'Git'),
-  ('production-operations', 'Exploitation et diagnostic en production')
+  ('production-operations', 'Diagnostic en production')
 ) as v (slug, name)
 left join skills s on s.slug = v.slug -- left join : un slug inconnu viole not null au lieu d'être ignoré
 on conflict (skill_id, locale) do update set name = excluded.name;
@@ -338,12 +346,12 @@ from (values
   ('ai-daily-use', 'Daily use of AI in development'),
   ('docker', 'Docker'),
   -- EN : à relire
-  ('managed-cloud-deployment', 'Deployment on managed cloud environments'),
+  ('managed-cloud-deployment', 'Managed cloud'),
   -- EN : à relire
   ('agile', 'Agile methods'),
   ('git', 'Git'),
   -- EN : à relire
-  ('production-operations', 'Production operations and diagnosis')
+  ('production-operations', 'Production diagnosis')
 ) as v (slug, name)
 left join skills s on s.slug = v.slug -- left join : un slug inconnu viole not null au lieu d'être ignoré
 on conflict (skill_id, locale) do update set name = excluded.name;

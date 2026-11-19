@@ -32,9 +32,9 @@ puis retire la ligne et le commentaire correspondants. Aucune traduction n'est d
 | 0003_skills.sql | skills_translations | ai-features | name | Intégration de fonctionnalités d'IA | AI feature integration |
 | 0003_skills.sql | skills_translations | agentic-development | name | Développement agentique | Agentic development |
 | 0003_skills.sql | skills_translations | ai-daily-use | name | Usage quotidien de l'IA en développement | Daily use of AI in development |
-| 0003_skills.sql | skills_translations | managed-cloud-deployment | name | Déploiement en environnement cloud managé | Deployment on managed cloud environments |
+| 0003_skills.sql | skills_translations | managed-cloud-deployment | name | Cloud managé | Managed cloud |
 | 0003_skills.sql | skills_translations | agile | name | Méthodes agiles | Agile methods |
-| 0003_skills.sql | skills_translations | production-operations | name | Exploitation et diagnostic en production | Production operations and diagnosis |
+| 0003_skills.sql | skills_translations | production-operations | name | Diagnostic en production | Production diagnosis |
 | 0004_experiences.sql | experiences_translations | nopillo | summary | Intégration de fonctionnalités d'IA dans le produit. | Integration of AI features into the product. |
 | 0004_experiences.sql | experiences_translations | nopillo | achievements[1] | Développement d'un système d'OCR pour les tickets de caisse et les factures | Development of an OCR system for receipts and invoices |
 | 0004_experiences.sql | experiences_translations | nopillo | achievements[2] | Développement du remplissage automatique des déclarations fiscales | Development of automatic filling of tax returns |
