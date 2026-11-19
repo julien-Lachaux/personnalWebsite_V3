@@ -13,8 +13,9 @@
     "start": "node --env-file-if-exists=.env dist/main.js",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --config vitest.config.ts",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test": "vitest run --project unit",
+    "test:e2e": "vitest run --project e2e",
+    "test:coverage": "vitest run --coverage",
     "db:migrate": "node --env-file-if-exists=.env --import @swc-node/register/esm-register src/cli/migrate.ts",
     "db:seed": "node --env-file-if-exists=.env --import @swc-node/register/esm-register src/cli/seed.ts",
     "db:reset": "node --env-file-if-exists=.env --import @swc-node/register/esm-register src/cli/reset.ts"

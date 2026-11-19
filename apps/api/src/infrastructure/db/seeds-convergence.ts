@@ -2,11 +2,16 @@ import { type TransactionSql } from 'postgres';
 
 import { type LogFn } from './migrations-runner.js';
 
-/** Table de contenu seedée, avec ses tables dépendantes (traductions, liaisons) et leur clé. */
+/** `[table dépendante, colonne de clé étrangère vers table.id]`. */
+type Dependent = readonly [string, string];
+
+/** Table de contenu seedée, avec sa table de traductions, ses liaisons éventuelles et leur clé. */
 interface SeededEntity {
   table: string;
-  /** `[table dépendante, colonne de clé étrangère vers table.id]`. */
-  children: readonly (readonly [string, string])[];
+  /** Table de traductions (chaque entité en a une) : contrôle `fr` et convergence. */
+  translations: Dependent;
+  /** Autres tables dépendantes (liaisons compétences) : convergence seule. */
+  links: readonly Dependent[];
   /** `false` pour `profile` : ligne unique sans slug. */
   hasSlug: boolean;
 }
@@ -15,45 +20,60 @@ interface SeededEntity {
 const SEEDED_ENTITIES: readonly SeededEntity[] = [
   {
     table: 'profile',
-    children: [['profile_translations', 'profile_id']],
+    translations: ['profile_translations', 'profile_id'],
+    links: [],
     hasSlug: false,
   },
   {
     table: 'social_links',
-    children: [['social_links_translations', 'social_link_id']],
+    translations: ['social_links_translations', 'social_link_id'],
+    links: [],
     hasSlug: true,
   },
   {
     table: 'skill_groups',
-    children: [['skill_groups_translations', 'skill_group_id']],
+    translations: ['skill_groups_translations', 'skill_group_id'],
+    links: [],
     hasSlug: true,
   },
-  { table: 'skills', children: [['skills_translations', 'skill_id']], hasSlug: true },
+  { table: 'skills', translations: ['skills_translations', 'skill_id'], links: [], hasSlug: true },
   {
     table: 'experiences',
-    children: [
-      ['experiences_translations', 'experience_id'],
-      ['experience_skills', 'experience_id'],
-    ],
+    translations: ['experiences_translations', 'experience_id'],
+    links: [['experience_skills', 'experience_id']],
     hasSlug: true,
   },
   {
     table: 'projects',
-    children: [
-      ['projects_translations', 'project_id'],
-      ['project_skills', 'project_id'],
-    ],
+    translations: ['projects_translations', 'project_id'],
+    links: [['project_skills', 'project_id']],
     hasSlug: true,
   },
-  { table: 'tools', children: [['tools_translations', 'tool_id']], hasSlug: true },
-  { table: 'resources', children: [['resources_translations', 'resource_id']], hasSlug: true },
+  { table: 'tools', translations: ['tools_translations', 'tool_id'], links: [], hasSlug: true },
+  {
+    table: 'resources',
+    translations: ['resources_translations', 'resource_id'],
+    links: [],
+    hasSlug: true,
+  },
   {
     table: 'certifications',
-    children: [['certifications_translations', 'certification_id']],
+    translations: ['certifications_translations', 'certification_id'],
+    links: [],
     hasSlug: true,
   },
-  { table: 'education', children: [['education_translations', 'education_id']], hasSlug: true },
-  { table: 'languages', children: [['languages_translations', 'language_id']], hasSlug: true },
+  {
+    table: 'education',
+    translations: ['education_translations', 'education_id'],
+    links: [],
+    hasSlug: true,
+  },
+  {
+    table: 'languages',
+    translations: ['languages_translations', 'language_id'],
+    links: [],
+    hasSlug: true,
+  },
 ];
 
 /**
@@ -73,7 +93,7 @@ const SEEDED_ENTITIES: readonly SeededEntity[] = [
  */
 export async function convergeToSeeds(tx: TransactionSql, log: LogFn): Promise<void> {
   for (const entity of SEEDED_ENTITIES) {
-    for (const [child, foreignKey] of entity.children) {
+    for (const [child, foreignKey] of [entity.translations, ...entity.links]) {
       const removed = await tx`
         delete from ${tx(child)} c using ${tx(entity.table)} p
         where c.${tx(foreignKey)} = p.id
@@ -109,11 +129,7 @@ export async function convergeToSeeds(tx: TransactionSql, log: LogFn): Promise<v
 export async function assertFrenchTranslations(tx: TransactionSql): Promise<void> {
   const missing: string[] = [];
   for (const entity of SEEDED_ENTITIES) {
-    const translations = entity.children.find(([child]) => child.endsWith('_translations'));
-    if (translations === undefined) {
-      continue;
-    }
-    const [translationTable, foreignKey] = translations;
+    const [translationTable, foreignKey] = entity.translations;
     const rows = await tx<{ label: string }[]>`
       select ${entity.hasSlug ? tx`p.slug` : tx`'profil'`}::text as label
       from ${tx(entity.table)} p

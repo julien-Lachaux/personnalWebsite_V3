@@ -87,14 +87,21 @@ autres ressources : il les importe par leurs modules, sans dupliquer de requête
 - Identifiants en anglais ; commentaires, messages d'erreur, documentation en français.
 - `import { type X }` pour les types ; une classe utilisée comme type de paramètre de
   constructeur Nest s'importe en valeur (métadonnées de décorateurs).
-- Tests unitaires `*.spec.ts` à côté du code (`vitest.config.ts`), e2e `test/*.e2e-spec.ts`
-  (`vitest.e2e.config.ts`). Les deux configurations transforment le TypeScript avec SWC
-  (`unplugin-swc`) : esbuild n'émet pas les métadonnées de décorateurs dont Nest dépend.
+- Tests : deux projets Vitest dans `apps/api/vitest.config.ts`, `unit` (`*.spec.ts` à côté du
+  code, `pnpm test`) et `e2e` (`test/**/*.e2e-spec.ts`, `pnpm test:e2e`), tous deux transformés
+  avec SWC (`unplugin-swc`) : esbuild n'émet pas les métadonnées de décorateurs dont Nest dépend.
   Un module de ressource livre les deux.
+- Couverture 100 % obligatoire (lignes, branches, fonctions, instructions) sur `apps/api/src` et
+  `packages/contracts/src`, mesurée en une passe fusionnée unitaires + e2e (`pnpm test:coverage`,
+  dans `pnpm check` et en CI). Aucun fichier de production exclu de la mesure, aucun commentaire
+  d'ignore (`v8 ignore`, `c8 ignore`, `istanbul ignore`) : du code que l'application n'exécute
+  jamais se supprime, il ne se masque pas. Un point d'entrée (`main.ts`, `cli/*.ts`) se teste en
+  important le module avec `vi.mock` de ce qu'il orchestre. Chaque test vérifie un comportement
+  (assertion utile), pas une ligne.
 - `@siteperso/contracts` est consommé via son `dist/` : Turborepo le compile avant `lint`,
-  `typecheck`, `test`, `test:e2e` et `build` (`dependsOn: ^build`), et `pnpm dev` le compile
-  avant de lancer l'API. Après une modification des contrats pendant `pnpm dev`, relancer
-  `pnpm --filter @siteperso/contracts build`.
+  `typecheck`, `test`, `test:e2e`, `test:coverage` et `build` (`dependsOn: ^build`), et
+  `pnpm dev` le compile avant de lancer l'API. Après une modification des contrats pendant
+  `pnpm dev`, relancer `pnpm --filter @siteperso/contracts build`.
 - Pas de `console.log` : `Logger` de Nest dans `infrastructure`, rien dans `domain`/`application`.
 - Prettier et ESLint font foi : `pnpm format` avant de committer.
 
@@ -113,14 +120,15 @@ pnpm db:reset                # drop schema public + migrate + seed (refusé en p
 pnpm db:test:up              # postgres de test
 pnpm dev                     # compile les contrats puis API en watch sur http://localhost:3000/api/v1
 pnpm lint | typecheck | test | test:e2e | build
-pnpm check                   # tout : démarre le postgres de test puis lint, typecheck, unit, e2e
+pnpm test:coverage           # unitaires + e2e en une passe, couverture fusionnée, échoue sous 100 %
+pnpm check                   # tout : démarre le postgres de test puis lint, typecheck, unit, e2e, couverture
 pnpm format                  # Prettier sur tout le dépôt (docs/ exclu)
 pnpm db:down                 # arrête les conteneurs
 ```
 
 La configuration de l'API est lue dans `apps/api/.env` (modèle : `.env.example`, à copier,
-jamais commité). Les e2e n'en ont pas besoin : `vitest.e2e.config.ts` pointe par défaut sur
-le postgres de test.
+jamais commité). Les e2e n'en ont pas besoin : le projet `e2e` de `vitest.config.ts` pointe par
+défaut sur le postgres de test.
 
 ## Worktrees en parallèle
 
@@ -128,7 +136,7 @@ Deux agents qui lancent `pnpm check` en même temps doivent isoler leurs contene
 crée un `.env` à la racine de SON worktree (gitignoré) avec `COMPOSE_PROJECT_NAME`,
 `POSTGRES_PORT` et `POSTGRES_TEST_PORT` qui lui sont propres (ex. `siteperso-v3-b`, 5442, 5443),
 et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docker compose` et
-`vitest.e2e.config.ts` lisent ce `.env` racine. `pnpm db:down` n'arrête alors que ses conteneurs.
+`apps/api/vitest.config.ts` lisent ce `.env` racine. `pnpm db:down` n'arrête alors que ses conteneurs.
 
 ## Flux git et interdictions
 

@@ -6,7 +6,7 @@ import { createApp } from '../../src/infrastructure/http/create-app.js';
 
 /**
  * Démarre l'application complète sans écouter de port : les requêtes passent par
- * `app.inject()` (light-my-request). La configuration vient de `vitest.e2e.config.ts`.
+ * `app.inject()` (light-my-request). La configuration vient du projet e2e de `vitest.config.ts`.
  */
 export async function startTestApp(): Promise<NestFastifyApplication> {
   const app = await createApp({ logger: false });
