@@ -1,6 +1,7 @@
-// Test par mutation des contrats (Stryker Mutator), phase 1 : MESURE DE RÉFÉRENCE (lot 11).
-// Aucun seuil n'est imposé (`thresholds.break` absent) : `pnpm test:mutation` mesure et rapporte.
-// La règle « aucun mutant survivant non justifié » arrive en phase 2 (docs/02, CLAUDE.md).
+// Test par mutation des contrats (Stryker Mutator), phase 2 (lot 12) : règle « aucun mutant
+// survivant non justifié » (docs/02, CLAUDE.md), seuil de rupture relevé au score obtenu et jamais
+// abaissé (`thresholds`, plus bas). Mesure de référence : lot 11. Aucune exclusion par motif ici
+// (les deux motifs du cadrage visent l'API) ; équivalents déclarés : stryker.equivalents.json.
 //
 // Configuration protégée (oracle « config » des garde-fous, Justification-test exigée).
 // Documentation : https://stryker-mutator.io/docs/stryker-js/configuration/
@@ -27,6 +28,15 @@ const config = {
 
   // Ne tester un mutant qu'avec les tests qui l'exécutent (le lanceur Vitest l'impose de toute façon).
   coverageAnalysis: 'perTest',
+
+  // Seuils (phase 2, lot 12). Stryker compare `break` au score TOTAL, non arrondi :
+  // (tués + timeouts) / (tués + timeouts + survivants + sans couverture), erreurs de compilation et
+  // mutants ignorés exclus. Lot 12 : 418 tués sur 418, 100 % (aucun survivant, aucun sans
+  // couverture) ; l'instantané du document OpenAPI protège ses libellés. Un seul mutant survivant
+  // non déclaré fait donc échouer `pnpm test:mutation` : un vrai équivalent se déclare dans
+  // stryker.equivalents.json et s'ignore par une directive Stryker qui cite son identifiant
+  // (autorisation, Justification-test) ; le seuil ne s'abaisse JAMAIS.
+  thresholds: { high: 100, low: 100, break: 100 },
 
   // Vérificateur TypeScript : un mutant qui ne compile pas est classé « CompileError » sans lancer
   // de test, au lieu d'être compté tué ou survivant.

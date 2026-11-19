@@ -19,7 +19,7 @@
     "test:mutation": "turbo run test:mutation --concurrency=1",
     "hooks:test": "node --test \".claude/hooks/tests/*.test.mjs\"",
     "integrity": "bash scripts/ci/check-tests-integrity.sh",
-    "integrity:test": "bash scripts/ci/tests/check-tests-integrity.test.sh",
+    "integrity:test": "for t in scripts/ci/tests/*.test.sh; do bash \"$t\" || exit 1; done",
     "check": "pnpm hooks:test && pnpm integrity:test && pnpm integrity && pnpm db:test:up && turbo run lint typecheck test test:e2e && turbo run test:coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

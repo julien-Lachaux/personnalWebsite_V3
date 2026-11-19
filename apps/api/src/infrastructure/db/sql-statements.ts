@@ -59,6 +59,7 @@ function skipQuoted(content: string, from: number, quote: string): number {
   let index = from + 1;
   while (index < content.length) {
     if (content.charAt(index) === quote) {
+      // Stryker disable next-line MethodExpression,BlockStatement: API-EQ-04 et API-EQ-05 (stryker.equivalents.json), fermer puis rouvrir la chaîne découpe aux mêmes positions
       if (content.charAt(index + 1) === quote) {
         index += 2;
         continue;

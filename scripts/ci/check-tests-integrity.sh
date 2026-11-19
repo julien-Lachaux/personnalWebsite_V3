@@ -10,7 +10,11 @@
 #   3. une ligne ajoutée (commitée, modifiée ou non suivie) contient un marqueur de saut ou de focus
 #      de Vitest ou un commentaire d'ignore de couverture ; le marqueur d'échec attendu (fails) est
 #      admis seulement si un commit qui touche le fichier porte une ligne Justification-test ;
-#   4. un fichier de code suivi contient l'un de ces marqueurs ou commentaires (tout l'arbre).
+#   4. un fichier de code suivi contient l'un de ces marqueurs ou commentaires (tout l'arbre) ;
+#   5. une directive « Stryker disable » (commentaire qui retire des mutants du score) est ajoutée
+#      dans un fichier JS/TS sans qu'un commit qui le touche porte une ligne Justification-test ;
+#   6. une directive « Stryker disable » d'un fichier JS/TS suivi (tout l'arbre) ne cite pas
+#      l'identifiant (<PAQUET>-EQ-<n>) d'un mutant équivalent déclaré dans un stryker.equivalents.json.
 #
 # Usage : check-tests-integrity.sh [référence de base]
 #         (défaut : origin/v3/backend, sinon v3/backend). Code 0 : intègre ; 1 : écart ; 2 : usage.
@@ -40,6 +44,11 @@ CONFIG_RE='(^|/)vitest(\.[A-Za-z0-9_-]+)*\.(config|workspace)\.[cm]?[jt]s$|(^|/)
 SCRIPT_RE='^[-+][[:space:]]*"(test|test:[^"]*|check|hooks:test|integrity|integrity:[^"]*|pretest|posttest|prepare)"[[:space:]]*:'
 FORBIDDEN_RE='\.(skip|only|todo|skipIf|runIf)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])|(v8|c8|istanbul)[[:space:]]+ignore|node:coverage[[:space:]]+(ignore|disable)'
 FAILS_RE='\.(fails)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])'
+# Directive de Stryker qui ignore des mutants (https://stryker-mutator.io/docs/stryker-js/disable-mutants/),
+# dans un commentaire // ou /* … */ d'un fichier JS/TS ; identifiant d'équivalent déclaré cité.
+STRYKER_DISABLE_RE='(//|/\*|^[[:space:]]*\*)[[:space:]]*Stryker[[:space:]]+disable'
+EQUIVALENT_ID_RE='[A-Z]+-EQ-[0-9]+'
+CODE_FILE_RE='\.([cm]?[jt]sx?)$'
 JUSTIFICATION_RE='^Justification-test: [^ ]+ [^ ]'
 
 failures=0
@@ -106,8 +115,32 @@ while IFS= read -r hit; do
   fail "marqueur interdit dans l'arbre : ${hit:0:160}"
 done < <(git grep -nIE "$FORBIDDEN_RE" -- '*.ts' '*.tsx' '*.mts' '*.cts' '*.js' '*.mjs' '*.cjs' '*.sh' || true)
 
+# 5. Directives Stryker disable ajoutées (lignes commitées, modifiées ou non suivies) : comme une
+#    configuration protégée, elles retirent des mutants du score et exigent une Justification-test.
+declare -A stryker_reported=()
+while IFS=$'\t' read -r file line; do
+  if [[ "$file" =~ $CODE_FILE_RE && "$line" =~ $STRYKER_DISABLE_RE && -z "${stryker_reported[$file]:-}" ]]; then
+    stryker_reported[$file]=1
+    justified "$file" || fail "directive Stryker disable ajoutée sans Justification-test : $file"
+  fi
+done < <(added_lines)
+
+# 6. Tout l'arbre suivi : chaque directive Stryker disable cite un mutant équivalent déclaré (champ
+#    « id » d'un stryker.equivalents.json suivi).
+declared_ids="$(git grep -hoE "\"id\"[[:space:]]*:[[:space:]]*\"${EQUIVALENT_ID_RE}\"" -- '*stryker.equivalents.json' | grep -oE "$EQUIVALENT_ID_RE" || true)"
+while IFS= read -r hit; do
+  ids="$(grep -oE "$EQUIVALENT_ID_RE" <<<"${hit#*:*:}" || true)"
+  if [ -z "$ids" ]; then
+    fail "directive Stryker disable sans identifiant de mutant équivalent : ${hit:0:160}"
+    continue
+  fi
+  while IFS= read -r id; do
+    grep -qxF "$id" <<<"$declared_ids" || fail "directive Stryker disable qui cite un équivalent non déclaré ($id) : ${hit:0:160}"
+  done <<<"$ids"
+done < <(git grep -nIE "$STRYKER_DISABLE_RE" -- '*.ts' '*.tsx' '*.mts' '*.cts' '*.js' '*.jsx' '*.mjs' '*.cjs' || true)
+
 if [ "$failures" -gt 0 ]; then
-  echo "Intégrité des tests : ${failures} écart(s). Un test ou une configuration protégée ne change que si le triage l'a établi faux, avec « Justification-test: <identifiant> <raison> » dans le commit (CLAUDE.md, « Agents et garde-fous »)." >&2
+  echo "Intégrité des tests : ${failures} écart(s). Un test ou une configuration protégée ne change que si le triage l'a établi faux, avec « Justification-test: <identifiant> <raison> » dans le commit (CLAUDE.md, « Agents et garde-fous ») ; une directive Stryker disable cite en plus un mutant équivalent déclaré dans stryker.equivalents.json." >&2
   exit 1
 fi
 echo "Intégrité des tests : OK"
