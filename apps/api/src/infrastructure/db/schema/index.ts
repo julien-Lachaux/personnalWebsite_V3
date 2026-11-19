@@ -1,3 +1,4 @@
+export * from './ai-overview.js';
 export * from './certifications.js';
 export * from './education.js';
 export * from './enums.js';
