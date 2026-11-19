@@ -8,11 +8,19 @@ puis retire la ligne et le commentaire correspondants. Aucune traduction n'est d
 
 | Fichier | Table | Slug | Champ | Texte FR | Texte EN proposé |
 |---|---|---|---|---|---|
-| 0001_profile.sql | profile_translations | profile (id 1) | title | Développeur full-stack TypeScript senior | Senior full-stack TypeScript developer |
+| 0001_profile.sql | profile_translations | profile (id 1) | title | Développeur full-stack | Full-stack developer |
 | 0001_profile.sql | profile_translations | profile (id 1) | headline | NestJS, Vue.js — données, ETL et analytics — IA agentique et IA au quotidien | NestJS, Vue.js — data, ETL and analytics — agentic AI and everyday AI |
 | 0001_profile.sql | profile_translations | profile (id 1) | bio | Développeur full-stack depuis 2017, je conçois des API, des interfaces et des flux de données fiables, principalement en TypeScript. Mon fil rouge : faire circuler la donnée entre des systèmes qui ne se parlent pas, de l'ETL aux intégrations d'outils d'analytics.<br><br>Autonome du cadrage à la production, je souhaite mettre ce savoir-faire au service de structures utiles : associations, ONG, économie sociale et solidaire, écologie, service public. | Full-stack developer since 2017, I design APIs, interfaces and reliable data flows, mainly in TypeScript. My common thread: making data flow between systems that do not talk to each other, from ETL to analytics tool integrations.<br><br>Autonomous from scoping to production, I want to put this expertise at the service of useful organizations: non-profits, NGOs, the social and solidarity economy, ecology, public service. |
 | 0001_profile.sql | profile_translations | profile (id 1) | availability | Disponible pour des missions | Available for missions |
 | 0001_profile.sql | profile_translations | profile (id 1) | picture_alt | Portrait de Julien Lachaux | Portrait of Julien Lachaux |
+| 0001_profile.sql | profile_translations | profile (id 1) | taglines[1] | NestJS, Vue.js — données, ETL et analytics | NestJS, Vue.js — data, ETL and analytics |
+| 0001_profile.sql | profile_translations | profile (id 1) | taglines[2] | Développement assisté par IA et agentique | AI-assisted and agentic development |
+| 0001_profile.sql | profile_translations | profile (id 1) | intro | Depuis 2017, je conçois des API, des interfaces et des flux de données fiables. Mon fil rouge : faire circuler la donnée entre des systèmes qui ne se parlent pas. | Since 2017, I have been designing APIs, interfaces and reliable data flows. My common thread: making data flow between systems that do not talk to each other. |
+| 0001_profile.sql | profile_translations | profile (id 1) | mission | Je souhaite mettre ce savoir-faire au service de structures utiles : associations, ONG, économie sociale et solidaire, écologie, service public. | I want to put this expertise at the service of useful organizations: non-profits, NGOs, the social and solidarity economy, ecology, public service. |
+| 0001_profile.sql | profile_translations | profile (id 1) | current_activity | Bénévole 2 jours par semaine : je développe un outil d’aide au parcours de soins en milieu psychiatrique | Volunteering two days a week: I am developing a tool that supports care pathways in psychiatric settings |
+| 0001_profile.sql | profile_translations | profile (id 1) | seeking_format | Temps partiel (3 jours par semaine) ou missions freelance courtes | Part-time (3 days a week) or short freelance assignments |
+| 0001_profile.sql | profile_translations | profile (id 1) | seeking_location | Paris, Île-de-France · hybride ou à distance | Paris, Île-de-France · hybrid or remote |
+| 0001_profile.sql | profile_translations | profile (id 1) | seeking_availability | Immédiate | Immediate |
 | 0003_skills.sql | skill_groups_translations | languages-frameworks | name | Langages et frameworks | Languages and frameworks |
 | 0003_skills.sql | skill_groups_translations | data-messaging | name | Données et messagerie | Data and messaging |
 | 0003_skills.sql | skill_groups_translations | integration-etl | name | Intégration et ETL | Integration and ETL |
