@@ -139,3 +139,34 @@ jobs:
       - name: Vérifier le démarrage du conteneur (utilisateur non root)
         run: |
           test "$(docker run --rm siteperso-api:ci id -u)" != "0"
+
+  pile-locale:
+    name: Pile locale complète (Caddy, API, PostgreSQL) et scénarios de production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres: # base de test exigée par le setup global du projet e2e, indépendante de la pile
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: siteperso_test, POSTGRES_USER: siteperso, POSTGRES_PASSWORD: siteperso }
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U siteperso -d siteperso_test" --health-interval 2s
+          --health-timeout 3s --health-retries 15
+    env:
+      DATABASE_URL: postgres://siteperso:siteperso@localhost:5433/siteperso_test
+      CORS_ORIGIN: http://localhost:3001
+      STACK_REQUIRED: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm stack:up
+      - run: pnpm --filter @siteperso/api exec vitest run --project e2e local-stack
+      - name: Journaux (échec)
+        if: failure()
+        run: pnpm stack:ps && docker compose -f docker/compose.prod.yml --env-file docker/.env.local logs --no-color --tail 200
+      - name: Arrêt et nettoyage
+        if: always()
+        run: pnpm stack:down --volumes
