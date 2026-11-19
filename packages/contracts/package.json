@@ -34,6 +34,9 @@
   },
   "devDependencies": {
     "@scalar/openapi-parser": "0.29.25",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/typescript-checker": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
     "@types/node": "26.6.6",
     "@vitest/coverage-v8": "5.1.1",
     "tsx": "4.23.15",

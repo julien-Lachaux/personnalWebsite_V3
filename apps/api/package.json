@@ -39,6 +39,9 @@
   },
   "devDependencies": {
     "@nestjs/testing": "12.5.1",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/typescript-checker": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
     "@swc-node/register": "1.12.1",
     "@swc/core": "1.16.22",
     "@types/node": "26.6.6",
