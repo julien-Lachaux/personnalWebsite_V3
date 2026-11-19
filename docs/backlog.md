@@ -1202,6 +1202,31 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   étiquette en production. Aujourd'hui les scripts de `scripts/deploy/` déploient `main` et refusent une
   HEAD détachée (lot 13) : ils passeront à « l'étiquette demandée, qui doit être atteignable depuis
   `main` ». Rien à configurer avant la fin du front.
+- **L14-06** (lead-architecte, portée `config`), décidé par Julien le 19 nov. 2026 après la recette du
+  lot 13 bis : les hooks refusent à toute session et à tout agent d'écrire la branche locale `main`
+  (merge, commit, reset, rebase, cherry-pick quand HEAD est `main` ; `git branch -f main`,
+  `git update-ref refs/heads/main`, `checkout -B main`) : une écriture locale sur `main` se retrouverait
+  dans le prochain push de Julien. Restent permis, par décision du même jour : l'étiquette locale
+  (`git tag`, son push étant refusé) et le déplacement local de `develop` (`branch -f`, `update-ref`,
+  `checkout -B`), le push ne pouvant viser que `develop` et jamais en force. À revoir à l'usage.
+- **L14-07** (lead-architecte) : le test « commandes ordinaires » des hooks reçoit un échantillon des
+  88 commandes de l'orchestrateur rejouées en recette du lot 13 bis (une règle plus stricte ne doit pas
+  casser le travail courant), et le rejeu des refus de push couvre tous les rôles d'agent, pas
+  seulement `dev-api`.
+- **Ordre** : le lot 14 touche les hooks et la CI, fichiers que `docs/05-front-organisation.md` laisse
+  à la session front pendant son lot F0 ; il passe donc **après la fusion de F0**, et après le lot 15.
+
+## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
+
+Demande : `docs/briefs/back-001-donnees-front.md` (tickets BF-1 à BF-7 : profil restructuré, liens
+expérience-compétence cachés, stack principale, recommandations, section IA, lien des recommandations
+LinkedIn, OpenAPI). Un seul lot en trois étapes sur la même branche, contrats puis SQL puis API, pour que
+`develop` reste vert (les contrôleurs valident leurs réponses par les schémas du contrat : un contrat
+fusionné seul casserait l'API) ; la session front lit les contrats sur la branche du lot dès la première
+étape commitée. `info.version` reste 1.0.0 (contrat encore sans client). Questions posées à Julien avant
+lancement : droit des dev-* de modifier un test existant rendu obsolète par un brief validé ; données
+réelles ou fictives pour les recommandations (BF-4) dans un dépôt destiné à devenir public. Ports Docker
+du back en 57xx (la plage 58xx est celle de la session front).
 - **L14-04** (correcteur, en phase 3 du test par mutation) : garde `response !== null` dans `detailOf`
   (`problem-details.ts`), avec son test ; aujourd'hui `'message' in null` lèverait une TypeError dans le
   filtre global, cas inatteignable par les clients mais défaut latent.

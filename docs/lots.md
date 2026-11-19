@@ -28,6 +28,7 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
 | 11 | Test par mutation, phase 1 | lead-architecte (agent du dépôt), Opus | dc0d9d4 | score de référence 32 % (contrats et API) |
 | 12 | Test par mutation, phase 2 : la règle | qa Sonnet, lead-architecte Opus, chef-de-projet Sonnet | 5ee5690 | 133 + 389 unitaires, 552 e2e, mutation 100 % / 40,87 % |
 | 13 | Git flow : `develop`, push de la session principale | lead-architecte Opus, chef-de-projet Sonnet | 802360b | 115 tests hooks, 133 + 391 unitaires, 552 e2e, 100 % |
+| 13 bis | Durcissement des refus de push et de l'analyseur | lead-architecte Opus, chef-de-projet Sonnet | fb31042 | 527 tests hooks, 133 + 391 unitaires, 552 e2e, 100 % |
 
 ## Lot 0 : fondations
 
@@ -248,6 +249,26 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
   ou `git config`, option `-c` collée, commandes `gh` qui fusionnent ou étiquettent côté GitHub. Plus un
   défaut de l'outil d'autorisation hors session (option `--path-format` inconnue du git 2.30 de l'hôte).
   Durcissement confié au lot suivant.
+
+## Lot 13 bis : durcissement des refus de push et de l'analyseur de commandes
+
+- **Livré** : l'analyseur de commandes des hooks devient récursif (blocs, `if`, boucles, `case`, `!`,
+  fonctions, `coproc`, substitutions de processus, documents en ligne) et lit bash comme zsh ; principe
+  « illisible donc refusé » sur toutes les règles (syntaxe incomplète, nom de commande ou cible d'écriture
+  calculés, sous-commande git inconnue, script écrit et exécuté par la même commande). Refusés à tous les
+  rôles : plomberie de push (`send-pack`, `http-push`, `git svn dcommit`, `git p4 submit`), redéfinition
+  de la destination (`git remote set-url|add|rename|remove`, écritures `git config` sur `remote.*`,
+  `url.*`, `push.*`, `include*`, édition des fichiers de configuration git), option `-c` collée et
+  options globales non listées avec `git push`, commandes `gh` qui fusionnent, étiquettent, publient ou
+  suppriment. Alias git résolus et analysés. Racine d'état corrigée pour le git 2.30 de l'hôte.
+- **Mesure** : sur les 130 commandes de la recette du lot 13, 64 verdicts passent de permis à refusé ;
+  un agent n'a plus aucune forme de push permise. 527 tests de hooks (115 avant), aucun test existant
+  modifié.
+- **Recette** : acceptée ; 88 commandes courantes de l'orchestrateur rejouées, toutes permises. Effet à
+  connaître : une variable shell dans un chemin d'écriture est désormais refusée, les chemins s'écrivent
+  en clair.
+- **Décisions de Julien du même jour** : étiquette locale et déplacement local de `develop` restent
+  permis ; toute écriture de la branche locale `main` sera refusée (lot 14, L14-06).
 
 ## Transverse
 
