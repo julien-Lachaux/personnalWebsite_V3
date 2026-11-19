@@ -13,7 +13,7 @@ d'API et le schéma SQL pourront être portés en Rust sans réécriture du mod�
 | Migrations | SQL manuel, runner maison minimal | décision : tout le contenu est géré en SQL |
 | Validation | Zod (DTO et query params) | schémas réutilisables par le front via `packages/contracts` |
 | Contrat API | OpenAPI **3.2.0** généré depuis Zod par `@asteasolutions/zod-to-openapi` (générateur V32), servi en JSON, `info.version` 1.0.0 | 3.2.0 = plus haute version émise par utoipa 6 côté Rust (spec courante 3.2.1, pas encore outillée des deux côtés) |
-| Tests | Vitest (unitaires), Vitest + supertest/`app.inject` (e2e contre un Postgres Docker) | |
+| Tests | Vitest : deux projets `unit` et `e2e` (`app.inject` contre un Postgres Docker) dans une seule configuration, couverture v8 fusionnée avec seuil 100 % sur lignes, branches, fonctions et instructions (décision du 19 nov. 2026 : aucun code non testé, aucune exclusion de production, aucun commentaire d'ignore) | |
 | Qualité | TypeScript strict, ESLint + Prettier, husky facultatif | |
 | Conteneurs | Docker multi-stage, docker-compose dev (api + postgres) et prod (Caddy + api + web + postgres) | VPS Docker, même topologie que la V2 |
 

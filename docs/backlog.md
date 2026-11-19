@@ -104,12 +104,12 @@ personnalWebsite_V3/
         docs/                                 GET /docs.json (contrat OpenAPI servi depuis les contrats)
         <resource>/                           <resource>.module.ts + <resource>.controller.ts (GET en 501 jusqu'au lot 3)
     src/cli/                                  migrate.ts, seed.ts, reset.ts : points d'entrée db:* (lot 1)
-    test/*.e2e-spec.ts                        e2e via app.inject contre le Postgres de test (vitest.e2e.config.ts)
+    test/*.e2e-spec.ts                        e2e via app.inject contre le Postgres de test (projet `e2e` de vitest.config.ts depuis le lot 7)
     test/support/test-app.ts                  startTestApp(), ALLOWED_ORIGIN
     test/support/database.ts                  resetTestDatabase() : migrate + seed sur la base de test (lot 1)
     test/db/*.e2e-spec.ts                     e2e du runner, du schéma et des seeds (lot 1)
     vitest.config.ts                          unitaires src/**/*.spec.ts (SWC, pas d'accès réseau)
-    vitest.e2e.config.ts                      e2e, DATABASE_URL par défaut = postgres de test (5433)
+    vitest.e2e.config.ts                      supprimé au lot 7 : projets unit + e2e dans vitest.config.ts, couverture fusionnée, seuils 100 %
   packages/contracts/                         @siteperso/contracts : schémas Zod + OpenAPI 3.2.0
     src/common/                               locale.ts (LocaleSchema, LocaleQuerySchema, DEFAULT_LOCALE), problem-details.ts
     src/health/health.ts                      HealthResponseSchema
@@ -256,7 +256,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
   `no-restricted-imports` : la règle hexagonale est écrite dans `CLAUDE.md` et vérifiée par grep (D8) ;
   `/health` fait un ping SQL (503 si base injoignable) au lieu d'un `{ status: 'ok' }` sans base ; helmet
   sans `content-security-policy` (choix assumé pour une API JSON), `x-frame-options: SAMEORIGIN` (défaut
-  helmet) ; pas de `DATABASE_URL_TEST` (les e2e lisent `DATABASE_URL`, défaut dans `vitest.e2e.config.ts`) ;
+  helmet) ; pas de `DATABASE_URL_TEST` (les e2e lisent `DATABASE_URL`, défaut dans le projet `e2e` de `vitest.config.ts`) ;
   pas de `nest-cli.json` (pas de CLI Nest, `tsc` seul) ; le 400 sur `?lang` invalide arrive avec les
   contrôleurs réels au lot 3 (routes en 501 pour l'instant).
 - **Critères d'acceptation** (vérifiés) :
@@ -312,7 +312,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 ### L0-07 — Vitest : unitaires et e2e contre Postgres Docker — livré `119113a` (+ `b07626d`)
 
 - **Livré** : `apps/api/vitest.config.ts` (unitaires `src/**/*.spec.ts`, SWC, aucun accès réseau) et
-  `apps/api/vitest.e2e.config.ts` (`test/**/*.e2e-spec.ts`, `fileParallelism: false`, timeouts 15 s / 30 s,
+  `apps/api/vitest.e2e.config.ts` (fusionné dans `vitest.config.ts` au lot 7 ; `test/**/*.e2e-spec.ts`, `fileParallelism: false`, timeouts 15 s / 30 s,
   `env` par défaut : `NODE_ENV=test`, `PORT`, `CORS_ORIGIN=http://localhost:3001`,
   `DATABASE_URL=postgres://siteperso:siteperso@localhost:5433/siteperso_test`, chacun surchargeable par
   l'environnement). `test/support/test-app.ts` : `startTestApp()` (`createApp({ logger: false })`, `init`,
@@ -418,7 +418,7 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
   `src/cli/reset.ts` (`drop schema public cascade; create schema public` + migrate + seed, refusé si
   `NODE_ENV=production`). Scripts `db:seed` et `db:reset` dans `apps/api/package.json` et à la racine.
   `apps/api/test/support/database.ts` : `resetTestDatabase()` (même séquence que `reset`, sur le
-  `DATABASE_URL` de `vitest.e2e.config.ts`) et `openTestSql()` (connexion `postgres` brute pour les fixtures),
+  `DATABASE_URL` du projet `e2e` de `vitest.config.ts`) et `openTestSql()` (connexion `postgres` brute pour les fixtures),
   utilisés par les e2e des lots 1, 3 et 4 en `beforeAll`. `README.md` : ajouter `pnpm db:migrate && pnpm
   db:seed` entre `pnpm db:up` et `pnpm dev` ; `CLAUDE.md` : ligne `src/cli/` dans le bloc Structure et
   commandes `db:*`.
@@ -953,6 +953,9 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
   `cli/` et `main.ts`.
 - **Fichiers** : `apps/api/src/**/*.spec.ts`, `apps/api/vitest.config.ts`, `apps/api/package.json`.
 - **Critères d'acceptation** : `pnpm --filter @siteperso/api test -- --coverage` passe avec les seuils.
+- **Clos puis remplacé au lot 7 (19 nov. 2026)** : le périmètre réduit et les seuils 85/75 disparaissent ; couverture
+  fusionnée unitaires + e2e (projets Vitest), seuil 100 % sur les quatre métriques, sans exclusion de
+  production ni commentaire d'ignore, imposée par `pnpm test:coverage` dans `pnpm check` et en CI.
 
 ### L4-08 — Rapport QA
 
