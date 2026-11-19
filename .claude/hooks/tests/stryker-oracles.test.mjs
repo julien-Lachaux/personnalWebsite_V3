@@ -52,12 +52,12 @@ function write(rel, content) {
   writeFileSync(join(repo, rel), content);
 }
 
-/** Dépôt temporaire : branche d'intégration v3/backend avec une configuration Stryker, puis lot/essai. */
+/** Dépôt temporaire : branche d'intégration develop avec une configuration Stryker, puis lot/essai. */
 function makeRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'oracles-mutation-'));
   temps.push(dir);
   repo = dir;
-  sh(dir, 'git', ['init', '-q', '-b', 'v3/backend']);
+  sh(dir, 'git', ['init', '-q', '-b', 'develop']);
   write('.gitignore', 'reports/mutation/\n');
   write('apps/api/src/app.ts', 'export const answer = 42;\n');
   write('apps/api/stryker.config.mjs', STRYKER_CONFIG);
@@ -87,7 +87,7 @@ function tool(name, toolInput, agent, id = 'a1') {
 }
 
 function integrity() {
-  const res = spawnSync('bash', [INTEGRITY, 'v3/backend'], { cwd: repo, encoding: 'utf8' });
+  const res = spawnSync('bash', [INTEGRITY, 'develop'], { cwd: repo, encoding: 'utf8' });
   return { code: res.status, out: `${res.stdout}${res.stderr}` };
 }
 

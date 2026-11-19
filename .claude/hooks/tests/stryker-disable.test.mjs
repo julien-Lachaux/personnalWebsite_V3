@@ -55,14 +55,14 @@ function write(rel, content) {
 }
 
 function integrity() {
-  const res = spawnSync('bash', [INTEGRITY, 'v3/backend'], { cwd: repo, encoding: 'utf8' });
+  const res = spawnSync('bash', [INTEGRITY, 'develop'], { cwd: repo, encoding: 'utf8' });
   return { code: res.status, out: `${res.stdout}${res.stderr}` };
 }
 
 beforeEach(() => {
   repo = mkdtempSync(join(tmpdir(), 'directives-stryker-'));
   temps.push(repo);
-  sh(repo, 'git', ['init', '-q', '-b', 'v3/backend']);
+  sh(repo, 'git', ['init', '-q', '-b', 'develop']);
   write('apps/api/src/app.ts', "export const mode = 'false';\n");
   commitAll('base');
   sh(repo, 'git', ['checkout', '-q', '-b', 'lot/essai']);
