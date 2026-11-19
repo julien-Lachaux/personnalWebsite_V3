@@ -38,6 +38,29 @@ jobs:
       - run: pnpm build
       - run: pnpm test
 
+  garde-fous:
+    name: Garde-fous (intégrité des tests, hooks des agents)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Historique complet : le script remonte au point de divergence avec la branche d'intégration.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Tests des hooks des agents
+        run: node --test ".claude/hooks/tests/*.test.mjs"
+      - name: Tests du script d'intégrité
+        run: bash scripts/ci/tests/check-tests-integrity.test.sh
+      # Test existant modifié ou supprimé, configuration de test changée sans Justification-test,
+      # marqueur de saut ou commentaire d'ignore : échec. Base = cible de la PR, sinon v3/backend.
+      - name: Intégrité des tests depuis la branche d'intégration
+        env:
+          BASE_REF: ${{ github.base_ref || 'v3/backend' }}
+        run: bash scripts/ci/check-tests-integrity.sh "origin/${BASE_REF}"
+
   e2e:
     name: Tests e2e et couverture 100 % (PostgreSQL 16)
     runs-on: ubuntu-latest
