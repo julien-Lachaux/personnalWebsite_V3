@@ -1,6 +1,15 @@
 // Configuration Nuxt 4 du front (docs/05, D1 et D2) : génération statique (`nuxt generate`) des
 // pages FR (sans préfixe) et EN (`/en/...`) ; aucun serveur Node du front en production.
 // Fichier partagé : réservé au lead-architecte (règle « modules isolés » du front, CLAUDE.md).
+
+// Libellés d'interface : un fichier commun et un fichier par section et par langue
+// (i18n/locales/<langue>/<fichier>.json), pour que deux agents de section en parallèle n'écrivent
+// jamais le même fichier (décision du 20 nov. 2026). Chaque fichier de section ne contient que
+// l'espace de clés de sa section ; @nuxtjs/i18n les charge dans l'ordre et les fusionne.
+const messageFiles = ['common', 'shell', 'profile', 'experience', 'recommendations', 'ai'];
+const filesOf = (language: string): string[] =>
+  messageFiles.map((name) => `${language}/${name}.json`);
+
 const strictCompilerOptions = {
   // Mêmes exigences que tsconfig.base.json du back, en plus du `strict` de Nuxt.
   noUncheckedIndexedAccess: true,
@@ -34,8 +43,8 @@ export default defineNuxtConfig({
     strategy: 'prefix_except_default',
     defaultLocale: 'fr',
     locales: [
-      { code: 'fr', language: 'fr', name: 'Français', file: 'fr.json' },
-      { code: 'en', language: 'en', name: 'English', file: 'en.json' },
+      { code: 'fr', language: 'fr', name: 'Français', files: filesOf('fr') },
+      { code: 'en', language: 'en', name: 'English', files: filesOf('en') },
     ],
     // Pas de redirection selon la langue du navigateur : un site statique sert l'URL demandée.
     detectBrowserLanguage: false,
