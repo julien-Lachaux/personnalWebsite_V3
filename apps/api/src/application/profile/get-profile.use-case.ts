@@ -18,9 +18,15 @@ export class GetProfileUseCase {
       location: profile.location,
       picture: { path: profile.picturePath, alt: profile.pictureAlt },
       title: profile.title,
-      headline: profile.headline,
-      bio: profile.bio,
-      availability: profile.availability,
+      titleBadge: profile.titleBadge,
+      taglines: [...profile.taglines],
+      intro: profile.intro,
+      mission: profile.mission,
+      currentActivity: profile.currentActivity,
+      seekingFormat: profile.seekingFormat,
+      seekingLocation: profile.seekingLocation,
+      seekingAvailability: profile.seekingAvailability,
+      cvPath: profile.cvPath,
     };
   }
 }

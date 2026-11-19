@@ -318,17 +318,62 @@
             "type": "string",
             "minLength": 1,
             "description": "Titre professionnel.",
-            "examples": ["Développeur full-stack TypeScript senior"]
+            "examples": ["Développeur full-stack"]
           },
-          "headline": { "type": "string", "description": "Phrase d'accroche." },
-          "bio": {
+          "titleBadge": {
             "type": "string",
-            "description": "Présentation (texte brut ou Markdown léger)."
+            "minLength": 1,
+            "description": "Pastille accolée au titre.",
+            "examples": ["senior"]
           },
-          "availability": {
+          "taglines": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1,
+            "description": "Phrases d'accroche, une par entrée (au moins une).",
+            "examples": [["Première accroche", "Seconde accroche"]]
+          },
+          "intro": {
             "type": "string",
-            "description": "Statut de disponibilité.",
-            "examples": ["Disponible pour des missions"]
+            "minLength": 1,
+            "description": "Introduction (texte brut).",
+            "examples": ["Depuis 2017, je conçois des API."]
+          },
+          "mission": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Mission recherchée (texte brut).",
+            "examples": ["Mettre ce savoir-faire au service…"]
+          },
+          "currentActivity": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Activité du moment (« en ce moment »).",
+            "examples": ["Bénévolat"]
+          },
+          "seekingFormat": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Format de poste recherché.",
+            "examples": ["Temps partiel ou missions freelance"]
+          },
+          "seekingLocation": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Lieu de travail recherché.",
+            "examples": ["Paris · hybride ou à distance"]
+          },
+          "seekingAvailability": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Disponibilité.",
+            "examples": ["Immédiate"]
+          },
+          "cvPath": {
+            "type": "string",
+            "pattern": "^\\/[^/\\s]\\S*$",
+            "description": "Chemin du CV en PDF, propre à la langue, servi par le front : relatif à la racine du site (un seul `/` en tête), sans espace.",
+            "examples": ["/cv/cv-fr.pdf"]
           }
         },
         "required": [
@@ -337,9 +382,15 @@
           "location",
           "picture",
           "title",
-          "headline",
-          "bio",
-          "availability"
+          "titleBadge",
+          "taglines",
+          "intro",
+          "mission",
+          "currentActivity",
+          "seekingFormat",
+          "seekingLocation",
+          "seekingAvailability",
+          "cvPath"
         ],
         "additionalProperties": false,
         "description": "Profil public, traduit selon `lang`."
