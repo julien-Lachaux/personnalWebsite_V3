@@ -1702,9 +1702,15 @@ const PUSH_GLOBAL_DENIED = new Set(['--git-dir', '--work-tree', '--namespace', '
 const PUSH_CONFIG_KEYS = /^(remote|url|push|branch|alias)\./i;
 const PUSH_FORM = `seule la forme git push origin ${PUSH_BRANCH} (avec -u ou --set-upstream au besoin) est permise`;
 
+/** Clés dont l'écriture redéfinit la destination d'un push (T3 du lot 13 bis). */
+const DESTINATION_KEY =
+  /^(remote\..+|url\..+|push\..+|branch\..+\.(remote|pushremote)|include\..+|includeif\..+)$/i;
+const DESTINATION_SECTION = /^(remote|url|push|branch|include|includeif)(\.|$)/i;
 /** Clés dont la valeur est une commande lancée par git. */
 const COMMAND_CONFIG_KEY =
   /^(core\.(editor|pager|sshcommand|askpass|fsmonitor|gitproxy)|sequence\.editor|diff\.external|gpg\.(.+\.)?program|credential\.(.+\.)?helper|pager\..+|interactive\.difffilter|uploadpack\.packobjectshook|(diff|merge|filter|mergetool|difftool)\..+\.(command|cmd|textconv|clean|smudge|process|driver|path))$/i;
+const DESTINATION_MOTIF =
+  'redéfinit la destination des push (remote, url, push, branche suivie, inclusion) : réservé à Julien';
 
 function pushOptionRefusal(a) {
   if (a.startsWith('--force') || /^-[a-zA-Z]*f/.test(a))
@@ -1800,6 +1806,47 @@ function gitAlias(base, sub, globals) {
   } catch {
     return null;
   }
+}
+
+/** Écriture git config : clés et sections touchées, ou édition libre ; null pour une lecture. */
+function gitConfigWrite(rest) {
+  const valued = new Set([
+    '-f',
+    '--file',
+    '--blob',
+    '--type',
+    '-t',
+    '--default',
+    '--comment',
+    '--value',
+  ]);
+  const ops = operands(rest, valued);
+  const has = (...flags) => rest.some((a) => flags.includes(a));
+  if (
+    has(
+      '--get',
+      '--get-all',
+      '--get-regexp',
+      '--get-urlmatch',
+      '--get-color',
+      '--get-colorbool',
+      '-l',
+      '--list',
+    )
+  )
+    return null;
+  if (['get', 'list'].includes(ops[0])) return null;
+  if (has('--edit', '-e') || ops[0] === 'edit')
+    return { edit: true, keys: [], sections: [], values: [] };
+  if (['set', 'unset'].includes(ops[0]))
+    return { keys: [ops[1] ?? ''], values: ops.slice(2), sections: [] };
+  if (['rename-section', 'remove-section'].includes(ops[0]))
+    return { keys: [], values: [], sections: ops.slice(1) };
+  if (has('--rename-section', '--remove-section')) return { keys: [], values: [], sections: ops };
+  if (has('--unset', '--unset-all')) return { keys: [ops[0] ?? ''], values: [], sections: [] };
+  if (ops.length >= 2 || has('--add', '--replace-all'))
+    return { keys: [ops[0] ?? ''], values: ops.slice(1), sections: [] };
+  return null;
 }
 
 function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 0 }) {
@@ -1904,6 +1951,14 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
     case 'p4':
       if (rest[0] === 'submit') deny('git p4 submit publie vers un autre dépôt : réservé à Julien');
       break;
+    case 'remote': {
+      const op = rest.find((a) => !a.startsWith('-'));
+      if (op !== undefined && op.includes(UNKNOWN))
+        deny(`git remote ${shown(op)} : sous-commande illisible, donc refusée`);
+      else if (['add', 'rename', 'remove', 'rm', 'set-url'].includes(op))
+        deny(`git remote ${op} ${DESTINATION_MOTIF}`);
+      break;
+    }
     case 'commit': {
       for (let j = 0; j < rest.length; j += 1) {
         const a = rest[j];
@@ -1937,6 +1992,26 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
         rest.some((a) => !/^alias\./i.test(a) && /\bpush\b/i.test(a))
       )
         deny('un alias qui lance git push contourne la règle de push');
+      const write = gitConfigWrite(rest);
+      if (write === null) break;
+      if (write.edit) {
+        deny(`git config --edit : édition libre de la configuration, qui ${DESTINATION_MOTIF}`);
+        break;
+      }
+      for (const key of [...write.keys, ...write.sections]) {
+        if (key.includes(UNKNOWN))
+          deny(
+            `git config : clé illisible (${shown(key)}) ; la destination ne se vérifie pas, donc refusée`,
+          );
+        else if (
+          DESTINATION_KEY.test(key) ||
+          (write.sections.includes(key) && DESTINATION_SECTION.test(key))
+        )
+          deny(`git config ${key} ${DESTINATION_MOTIF}`);
+      }
+      const key = write.keys[0];
+      if (key && COMMAND_CONFIG_KEY.test(key) && write.values[0] !== undefined)
+        nested(`git config ${key}`, write.values[0].replace(/^!/, ''), gitBase);
       break;
     }
     case 'rebase': {
