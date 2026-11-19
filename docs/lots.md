@@ -21,7 +21,7 @@ référence dans `docs/01` à `docs/03`. Rien n'est poussé sur GitHub à ce jou
 | 7 | Couverture 100 % fusionnée | dev, Sonnet | 67f7b76 | 776 tests API, 100 % |
 | 8 | Agents spécialisés et garde-fous | lead-architecte, Opus | b16f9e7 | 30 tests hooks, 19 cas d'intégrité |
 | 9 | Décisions du 19 novembre | correcteur (agent du dépôt), Sonnet | c4af5fd | 859 tests API, 100 % |
-| 10 | Pile locale complète avec Caddy | dev-devops (agent du dépôt) | en cours | |
+| 10 | Pile locale complète avec Caddy | dev-devops (agent du dépôt), Sonnet | ecb6d7f | 561 e2e avec la pile, 100 % |
 | 11 | Test par mutation, phase 1 | lead-architecte (agent du dépôt) | en cours | |
 
 ## Lot 0 : fondations
@@ -158,12 +158,20 @@ référence dans `docs/01` à `docs/03`. Rien n'est poussé sur GitHub à ce jou
 - **Résultat** : 315 unitaires, 544 e2e, 859 tests en couverture fusionnée à 100 %. Quatre fichiers
   de test existants modifiés, exactement ceux autorisés, un seul refus du garde-fou dans le journal.
 
-## Lot 10 : pile locale complète avec Caddy (en cours)
+## Lot 10 : pile locale complète avec Caddy
 
 - **Décision** : pouvoir reproduire en local tout comportement de production, parité dev/prod.
-- **Attendu** : une commande `stack:*` qui monte la même pile que la production (même compose, même
-  Caddyfile, même image) sur le poste, scénarios de reproduction documentés et rejoués par des tests,
-  job de CI, écarts local/prod listés.
+- **Livré** : `pnpm stack:up`, `stack:ps`, `stack:logs`, `stack:down [--volumes]` montent sur le poste
+  exactement la pile de production (même `compose.prod.yml`, même `Caddyfile`, même image), sans
+  override compose ; seul `docker/.env.local` varie (modèle `.env.local.example`, mots de passe générés
+  au premier lancement, jamais commité). Dix scénarios de reproduction documentés dans
+  `docs/deploiement.md` (200 avec en-têtes, 405, 413, 404, 400 d'URL mal encodée, 301 HTTP→HTTPS, 429,
+  502, rôle PostgreSQL en lecture seule, réseaux internes) et rejoués par deux fichiers e2e qui se
+  déclarent absents sans pile et échouent avec `STACK_REQUIRED=1` ; job CI `pile-locale`. Tableau des
+  écarts local/prod (certificat interne, ports, `alt-svc`).
+- **Recette** : refusée une première fois faute d'autorisation « config » pour le job CI (oubli de
+  l'orchestrateur, aucun contournement de l'agent), acceptée en seconde recette. Sur ce poste, le port
+  8080 est pris par la V2 : ports surchargeables dans le fichier d'environnement local.
 
 ## Lot 11 : test par mutation, phase 1 (en cours)
 
