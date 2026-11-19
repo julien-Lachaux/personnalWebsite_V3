@@ -33,6 +33,19 @@ describe('splitSqlStatements', () => {
   it('écarte les fragments qui ne contiennent que des commentaires', () => {
     expect(splitSqlStatements('-- rien\n;/* vide */;')).toEqual([]);
   });
+
+  it('traite un dollar seul (paramètre positionnel) comme du code ordinaire', () => {
+    expect(splitSqlStatements('select $1; select $2 + 1')).toEqual(['select $1', 'select $2 + 1']);
+  });
+
+  it('va jusqu’à la fin du fichier sur une chaîne, un littéral dollar ou un bloc non refermés', () => {
+    expect(splitSqlStatements("select 'ouvert; sans fin")).toEqual(["select 'ouvert; sans fin"]);
+    expect(splitSqlStatements('select $$ouvert; sans fin')).toEqual(['select $$ouvert; sans fin']);
+    expect(splitSqlStatements('select 1 /* ouvert; sans fin')).toEqual([
+      'select 1 /* ouvert; sans fin',
+    ]);
+    expect(splitSqlStatements('select 1; -- fin; sans saut de ligne')).toEqual(['select 1']);
+  });
 });
 
 describe('statementVerb', () => {
