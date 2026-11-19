@@ -35,8 +35,9 @@ Points de contrôle où l'orchestrateur s'arrête et attend Julien :
 ## Règles communes (reprises dans le CLAUDE.md généré au lot 0)
 
 - Tout tourne en Docker, rien n'est installé sur l'hôte. Postgres de test dédié.
-- Jamais de commit ni de push par un agent sans autorisation explicite. Proposition : Julien
-  autorise un commit par lot sur une branche `v3/backend`, l'orchestrateur ne pousse jamais.
+- Jamais de commit ni de push par un agent sans autorisation explicite. Julien autorise un commit
+  par lot sur la branche d'intégration ; depuis le 19 novembre 2026 (git flow, ci-dessous), la
+  session principale pousse `develop` et rien d'autre, les agents ne poussent jamais.
 - Aucun e-mail ni téléphone nulle part dans le repo.
 - Traductions EN du contenu : produites par l'agent base de données, marquées « à relire » pour Julien.
 - Chaque agent livre un compte rendu court : fait, non fait, décisions prises, points ouverts.
@@ -46,18 +47,26 @@ Points de contrôle où l'orchestrateur s'arrête et attend Julien :
 Environ 10 agents, 2 points de contrôle. Coût de référence attendu : de l'ordre de plusieurs
 millions de tokens au total ; le lot 3 et le lot 6 sont les plus coûteux.
 
-## Flux Git (validé le 18 novembre 2026)
+## Flux Git (validé le 18 novembre 2026, git flow depuis le 19 novembre 2026)
 
-- `master` : commit initial des documents. `v3/backend` : branche d'intégration, seule branche
-  que l'orchestrateur fait avancer.
-- Une branche et un worktree par lot (`lot/0-fondations`, `lot/1-sql`, `lot/2-contrats`,
-  `lot/3-api-a`, `lot/3-api-b`, `lot/4-qa`, `lot/5-devops`, `lot/6-corrections`).
+- Git flow (décision de Julien du 19 novembre 2026) : `develop` est la branche d'intégration
+  permanente (l'ancienne branche d'intégration renommée), seule branche que l'orchestrateur fait
+  avancer ; `main` est la branche de production. `master` porte le commit initial des documents.
+- Une branche et un worktree par lot, créés depuis `develop` (`lot/0-fondations`, `lot/1-sql`,
+  `lot/2-contrats`, `lot/3-api-a`, `lot/3-api-b`, `lot/4-qa`, `lot/5-devops`, `lot/6-corrections`,
+  puis `lot/N-nom`).
 - Commits atomiques, un par micro-tâche, Conventional Commits en français :
   `feat(db): migration 0001 tables profil et traductions`. Aucun commit si lint et tests ne
   passent pas (hook pre-commit posé au lot 0).
-- Fusion dans `v3/backend` par l'orchestrateur avec `--no-ff` après recette du chef de projet :
+- Fusion dans `develop` par l'orchestrateur avec `--no-ff` après recette du chef de projet :
   commits atomiques conservés, un commit de merge par lot.
-- Jamais de push par un agent. Les conflits sont résolus par l'orchestrateur avant fusion.
+- Push : la session principale (l'orchestrateur) pousse `develop` vers `origin`, et uniquement
+  elle (`git push origin develop`, `-u` admis) ; les hooks refusent toute autre forme. Jamais de
+  push par un agent. Les conflits sont résolus par l'orchestrateur avant fusion.
+- Réservé à Julien : toute fusion dans `main` (branches `release/*` et `hotfix/*`), les étiquettes
+  de version, le push de `main` et le lancement du déploiement, qui se fait depuis `main` et
+  jamais depuis `develop`. Aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse
+  d'étiquette, ne supprime de branche distante, ne force un push.
 - Le lot 0 crée des modules NestJS vides déjà enregistrés pour chaque ressource : les deux agents
   API du lot 3 ne touchent ensuite que leurs propres fichiers.
 - Depuis le lot 8 : l'orchestrateur lance les agents de `.claude/agents/` par leur nom, dans le

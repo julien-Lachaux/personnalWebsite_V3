@@ -146,7 +146,7 @@ pnpm test:coverage           # unitaires + e2e en une passe, couverture fusionn�
 pnpm test:mutation           # Stryker sur les unitaires (contrats puis API), rapports dans reports/mutation/ ; échoue sous le seuil de chaque paquet ; hors check, job CI dédié
 pnpm check                   # tout : garde-fous, intégrité des tests, postgres de test, lint, typecheck, unit, e2e, couverture
 pnpm hooks:test              # tests des hooks garde-fous (.claude/hooks/tests)
-pnpm integrity [base]        # intégrité des tests depuis la base (défaut origin/v3/backend, sinon v3/backend)
+pnpm integrity [base]        # intégrité des tests depuis la base (défaut origin/develop, sinon develop)
 pnpm format                  # Prettier sur tout le dépôt (docs/ exclu)
 pnpm db:down                 # arrête les conteneurs
 pnpm stack:up                # pile locale complète = prod (Caddy, API, PostgreSQL) : build, démarrage, attente de /health
@@ -170,8 +170,10 @@ et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docke
 
 - Les rôles sont des fichiers : `.claude/agents/<nom>.md` (lead-architecte, chef-de-projet,
   dev-sql, dev-contrats, dev-api, dev-devops, qa, revue-code, revue-securite, triage,
-  correcteur). L'orchestrateur est la session principale ; il fournit à chaque appel branche,
-  worktree, isolation Docker, tickets et date. Tableau et flux : `docs/03-organisation-agents.md`.
+  correcteur). L'orchestrateur est la session principale (rôle `main` des hooks) ; il fournit à
+  chaque appel branche, worktree, isolation Docker, tickets et date, fusionne les lots dans
+  `develop` et est le seul à pousser, uniquement `develop` vers `origin`. Tableau et flux :
+  `docs/03-organisation-agents.md`.
 - Un test se protège, il ne se négocie pas. Interdits à tout agent : modifier ou supprimer un test
   existant, ajouter un marqueur de saut ou de focus de Vitest ou un commentaire d'ignore de
   couverture, coder en dur une sortie pour une entrée de test, surcharger une comparaison, garder
@@ -193,15 +195,24 @@ et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docke
 
 ## Flux git et interdictions
 
-- Branche d'intégration : `v3/backend`. Une branche et un worktree par lot
-  (`lot/N-nom`). Fusion par l'orchestrateur en `--no-ff` après recette.
+- Git flow (décision de Julien du 19 nov. 2026). Branche d'intégration permanente : `develop` ;
+  production : `main`. Une branche et un worktree par lot (`lot/N-nom`), créés depuis `develop`.
+  Fusion dans `develop` par l'orchestrateur en `--no-ff` après recette.
+- Push : seule la session principale pousse, et uniquement `develop` vers `origin`
+  (`git push origin develop`, `-u` ou `--set-upstream` admis). Les hooks refusent toute autre forme
+  (`.claude/hooks/README.md`, « git push »). Aucun agent spécialisé ne pousse.
+- Réservé à Julien : toute fusion dans `main` (branches `release/*` et `hotfix/*`), les étiquettes
+  de version, le push de `main` et le lancement du déploiement (`scripts/deploy/` refuse un dépôt
+  qui n'est pas sur `main`). Aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse
+  d'étiquette, ne supprime de branche distante, ne force un push.
 - Commits atomiques, un par micro-tâche, Conventional Commits en français :
   `feat(api): …`, `feat(contracts): …`, `feat(db): …`, `test(api): …`, `chore: …`, `docs: …`.
   Chaque message se termine par une ligne vide puis
   `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Aucun commit si `lint`, `typecheck` et `test` ne passent pas (hook pre-commit) ; les e2e
   doivent aussi passer avant de livrer un lot (`pnpm check`).
-- JAMAIS de `git push` par un agent. Jamais de `--no-verify`, jamais de `git stash` nu.
+- JAMAIS de `git push` par un agent. Jamais de `--no-verify`, jamais de `git stash` nu, jamais de
+  push forcé.
 - Aucun e-mail, téléphone ou donnée personnelle de Julien dans le dépôt (code, SQL, tests,
   docs) : placeholders uniquement.
 - Traductions EN du contenu : produites par l'agent base de données (lot 1) dans les seeds et
