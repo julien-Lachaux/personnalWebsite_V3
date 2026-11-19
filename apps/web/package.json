@@ -16,7 +16,8 @@
     "lint": "eslint . --max-warnings 0",
     "typecheck": "vue-tsc -b --noEmit",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "nuxt generate && playwright test"
   },
   "dependencies": {
     "@nuxtjs/i18n": "10.6.0",
