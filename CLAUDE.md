@@ -51,6 +51,15 @@ scripts/ci/               check-tests-integrity.sh : intégrité des tests (CI e
   (`Schema.safeParse`) dans le controller.
 - Le SQL de `db/migrations` est la source de vérité ; le schéma Drizzle en découle, jamais
   l'inverse. Pas de `drizzle-kit generate`.
+- Soft delete partout (docs/01, lot 9) : chaque table d'entité porte `deleted_at timestamptz null`,
+  distinct de `published`. Le seed marque une entité disparue des fichiers et démarque une entité
+  revenue ; un dépôt ne sert jamais une ligne marquée (`deleted_at is null` dans toute requête) ni ses
+  traductions et liaisons. Aucune suppression physique dans le code : purge manuelle par `db:deleted:*`.
+- Repli de langue par ligne (docs/01, lot 9) : `translated(en, fr, 'champ')` sert la ligne `en` entière
+  si elle existe, sinon la ligne `fr` entière ; jamais de mélange dans une entité. Une traduction `en`
+  d'une entité publiée doit être complète, le seed échoue sinon.
+- Méthode non déclarée sur une route existante : 405 problem+json avec `Allow: GET, HEAD, OPTIONS`,
+  produit par l'API (parité dev/prod) ; route inconnue : 404.
 - Erreurs : le domaine lève des `DomainError` (`EntityNotFoundError` → 404). Le code HTTP
   lève des `HttpException` Nest. Le filtre global `ProblemDetailsFilter` traduit tout en
   RFC 9457 `application/problem+json` ; une erreur inattendue donne un 500 au détail
@@ -120,6 +129,9 @@ pnpm db:up                   # postgres de dev (docker compose)
 pnpm db:migrate              # applique db/migrations (checksum, transaction par fichier)
 pnpm db:seed                 # rejoue db/seeds (idempotents) ; refusé si une migration est en attente
 pnpm db:reset                # drop schema public + migrate + seed (refusé en production)
+pnpm db:deleted:list         # entités marquées deleted_at (soft delete), par table, avec la date
+pnpm db:deleted:purge --older-than <jours> [--confirm]   # purge physique manuelle ; simulation sans --confirm ;
+                             # refusée en production sans ALLOW_PRODUCTION_PURGE=yes
 pnpm db:test:up              # postgres de test
 pnpm dev                     # compile les contrats puis API en watch sur http://localhost:3000/api/v1
 pnpm lint | typecheck | test | test:e2e | build

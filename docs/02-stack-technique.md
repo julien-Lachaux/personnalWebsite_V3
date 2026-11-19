@@ -24,8 +24,11 @@ Toujours les versions majeures les plus récentes de chaque brique (vérifiées 
 ### Parité développement / production
 Aucun écart fonctionnel entre dev et prod (décision du 19 nov. 2026) : ce que l'API répond en production,
 elle le répond en développement, pour faciliter le débogage et éviter les bugs non reproductibles.
-Les protections posées par Caddy (405 sur les écritures, limite de taille de corps, en-têtes de sécurité,
-CSP) sont d'abord implémentées dans l'API ; Caddy ne fait que les doubler en première ligne.
+Les protections posées par Caddy (limite de taille de corps, en-têtes de sécurité, CSP) sont d'abord
+implémentées dans l'API ; Caddy ne fait que les doubler en première ligne (en-têtes posés seulement si
+l'API ne l'a pas fait, écritures transmises à l'API qui répond elle-même 405). Écarts résiduels connus,
+consignés dans `docs/deploiement.md` : les réponses produites par Caddy lui-même avant l'API (URL mal
+encodée 400, corps trop grand 413, API injoignable 502) sortent en `text/plain`, pas en problem+json.
 ## Règles « Rust-friendly »
 - Architecture hexagonale : `domain` (types, règles, aucune dépendance Nest), `application`
   (cas d'usage), `infrastructure` (Drizzle, HTTP). Nest n'apparaît que dans `infrastructure/http`.
