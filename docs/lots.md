@@ -22,7 +22,7 @@ référence dans `docs/01` à `docs/03`. Rien n'est poussé sur GitHub à ce jou
 | 8 | Agents spécialisés et garde-fous | lead-architecte, Opus | b16f9e7 | 30 tests hooks, 19 cas d'intégrité |
 | 9 | Décisions du 19 novembre | correcteur (agent du dépôt), Sonnet | c4af5fd | 859 tests API, 100 % |
 | 10 | Pile locale complète avec Caddy | dev-devops (agent du dépôt), Sonnet | ecb6d7f | 561 e2e avec la pile, 100 % |
-| 11 | Test par mutation, phase 1 | lead-architecte (agent du dépôt) | en cours | |
+| 11 | Test par mutation, phase 1 | lead-architecte (agent du dépôt), Opus | fusionné | score de référence 32 % (contrats et API) |
 
 ## Lot 0 : fondations
 
@@ -173,12 +173,25 @@ référence dans `docs/01` à `docs/03`. Rien n'est poussé sur GitHub à ce jou
   l'orchestrateur, aucun contournement de l'agent), acceptée en seconde recette. Sur ce poste, le port
   8080 est pris par la V2 : ports surchargeables dans le fichier d'environnement local.
 
-## Lot 11 : test par mutation, phase 1 (en cours)
+## Lot 11 : test par mutation, phase 1, mesure de référence
 
 - **Décision** : la couverture à 100 % ne protège pas les assertions ; cadrage en trois phases validé.
-- **Attendu** : Stryker Mutator 10.1.1 intégré au monorepo, mesure de référence sur les contrats et
-  les unitaires de l'API, classement des survivants, estimation de la durée sur les e2e, aucune règle
-  imposée à ce stade. Phase 2 : règle « aucun mutant survivant non justifié ». Phase 3 : e2e.
+- **Livré** : Stryker Mutator 10.1.1 épinglé, une configuration commentée par paquet, `pnpm
+  test:mutation` (paquets et racine, hors `pnpm check`, hors pre-commit, hors CI pour cette phase),
+  rapports dans `reports/mutation/` ignorés par git ; configurations Stryker et futur fichier de
+  mutants équivalents protégés comme oracles par les hooks et le script d'intégrité (11 tests).
+  Trois incompatibilités corrigées (chargement des greffons sous pnpm, racine de la sandbox, chemins
+  du vérificateur TypeScript) et un défaut de Stryker identifié : l'option `testFiles` fausse la mesure
+  des mutants statiques, donc on ne l'utilise pas.
+- **Mesure** (Ryzen 7 3700X, 8 cœurs) : contrats 483 mutants, score 32,1 % en 3 min 38 ; API
+  unitaires 1598 mutants, score 32,3 % (51 % sur le code couvert par les unitaires) en 8 min 41.
+  Survivants des contrats : surtout des libellés du document OpenAPI (259) et 25 assertions faibles.
+  Survivants de l'API : 239 ne peuvent être tués que par les e2e (schéma Drizzle, filtres `published`,
+  constantes HTTP), 42 équivalents probables, 25 assertions faibles, 15 libellés, 8 branches
+  défensives, plus 387 mutants sans couverture unitaire. Passage e2e sous Stryker estimé entre 2 et 3 h
+  avec une base par processus, 11 à 16 h avec une seule base.
+- **Phase 2 à cadrer** : portée de la règle (unitaires seuls d'abord), motifs d'exclusion à confirmer,
+  seuil de rupture initial à 32, test d'instantané du document OpenAPI pour les contrats.
 
 ## Transverse
 
