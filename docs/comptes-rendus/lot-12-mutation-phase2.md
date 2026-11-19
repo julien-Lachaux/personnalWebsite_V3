@@ -72,6 +72,10 @@ les paramètres de connexion et le SQL émis, sans base.
 
 Aucune : tout a été ajouté dans de nouveaux fichiers. L'autorisation MUT-2 n'a pas servi.
 
+### Renvoi de recette (problem-details.ts:53)
+
+Le mutant ConditionalExpression `typeof response === 'object' && 'message' in response` -> `true` (`detailOf`) survivait. Il n'est pas équivalent : avec `new HttpException(undefined as never, 500)`, le code d'origine rend un 500 sans `detail`, le mutant lève un TypeError. Test ajouté, nouveau fichier : `apps/api/src/infrastructure/http/problem/problem-details.no-message.spec.ts` (2 cas : réponse `undefined` en 500, réponse objet sans `message` en 503, toutes deux sans `detail`). Mutation rejouée en entier : le mutant est tué (« Cannot use 'in' operator to search for 'message' in undefined »). Contrats 100,00 % (418 tués, 0 survivant) ; API 40,87 % total, 67,93 % couvert (374 tués, 20 timeout, 186 survivants, 384 sans couverture, break 40 atteint, inchangé). `pnpm check` vert.
+
 ## Survivants restants (API, 281) : classement pour le lead-architecte
 
 Contrats : aucun survivant, aucun sans couverture.
