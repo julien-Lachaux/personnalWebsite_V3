@@ -223,7 +223,7 @@ describe('Erreurs au format RFC 9457 (problem+json)', () => {
 
       expectProblem(response, 400);
       expect(response.headers['x-content-type-options']).toBe('nosniff');
-      expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
+      expect(response.headers['x-frame-options']).toBe('DENY');
     });
 
     it('une URL mal encodée sur une autre route et avec un octet invalide (%E0%A4%A) : même réponse', async () => {

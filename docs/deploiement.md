@@ -118,8 +118,11 @@ vérification. Le journal d'accès contient des adresses IP : sa rotation est bo
   OPTIONS` ; sur une route inconnue, un 404. Tout corps est plafonné à 1 Kio (Caddy, et l'API en double).
 - Réponses sans `Server` ni `Via` (le logiciel n'est pas annoncé), y compris la redirection HTTP vers HTTPS
   (écrite à la main dans le `Caddyfile` ; `PUBLIC_HTTPS_PORT`, alimenté par `HTTPS_PORT`, fixe son port).
-- `Content-Security-Policy` : `default-src 'none'; frame-ancestors 'none'` sous `/api/*`, `default-src 'self'`
-  pour la page statique. À adapter quand le front sera servi.
+- En-têtes de sécurité sous `/api/*` : `X-Frame-Options: DENY` et `Content-Security-Policy: default-src
+  'none';frame-ancestors 'none'` sont posés par l'API (helmet). Le `Caddyfile` les double avec les mêmes
+  valeurs et le préfixe `?` (posé seulement si l'API ne l'a pas fait) : jamais deux valeurs divergentes.
+  Pour la page statique : `default-src 'self'` et `X-Frame-Options: SAMEORIGIN`. À adapter quand le front
+  sera servi.
 
 ## Rôles PostgreSQL
 

@@ -62,15 +62,15 @@ describe('En-têtes de sécurité', () => {
 
     expect(statusCode).toBe(200);
     expect(headers['x-content-type-options']).toBe('nosniff');
-    // Livré : SAMEORIGIN (défaut helmet). Décision ouverte P9 : DENY ; ce test serait à ajuster.
-    expect(headers['x-frame-options']).toBe('SAMEORIGIN');
+    // DEC-3 (docs/01, docs/02) : DENY, et une CSP posée par l'API elle-même (parité dev/prod).
+    expect(headers['x-frame-options']).toBe('DENY');
     expect(headers['referrer-policy']).toBe('no-referrer');
     expect(headers['strict-transport-security']).toMatch(/^max-age=\d+/u);
     expect(headers['x-powered-by']).toBeUndefined();
     // Pas de `server` du tout (Fastify n'en émet pas) : ni nom ni version de la pile.
     expect(headers.server).toBeUndefined();
-    // Choix du lot 0 : API JSON, pas de CSP. Si P9 en impose une, inverser cette assertion.
-    expect(headers['content-security-policy']).toBeUndefined();
+    // API JSON : rien à charger ni à afficher dans un cadre.
+    expect(headers['content-security-policy']).toBe("default-src 'none';frame-ancestors 'none'");
   });
 
   it('les réponses d’erreur applicatives gardent les en-têtes de sécurité', async () => {
@@ -78,7 +78,7 @@ describe('En-têtes de sécurité', () => {
 
     expectProblem(response, 400);
     expect(response.headers['x-content-type-options']).toBe('nosniff');
-    expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
+    expect(response.headers['x-frame-options']).toBe('DENY');
     expect(response.headers['x-powered-by']).toBeUndefined();
   });
 

@@ -19,10 +19,19 @@ export const GLOBAL_PREFIX = 'api/v1';
  */
 export const MAX_BODY_BYTES = 1024;
 
+/**
+ * Politique de sécurité de contenu de l'API (docs/02) : des réponses JSON, rien à charger ni à
+ * afficher dans un cadre. Posée par l'API ; `docker/Caddyfile` ne fait que la doubler, sans la
+ * contredire (la valeur de Caddy ne s'applique que si l'API n'en a pas posé).
+ */
+const CSP_DIRECTIVES = { defaultSrc: ["'none'"], frameAncestors: ["'none'"] };
+const CONTENT_SECURITY_POLICY = "default-src 'none';frame-ancestors 'none'";
+
 /** En-têtes de sécurité des réponses que helmet ne voit pas (erreurs levées avant le routage). */
 const FRAMEWORK_ERROR_HEADERS = {
   'x-content-type-options': 'nosniff',
-  'x-frame-options': 'SAMEORIGIN',
+  'x-frame-options': 'DENY',
+  'content-security-policy': CONTENT_SECURITY_POLICY,
   'referrer-policy': 'no-referrer',
   'cross-origin-resource-policy': 'same-origin',
 } as const;
@@ -63,8 +72,11 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
     { logger: options.logger ?? ['error', 'warn', 'log'] },
   );
 
-  // En-têtes de sécurité (CSP inutile sur une API JSON, le reste reste actif).
-  await app.register(helmet, { contentSecurityPolicy: false });
+  // En-têtes de sécurité : X-Frame-Options DENY et CSP « rien » (docs/01, docs/02), le reste par défaut.
+  await app.register(helmet, {
+    contentSecurityPolicy: { useDefaults: false, directives: CSP_DIRECTIVES },
+    frameguard: { action: 'deny' },
+  });
 
   // Rate limiting global léger par IP (en-têtes x-ratelimit-*, 429 problem+json via le filtre).
   // `global: false` + un hook `onRequest` racine plutôt que l'accroche par route du plugin : le
