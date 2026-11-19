@@ -84,15 +84,18 @@ nominative des garde-fous. Aucun agent n'a l'outil `Agent` : aucun ne lance de s
 
 | Agent | Mission | Écrit | Modèle, effort |
 |---|---|---|---|
-| lead-architecte | Fondations, fichiers partagés, outillage de test, de CI et garde-fous, arbitrage | tout le dépôt (oracles sous autorisation) | Opus, high |
+| lead-architecte | Fondations, fichiers partagés (back et front `apps/web`), outillage de test, de CI et garde-fous, arbitrage | tout le dépôt (oracles sous autorisation) | Opus, high |
 | chef-de-projet | Backlog, recette d'un lot (critères et processus), recette finale depuis un clone, synthèses, points de contrôle | backlog et comptes rendus seulement | Sonnet, medium (Opus à l'appel pour la recette finale) |
 | dev-sql | Migrations, seeds, runner, traductions EN « à relire » | `db/`, runner et CLI, nouveaux tests | Sonnet, medium |
 | dev-contrats | Schémas Zod, OpenAPI 3.2.0, nullabilité alignée sur le SQL | `packages/contracts/src/<resource>/` | Sonnet, medium |
 | dev-api | Une ressource hexagonale, règle « modules isolés », tests à 100 % | dossiers de sa ressource | Sonnet, high |
-| dev-devops | Docker, compose prod, Caddy, CI, déploiement, durcissement | `docker/`, `scripts/deploy/`, CI sous autorisation | Sonnet, low |
+| dev-devops | Docker, compose prod, Caddy, CI, déploiement, durcissement ; build statique du front, CSP | `docker/`, `scripts/deploy/`, CI sous autorisation | Sonnet, low |
+| dev-front | Un élément de base, une section ou un service du front : composants Vue accessibles, logique pure dans `app/domain/`, tests unitaires et de composants à 100 %, règle « modules isolés » du front | ses dossiers d'`apps/web` | Sonnet, high |
 | qa | Matrices, conformité OpenAPI, sécurité HTTP, couverture, tests en échec attendu des défauts | tests seulement | Sonnet, medium |
-| revue-code | Revue adversariale en lecture seule, chaque finding reproduit, quatre contournements par le code | `docs/revues/code-<date>.md` | Opus, high |
-| revue-securite | Même méthode, grille sécurité, constats sans charge utile | `docs/revues/securite-<date>.md` | Opus, high |
+| qa-front | Parcours Playwright, matrice taille × thème × langue avec axe, régression visuelle, tests en échec attendu des défauts du front | tests seulement | Sonnet, medium |
+| revue-code | Revue adversariale en lecture seule, chaque finding reproduit, quatre contournements par le code ; grille Vue/Nuxt | `docs/revues/code-<date>.md` | Opus, high |
+| revue-securite | Même méthode, grille sécurité, constats sans charge utile ; CSP, dépendances et bundle du front | `docs/revues/securite-<date>.md` | Opus, high |
+| revue-a11y | Audit WCAG 2.2 AA / RGAA adversarial en lecture seule : clavier, arbre d'accessibilité, contrastes calculés, mouvement, zoom ; chaque finding constaté par une commande | `docs/revues/a11y-<date>.md` | Opus, high |
 | triage | Rejoue, rejette les faux positifs, fusionne, ordonne, établit si un test est faux | `docs/revues/triage-<date>.md` | Sonnet, medium |
 | correcteur | Corrige une liste de findings, un commit par finding, deux `pnpm check` verts sur base neuve ; seul à modifier un test établi faux | fichiers des findings | Sonnet, medium |
 

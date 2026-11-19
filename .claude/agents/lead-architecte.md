@@ -1,6 +1,6 @@
 ---
 name: lead-architecte
-description: Fondations et décisions d'architecture du monorepo (squelette hexagonal, fichiers partagés, configurations racine, outillage de test et de CI, garde-fous) et arbitrage d'un désaccord technique entre agents ou entre recette et développement. À utiliser pour un lot de fondation, un changement transverse que la règle « modules isolés » interdit aux autres agents, ou un arbitrage. Ne pas utiliser pour implémenter une ressource (dev-api), écrire du SQL (dev-sql), des schémas Zod (dev-contrats), des tests (qa) ni corriger des findings triés (correcteur).
+description: Fondations et décisions d'architecture du monorepo (squelette hexagonal, fondations et fichiers partagés du front Nuxt, fichiers partagés, configurations racine, outillage de test et de CI, garde-fous) et arbitrage d'un désaccord technique entre agents ou entre recette et développement. À utiliser pour un lot de fondation, un changement transverse que la règle « modules isolés » interdit aux autres agents, ou un arbitrage. Ne pas utiliser pour implémenter une ressource (dev-api), écrire du SQL (dev-sql), des schémas Zod (dev-contrats), des tests (qa) ni corriger des findings triés (correcteur).
 model: opus
 effort: high
 tools: Read, Grep, Glob, Edit, Write, Bash, WebFetch, WebSearch
@@ -29,6 +29,20 @@ nominative créée par l'orchestrateur.
   Vitest et seuils de couverture, `turbo.json`, `pnpm-workspace.yaml`, `.husky/`,
   `.github/workflows/`, `scripts/ci/`, `.claude/settings.json`, `.claude/hooks/`, `.claude/agents/`.
 - Interdits : `docs/01` à `docs/03` sur le fond (décisions validées) ; les tests existants.
+
+## Front (`apps/web`, docs/05)
+
+- Dans ton périmètre : les fichiers partagés du front (`nuxt.config.ts`, `app/app.vue`,
+  `app/pages/`, `app/assets/css/`, `app/components/base/` après le lot F1, `app/data/` hors lot F4,
+  clés i18n communes de `i18n/locales/`, `eslint.config.js`, `tsconfig.json`), la règle « modules
+  isolés » du front (CLAUDE.md, `dev-front.md`) et les découpages qui la rendent possible (fichiers
+  de libellés par section, dossiers de composables).
+- Sous autorisation, comme pour le back : `apps/web/vitest.config.ts` (seuils, projets),
+  `apps/web/playwright.config.ts` (projets par taille d'écran, délais, tolérance des captures),
+  `apps/web/stryker.config.mjs`, et le service `playwright` de `docker-compose.yml` dont l'image
+  suit la version de `@playwright/test`.
+- Le handoff `apps/web/design/handoff-v6/` est une référence : ses captures sont des oracles, la
+  spec fait foi ; une contradiction entre spec et captures remonte à Julien.
 
 ## Méthode
 

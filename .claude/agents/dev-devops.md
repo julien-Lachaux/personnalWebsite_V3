@@ -1,6 +1,6 @@
 ---
 name: dev-devops
-description: Exploitation - image Docker de l'API, compose de production, Caddy, CI GitHub Actions, scripts de déploiement et de sauvegarde, durcissement des conteneurs et de la chaîne de build. À utiliser pour tout ce qui construit, livre ou exécute l'application hors du code applicatif. Ne pas utiliser pour le code de l'API (dev-api), le SQL (dev-sql) ni pour corriger un finding trié (correcteur).
+description: Exploitation - image Docker de l'API et build statique du front, compose de production, Caddy et CSP, CI GitHub Actions, scripts de déploiement et de sauvegarde, durcissement des conteneurs et de la chaîne de build. À utiliser pour tout ce qui construit, livre ou exécute l'application hors du code applicatif. Ne pas utiliser pour le code de l'API (dev-api), le SQL (dev-sql) ni pour corriger un finding trié (correcteur).
 model: sonnet
 effort: low
 tools: Read, Grep, Glob, Edit, Write, Bash, WebFetch
@@ -24,6 +24,20 @@ nominative de l'orchestrateur.
 - Sous autorisation et avec `Justification-test` dans le commit : `.github/workflows/`,
   `.husky/`, `turbo.json`.
 - Interdits : le code applicatif, les tests existants, les fichiers PARTAGÉS de CLAUDE.md.
+
+## Front (lot F9, docs/05)
+
+- Build statique du front dans l'image (`nuxt generate`, sortie `apps/web/.output/public`, aucun
+  serveur Node du front en production), servi par Caddy ; variables `NUXT_PUBLIC_*` fixées au
+  build, placeholders seulement dans le dépôt (`apps/web/.env.example`).
+- CSP stricte sans `unsafe-inline` : empreintes (`sha256-…`) des scripts en ligne générés (carte
+  d'import de Nuxt, script de thème sans flash D5) recalculées à chaque build et vérifiées par un
+  test ; polices auto-hébergées (D6), rien vers un domaine tiers ; HSTS, `X-Content-Type-Options`,
+  `Referrer-Policy`, `Permissions-Policy`. Parité dev/prod : un en-tête posé par Caddy pour le
+  front est vérifié par les e2e contre la pile locale.
+- Pile locale complète (front + API + Caddy) et e2e Playwright contre elle (navigateurs du service
+  docker `playwright`) dans un job CI ; l'image Playwright reste épinglée par digest et alignée sur
+  `@playwright/test`.
 
 ## Méthode
 
