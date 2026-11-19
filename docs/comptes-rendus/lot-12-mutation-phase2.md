@@ -153,3 +153,170 @@ candidats à la phase 3 (comparaison à `information_schema`).
   3 à 4 fois plus sur 4 cœurs (voir lot 11), ou le mode `incremental` de Stryker.
 - **e2e** : cette branche compte 41 fichiers et 552 tests e2e contre 39 et 544 annoncés au lot 11 ;
   écart déjà présent sur `v3/backend` (je n'ai touché à aucun e2e), à signaler à qui tient la synthèse.
+
+---
+
+# Règle (compte rendu du lead-architecte)
+
+Même branche, même isolation Docker (`siteperso-v3-lot12`, 5812 / 5813). Autorisation nominative
+`03f7f3f9` (ticket MUT-2, portée « config ») : `stryker.config.mjs` et `stryker.equivalents.json`
+des deux paquets, `.github/workflows/ci.yml`, `scripts/ci/**`, `.claude/hooks/tests/**`. Chaque
+commit qui touche une configuration protégée ou ajoute une directive `Stryker disable` porte
+`Justification-test: MUT-2 …`. Aucun test existant, aucun test e2e modifié ; `.claude/hooks/lib/
+policy.mjs` et `turbo.json` non touchés (pas nécessaires).
+
+## Scores finaux et seuils
+
+`pnpm test:mutation` à la racine, 16 fils (Ryzen 7 3700X, WSL2), après les étapes ci-dessous.
+
+| Paquet               | Mutants | Tués | Timeouts | Survivants | Sans couverture | Ignorés | Erreurs de compilation | Score total | Score couvert | Seuil (`high` / `low` / `break`) | Durée      |
+| -------------------- | ------: | ---: | -------: | ---------: | --------------: | ------: | ---------------------: | ----------: | ------------: | -------------------------------- | ---------- |
+| `packages/contracts` |     483 |  418 |        0 |          0 |               0 |       0 |                     65 |    100,00 % |      100,00 % | 100 / 100 / **100**              | 2 min 36 s |
+| `apps/api` (unit)    |    1598 |  373 |       20 |        187 |             384 |     208 |                    426 |     40,77 % |       67,76 % | 80 / 40 / **40**                 | 7 min 37 s |
+
+Passage final avec seuils (code 0). Le passage précédent, sans seuil, donnait 372 tués et 21 timeouts
+(un mutant classé tantôt tué, tantôt en délai dépassé) pour le même score. API avant ce travail
+(fin de la section Tests) : 37,15 % (couvert 58,31 %), 281 survivants.
+
+**Score qui sert de seuil.** Stryker compare `thresholds.break` au score TOTAL non arrondi
+(`metrics.mutationScore`, lu dans `@stryker-mutator/core` 10.1.1,
+`reporters/mutation-test-report-helper.js`, `determineExitCode`) :
+total = (tués + timeouts) / (tués + timeouts + survivants + sans couverture) ;
+couvert = (tués + timeouts) / (tués + timeouts + survivants), sans les mutants qu'aucun test
+unitaire n'exécute. `coverageAnalysis: 'perTest'` ne lance chaque mutant qu'avec les tests qui
+l'exécutent, mais ne retire rien du score total. Erreurs de compilation et mutants ignorés sortent
+des deux. Le seuil porte donc sur le total : il compte la réserve de la phase 3, et le score couvert
+n'est qu'informatif. `break` = score obtenu arrondi à l'entier inférieur ; `low` = `break` (rouge =
+échec) ; `high` = 100 pour les contrats (état atteint), 80 pour l'API (défaut de Stryker, visé après
+la phase 3).
+
+## Équivalents déclarés (`apps/api/stryker.equivalents.json`)
+
+Dix « équivalents probables » remis par le QA (sa liste en annonçait 15, mais n'en détaille que 10 :
+22 survivants hors schéma = 10 + 11 e2e + 1 journal). Chacun relu ; le lexeur SQL vérifié en plus
+par comparaison exhaustive (script jetable, copie de `splitSqlStatements` et de ses mutants) :
+19 173 961 textes de 8 caractères au plus sur `' " ; a espace - \n $` pour les mutants de
+`skipQuoted`, 960 800 textes de 7 caractères au plus pour les deux expressions de `statementVerb` :
+aucune différence.
+
+| Id        | fichier:ligne (code actuel)       | Mutant                                      | Traitement                  | Justification (une phrase) |
+| --------- | --------------------------------- | ------------------------------------------- | --------------------------- | -------------------------- |
+| API-EQ-01 | `config/env.schema.ts:77`         | `.default('false')` → `.default("")`        | ignoré par directive        | `TrustProxySchema` rend `false` pour `''` comme pour `'false'`. |
+| API-EQ-02 | `db/sql-statements.ts:60`         | `index < content.length` → `<=`             | survivant déclaré           | À la borne, `charAt` rend `''`, la boucle sort et la fonction rend `content.length`. |
+| API-EQ-03 | `db/sql-statements.ts:63`         | `charAt(index + 1) === quote` → `false`     | survivant déclaré           | Fermer la chaîne puis la rouvrir sur le délimiteur doublé découpe aux mêmes positions. |
+| API-EQ-04 | `db/sql-statements.ts:63`         | `content.charAt(index + 1)` → `content`     | ignoré par directive        | `content === quote` est toujours faux à cet endroit (texte d'un caractère impossible). |
+| API-EQ-05 | `db/sql-statements.ts:63`         | bloc `{ index += 2; continue; }` → `{}`      | ignoré par directive        | Même fermeture puis réouverture qu'API-EQ-03. |
+| API-EQ-06 | `db/sql-statements.ts:79`         | `\s+` → `\s`                                | survivant déclaré           | Le `+` extérieur répète déjà le groupe : même préfixe retiré. |
+| API-EQ-07 | `db/sql-statements.ts:79`         | `(?:\n\|$)` → `(?:\n)`                      | survivant déclaré           | Un `--` final sans saut de ligne ne donne de verbe ni retiré ni laissé en tête. |
+| API-EQ-08 | `http/problem/problem-details.ts:31` | `code <= 599` → `true`                   | survivant déclaré           | Seul usage derrière `fastifyStatus < 500` : même 500 générique. |
+| API-EQ-09 | `http/problem/problem-details.ts:31` | `code <= 599` → `code < 599`             | survivant déclaré           | Seul 599 change de branche, et les deux mènent au 500 générique. |
+
+« Ignoré par directive » : `// Stryker disable next-line <Mutateur>: API-EQ-NN …` au-dessus de la
+ligne (`env.schema.ts:76`, `sql-statements.ts:62`), statut Ignored dans le rapport.
+« Survivant déclaré » : Stryker ne désactive que par ligne et par mutateur ; la directive aurait
+aussi ignoré 15 mutants aujourd'hui TUÉS de ces lignes (1 sur l.60, 1 sur l.63, 9 `Regex` sur l.79,
+4 sur l.31). Ces six restent Survived, comptés dans le score total et justifiés par le fichier.
+`packages/contracts/stryker.equivalents.json` est créé vide (aucun survivant).
+
+**Renvoyé « à tester » (pas équivalent) :** `problem-details.ts:53`, `typeof response === 'object'`
+→ `true` (le QA le croyait équivalent). Démonstration : avec une `HttpException` dont la réponse est
+`undefined` (ou un nombre), que Nest admet à l'exécution (`http.exception.js` teste `isString`
+puis `isObject`), l'original rend un problème sans `detail`, le mutant évalue
+`'message' in undefined` et lève un `TypeError` (`node -e "'message' in undefined"`). Test à écrire
+par la qa : `toProblemDetails(new HttpException(undefined as never, 500), '/x')` rend un 500 sans
+`detail`. Défaut latent voisin à signaler : une réponse `null` lève déjà un `TypeError` dans le code
+actuel (`typeof null === 'object'`), à trancher par un dev (`response !== null`).
+
+## Exclusions par motif (`apps/api/stryker.config.mjs`, greffons `ignorers`)
+
+Deux greffons « ignorer » déclarés dans la configuration elle-même (`export const strykerPlugins`,
+le fichier se charge comme greffon par `plugins: [..., import.meta.url]`), documentés en tête du
+fichier avec leurs effectifs. Effectifs mesurés en rejouant l'instrumentation de Stryker sur les
+1598 mutants du rapport de référence, puis confirmés par le passage complet.
+
+| Motif | Portée exacte | Écartés | Dont survivants | Dont tués |
+| ----- | ------------- | ------: | --------------: | --------: |
+| 1. Métadonnées déclaratives du schéma Drizzle | nœuds dans les arguments de `pgTable`, `pgEnum`, `customType` importés de `drizzle-orm/pg-core`, sauf ceux qui contiennent un nom de table (1er argument de `pgTable`) ou de colonne (1er argument du constructeur de colonne) | 204 | 90 | 0 (114 erreurs de compilation) |
+| 2. Contexte des messages de journal | premier argument littéral de `new Logger(…)` | 1 | 1 (`send-problem.ts:7`) | 0 |
+
+Les noms de tables (23) et de colonnes (146) restent mutés et survivent : réserve de la phase 3
+(`test/db/schema-matches-db.e2e-spec.ts`). Le contexte statique `Logger.log(…, 'Bootstrap')` de
+`main.ts` n'est pas écarté (il est tué).
+
+## Réserve de la phase 3 (non traitée, consigne)
+
+- 384 mutants sans couverture unitaire (seeds-convergence 123, deleted-entities 91, seeds-runner 39,
+  create-app 37, migrations-runner 33, provision-api-role 33, reset-database 13, dépôts 15).
+- 180 survivants qui relèvent des e2e : 169 noms SQL du schéma, 4 filtres `published` des dépôts,
+  7 constantes de `create-app.ts` (préfixe `api/v1`, directives CSP).
+- Plus, hors réserve : 6 équivalents « survivants déclarés » et 1 survivant « à tester ».
+
+## CI et garde-fous
+
+- Job `mutation` dans `.github/workflows/ci.yml` : actions épinglées par SHA (mêmes que les autres
+  jobs), `pnpm test:mutation`, artefact `mutation-html` (deux rapports HTML, 14 jours, même en
+  échec), `timeout-minutes: 45`, hors `pnpm check`.
+- `scripts/ci/check-tests-integrity.sh` : (5) directive `Stryker disable` ajoutée dans un fichier
+  JS/TS sans commit justifié qui touche le fichier → échec ; (6) dans tout l'arbre suivi, directive
+  qui ne cite pas un identifiant `<PAQUET>-EQ-<n>` déclaré dans un `stryker.equivalents.json` →
+  échec. `stryker.equivalents.json` était déjà un oracle « config » (lot 11) : vérifié par
+  `stryker-oracles.test.mjs`.
+- Tests : `scripts/ci/tests/stryker-disable.test.sh` (8 cas ; 6 échouent contre l'ancien script) et
+  `.claude/hooks/tests/stryker-disable.test.mjs` (5 cas). `integrity:test` (package.json) et l'étape
+  CI lancent désormais tous les `scripts/ci/tests/*.test.sh`.
+
+## Preuves (critère → commande)
+
+| Critère | Preuve |
+| ------- | ------ |
+| Équivalents vérifiés et déclarés | `apps/api/stryker.equivalents.json` ; rapport JSON : 3 `Ignored` aux raisons `API-EQ-…` |
+| Deux exclusions par motif | rapport JSON : 204 `Ignored` « Motif 1 », 1 « Motif 2 » |
+| Seuils au score obtenu | `pnpm test:mutation` : « Final mutation score of 100.00 is greater than or equal to break threshold 100 » et « 40.77 … 40 », code 0 |
+| Garde-fou des directives | `pnpm integrity:test` (19 + 8 réussis), `pnpm hooks:test` (46 réussis) |
+| Intégrité de la branche | `pnpm integrity v3/backend` : OK |
+| Livraison | `pnpm check` vert deux fois, `docker compose down -v` entre les deux, puis `pnpm db:down` |
+
+## Décisions
+
+- **Greffons « ignorer » dans la configuration** plutôt que `mutate: ['!src/infrastructure/db/schema/**']` :
+  la négation de fichiers aurait aussi écarté les noms de tables et de colonnes, que le cadrage
+  garde pour la phase 3. Plutôt qu'un fichier de greffon à part : il aurait été une nouvelle
+  configuration protégée hors de l'autorisation, et la configuration se charge elle-même.
+- **Schéma reconnu par l'import de `pg-core`**, pas par le nom de fichier : en 10.1.1, `path.hub` est
+  vide dans les greffons (vérifié par sonde), Babel ne leur transmet pas le nom du fichier. Si le
+  greffon cessait de fonctionner (mise à jour de Stryker ou de Babel), 91 survivants
+  reviendraient, le score tomberait à 37,25 % et `break` 40 ferait échouer le job : la panne est
+  visible.
+- **Six équivalents laissés survivants déclarés** plutôt qu'ignorés : la directive, par ligne et
+  par mutateur, aurait retiré 15 mutants tués de la mesure.
+- **`high` 80 pour l'API** (défaut de Stryker) plutôt que 100 : six survivants déclarés rendent 100
+  inatteignable ; 80 marque l'objectif après la phase 3.
+- **`integrity:test` élargi à tous les `*.test.sh`** plutôt qu'un second test dans
+  `.claude/hooks/tests` seulement (choix du lot 11) : la mission demandait un test dans
+  `scripts/ci/tests`, et un fichier nommé n'aurait pas été lancé. Changement d'un script de test de
+  `package.json` : porté par un commit `Justification-test: MUT-2` (le script d'intégrité l'exige).
+- **Pas de blocage des directives par les hooks** (couche 1) : il faudrait modifier `guard.mjs`
+  (hors autorisation) et une portée d'autorisation sur un fichier de production, que
+  `authorize.mjs` refuse. La couche 2 (intégrité, en CI et dans `pnpm check`) les refuse.
+- **`prettier` 3.10.1 en devDependency de `@siteperso/contracts`** (point ouvert du QA, fichier
+  partagé) : appliqué en commit dédié.
+
+## Non fait
+
+- Aucun test écrit (hors rôle) : `problem-details.ts:53` renvoyé à la qa.
+- Réserve de la phase 3 non traitée (consigne).
+- Durée réelle du job CI inconnue : aucun push (interdit), donc pas d'exécution GitHub.
+
+## Points ouverts
+
+- **Durée du job `mutation`** : 10 min en local sur 16 fils ; un exécuteur GitHub standard (4 cœurs,
+  2 pour un dépôt privé) peut la tripler, au-delà des 12 à 15 min attendues. Le délai de 45 min est
+  une marge. Si c'est trop long : mode `incremental` de Stryker avec cache, ou job réservé à
+  `v3/backend` et aux PR ; à trancher par Julien.
+- **Couche 1 des garde-fous** : les hooks ne repèrent pas une directive `Stryker disable` écrite par
+  un agent ; seule la couche 2 la refuse. Étendre `guard.mjs` demanderait une nouvelle portée
+  d'autorisation et l'accord de Julien.
+- **Évolution du contrat** (déjà signalé par le QA) : l'instantané `__snapshots__/openapi.json` est
+  un oracle ; tout changement voulu du document exige une autorisation nominative.
+- **Seuil API** à relever à chaque progrès (phase 3 ou test de `problem-details.ts:53`) : 40,77 %
+  laisse 0,77 point de marge ; jamais abaissé.
