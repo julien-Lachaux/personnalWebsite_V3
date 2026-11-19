@@ -192,6 +192,13 @@ et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docke
   (correcteur, qa, lead-architecte, dev-devops) passe par une autorisation nominative que seule la
   session principale crée (`node .claude/hooks/authorize.mjs grant …`), journalisée dans
   `.claude/hooks/audit.log`.
+- **Illisible donc refusé** (lot 13 bis) : l'analyseur des commandes des hooks lit bash et zsh
+  récursivement (blocs, `if`, boucles, `case`, fonctions, substitutions) et refuse ce qu'il ne sait
+  pas lire : syntaxe incomplète, nom de commande, cible d'écriture, script ou code calculés, code lu
+  sur un tube. Écrire les commandes et les chemins en clair (pas de `rm "$F"`, de `cd "$D"` avant
+  une écriture, de `bash -c "$CODE"`), le code d'un interpréteur en ligne, dans un fichier qui
+  existe déjà ou dans un here-document protégé (`<<'EOF'`). Seules les variables affectées en clair
+  dans la même commande, `HOME` (`~`) et `PWD` sont résolues.
 
 ## Flux git et interdictions
 
@@ -205,6 +212,13 @@ et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docke
   de version, le push de `main` et le lancement du déploiement (`scripts/deploy/` refuse un dépôt
   qui n'est pas sur `main`). Aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse
   d'étiquette, ne supprime de branche distante, ne force un push.
+- Refusés par les hooks à toute session, principale comprise (lot 13 bis) : la plomberie de push
+  (`git send-pack`, `git http-push`), la redéfinition de la destination des push
+  (`git remote add|rename|remove|set-url`, `git config` en écriture sur `remote.*`, `url.*`,
+  `push.*`, `branch.*.remote`, `branch.*.pushRemote`, `include*`, édition de `.git/config` ou de
+  `~/.gitconfig`) et, avec `gh`, tout ce qui fusionne, étiquette, publie ou supprime (`gh pr merge`,
+  `gh release create|delete|edit|upload`, `gh repo delete|edit|rename`, `gh api` hors GET). Les
+  lectures (`git config --get`, `git remote -v`, `gh pr view`, `gh run list`…) restent permises.
 - Commits atomiques, un par micro-tâche, Conventional Commits en français :
   `feat(api): …`, `feat(contracts): …`, `feat(db): …`, `test(api): …`, `chore: …`, `docs: …`.
   Chaque message se termine par une ligne vide puis
