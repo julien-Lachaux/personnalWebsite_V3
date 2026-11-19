@@ -133,6 +133,56 @@ jobs:
       # Seconde passe e2e dans un ordre de fichiers aléatoire : détecte une dépendance entre fichiers.
       - run: pnpm --filter @siteperso/api exec vitest run --project e2e --sequence.shuffle.files
 
+  front:
+    name: Front (lint, typecheck, couverture 100 %, Playwright + axe sur 7 tailles d'écran)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      # `nuxt prepare` (postinstall d'apps/web) génère les types et tsconfig de .nuxt.
+      - run: pnpm install --frozen-lockfile
+      # Navigateurs : même service docker compose qu'en local (image Playwright épinglée par digest,
+      # même version que @playwright/test), rien d'installé sur l'exécuteur.
+      - run: pnpm e2e:browsers:up
+      # Unitaires + composants avec couverture fusionnée (échoue sous 100 % sur app/), puis
+      # nuxt generate et parcours Playwright + axe (WCAG 2.2 AA) sur les pages générées.
+      - run: pnpm turbo run lint typecheck test:coverage test:e2e --filter=@siteperso/web
+      - name: Publier le résumé de couverture du front
+        if: always()
+        run: |
+          node --input-type=module - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import { existsSync, readFileSync } from 'node:fs';
+          const file = 'apps/web/coverage/coverage-summary.json';
+          console.log('## Couverture du front (unitaires + composants, seuil 100 %)\n');
+          if (!existsSync(file)) {
+            console.log('rapport absent');
+          } else {
+            const { total } = JSON.parse(readFileSync(file, 'utf8'));
+            const cell = (metric) => `${total[metric].pct} % (${total[metric].covered}/${total[metric].total})`;
+            console.log('| Lignes | Branches | Fonctions | Instructions |');
+            console.log('|---|---|---|---|');
+            console.log(`| ${cell('lines')} | ${cell('branches')} | ${cell('functions')} | ${cell('statements')} |`);
+          }
+          EOF
+      # Rapport Playwright (traces des échecs) et lcov du front, consultables depuis le run.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: front-rapports
+          path: |
+            apps/web/playwright-report/
+            apps/web/coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Arrêt des navigateurs
+        if: always()
+        run: docker compose down
+
   mutation:
     name: Test par mutation (Stryker, seuil de rupture par paquet)
     runs-on: ubuntu-latest
@@ -149,11 +199,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Contrats puis API (turbo --concurrency=1) : chaque paquet échoue sous le `thresholds.break`
-      # de son stryker.config.mjs (score total, survivants déclarés et sans couverture compris).
+      # Contrats, API et front (app/domain, app/data ; turbo --concurrency=1) : chaque paquet échoue
+      # sous le `thresholds.break` de son stryker.config.mjs (score total, survivants déclarés et
+      # sans couverture compris).
       - run: pnpm test:mutation
-      # Rapports HTML des deux paquets (mutants survivants, ignorés avec leur motif), même en échec ;
-      # `warn` : si les contrats passent sous leur seuil, turbo s'arrête avant le rapport de l'API.
+      # Rapports HTML des trois paquets (mutants survivants, ignorés avec leur motif), même en échec ;
+      # `warn` : si un paquet passe sous son seuil, turbo s'arrête avant les rapports suivants.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -161,6 +212,7 @@ jobs:
           path: |
             packages/contracts/reports/mutation/mutation.html
             apps/api/reports/mutation/mutation.html
+            apps/web/reports/mutation/mutation.html
           if-no-files-found: warn
           retention-days: 14
 
