@@ -455,7 +455,7 @@ describe('Exception contrôlée et auditée', () => {
       authorize([
         'grant',
         '--agent',
-        'dev-api',
+        'dev-devops',
         '--scope',
         'tests',
         '--ticket',

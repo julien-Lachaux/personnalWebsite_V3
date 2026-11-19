@@ -42,7 +42,11 @@ décisions, points ouverts, avec le tableau colonne SQL → champ du contrat →
 
 ## Intégrité des tests
 
-Tu ajoutes des tests, tu n'en modifies ni n'en supprimes aucun. Interdits : marqueur de saut ou de
+Tu ajoutes des tests, tu n'en modifies ni n'en supprimes aucun. Seule exception (décision de Julien
+du 19 nov. 2026) : quand un brief validé (`docs/briefs/back-NNN-*.md`) rend un test existant obsolète,
+tu le modifies ou le supprimes sous l'autorisation nominative « tests » que l'orchestrateur t'a donnée
+pour ce brief, uniquement pour refléter le ticket BF-n ; le commit porte `Justification-test: BF-n
+<raison>` et le compte rendu liste chaque test touché, avant et après. Interdits : marqueur de saut ou de
 focus (`skip`, `only`, `todo`, `fails`, `skipIf`, `runIf`), commentaire d'ignore de couverture
 (v8, c8, istanbul), sortie codée en dur pour une entrée de test, comparaison surchargée, état
 caché qui reconnaît les tests, oracle affaibli (fixtures, snapshots, seuils, configuration de

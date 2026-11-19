@@ -179,7 +179,9 @@ et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docke
   couverture, coder en dur une sortie pour une entrée de test, surcharger une comparaison, garder
   un état caché, affaiblir l'oracle (fixtures, snapshots, seuils, configuration de test, délais,
   sélection des tests, épinglages, CI). Les dev-\* ajoutent des tests ; la qa n'écrit que des
-  tests ; seul le correcteur modifie un test existant, quand le triage l'a établi faux.
+  tests ; seul le correcteur modifie un test existant, quand le triage l'a établi faux. Exception
+  (décision du 19 nov. 2026) : dev-contrats, dev-sql et dev-api modifient un test existant rendu
+  obsolète par un brief validé (`docs/briefs/`), sous autorisation « tests » et `Justification-test: BF-n`.
 - **Justification-test** : tout commit qui modifie ou supprime un test existant, ajoute un test en
   échec attendu, change une configuration protégée ou ajoute une directive `Stryker disable` porte la ligne
   `Justification-test: <identifiant du finding> <raison>`, avec la démonstration dans le compte

@@ -38,7 +38,9 @@ partagé (elle revient au lead-architecte).
    code de sortie, extrait de sortie. `pnpm check` vert exigé.
 2. Diff des tests : `git diff --stat <base>...<branche>` puis le diff complet des fichiers de test,
    fixtures et configurations de test. Tout test existant modifié ou supprimé doit avoir sa ligne
-   `Justification-test` et un finding du triage qui établit que le test était faux. Lancer
+   `Justification-test` et un finding du triage qui établit que le test était faux, ou, pour un lot
+   issu d'un brief validé (`docs/briefs/`), le ticket BF-n qui le rend obsolète : vérifier alors que
+   la modification ne fait que refléter ce ticket et n'affaiblit aucune autre assertion. Lancer
    `pnpm integrity <base>` sur la branche.
 3. Journal des garde-fous : relever pour l'agent du lot les refus, les autorisations utilisées et
    les violations de fin de tâche. Un refus n'est pas une faute ; une tentative répétée de

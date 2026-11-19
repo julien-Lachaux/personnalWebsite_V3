@@ -33,7 +33,8 @@ node .claude/hooks/authorize.mjs list
 node .claude/hooks/authorize.mjs revoke --id <identifiant>
 ```
 
-Portées : `tests` (correcteur, qa) modifier un test existant ; `fails` (qa, correcteur) écrire un
+Portées : `tests` (correcteur, qa ; dev-contrats, dev-sql, dev-api seulement quand un brief validé
+par Julien rend le test obsolète) modifier un test existant ; `fails` (qa, correcteur) écrire un
 test en échec attendu ; `config` (lead-architecte, dev-devops) une configuration protégée. Une
 autorisation vise des chemins précis, expire (4 h par défaut) et se lie au premier sous-agent qui
 l'utilise. Création, usage, refus, révocation et violations sont journalisés dans

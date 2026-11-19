@@ -107,7 +107,9 @@ export function hasMarker(text) {
  * Les autres marqueurs et les commentaires d'ignore ne sont autorisables par personne.
  */
 export const GRANTABLE = {
-  tests: ['correcteur', 'qa', 'main'],
+  // dev-contrats, dev-sql, dev-api : seulement quand un brief validé par Julien rend un test existant
+  // obsolète (décision du 19 nov. 2026), avec Justification-test BF-n.
+  tests: ['correcteur', 'qa', 'main', 'dev-contrats', 'dev-sql', 'dev-api'],
   fails: ['qa', 'correcteur', 'main'],
   config: ['lead-architecte', 'dev-devops', 'main'],
 };
