@@ -23,11 +23,12 @@ problèmes de production avec Caddy.
   tableau des différences, certificat, 10 scénarios curl), README (un paragraphe), CLAUDE.md (commandes).
 - `.gitignore` : `!.env.local.example` ajouté ; `docker/.env.local` reste ignoré (vérifié avec `git check-ignore`).
 
-## Non fait : job CI (refusé par les garde-fous)
+## Fait : job CI « pile-locale »
 
-L'écriture de `.github/workflows/ci.yml` est refusée par le hook (« Aucune autorisation `config` de
-l'orchestrateur pour l'agent dev-devops »). Je n'ai pas contourné. Job à ajouter par l'orchestrateur (actions
-épinglées par SHA comme les autres jobs ; `Justification-test` à mettre dans le commit) :
+Le premier essai d'écriture du workflow CI avait été refusé par le hook (aucune autorisation `config` pour
+dev-devops). L'orchestrateur a créé l'autorisation (L10-CI) ; le job est maintenant dans le workflow (commit avec
+`Justification-test`), tel que ci-dessous : actions épinglées par SHA comme les autres jobs, `STACK_REQUIRED='1'`,
+journaux sur échec, arrêt et nettoyage en `if: always()`.
 
 ```yaml
   pile-locale:

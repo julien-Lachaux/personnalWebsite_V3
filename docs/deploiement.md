@@ -236,6 +236,8 @@ Ce certificat est propre à la pile locale : le retirer du magasin avec la pile 
 Chaque scénario est rejoué automatiquement par `apps/api/test/local-stack.e2e-spec.ts` (voir plus bas).
 Ports d'exemple : 8443 (HTTPS) et 8080 (HTTP).
 
+Si le port 8080 (ou 8443) est déjà pris sur le poste, changer `HTTP_PORT` et `HTTPS_PORT` dans `docker/.env.local`, puis aligner `CORS_ORIGIN` sur le nouveau port HTTPS (`https://localhost:<HTTPS_PORT>`) et relancer `pnpm stack:up`. Les commandes ci-dessous s'adaptent en remplaçant les ports d'exemple.
+
 | #   | Scénario                         | Commande                                                                                     | Réponse attendue                                                                                                                                  |
 | --- | -------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Lecture nominale                 | `curl -ski https://localhost:8443/api/v1/profile`                                            | 200 `application/json` ; un seul `x-frame-options: DENY` et un seul `content-security-policy: default-src 'none';frame-ancestors 'none'` ; ni `server` ni `via` |
