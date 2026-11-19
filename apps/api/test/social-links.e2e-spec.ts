@@ -68,7 +68,12 @@ describe('GET /api/v1/social-links', () => {
       const slugs = links.map((link) => link.slug);
 
       expect(slugs).not.toContain('test-masque');
-      expect(slugs).toEqual(['test-premier', 'linkedin', 'test-sans-en']);
+      expect(slugs).toEqual([
+        'test-premier',
+        'linkedin',
+        'linkedin-recommendations',
+        'test-sans-en',
+      ]);
     });
 
     it('?lang=en traduit quand la ligne en existe, sinon se replie sur le français', async () => {

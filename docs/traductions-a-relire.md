@@ -21,6 +21,7 @@ puis retire la ligne et le commentaire correspondants. Aucune traduction n'est d
 | 0001_profile.sql | profile_translations | profile (id 1) | seeking_format | Temps partiel (3 jours par semaine) ou missions freelance courtes | Part-time (3 days a week) or short freelance assignments |
 | 0001_profile.sql | profile_translations | profile (id 1) | seeking_location | Paris, Île-de-France · hybride ou à distance | Paris, Île-de-France · hybrid or remote |
 | 0001_profile.sql | profile_translations | profile (id 1) | seeking_availability | Immédiate | Immediate |
+| 0002_social_links.sql | social_links_translations | linkedin-recommendations | label | Recommandations publiées sur LinkedIn | Recommendations published on LinkedIn |
 | 0003_skills.sql | skill_groups_translations | languages-frameworks | name | Langages et frameworks | Languages and frameworks |
 | 0003_skills.sql | skill_groups_translations | data-messaging | name | Données et messagerie | Data and messaging |
 | 0003_skills.sql | skill_groups_translations | integration-etl | name | Intégration et ETL | Integration and ETL |

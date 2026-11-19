@@ -41,7 +41,7 @@ export const ENDPOINTS: readonly Endpoint[] = [
     path: '/api/v1/social-links',
     schema: z.array(SocialLinkSchema),
     shape: 'list',
-    seededCount: 1,
+    seededCount: 2,
   },
   {
     name: 'skillGroups',
