@@ -1179,7 +1179,7 @@ Synthèse dans `docs/lots.md`, détail dans `docs/comptes-rendus/lot-9-*.md` à 
   `pnpm check` verts ; aucune mention de l'ancienne branche hors historiques (`docs/comptes-rendus/`,
   `docs/revues/`, `docs/lots.md`). Compte rendu : `docs/comptes-rendus/lot-13-git-flow.md`.
 
-## 7 sexies. Lot 14 — Suites de la recette du lot 12 (tranché par Julien le 19 nov. 2026, à lancer après le premier push)
+## 7 sexies. Lot 14 — Suites de la recette du lot 12, mutation incrémentale (tranché par Julien le 19 nov. 2026, après le lot 13 bis)
 
 Quatre questions fermées remontées par la recette du lot 12, toutes tranchées **oui** par Julien :
 
@@ -1191,9 +1191,17 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   fichier à la ligne : la justification d'un commit cite l'identifiant de chaque directive ajoutée, et cet
   identifiant pointe sur la ligne et le mutateur déclarés dans le fichier d'équivalents. Ferme le trou
   constaté en recette (directive glissée dans un fichier qu'un commit justifié touche déjà).
-- **L14-03** (dev-devops) : job CI « mutation » laissé complet jusqu'aux premiers passages réels sur
-  GitHub ; durée mesurée, puis arbitrage chiffré (mode incremental de Stryker ou limitation au diff).
-  Décision différée, pas de travail avant la mesure.
+- **L14-03** (dev-devops, portée `config`) : **tranché par Julien le 19 nov. 2026 après mesure**. Premier
+  run complet de la CI sur `main` : 35 min (dépôt privé, job mutation probablement limitant, timeout 45 min).
+  Décision : sur `develop` (et les PR vers `develop`), le job mutation passe en **mode incrémental** de
+  Stryker (`--incremental`, fichier d'incrément conservé entre les runs par le cache GitHub Actions) ; un
+  run **complet**, seuils de rupture compris, n'a lieu que sur les **étiquettes de version** (`v*`), au
+  moment de la release vers `main`. Déclencheur `tags: ['v*']` à ajouter à la CI.
+- **L14-05** (plus tard, après la phase front) : **déploiement par étiquette**, décidé par Julien le
+  19 nov. 2026. Chaque nouvelle étiquette `v*` posée par Julien déclenche un job CI qui déploie cette
+  étiquette en production. Aujourd'hui les scripts de `scripts/deploy/` déploient `main` et refusent une
+  HEAD détachée (lot 13) : ils passeront à « l'étiquette demandée, qui doit être atteignable depuis
+  `main` ». Rien à configurer avant la fin du front.
 - **L14-04** (correcteur, en phase 3 du test par mutation) : garde `response !== null` dans `detailOf`
   (`problem-details.ts`), avec son test ; aujourd'hui `'message' in null` lèverait une TypeError dans le
   filtre global, cas inatteignable par les clients mais défaut latent.
