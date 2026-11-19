@@ -44,6 +44,7 @@ reproduire un problème de prod : `pnpm stack:up` puis `curl -k https://localhos
 ```sh
 pnpm check           # démarre le Postgres de test puis lint, typecheck, tests unitaires, e2e et couverture
 pnpm test:coverage   # unitaires + e2e en une passe : couverture fusionnée, échoue sous 100 %
+pnpm test:mutation   # test par mutation (Stryker) des unitaires : mesure, rapports dans reports/mutation/, hors check
 pnpm db:down         # arrête les conteneurs
 ```
 

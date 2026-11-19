@@ -1,6 +1,8 @@
 node_modules
 dist
 coverage
+**/reports/mutation
+.stryker-tmp*
 .turbo
 pnpm-lock.yaml
 # Documents de décision validés : on ne les reformate pas automatiquement.

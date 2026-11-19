@@ -13,8 +13,10 @@ fichier dans `.claude/agents/`) ; la session principale a le rôle `main`.
 | `PostToolUse` sur `Agent`       | `report`                          | signale à l'orchestrateur les violations laissées par un sous-agent                                                                 |
 
 Oracles : fichiers de test existants (`*.spec.*`, `*.e2e-spec.*`, `*.test.*`, fixtures, dossiers
-`test/`, `tests/`, `__snapshots__/`), configurations Vitest et de couverture, `turbo.json`,
-`pnpm-workspace.yaml`, `.husky/`, `.github/workflows/`, `scripts/ci/`, et `.claude/` (réglages,
+`test/`, `tests/`, `__snapshots__/`), configurations Vitest et de couverture, configurations du
+test par mutation (`stryker.config.mjs` et toute variante `stryker.<x>.<ext>` que Stryker lit,
+`tsconfig.stryker.json` de son vérificateur, `stryker.equivalents.json` des mutants équivalents
+déclarés), `turbo.json`, `pnpm-workspace.yaml`, `.husky/`, `.github/workflows/`, `scripts/ci/`, et `.claude/` (réglages,
 hooks, agents). Créer un nouveau fichier de test est permis. Les marqueurs de saut ou de focus de
 Vitest et les commentaires d'ignore de couverture sont refusés partout (`lib/policy.mjs`). Le
 dossier temporaire de session (`scratchpad_dir`) est libre.

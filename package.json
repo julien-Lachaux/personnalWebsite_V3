@@ -16,6 +16,7 @@
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
     "test:coverage": "turbo run test:coverage",
+    "test:mutation": "turbo run test:mutation --concurrency=1",
     "hooks:test": "node --test \".claude/hooks/tests/*.test.mjs\"",
     "integrity": "bash scripts/ci/check-tests-integrity.sh",
     "integrity:test": "bash scripts/ci/tests/check-tests-integrity.test.sh",

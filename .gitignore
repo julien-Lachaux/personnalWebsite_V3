@@ -12,6 +12,10 @@ dist/
 
 # Caches et rapports
 coverage/
+# Test par mutation (Stryker) : rapports html/json, sandboxes de travail, journal
+**/reports/mutation/
+.stryker-tmp*/
+stryker.log
 .turbo/
 .eslintcache
 *.log

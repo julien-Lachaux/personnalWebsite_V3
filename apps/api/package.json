@@ -16,6 +16,7 @@
     "test": "vitest run --project unit",
     "test:e2e": "vitest run --project e2e",
     "test:coverage": "vitest run --coverage",
+    "test:mutation": "stryker run",
     "db:migrate": "node --env-file-if-exists=.env --import @swc-node/register/esm-register src/cli/migrate.ts",
     "db:seed": "node --env-file-if-exists=.env --import @swc-node/register/esm-register src/cli/seed.ts",
     "db:reset": "node --env-file-if-exists=.env --import @swc-node/register/esm-register src/cli/reset.ts",
@@ -39,6 +40,9 @@
   },
   "devDependencies": {
     "@nestjs/testing": "12.5.1",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/typescript-checker": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
     "@swc-node/register": "1.12.1",
     "@swc/core": "1.16.22",
     "@types/node": "26.6.6",

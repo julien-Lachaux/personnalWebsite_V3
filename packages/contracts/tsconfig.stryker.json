@@ -1,0 +1,8 @@
+// Projet TypeScript du vérificateur de Stryker (stryker.config.mjs, `tsconfigFile`) : exactement
+// tsconfig.json. `extends` est un TABLEAU exprès : Stryker réécrit les chemins d'un `extends`
+// chaîne qui sortent du paquet en supposant la sandbox dans le paquet (`../..` ajouté), ce qui est
+// faux pour notre sandbox placée à la racine ; il ne touche pas à un tableau, et le `extends`
+// relatif de tsconfig.json y reste juste (même profondeur que le paquet).
+{
+  "extends": ["./tsconfig.json"]
+}
