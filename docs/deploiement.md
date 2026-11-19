@@ -149,7 +149,9 @@ avant l'API, en `400 text/plain`, alors que l'API seule répond en `400 applicat
 réglage de Caddy ne produit du problem+json pour cette erreur : l'écart est accepté et consigné ici.
 Les réponses que Caddy produit lui-même (`502` si l'API est arrêtée, `413` text/plain quand un corps dépasse
 son plafond de 1 Kio, mesuré lors de l'essai du lot 9) sont des réponses d'infrastructure en texte brut, hors
-du comportement de l'API.
+du comportement de l'API. **Tranché par Julien le 19 nov. 2026** : ces trois écarts (400, 413, 502) sont
+acceptés et ne seront pas corrigés côté Caddy ; le front traite toute réponse non JSON comme une erreur
+générique.
 
 ## Rôles PostgreSQL
 

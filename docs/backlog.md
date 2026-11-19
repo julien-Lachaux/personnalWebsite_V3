@@ -1139,6 +1139,34 @@ chaque lot) ; cette règle ne vaut que pour le parallélisme du lot 3.
 - **Tranché par Julien le 19 nov. 2026 (acceptés)** : portée `config` accordée aussi à lead-architecte et
   dev-devops ; marqueur `fails` admis pour la qa sous autorisation et Justification-test.
 
+## 7 quater. Lots 9 à 12 (LIVRÉS le 19 nov. 2026)
+
+Synthèse dans `docs/lots.md`, détail dans `docs/comptes-rendus/lot-9-*.md` à `lot-12-*.md`.
+
+## 7 quinquies. Lot 13 — Suites de la recette du lot 12 (tranché par Julien le 19 nov. 2026, à lancer après le premier push)
+
+Quatre questions fermées remontées par la recette du lot 12, toutes tranchées **oui** par Julien :
+
+- **L13-01** (lead-architecte, portée `config`) : les hooks bloquent dès l'écriture toute directive
+  `Stryker disable` qui ne cite pas un identifiant d'équivalent déclaré, comme ils bloquent déjà les
+  marqueurs de saut de Vitest ; aujourd'hui seul `scripts/ci/check-tests-integrity.sh` la refuse, au commit
+  et en CI. Tests dans `.claude/hooks/tests/`.
+- **L13-02** (lead-architecte, portée `config`) : le contrôle Justification-test des directives passe du
+  fichier à la ligne : la justification d'un commit cite l'identifiant de chaque directive ajoutée, et cet
+  identifiant pointe sur la ligne et le mutateur déclarés dans le fichier d'équivalents. Ferme le trou
+  constaté en recette (directive glissée dans un fichier qu'un commit justifié touche déjà).
+- **L13-03** (dev-devops) : job CI « mutation » laissé complet jusqu'aux premiers passages réels sur
+  GitHub ; durée mesurée, puis arbitrage chiffré (mode incremental de Stryker ou limitation au diff).
+  Décision différée, pas de travail avant la mesure.
+- **L13-04** (correcteur, en phase 3 du test par mutation) : garde `response !== null` dans `detailOf`
+  (`problem-details.ts`), avec son test ; aujourd'hui `'message' in null` lèverait une TypeError dans le
+  filtre global, cas inatteignable par les clients mais défaut latent.
+
+Décision connexe du même jour : l'**écart résiduel Caddy** (réponses `text/plain` produites par Caddy
+avant l'API : 400 URL mal encodée, 413 corps trop grand, 502 API injoignable) est **accepté** et reste
+consigné dans `docs/deploiement.md` ; le front le gérera de son côté (une réponse non JSON est traitée
+comme une erreur générique).
+
 ## 8. Points ouverts et risques
 
 ### Points ouverts (à trancher par Julien, valeurs par défaut proposées pour ne pas bloquer)
