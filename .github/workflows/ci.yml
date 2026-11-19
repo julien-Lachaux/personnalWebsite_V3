@@ -52,8 +52,9 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Tests des hooks des agents
         run: node --test ".claude/hooks/tests/*.test.mjs"
+      # Tous les fichiers *.test.sh (marqueurs, configurations protégées, directives Stryker disable).
       - name: Tests du script d'intégrité
-        run: bash scripts/ci/tests/check-tests-integrity.test.sh
+        run: for t in scripts/ci/tests/*.test.sh; do bash "$t" || exit 1; done
       # Test existant modifié ou supprimé, configuration de test changée sans Justification-test,
       # marqueur de saut ou commentaire d'ignore : échec. Base = cible de la PR, sinon v3/backend.
       - name: Intégrité des tests depuis la branche d'intégration

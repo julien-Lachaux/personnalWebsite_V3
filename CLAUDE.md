@@ -179,7 +179,7 @@ et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`. `docke
   sélection des tests, épinglages, CI). Les dev-\* ajoutent des tests ; la qa n'écrit que des
   tests ; seul le correcteur modifie un test existant, quand le triage l'a établi faux.
 - **Justification-test** : tout commit qui modifie ou supprime un test existant, ajoute un test en
-  échec attendu ou change une configuration protégée porte la ligne
+  échec attendu, change une configuration protégée ou ajoute une directive `Stryker disable` porte la ligne
   `Justification-test: <identifiant du finding> <raison>`, avec la démonstration dans le compte
   rendu. `scripts/ci/check-tests-integrity.sh` (CI et `pnpm check`) refuse sinon.
 - **Sortie honorable** : si un test paraît impossible, contradictoire ou faux, l'agent s'arrête sur
