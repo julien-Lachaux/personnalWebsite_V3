@@ -1,6 +1,6 @@
-// Test par mutation de l'API (Stryker Mutator), phase 1 : MESURE DE RÉFÉRENCE (lot 11).
-// Aucun seuil n'est imposé (`thresholds.break` absent) : `pnpm test:mutation` mesure et rapporte.
-// La règle « aucun mutant survivant non justifié » arrive en phase 2 (docs/02, CLAUDE.md).
+// Test par mutation de l'API (Stryker Mutator), phase 2 (lot 12) : règle « aucun mutant survivant
+// non justifié sur le code atteignable par les unitaires » (docs/02, CLAUDE.md), seuil de rupture
+// relevé au score obtenu et jamais abaissé (`thresholds`, plus bas). Mesure de référence : lot 11.
 //
 // Configuration protégée (oracle « config » des garde-fous, Justification-test exigée).
 // Documentation : https://stryker-mutator.io/docs/stryker-js/configuration/
@@ -167,7 +167,7 @@ const config = {
   testRunner: 'vitest',
   vitest: { configFile: 'vitest.config.ts' },
 
-  // Phase 1 : tests unitaires seulement (projet Vitest « unit »). Le lanceur ne transmet pas
+  // Phases 1 et 2 : tests unitaires seulement (projet Vitest « unit »). Le lanceur ne transmet pas
   // `--project` : c'est vitest.config.ts qui écarte le projet « e2e » (et son globalSetup qui exige
   // PostgreSQL) dans les processus de Stryker (variable STRYKER_MUTATOR_WORKER).
   // L'option `testFiles` de Stryker n'est PAS utilisée : en 10.1.1, elle fait activer les mutants
@@ -180,6 +180,21 @@ const config = {
 
   // Ne tester un mutant qu'avec les tests qui l'exécutent (le lanceur Vitest l'impose de toute façon).
   coverageAnalysis: 'perTest',
+
+  // Seuils (phase 2, lot 12). Stryker compare `break` au score TOTAL, non arrondi :
+  //   score total   = (tués + timeouts) / (tués + timeouts + survivants + sans couverture) ;
+  //   score couvert = (tués + timeouts) / (tués + timeouts + survivants), sans les mutants qu'aucun
+  //   test unitaire n'exécute (« sans couverture »), affiché pour information seulement.
+  // Erreurs de compilation et mutants ignorés (équivalents, motifs) sortent des deux. Le score
+  // total compte donc la réserve de la phase 3 : 384 mutants sans couverture unitaire (code
+  // exécuté par les seuls e2e : seeds, migrations réelles, démarrage de l'application) et 180
+  // survivants qui relèvent des e2e (169 noms de tables et de colonnes du schéma, 11 filtres
+  // `published` et constantes HTTP de create-app.ts) ; s'y ajoutent les 6 équivalents déclarés
+  // « survivant déclaré » de stryker.equivalents.json et 1 survivant renvoyé « à tester »
+  // (problem-details.ts:53). Lot 12 : 393 détectés sur 964, 40,77 % (couvert : 67,76 %).
+  // `break` = score obtenu arrondi à l'entier inférieur, relevé à chaque progrès, JAMAIS abaissé ;
+  // `low` = `break` (rouge = échec) ; `high` = 80 (défaut de Stryker), visé après la phase 3.
+  thresholds: { high: 80, low: 40, break: 40 },
 
   // Vérificateur TypeScript : un mutant qui ne compile pas (tsconfig.json : src et tests) est
   // classé « CompileError » sans lancer de test, au lieu d'être compté tué ou survivant.

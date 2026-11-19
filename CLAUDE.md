@@ -110,9 +110,13 @@ autres ressources : il les importe par leurs modules, sans dupliquer de requête
   jamais se supprime, il ne se masque pas. Un point d'entrée (`main.ts`, `cli/*.ts`) se teste en
   important le module avec `vi.mock` de ce qu'il orchestre. Chaque test vérifie un comportement
   (assertion utile), pas une ligne.
-- Test par mutation (Stryker, `pnpm test:mutation`) : mesure de référence livrée au lot 11, sans
-  seuil ; la phase 2 imposera « aucun mutant survivant non justifié » (un équivalent se déclare
-  dans `stryker.equivalents.json`, configuration protégée, avec Justification-test).
+- Test par mutation (Stryker, `pnpm test:mutation`, job CI `mutation`, hors `pnpm check`) : aucun
+  mutant survivant non justifié sur le code atteignable par les unitaires, et le seuil
+  `thresholds.break` de chaque paquet est relevé au score obtenu, jamais abaissé. Les équivalents
+  sont déclarés nominativement dans `stryker.equivalents.json` sous autorisation et
+  Justification-test (une directive `Stryker disable` cite leur identifiant), et les seules
+  exclusions sont les deux motifs de `apps/api/stryker.config.mjs` (métadonnées déclaratives du
+  schéma Drizzle, contexte des messages de journal).
 - `@siteperso/contracts` est consommé via son `dist/` : Turborepo le compile avant `lint`,
   `typecheck`, `test`, `test:e2e`, `test:coverage` et `build` (`dependsOn: ^build`), et
   `pnpm dev` le compile avant de lancer l'API. Après une modification des contrats pendant
@@ -139,7 +143,7 @@ pnpm db:test:up              # postgres de test
 pnpm dev                     # compile les contrats puis API en watch sur http://localhost:3000/api/v1
 pnpm lint | typecheck | test | test:e2e | build
 pnpm test:coverage           # unitaires + e2e en une passe, couverture fusionnée, échoue sous 100 %
-pnpm test:mutation           # Stryker sur les unitaires (contrats puis API), rapports dans reports/mutation/ ; hors check (mesure)
+pnpm test:mutation           # Stryker sur les unitaires (contrats puis API), rapports dans reports/mutation/ ; échoue sous le seuil de chaque paquet ; hors check, job CI dédié
 pnpm check                   # tout : garde-fous, intégrité des tests, postgres de test, lint, typecheck, unit, e2e, couverture
 pnpm hooks:test              # tests des hooks garde-fous (.claude/hooks/tests)
 pnpm integrity [base]        # intégrité des tests depuis la base (défaut origin/v3/backend, sinon v3/backend)
