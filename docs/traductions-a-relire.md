@@ -84,3 +84,10 @@ puis retire la ligne et le commentaire correspondants. Aucune traduction n'est d
 | 0005_certifications_education_languages.sql | languages_translations | french | level_label | langue maternelle | native language |
 | 0005_certifications_education_languages.sql | languages_translations | english | name | Anglais | English |
 | 0005_certifications_education_languages.sql | languages_translations | english | level_label | professionnel | professional |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | title | L’IA, dans le produit et au quotidien | AI, in the product and day to day |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | in_product_label | dans le produit · Nopillo, 2026 | in the product · Nopillo, 2026 |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | in_product_items[1] | OCR pour les tickets de caisse et les factures | OCR for receipts and invoices |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | in_product_items[2] | Remplissage automatique des déclarations fiscales | Automatic filling of tax returns |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | in_product_items[3] | Cadrage et premiers développements d’une IA agentique de recommandation fiscale | Scoping and first developments of an agentic AI for tax recommendations |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | daily_label | au quotidien | day to day |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | daily_text | Usage quotidien de l’IA dans ma pratique de développement, développement agentique avec Mastra, veille technique active. | Daily use of AI in my development practice, agentic development with Mastra, active technology watch. |
