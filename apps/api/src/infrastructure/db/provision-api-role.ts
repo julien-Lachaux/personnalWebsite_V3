@@ -34,20 +34,20 @@ export async function provisionApiRole(options: ProvisionApiRoleOptions): Promis
   const role = `"${roleName}"`;
   const sql = openSingleConnection(options.databaseUrl);
   try {
-    const [existing] = await sql<{ present: boolean }[]>`
+    // Un `select` sans `from` renvoie toujours exactement une ligne : typé en tuple à un élément.
+    const [{ present }] = await sql<[{ present: boolean }]>`
       select exists (select 1 from pg_roles where rolname = ${roleName}) as present`;
-    const present = existing?.present === true;
-    const [definition] = await sql<{ statement: string }[]>`
+    const [{ statement }] = await sql<[{ statement: string }]>`
       select format(
         '%s role %I login nosuperuser nocreatedb nocreaterole noinherit noreplication password %L',
         ${present ? 'alter' : 'create'}::text, ${roleName}::text, ${password}::text
       ) as statement`;
-    await sql.unsafe(definition?.statement ?? '');
+    await sql.unsafe(statement);
 
-    const [database] = await sql<
-      { name: string }[]
+    const [{ name: database }] = await sql<
+      [{ name: string }]
     >`select format('%I', current_database()) as name`;
-    await sql.unsafe(`grant connect on database ${database?.name ?? ''} to ${role}`);
+    await sql.unsafe(`grant connect on database ${database} to ${role}`);
     await sql.unsafe(`grant usage on schema public to ${role}`);
     await sql.unsafe(`grant select on all tables in schema public to ${role}`);
     await sql.unsafe(`alter default privileges in schema public grant select on tables to ${role}`);
