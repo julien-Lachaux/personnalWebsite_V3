@@ -23,6 +23,16 @@ export const profileTranslations = pgTable(
     bio: text('bio').notNull(),
     availability: text('availability').notNull(),
     pictureAlt: text('picture_alt').notNull(),
+    // Colonnes du design v6 (BF-1), nullables le temps de la transition ; `not null` à l'étape suivante.
+    titleBadge: text('title_badge'),
+    taglines: text('taglines').array(),
+    intro: text('intro'),
+    mission: text('mission'),
+    currentActivity: text('current_activity'),
+    seekingFormat: text('seeking_format'),
+    seekingLocation: text('seeking_location'),
+    seekingAvailability: text('seeking_availability'),
+    cvPath: text('cv_path'),
   },
   (table) => [primaryKey({ columns: [table.profileId, table.locale] })],
 );
