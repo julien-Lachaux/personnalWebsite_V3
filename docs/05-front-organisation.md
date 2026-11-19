@@ -110,7 +110,9 @@ Bloquants back : **F4 attend le lot contrats du brief back-001** ; F9 attend le 
 ### F8 QA front (qa-front)
 - F8-01 Parcours Playwright : filtre avec URL, agrandir puis réduire, thème, panneau au clavier, onglets mobile, easter egg.
 - F8-02 Matrice taille × thème × langue avec axe ; contraste renforcé.
-- F8-03 Régression visuelle contre les captures du handoff (tolérance fixée en F0).
+- F8-03 Régression visuelle contre les captures du handoff. Décision de Julien du 20 nov. 2026 :
+  pas de tolérance en F0, on vise une V1 d'abord ; les captures de référence restent protégées
+  (oracles des garde-fous depuis F0), la comparaison et sa tolérance sont posées en F8.
 - F8-04 Tests en échec attendu pour chaque défaut trouvé.
 
 ### F9 Déploiement (dev-devops, après le brief back-002)

@@ -39,7 +39,8 @@ test existant, une autorisation nominative de l'orchestrateur (identifiant du d�
    renforcé) x langue (fr, en) avec `@axe-core/playwright` sur les étiquettes WCAG 2.2 AA
    (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`), sur chaque section ouverte.
 3. Régression visuelle contre les captures de référence (`toHaveScreenshot`), avec la tolérance
-   de `playwright.config.ts` ; une capture qui diverge est un défaut, pas une capture à remplacer.
+   posée en F8 dans `playwright.config.ts` (aucune avant, décision du 20 nov. 2026) ; une capture
+   qui diverge est un défaut, pas une capture à remplacer.
 4. Chaque test indépendant de l'ordre (`--repeat-each`, passe en ordre aléatoire), sans délai fixe
    (`waitForTimeout` interdit : attendre un état observable).
 5. Défaut trouvé : `BUG-F<n>` avec reproduction minimale (URL, taille, thème, langue, étapes,
