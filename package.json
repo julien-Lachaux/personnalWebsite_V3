@@ -16,7 +16,7 @@
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
     "test:coverage": "turbo run test:coverage",
-    "check": "pnpm db:test:up && turbo run lint typecheck test test:e2e test:coverage",
+    "check": "pnpm db:test:up && turbo run lint typecheck test test:e2e && turbo run test:coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:up": "docker compose up -d --wait postgres",
