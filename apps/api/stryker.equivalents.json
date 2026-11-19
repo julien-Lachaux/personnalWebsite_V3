@@ -1,0 +1,86 @@
+{
+  "$comment": "Mutants équivalents déclarés de @siteperso/api (règle de docs/02, ligne Tests ; lot 12, MUT-2). Un mutant équivalent ne change aucun comportement observable : aucun test ne peut le tuer. Chaque entrée est vérifiée une à une et porte un identifiant. traitement « ignoré par commentaire » : un commentaire `// Stryker disable next-line <Mutator>: <id> …` placé au-dessus de la ligne cite l'identifiant, et Stryker classe le mutant Ignored (hors score). traitement « survivant déclaré » : un commentaire ignorerait aussi, sur la même ligne et pour le même mutateur, des mutants aujourd'hui tués (Stryker ne désactive que par ligne et par mutateur) ; le mutant reste Survived dans le rapport, compté dans le score, et cette entrée le justifie. Fichier protégé (oracle « config ») : toute modification exige une autorisation nominative et une ligne Justification-test dans le commit ; un commentaire Stryker disable doit citer un identifiant déclaré ici (scripts/ci/check-tests-integrity.sh).",
+  "equivalents": [
+    {
+      "id": "API-EQ-01",
+      "file": "src/infrastructure/config/env.schema.ts",
+      "line": 77,
+      "mutator": "StringLiteral",
+      "mutant": ".default('false') -> .default(\"\")",
+      "treatment": "ignoré par commentaire",
+      "justification": "TrustProxySchema rogne puis rend false pour '' comme pour 'false', donc une variable TRUST_PROXY absente donne false dans les deux cas."
+    },
+    {
+      "id": "API-EQ-02",
+      "file": "src/infrastructure/db/sql-statements.ts",
+      "line": 60,
+      "mutator": "EqualityOperator",
+      "mutant": "index < content.length -> index <= content.length",
+      "treatment": "survivant déclaré (le commentaire ignorerait aussi le mutant tué index >= content.length)",
+      "justification": "À index === content.length, charAt rend '' qui n'est jamais le délimiteur : la boucle avance d'un pas, sort et skipQuoted rend content.length comme sans le tour supplémentaire."
+    },
+    {
+      "id": "API-EQ-03",
+      "file": "src/infrastructure/db/sql-statements.ts",
+      "line": 63,
+      "mutator": "ConditionalExpression",
+      "mutant": "content.charAt(index + 1) === quote -> false",
+      "treatment": "survivant déclaré (le commentaire ignorerait aussi le mutant tué -> true)",
+      "justification": "Sans saut du délimiteur doublé, la chaîne se ferme sur le premier et splitSqlStatements la rouvre aussitôt sur le second avec le même délimiteur : mêmes positions de découpe, mêmes instructions (vérifié sur les 19 173 961 textes de 8 caractères au plus sur ' \" ; a espace - saut de ligne $)."
+    },
+    {
+      "id": "API-EQ-04",
+      "file": "src/infrastructure/db/sql-statements.ts",
+      "line": 63,
+      "mutator": "MethodExpression",
+      "mutant": "content.charAt(index + 1) === quote -> content === quote",
+      "treatment": "ignoré par commentaire",
+      "justification": "content === quote exige un texte d'un seul caractère, or la ligne n'est atteinte qu'avec index >= 1 et index < content.length : la condition vaut toujours false, comme API-EQ-03."
+    },
+    {
+      "id": "API-EQ-05",
+      "file": "src/infrastructure/db/sql-statements.ts",
+      "line": 63,
+      "mutator": "BlockStatement",
+      "mutant": "{ index += 2; continue; } -> {}",
+      "treatment": "ignoré par commentaire",
+      "justification": "Le bloc vidé laisse la fonction rendre index + 1 sur le premier délimiteur : même fermeture puis réouverture que API-EQ-03, mêmes instructions (même vérification exhaustive)."
+    },
+    {
+      "id": "API-EQ-06",
+      "file": "src/infrastructure/db/sql-statements.ts",
+      "line": 79,
+      "mutator": "Regex",
+      "mutant": "\\s+ -> \\s dans /^(?:\\s+|--…|/*…*/)+/",
+      "treatment": "survivant déclaré (le commentaire ignorerait aussi les 9 mutants Regex tués de la ligne)",
+      "justification": "Le + extérieur répète déjà le groupe : les espaces sont consommés un par un au lieu d'un bloc et le préfixe retiré est le même (verbe identique sur les 960 800 textes de 7 caractères au plus sur espace, saut de ligne - / * a S)."
+    },
+    {
+      "id": "API-EQ-07",
+      "file": "src/infrastructure/db/sql-statements.ts",
+      "line": 79,
+      "mutator": "Regex",
+      "mutant": "(?:\\n|$) -> (?:\\n) dans le commentaire de ligne",
+      "treatment": "survivant déclaré (même raison que API-EQ-06)",
+      "justification": "Seul un commentaire -- final sans saut de ligne diffère : il reste en tête du texte au lieu d'être retiré, et /^[A-Za-z]+/ ne trouve de verbe ni dans '-- …' ni dans '' (même vérification exhaustive que API-EQ-06)."
+    },
+    {
+      "id": "API-EQ-08",
+      "file": "src/infrastructure/http/problem/problem-details.ts",
+      "line": 31,
+      "mutator": "ConditionalExpression",
+      "mutant": "code <= 599 -> true",
+      "treatment": "survivant déclaré (le commentaire ignorerait aussi le mutant tué code >= 400 -> true)",
+      "justification": "statusCodeOf n'est lu qu'à la ligne 82, derrière fastifyStatus < 500 : un code de 600 ou plus rendu au lieu d'undefined mène au même 500 générique."
+    },
+    {
+      "id": "API-EQ-09",
+      "file": "src/infrastructure/http/problem/problem-details.ts",
+      "line": 31,
+      "mutator": "EqualityOperator",
+      "mutant": "code <= 599 -> code < 599",
+      "treatment": "survivant déclaré (le commentaire ignorerait aussi les mutants tués code > 400, code < 400 et code > 599)",
+      "justification": "Seul le code 599 change de branche (undefined au lieu de 599), et les deux mènent au même 500 générique derrière fastifyStatus < 500."
+    }
+  ]
+}

@@ -73,6 +73,7 @@ export const EnvSchema = z.object({
    * « tous les sauts » (`true`) : un client qui atteint l'API sans passer par le proxy falsifierait
    * l'en-tête et contournerait le quota.
    */
+  // Stryker disable next-line StringLiteral: API-EQ-01 (stryker.equivalents.json), '' et 'false' donnent tous deux false
   TRUST_PROXY: z.string().default('false').pipe(TrustProxySchema),
 });
 

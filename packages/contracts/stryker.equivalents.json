@@ -1,0 +1,4 @@
+{
+  "$comment": "Mutants équivalents déclarés de @siteperso/contracts (règle de docs/02, ligne Tests ; lot 12, MUT-2). Aucun à ce jour : au lot 12, les 483 mutants sont tués ou ne compilent pas. Même format et même règle que apps/api/stryker.equivalents.json (identifiant CONTRACTS-EQ-NN, fichier, ligne, mutateur, mutant, traitement, justification en une phrase). Fichier protégé (oracle « config ») : toute modification exige une autorisation nominative et une ligne Justification-test dans le commit.",
+  "equivalents": []
+}
