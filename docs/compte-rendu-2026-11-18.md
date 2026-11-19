@@ -82,8 +82,8 @@ Pour Julien, chacun avec le choix appliqué aujourd'hui par défaut :
 
 | Sujet | Défaut appliqué aujourd'hui |
 |---|---|
-| RC-7 : repli de langue par champ ou par ligne | Par champ : un `logo_alt` EN nul donne un alt français dans une réponse EN ; un `achievements` EN vide (`'{}'`) masque le français. À inscrire dans `docs/01` une fois tranché. |
-| RS-10 : adresse e-mail personnelle dans les métadonnées (auteur et committer) des 129 commits | Inchangée. À réécrire par `git filter-repo --mailmap` (vers une adresse `noreply`) avant le premier push, ou à accepter. Aucune référence distante n'existe encore. |
+| RC-7 : repli de langue par champ ou par ligne | **Tranché le 19 nov. 2026 : repli par ligne** + contrôle de complétude de la traduction `en` au seed (inscrit dans `docs/01`). Implémentation à venir (lot 9). |
+| RS-10 : adresse e-mail dans les métadonnées des commits | **Tranché le 19 nov. 2026 : acceptée.** Adresse de contact publique (site, profils) ; aucune réécriture d'historique. |
 | Entités retirées des seeds | Signalées (`ATTENTION …` au rejeu) et conservées en base ; options : suppression ou `published = false`. |
 | RS-4 : IP vue par Caddy pour les visiteurs IPv6 sur le VPS | Non relevée. Procédure dans `docs/deploiement.md` ; en local (WSL), Caddy voit `172.29.0.1` pour tous les clients, comme documenté. |
 | `X-Frame-Options` `SAMEORIGIN` ou `DENY`, CSP | Livré après RS-12 : `X-Frame-Options: SAMEORIGIN` (helmet et Caddy) ; CSP posée par Caddy seulement, `default-src 'none'; frame-ancestors 'none'` sous `/api/*` et `default-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'` sur la page statique ; l'API seule n'envoie pas de CSP. |

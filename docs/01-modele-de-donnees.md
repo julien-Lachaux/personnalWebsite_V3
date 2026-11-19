@@ -12,7 +12,11 @@ dès le départ. Accessibilité complète : toute image a un texte alternatif tr
 - Contenu et présentation séparés : aucune couleur, décoration, icône de nav ou ordre de menu en
   base. Seul `sort_order` ordonne les listes.
 - i18n par tables de traduction `<table>_translations (…_id, locale, …)` avec clé primaire
-  composite. Locale `fr` obligatoire, `en` optionnelle avec repli sur `fr` côté API.
+  composite. Locale `fr` obligatoire, `en` optionnelle avec repli sur `fr` côté API, **par ligne**
+  (décision du 19 nov. 2026, RC-7) : si la traduction `en` d'une entité existe, elle est servie entière ;
+  sinon la ligne `fr` est servie entière. Jamais de mélange de langues dans une même entité. Une
+  traduction `en` d'une entité publiée doit être complète : le seed échoue sinon (même contrôle que
+  pour `fr`).
 - Chaque entité publiable a `published boolean not null default true` et `sort_order int`.
 - `slug` unique et stable sur chaque entité : c'est la clé naturelle d'upsert des seeds.
 - Images : chemins relatifs vers des fichiers statiques servis par le front (`/images/...`),
