@@ -169,6 +169,9 @@ importers:
       happy-dom:
         specifier: 21.0.4
         version: 21.0.4
+      postcss:
+        specifier: 8.5.33
+        version: 8.5.33
       sirv-cli:
         specifier: 3.0.1
         version: 3.0.1

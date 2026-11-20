@@ -40,6 +40,7 @@
     "eslint-plugin-vuejs-accessibility": "2.6.3",
     "globals": "17.14.0",
     "happy-dom": "21.0.4",
+    "postcss": "8.5.33",
     "sirv-cli": "3.0.1",
     "typescript": "6.0.3",
     "vitest": "5.1.1",
