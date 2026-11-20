@@ -7,9 +7,8 @@
 // l'entrée JSON du hook PreToolUse pour la session principale et dev-api ; rien n'est exécuté.
 // Lancé par `pnpm hooks:test`.
 //
-// Écart au ticket : git commit quand la branche courante est main n'est pas refusé, car un test
-// existant (guard.test.mjs, « accepte les commandes ordinaires ») l'exige permis ; voir le compte
-// rendu du lot 14 (docs/comptes-rendus/lot-14-hooks-lead.md).
+// Le commit sur main et ses équivalents (décision de Julien du 20 nov. 2026) sont vérifiés par
+// main-commit.test.mjs.
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
