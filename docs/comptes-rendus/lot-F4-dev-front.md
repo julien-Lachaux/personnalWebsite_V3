@@ -142,8 +142,7 @@ d'interface dans `data/`.
    contrairement au `published = false` du brief et de la consigne du lot. L'API les sert donc ; la fixture aussi. Si l'état
    vide doit être exercé, il se teste avec `recommendations: []` (le mapping le couvre).
 4. **Technos : 34** (docs/04 le prévoit : toutes les compétences publiées, pas les 25 du design) ; sept groupes dont les noms
-   sont ceux des seeds (« Langages et frameworks », …). Les noms courts viennent de `skill.name` (« Vue.js », pas « Vue.js (2 et
-   3) » du handoff).
+   sont ceux des seeds (« Langages et frameworks », …) ; les noms viennent de `skill.name` (« Vue.js (2 et 3) », comme le handoff).
 5. Conforme au contrat livré, sans écart : `profile.*` (champs `title`, `titleBadge`, `taglines`, `intro`, `mission`,
    `currentActivity`, `seeking*`, `cvPath`), `socialLinks` (`linkedin`, `linkedin-recommendations`), `skills.mainStackOrder`,
    `experiences[].skills[].shownInStack`, `recommendations[].locale`, `aiOverview` (`null` possible).
