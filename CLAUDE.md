@@ -119,12 +119,13 @@ apps/web/
     composables/          pont entre domain et composants (état, URL, préférences) ;
                           sous-dossier par section importé explicitement
     pages/                index, accessibilite, 404 (fichiers partagés)
-    assets/css/           tokens.css du handoff, base, thèmes (fichiers partagés)
+    assets/css/           fonts.css (@font-face), tokens.css (tokens du handoff, thèmes, interface
+                          des préférences), base.css (reset, focus, réglages) ; fichiers partagés
   i18n/locales/<langue>/  libellés d'interface, fr/ et en/ : common.json (partagé) et un fichier
                           par section (shell, profile, experience, recommendations, ai) qui ne
                           porte que son espace de clés ; mêmes clés dans les deux langues
                           (app/i18n-messages.spec.ts)
-  public/                 polices auto-hébergées (D6), CV PDF, favicon
+  public/                 fonts/<police>/ (woff2 + OFL.txt, D6), CV PDF, favicon
   test/                   parcours Playwright (*.e2e.ts), support et fixtures de test
 ```
 
@@ -147,6 +148,19 @@ apps/web/
   ≥ 4,5:1 dans les deux thèmes et en contraste renforcé ; `prefers-reduced-motion` ; tailles en
   `rem`. ESLint (`eslint-plugin-vue`, `eslint-plugin-vuejs-accessibility`, zéro avertissement)
   interdit `v-html` ; axe tourne dans chaque parcours Playwright (étiquettes WCAG 2.2 AA).
+- **Préférences → CSS (lot F1a)** : la seule interface est un jeu d'attributs posés sur `<html>`
+  (détail en tête de `app/assets/css/tokens.css`) ; aucun composant ne calcule une couleur ou une
+  taille en JS. `data-theme="sombre|clair"` (absent : suit `prefers-color-scheme`, repli sans JS ;
+  le script de thème D5 le pose toujours), `data-contrast="renforce"` (avec `data-theme`),
+  `data-text-size="100|115|130"` (facteur de la taille racine, tout en `rem`), `data-font="lisible"`
+  (Atkinson Hyperlegible, téléchargée seulement alors), `data-spacing="augmente"` (WCAG 1.4.12),
+  `data-links="soulignes"`, `data-motion="reduit|normal"` (absent : suit `prefers-reduced-motion` ;
+  `normal` = choix explicite de garder les animations). Les composants utilisent les variables
+  (`--bg`, `--text`, `--accent`…, `--font-sans`, `--font-mono`, `--font-size-*`, `--dur-*`,
+  `--ease-*`), jamais une couleur, une police ou une durée écrite en dur ; aucune taille de texte en
+  px (vérifié par `app/assets/css/tokens.spec.ts`, avec la fidélité au handoff et les contrastes des
+  quatre palettes). Classes globales : `.skip-link` (lien d'évitement, visible au focus) et
+  `.visually-hidden`. Polices dans `public/fonts/` (Fontsource 5.3.0, OFL), aucune requête tierce.
 - **Configuration et données personnelles** : valeurs publiques en `NUXT_PUBLIC_*`, figées au build,
   modèle `apps/web/.env.example` (à copier en `apps/web/.env`, jamais commité). L'adresse du bouton
   « Lancer l'entretien » est `NUXT_PUBLIC_CONTACT_EMAIL` (`useRuntimeConfig().public.contactEmail`) :

@@ -1,0 +1,147 @@
+/*
+ * Apparence partagée de `Button.vue` et de `LinkButton.vue` (ticket F1-03) : un bouton et un lien en
+ * forme de bouton se ressemblent à l'identique. Chargé par `<style scoped src>` dans les deux
+ * composants. Couleurs, durées et courbes par les variables de tokens.css ; tailles de texte en rem.
+ * Variantes du handoff : plein accent, contour, secondaire (bordure `line`), bleu LinkedIn, néon GitHub,
+ * lien texte.
+ */
+.base-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: var(--desktop-control);
+  padding: 0 1rem;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-control);
+  background-color: transparent;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform var(--dur-press) var(--ease-press),
+    filter var(--dur-press),
+    background-color var(--dur-press),
+    border-color var(--dur-press),
+    color var(--dur-press);
+}
+
+.base-button--block {
+  display: flex;
+  width: 100%;
+}
+
+/* Tailles : 40 px (barre du haut, `--desktop-control`), 48 px (3 rem : mobile, fenêtres), 52 px
+   (3,25 rem : liens de réseaux). */
+.base-button--md {
+  min-height: 3rem;
+  border-radius: var(--radius-button);
+  font-size: var(--font-size-body-mobile);
+}
+
+.base-button--lg {
+  min-height: 3.25rem;
+  border-radius: var(--radius-button);
+  font-size: var(--font-size-body-mobile);
+}
+
+.base-button--solid {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: var(--on);
+  font-weight: var(--font-weight-bold);
+}
+
+.base-button--outline {
+  border-color: var(--text);
+}
+
+.base-button--secondary {
+  border-color: var(--line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.base-button--linkedin {
+  border-color: var(--li);
+  background-color: var(--li-bg);
+  color: var(--li);
+  font-weight: var(--font-weight-bold);
+}
+
+.base-button--neon {
+  border-color: var(--neon);
+  background-color: var(--neon-bg);
+  color: var(--neon);
+  font-weight: var(--font-weight-bold);
+}
+
+/* Lien texte : pas de cadre, soulignement conservé (WCAG 1.4.1), couleur selon `tone`. */
+.base-button--link {
+  min-height: 2rem;
+  padding: 0 0.25rem;
+  border-radius: var(--radius-chip);
+  color: var(--accent);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.base-button--link.base-button--tone-muted {
+  color: var(--muted);
+}
+
+.base-button--link.base-button--tone-linkedin {
+  color: var(--li);
+}
+
+/* Le survol (souris seulement) change le filtre ; l'appui rétrécit. `a:hover` de base.css garde la
+   couleur du texte : la couleur propre à la variante l'emporte par sa spécificité. */
+@media (hover: hover) {
+  .base-button:not([aria-disabled='true']):hover {
+    transform: translateY(-1px);
+    filter: var(--hov);
+  }
+}
+
+.base-button:not([aria-disabled='true']):active {
+  transform: scale(0.95);
+  filter: var(--hov-a);
+}
+
+.base-button[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.base-button__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* Cibles de 44 px au minimum sur mobile et tablette (SPEC § 10.2). */
+@media (max-width: 1023px) {
+  .base-button--sm,
+  .base-button--link {
+    min-height: var(--touch-target);
+  }
+}
+
+/* Mouvement réduit : plus de déplacement ni de mise à l'échelle (les durées valent déjà 0,01 ms). */
+:root[data-motion='reduit'] .base-button:hover,
+:root[data-motion='reduit'] .base-button:active {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='normal']) .base-button:hover,
+  :root:not([data-motion='normal']) .base-button:active {
+    transform: none;
+  }
+}

@@ -30,6 +30,28 @@ export default defineNuxtConfig({
   // L'API de dev écoute sur 3000 et autorise l'origine http://localhost:3001 (CORS_ORIGIN).
   devServer: { port: 3001 },
 
+  // Design system global (lot F1) : polices auto-hébergées (D6), tokens et thèmes, base. L'ordre
+  // compte : les tokens définissent les variables que la base utilise. Interface préférences → CSS :
+  // les attributs `data-*` de <html>, décrits en tête de app/assets/css/tokens.css.
+  css: ['~/assets/css/fonts.css', '~/assets/css/tokens.css', '~/assets/css/base.css'],
+
+  app: {
+    head: {
+      // Seule la police du texte courant (Space Grotesk, sous-ensemble latin) est préchargée ; même
+      // URL que son @font-face (fonts.css), `crossorigin` exigé pour une police. JetBrains Mono et
+      // Atkinson Hyperlegible ne se téléchargent qu'à l'usage (F1-02).
+      link: [
+        {
+          rel: 'preload',
+          as: 'font',
+          type: 'font/woff2',
+          href: '/fonts/space-grotesk/space-grotesk-latin-wght-normal.woff2',
+          crossorigin: '',
+        },
+      ],
+    },
+  },
+
   // Valeurs publiques lues au moment de `nuxt generate` (variables NUXT_PUBLIC_*), jamais commitées :
   // modèle dans apps/web/.env.example. Aucune vraie adresse dans le dépôt.
   runtimeConfig: {
