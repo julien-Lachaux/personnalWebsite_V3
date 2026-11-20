@@ -28,8 +28,8 @@ describe('document OpenAPI généré (instantané du contrat)', () => {
     const operationIds = Object.values(createOpenApiDocument().paths ?? {}).map(
       (item) => item.get?.operationId,
     );
-    expect(operationIds).toHaveLength(13);
-    expect(new Set(operationIds).size).toBe(13);
+    expect(operationIds).toHaveLength(14);
+    expect(new Set(operationIds).size).toBe(14);
     for (const id of operationIds) {
       expect(id).toMatch(/^(get|list)[A-Z][A-Za-z]+$/);
     }

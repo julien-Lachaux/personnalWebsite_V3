@@ -26,6 +26,7 @@ import { HealthResponseSchema } from '../health/health.js';
 import { LanguageSchema } from '../languages/languages.js';
 import { ProfileSchema } from '../profile/profile.js';
 import { ProjectSchema } from '../projects/projects.js';
+import { RecommendationSchema } from '../recommendations/recommendations.js';
 import { ResourceSchema } from '../resources/resources.js';
 import { SkillGroupSchema } from '../skill-groups/skill-groups.js';
 import { SkillSchema } from '../skills/skills.js';
@@ -48,7 +49,7 @@ const problemResponse = (description: string): ResponseConfig => ({
 
 /**
  * Routes décrites par le contrat. Les chemins sont relatifs au préfixe `/api/v1` (voir `servers`).
- * Une seule table décrit les 12 routes de contenu : même forme, même jeu de réponses d'erreur.
+ * Une seule table décrit les 13 routes de contenu : même forme, même jeu de réponses d'erreur.
  */
 interface ContentRoute {
   path: string;
@@ -150,6 +151,15 @@ const contentRoutes: ContentRoute[] = [
     schema: z.array(LanguageSchema),
   },
   {
+    path: '/recommendations',
+    operationId: 'listRecommendations',
+    tag: 'Recommandations',
+    summary: 'Recommandations professionnelles',
+    description:
+      'Les recommandations publiées, par ordre de tri, chacune dans la langue de sa ligne servie (`locale`).',
+    schema: z.array(RecommendationSchema),
+  },
+  {
     path: '/cv',
     operationId: 'getCv',
     tag: 'CV',
@@ -230,6 +240,7 @@ const namedSchemas = [
   CertificationSchema,
   EducationSchema,
   LanguageSchema,
+  RecommendationSchema,
   CvSchema,
 ];
 
@@ -266,6 +277,7 @@ export function createOpenApiDocument(): OpenApiDocument {
       { name: 'Certifications', description: 'Certifications obtenues' },
       { name: 'Formations', description: 'Parcours de formation' },
       { name: 'Langues', description: 'Langues parlées' },
+      { name: 'Recommandations', description: 'Recommandations professionnelles' },
       { name: 'CV', description: 'Agrégat de tout le contenu en un appel' },
       { name: 'Système', description: 'Supervision de l’API' },
     ],

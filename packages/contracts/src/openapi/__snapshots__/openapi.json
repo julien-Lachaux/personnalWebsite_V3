@@ -18,6 +18,7 @@
     { "name": "Certifications", "description": "Certifications obtenues" },
     { "name": "Formations", "description": "Parcours de formation" },
     { "name": "Langues", "description": "Langues parlées" },
+    { "name": "Recommandations", "description": "Recommandations professionnelles" },
     { "name": "CV", "description": "Agrégat de tout le contenu en un appel" },
     { "name": "Système", "description": "Supervision de l’API" }
   ],
@@ -82,7 +83,11 @@
             "items": { "$ref": "#/components/schemas/Certification" }
           },
           "education": { "type": "array", "items": { "$ref": "#/components/schemas/Education" } },
-          "languages": { "type": "array", "items": { "$ref": "#/components/schemas/Language" } }
+          "languages": { "type": "array", "items": { "$ref": "#/components/schemas/Language" } },
+          "recommendations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Recommendation" }
+          }
         },
         "required": [
           "locale",
@@ -95,7 +100,8 @@
           "resources",
           "certifications",
           "education",
-          "languages"
+          "languages",
+          "recommendations"
         ],
         "additionalProperties": false,
         "description": "CV complet : agrégat de toutes les ressources."
@@ -496,6 +502,49 @@
         ],
         "additionalProperties": false,
         "description": "Réalisation (projet)."
+      },
+      "Recommendation": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "authorName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Nom de l'auteur de la recommandation.",
+            "examples": ["Prénom Nom"]
+          },
+          "authorRole": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Fonction de l'auteur.",
+            "examples": ["CTO"]
+          },
+          "relationship": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Relation professionnelle entre l'auteur et Julien.",
+            "examples": ["Responsable direct de Julien"]
+          },
+          "recommendedOn": { "$ref": "#/components/schemas/IsoDate" },
+          "paragraphs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1,
+            "description": "Citation, un paragraphe par entrée (texte brut, au moins un)."
+          },
+          "locale": { "$ref": "#/components/schemas/Locale" }
+        },
+        "required": [
+          "slug",
+          "authorName",
+          "authorRole",
+          "relationship",
+          "recommendedOn",
+          "paragraphs",
+          "locale"
+        ],
+        "additionalProperties": false,
+        "description": "Recommandation professionnelle ; `locale` est la langue de la ligne servie (`fr` en repli)."
       },
       "Resource": {
         "type": "object",
@@ -1250,6 +1299,67 @@
             "content": {
               "application/json": {
                 "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Language" } }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recommendations": {
+      "get": {
+        "operationId": "listRecommendations",
+        "summary": "Recommandations professionnelles",
+        "tags": ["Recommandations"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les recommandations publiées, par ordre de tri, chacune dans la langue de sa ligne servie (`locale`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Recommendation" }
+                }
               }
             }
           },

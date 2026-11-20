@@ -13,6 +13,7 @@ const CONTENT_TABLES = [
   'certifications',
   'education',
   'languages',
+  'recommendations',
 ] as const;
 
 /**

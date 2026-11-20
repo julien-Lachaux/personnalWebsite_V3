@@ -7,6 +7,7 @@ import { ExperienceSchema } from '../experiences/experiences.js';
 import { LanguageSchema } from '../languages/languages.js';
 import { ProfileSchema } from '../profile/profile.js';
 import { ProjectSchema } from '../projects/projects.js';
+import { RecommendationSchema } from '../recommendations/recommendations.js';
 import { ResourceSchema } from '../resources/resources.js';
 import { SkillGroupSchema } from '../skill-groups/skill-groups.js';
 import { SocialLinkSchema } from '../social-links/social-links.js';
@@ -30,6 +31,7 @@ export const CvSchema = z
     certifications: z.array(CertificationSchema),
     education: z.array(EducationSchema),
     languages: z.array(LanguageSchema),
+    recommendations: z.array(RecommendationSchema),
   })
   .meta({ id: 'Cv', description: 'CV complet : agrégat de toutes les ressources.' });
 

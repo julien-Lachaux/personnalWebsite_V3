@@ -113,4 +113,15 @@ export const cvExample: Cv = {
     { slug: 'fr', code: 'fr', cefrLevel: null, name: 'Français', levelLabel: 'langue maternelle' },
     { slug: 'en', code: 'en', cefrLevel: 'C1', name: 'Anglais', levelLabel: 'professionnel' },
   ],
+  recommendations: [
+    {
+      slug: 'prenom-nom',
+      authorName: 'Prénom Nom',
+      authorRole: 'CTO',
+      relationship: 'Responsable direct',
+      recommendedOn: '2025-12-08',
+      paragraphs: ['Premier paragraphe.', 'Second paragraphe.'],
+      locale: 'fr',
+    },
+  ],
 };

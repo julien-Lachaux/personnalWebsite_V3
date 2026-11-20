@@ -64,6 +64,7 @@ describe('createOpenApiDocument', () => {
     '/languages',
     '/profile',
     '/projects',
+    '/recommendations',
     '/resources',
     '/skill-groups',
     '/skills',
@@ -71,12 +72,12 @@ describe('createOpenApiDocument', () => {
     '/tools',
   ];
 
-  it('déclare exactement les 13 chemins, relatifs à /api/v1, sans /docs.json', () => {
+  it('déclare exactement les 14 chemins, relatifs à /api/v1, sans /docs.json', () => {
     expect(Object.keys(document.paths ?? {}).sort()).toEqual(expectedPaths);
     expect(JSON.stringify(document)).not.toContain('docs.json');
   });
 
-  it('porte le paramètre lang (Locale) sur 12 chemins, pas sur /health', () => {
+  it('porte le paramètre lang (Locale) sur 13 chemins, pas sur /health', () => {
     for (const path of expectedPaths) {
       const parameters = document.paths?.[path]?.get?.parameters ?? [];
       const lang = parameters.find((p) => 'name' in p && p.name === 'lang');
@@ -143,6 +144,7 @@ describe('createOpenApiDocument', () => {
       'ProblemDetails',
       'Profile',
       'Project',
+      'Recommendation',
       'Resource',
       'Skill',
       'SkillGroup',

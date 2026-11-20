@@ -141,6 +141,7 @@ describe('CvController', () => {
     certifications: [],
     education: [],
     languages: [],
+    recommendations: [],
   };
 
   it('renvoie le CV validé dans la langue demandée', async () => {

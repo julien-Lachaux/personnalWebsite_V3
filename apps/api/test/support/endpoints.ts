@@ -6,6 +6,7 @@ import {
   LanguageSchema,
   ProfileSchema,
   ProjectSchema,
+  RecommendationSchema,
   ResourceSchema,
   SkillGroupSchema,
   SkillSchema,
@@ -27,7 +28,7 @@ export interface Endpoint {
   seededCount: number | null;
 }
 
-/** Les 12 routes de contenu en lecture seule, sous `/api/v1`. */
+/** Les 13 routes de contenu en lecture seule, sous `/api/v1`. */
 export const ENDPOINTS: readonly Endpoint[] = [
   {
     name: 'profile',
@@ -106,6 +107,13 @@ export const ENDPOINTS: readonly Endpoint[] = [
     shape: 'list',
     seededCount: 2,
   },
+  {
+    name: 'recommendations',
+    path: '/api/v1/recommendations',
+    schema: z.array(RecommendationSchema),
+    shape: 'list',
+    seededCount: 3,
+  },
   { name: 'cv', path: '/api/v1/cv', schema: CvSchema, shape: 'object', seededCount: null },
 ];
 
@@ -122,6 +130,7 @@ export const TRANSLATION_TABLES = [
   'certifications_translations',
   'education_translations',
   'languages_translations',
+  'recommendations_translations',
 ] as const;
 
 export function withLang(path: string, lang?: string): string {

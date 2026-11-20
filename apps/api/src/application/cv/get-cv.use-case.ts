@@ -7,6 +7,7 @@ import {
   type Locale,
   type Profile,
   type Project,
+  type Recommendation,
   type Resource,
   type SkillGroup,
   type SocialLink,
@@ -37,10 +38,11 @@ export class GetCvUseCase {
     private readonly listCertifications: LocalizedUseCase<Certification[]>,
     private readonly listEducation: LocalizedUseCase<Education[]>,
     private readonly listLanguages: LocalizedUseCase<Language[]>,
+    private readonly listRecommendations: LocalizedUseCase<Recommendation[]>,
   ) {}
 
   /**
-   * Exécute les 10 cas d'usage en parallèle. Une seule erreur fait échouer l'ensemble : jamais de
+   * Exécute les 11 cas d'usage en parallèle. Une seule erreur fait échouer l'ensemble : jamais de
    * réponse partielle. La validation stricte par `CvSchema` est faite une fois, par le controller.
    */
   async execute(locale: Locale): Promise<Cv> {
@@ -55,6 +57,7 @@ export class GetCvUseCase {
       certifications,
       education,
       languages,
+      recommendations,
     ] = await Promise.all([
       this.getProfile.execute(locale),
       this.listSocialLinks.execute(locale),
@@ -66,6 +69,7 @@ export class GetCvUseCase {
       this.listCertifications.execute(locale),
       this.listEducation.execute(locale),
       this.listLanguages.execute(locale),
+      this.listRecommendations.execute(locale),
     ]);
 
     return {
@@ -80,6 +84,7 @@ export class GetCvUseCase {
       certifications,
       education,
       languages,
+      recommendations,
     };
   }
 }

@@ -16,6 +16,7 @@ export * from './languages/languages.js';
 export * from './openapi/document.js';
 export * from './profile/profile.js';
 export * from './projects/projects.js';
+export * from './recommendations/recommendations.js';
 export * from './resources/resources.js';
 export * from './skill-groups/skill-groups.js';
 export * from './skills/skills.js';

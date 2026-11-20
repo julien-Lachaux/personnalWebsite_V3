@@ -106,6 +106,17 @@ const data: Omit<Cv, 'locale'> = {
   languages: [
     { slug: 'fr', code: 'fr', cefrLevel: null, name: 'Français', levelLabel: 'langue maternelle' },
   ],
+  recommendations: [
+    {
+      slug: 'prenom-nom',
+      authorName: 'Prénom Nom',
+      authorRole: 'CTO',
+      relationship: 'Responsable direct',
+      recommendedOn: '2025-12-08',
+      paragraphs: ['Paragraphe.'],
+      locale: 'fr',
+    },
+  ],
 };
 
 type Key = keyof typeof data;
@@ -151,6 +162,7 @@ function build(overrides: Partial<Record<Key, Stub<unknown>>> = {}): {
     stubs.certifications,
     stubs.education,
     stubs.languages,
+    stubs.recommendations,
   );
   return { stubs, useCase };
 }
@@ -175,7 +187,7 @@ describe('GetCvUseCase', () => {
     }
   });
 
-  it('lance les 10 cas d’usage en parallèle (Promise.all)', async () => {
+  it('lance les 11 cas d’usage en parallèle (Promise.all)', async () => {
     const { stubs, useCase } = build();
     let release: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {
