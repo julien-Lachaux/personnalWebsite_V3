@@ -18,6 +18,12 @@ beforeEach(() => {
   for (const name of ['data-theme', 'data-text-size', 'data-motion']) {
     document.documentElement.removeAttribute(name);
   }
+  // La page rendue peut être la coquille sur mobile (flèche « faire défiler ») : `document.fonts`
+  // n'existe pas dans le DOM de test.
+  Object.defineProperty(document, 'fonts', {
+    configurable: true,
+    value: { ready: Promise.resolve() },
+  });
   vi.spyOn(window, 'matchMedia').mockImplementation(
     (query: string) =>
       ({
