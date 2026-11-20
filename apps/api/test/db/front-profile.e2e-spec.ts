@@ -26,9 +26,12 @@ const NEW_COLUMNS = [
   'cv_path',
 ] as const;
 
+const TEXT_COLUMNS = NEW_COLUMNS.filter((column) => column !== 'taglines');
+
 /**
- * BF-1 (brief back-001) : colonnes du profil pour le design v6, ajoutées à profile_translations.
- * Les anciennes colonnes (headline, bio, availability) restent jusqu'à la bascule de l'API.
+ * BF-1 (brief back-001) : colonnes du profil pour le design v6, sur profile_translations. État final :
+ * neuf colonnes `not null`, non vides, `taglines` d'au moins une accroche sans élément vide ni nul ;
+ * headline, bio et availability supprimées.
  */
 describe('profil restructuré (BF-1)', () => {
   let sql: Sql;
@@ -66,19 +69,22 @@ describe('profil restructuré (BF-1)', () => {
     };
   });
 
-  it('ajoute les neuf colonnes, de type text (taglines : text[]), et garde les anciennes', async () => {
-    const rows = await sql<{ column_name: string; type: string }[]>`
-      select c.column_name, format_type(a.atttypid, a.atttypmod) as type
+  it('porte les neuf colonnes, de type text (taglines : text[]), toutes not null, sans les anciennes', async () => {
+    const rows = await sql<{ column_name: string; type: string; is_nullable: string }[]>`
+      select c.column_name, c.is_nullable, format_type(a.atttypid, a.atttypmod) as type
       from information_schema.columns c
       join pg_attribute a on a.attrelid = 'profile_translations'::regclass and a.attname = c.column_name
       where c.table_schema = 'public' and c.table_name = 'profile_translations'`;
     const types = new Map(rows.map((row) => [row.column_name, row.type]));
 
+    const nullable = new Map(rows.map((row) => [row.column_name, row.is_nullable]));
+
     for (const column of NEW_COLUMNS) {
       expect(types.get(column)).toBe(column === 'taglines' ? 'text[]' : 'text');
+      expect(nullable.get(column), column).toBe('NO');
     }
     for (const column of ['headline', 'bio', 'availability']) {
-      expect(types.get(column)).toBe('text');
+      expect(types.has(column), column).toBe(false);
     }
   });
 
@@ -130,23 +136,41 @@ describe('profil restructuré (BF-1)', () => {
     expect(row?.seeking_availability).toBe('Immédiate');
   });
 
-  it('refuse une traduction en dont une nouvelle colonne est nulle (complétude), sans rien appliquer', async () => {
-    const directory = await seedsPlus(
-      `update profile_translations set seeking_location = null where locale = 'en';`,
-    );
-
-    await expect(run(directory)).rejects.toThrow(
-      /Traduction en incomplète.*profile\/profil \(seeking_location\)/,
-    );
+  it.each(NEW_COLUMNS)('refuse une valeur nulle pour %s', async (column) => {
+    await expect(
+      sql.unsafe(`update profile_translations set ${column} = null where locale = 'en'`),
+    ).rejects.toThrow(new RegExp(`null value in column "${column}"`));
   });
 
-  it('refuse une traduction en dont taglines est un tableau vide', async () => {
+  it.each(TEXT_COLUMNS)('refuse une valeur vide pour %s (check)', async (column) => {
+    await expect(
+      sql.unsafe(`update profile_translations set ${column} = '' where locale = 'en'`),
+    ).rejects.toThrow(new RegExp(`profile_translations_${column}_check`));
+  });
+
+  it.each([
+    ['un tableau vide', `'{}'::text[]`],
+    ['une accroche vide', `array['Accroche', '']`],
+    ['une accroche nulle', `array['Accroche', null]`],
+  ])('refuse taglines avec %s', async (_label, value) => {
+    await expect(
+      sql.unsafe(`update profile_translations set taglines = ${value} where locale = 'en'`),
+    ).rejects.toThrow(/profile_translations_taglines_check/);
+  });
+
+  it('accepte une seule accroche', async () => {
+    await sql`update profile_translations set taglines = array['Une'] where locale = 'en'`;
+
+    const [row] = await sql<{ taglines: string[] }[]>`
+      select taglines from profile_translations where locale = 'en'`;
+    expect(row?.taglines).toEqual(['Une']);
+  });
+
+  it('un seed dont le fichier vide une colonne est refusé par la base', async () => {
     const directory = await seedsPlus(
-      `update profile_translations set taglines = '{}'::text[] where locale = 'en';`,
+      `update profile_translations set seeking_location = '' where locale = 'en';`,
     );
 
-    await expect(run(directory)).rejects.toThrow(
-      /Traduction en incomplète.*profile\/profil \(taglines\)/,
-    );
+    await expect(run(directory)).rejects.toThrow(/profile_translations_seeking_location_check/);
   });
 });

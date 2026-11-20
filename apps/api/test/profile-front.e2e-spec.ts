@@ -86,23 +86,62 @@ describe('GET /api/v1/profile : champs du design v6 (BF-1)', () => {
     );
   });
 
-  describe('ligne en incomplète : traitée comme absente, la ligne fr est servie entière', () => {
+  describe('lignes de traduction : la base refuse toute valeur vide ou nulle', () => {
     beforeEach(async () => {
       await resetTestDatabase();
     });
 
+    const COLUMNS = [
+      'title_badge',
+      'intro',
+      'mission',
+      'current_activity',
+      'seeking_format',
+      'seeking_location',
+      'seeking_availability',
+      'cv_path',
+    ];
+
+    it.each(
+      ['fr', 'en'].flatMap((locale) =>
+        [...COLUMNS, 'taglines'].map((column) => [locale, column] as const),
+      ),
+    )('ligne %s : %s nulle refusée, profil inchangé', async (locale, column) => {
+      const before = await profile('fr');
+
+      await expect(
+        alter((sql) =>
+          sql.unsafe(`update profile_translations set ${column} = null where locale = '${locale}'`),
+        ),
+      ).rejects.toThrow(new RegExp(`null value in column "${column}"`));
+
+      expect(await profile('fr')).toStrictEqual(before);
+    });
+
+    it.each(['fr', 'en'].flatMap((locale) => COLUMNS.map((column) => [locale, column] as const)))(
+      'ligne %s : %s vide refusée',
+      async (locale, column) => {
+        await expect(
+          alter((sql) =>
+            sql.unsafe(`update profile_translations set ${column} = '' where locale = '${locale}'`),
+          ),
+        ).rejects.toThrow(new RegExp(`profile_translations_${column}_check`));
+      },
+    );
+
     it.each([
-      ['intro nulle', 'update profile_translations set intro = null'],
-      ['title_badge vide', "update profile_translations set title_badge = ''"],
-      ['cv_path nul', 'update profile_translations set cv_path = null'],
-      ['seeking_availability vide', "update profile_translations set seeking_availability = ''"],
-      ['taglines nulles', 'update profile_translations set taglines = null'],
-      ['taglines vides', "update profile_translations set taglines = '{}'"],
-      ['une accroche vide', "update profile_translations set taglines = array['Accroche', '']"],
-      ['une accroche nulle', "update profile_translations set taglines = array['Accroche', null]"],
-    ])('%s', async (_label, statement) => {
+      ['des accroches vides', "'{}'"],
+      ['une accroche vide', "array['Accroche', '']"],
+      ['une accroche nulle', "array['Accroche', null]"],
+    ])('taglines avec %s refusées', async (_label, value) => {
+      await expect(
+        alter((sql) => sql.unsafe(`update profile_translations set taglines = ${value}`)),
+      ).rejects.toThrow(/profile_translations_taglines_check/);
+    });
+
+    it('sans ligne en, la ligne fr est servie entière en anglais', async () => {
       const fr = await profile('fr');
-      await alter((sql) => sql.unsafe(`${statement} where locale = 'en'`));
+      await alter((sql) => sql`delete from profile_translations where locale = 'en'`);
 
       const en = await profile('en');
 
@@ -113,27 +152,20 @@ describe('GET /api/v1/profile : champs du design v6 (BF-1)', () => {
     });
   });
 
-  describe('ligne fr incomplète ou profil marqué supprimé : aucun profil servi (404)', () => {
+  describe('ligne fr absente ou profil marqué supprimé : aucun profil servi (404)', () => {
     beforeEach(async () => {
       await resetTestDatabase();
     });
 
-    it.each([
-      ['mission nulle', 'update profile_translations set mission = null'],
-      ['current_activity vide', "update profile_translations set current_activity = ''"],
-      ['taglines vides', "update profile_translations set taglines = '{}'"],
-    ])(
-      'fr avec %s : 404 problem+json en fr comme en en, et pour /cv',
-      async (_label, statement) => {
-        await alter((sql) => sql.unsafe(`${statement} where locale = 'fr'`));
+    it('sans ligne fr : 404 problem+json en fr comme en en, et pour /cv', async () => {
+      await alter((sql) => sql`delete from profile_translations where locale = 'fr'`);
 
-        for (const lang of ['fr', 'en']) {
-          const problem = expectProblem(await get(`/api/v1/profile?lang=${lang}`), 404);
-          expect(problem.detail).toBe('Profil « profile » introuvable.');
-          expectProblem(await get(`/api/v1/cv?lang=${lang}`), 404);
-        }
-      },
-    );
+      for (const lang of ['fr', 'en']) {
+        const problem = expectProblem(await get(`/api/v1/profile?lang=${lang}`), 404);
+        expect(problem.detail).toBe('Profil « profile » introuvable.');
+        expectProblem(await get(`/api/v1/cv?lang=${lang}`), 404);
+      }
+    });
 
     it('profil marqué deleted_at : 404 problem+json pour /profile et /cv', async () => {
       await alter((sql) => sql`update profile set deleted_at = now()`);
