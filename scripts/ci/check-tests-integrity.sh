@@ -57,11 +57,15 @@ SCRIPT_RE='^[-+][[:space:]]*"(test|test:[^"]*|check|hooks:test|integrity|integri
 # Playwright (front) : fixme et slow après `test` ou `test.describe` sont interdits, fail y vaut
 # l'échec attendu fails de Vitest (mêmes formes que lib/policy.mjs).
 PW_PREFIX='(^|[^A-Za-z0-9_$.])test(\.describe)?(\.(serial|parallel))?'
-FORBIDDEN_RE='\.(skip|only|todo|skipIf|runIf)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])|(v8|c8|istanbul)[[:space:]]+ignore|node:coverage[[:space:]]+(ignore|disable)|'"${PW_PREFIX}"'\.(fixme|slow)[[:space:]]*\('
-# BF-9 : l'échec attendu de Vitest n'est reconnu, avant la parenthèse ou le gabarit, qu'après une ou
-# plusieurs méthodes de son API de test (mêmes méthodes que MARKER_RE de lib/policy.mjs), plus après
-# n'importe quel appel : la portée d'échec attendu de GRANTABLE suivie d'includes n'est pas un marqueur.
+# Méthodes de l'API de test de Vitest 5 (mêmes méthodes que MARKER_RE de lib/policy.mjs).
 VITEST_CHAIN='(each|for|concurrent|sequential|shuffle|skip|only|todo|fails|skipIf|runIf|extend|scoped|override)'
+# L14-11 : un marqueur interdit est reconnu avant une parenthèse, ou avant une méthode quelconque
+# suivie d'une parenthèse ou d'un gabarit, elle-même précédée d'autant de méthodes de l'API de test
+# qu'on veut (un saut, puis concurrent, puis each…).
+FORBIDDEN_RE='\.(skip|only|todo|skipIf|runIf)([[:space:]]*\(|(\.'"${VITEST_CHAIN}"')*\.[A-Za-z]+[[:space:]]*[(`])|(v8|c8|istanbul)[[:space:]]+ignore|node:coverage[[:space:]]+(ignore|disable)|'"${PW_PREFIX}"'\.(fixme|slow)[[:space:]]*\('
+# BF-9 : l'échec attendu de Vitest n'est reconnu, avant la parenthèse ou le gabarit, qu'après une ou
+# plusieurs méthodes de son API de test, plus après n'importe quel appel : la portée d'échec attendu
+# de GRANTABLE suivie d'includes n'est pas un marqueur.
 FAILS_RE='\.(fails)([[:space:]]*\(|(\.'"${VITEST_CHAIN}"')+[[:space:]]*[(`])|'"${PW_PREFIX}"'\.fail[[:space:]]*\('
 # Directive de Stryker qui ignore des mutants (https://stryker-mutator.io/docs/stryker-js/disable-mutants/),
 # dans un commentaire // ou /* … */ d'un fichier JS/TS ; identifiant d'équivalent déclaré cité.

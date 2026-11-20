@@ -93,9 +93,11 @@ export function hasTestSegment(rel) {
 // plusieurs méthodes de l'API de test de Vitest 5 (clés de createChainable et méthodes qui
 // déclarent un test : each, for, extend…), plus après n'importe quel appel : la portée d'échec
 // attendu de GRANTABLE suivie d'includes ou de map n'est pas un marqueur. Les marqueurs interdits
-// gardent l'enchaînement libre (détection plus large, sans autorisation possible).
+// gardent l'enchaînement libre (détection plus large, sans autorisation possible) : une méthode
+// quelconque avant la parenthèse ou le gabarit, précédée (L14-11) d'autant de méthodes de l'API de
+// test qu'on veut (un saut, puis concurrent, puis each…).
 const MARKER_RE =
-  /\.(?:(skip|only|todo|skipIf|runIf)(?=\s*\(|\.\w+\s*[(`])|(fails)(?=\s*\(|(?:\.(?:each|for|concurrent|sequential|shuffle|skip|only|todo|fails|skipIf|runIf|extend|scoped|override))+\s*[(`]))/g;
+  /\.(?:(skip|only|todo|skipIf|runIf)(?=\s*\(|(?:\.(?:each|for|concurrent|sequential|shuffle|skip|only|todo|fails|skipIf|runIf|extend|scoped|override))*\.\w+\s*[(`])|(fails)(?=\s*\(|(?:\.(?:each|for|concurrent|sequential|shuffle|skip|only|todo|fails|skipIf|runIf|extend|scoped|override))+\s*[(`]))/g;
 // Playwright (front, lot F0) : skip et only sont déjà couverts ci-dessus ; fixme saute un test et
 // slow triple son délai (toujours interdits), fail inverse le résultat (échec attendu, comme fails
 // de Vitest). Repérés seulement après `test` (ou `test.describe`) pour ne pas confondre avec
