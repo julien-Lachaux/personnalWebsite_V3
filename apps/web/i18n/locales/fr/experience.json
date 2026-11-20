@@ -13,6 +13,73 @@
     },
     "provisional": {
       "count": "aucune expérience | {n} expérience | {n} expériences"
+    },
+    "filter": {
+      "label": "filtrer par techno",
+      "searchLabel": "Filtrer les expériences",
+      "placeholderEmpty": "Ex. Kafka, Docker… ({n} technos)",
+      "placeholderMore": "Ajouter une techno…",
+      "clear": "Effacer",
+      "clearAll": "Effacer tous les filtres",
+      "removeChip": "Retirer le filtre {name}",
+      "live": {
+        "all": "{n} expérience affichée | {n} expériences affichées",
+        "results": "{n} expérience avec toutes les technos choisies | {n} expériences avec toutes les technos choisies",
+        "empty": "Aucune expérience ne combine toutes ces technos"
+      }
+    },
+    "suggestions": {
+      "label": "Suggestions de technos",
+      "count": "{n} XP",
+      "noXp": "sans XP détaillée",
+      "add": "Ajouter {name}, {n} XP",
+      "disabled": "{name}, {n} XP : indisponible avec les filtres en cours",
+      "unlinked": "{name}, sans XP détaillée",
+      "none": "Aucune techno ne correspond à « {query} ».",
+      "showAll": "Voir toutes les technos"
+    },
+    "drawer": {
+      "mainStack": "stack principale",
+      "showAll": "Toutes les technos ({n})",
+      "hideAll": "Masquer la liste",
+      "close": "Fermer",
+      "intro": "Toutes mes technos, par domaine. Le chiffre indique le nombre d’expériences ; en pointillé, celles sans expérience détaillée.",
+      "unlinkedHint": "pas d’expérience détaillée"
+    },
+    "tech": {
+      "available": "{name}, {n} expérience | {name}, {n} expériences",
+      "disabled": "{name}, {n} expérience avec les filtres en cours"
+    },
+    "list": {
+      "label": "Liste des expériences"
+    },
+    "results": {
+      "withAll": "Avec toutes ces technos · {n}",
+      "withOne": "Avec {tech} · {n}",
+      "others": "Les autres expériences · {n}",
+      "partial": "En partie : {techs}",
+      "empty": "Aucune expérience ne combine toutes ces technos. Retirez-en une, ou consultez les autres expériences.",
+      "show": "Voir l’autre expérience | Voir les {n} autres expériences",
+      "hide": "Masquer l’autre expérience | Masquer les {n} autres expériences",
+      "showAll": "Voir l’expérience | Voir les {n} expériences",
+      "hideAll": "Masquer l’expérience | Masquer les {n} expériences"
+    },
+    "card": {
+      "detail": "Détail : {title}",
+      "detailAt": "Détail : {title} chez {organisation}",
+      "filterBy": "Filtrer par {name}"
+    },
+    "easterEgg": {
+      "label": "Huile de coude",
+      "close": "Retour au CV",
+      "closeWindow": "Fermer",
+      "install": "npm install huile-de-coude",
+      "installed": "1 paquet ajouté, 0 dépendance, en 21 mois",
+      "muscles": "muscles",
+      "patience": "patience",
+      "tests": "tests en conditions réelles",
+      "build": "build projet-immobilier",
+      "done": "Terminé. 0 vulnérabilité (sauf le dos)."
     }
   }
 }
