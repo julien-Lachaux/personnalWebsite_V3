@@ -363,10 +363,12 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
 - Refusés par les hooks à toute session, principale comprise (lot 13 bis) : la plomberie de push
   (`git send-pack`, `git http-push`), la redéfinition de la destination des push
   (`git remote add|rename|remove|set-url`, `git config` en écriture sur `remote.*`, `url.*`,
-  `push.*`, `branch.*.remote`, `branch.*.pushRemote`, `include*`, édition de `.git/config` ou de
-  `~/.gitconfig`) et, avec `gh`, tout ce qui fusionne, étiquette, publie ou supprime (`gh pr merge`,
+  `push.*`, `branch.*.remote`, `branch.*.pushRemote`, `branch.autoSetupMerge`,
+  `branch.autoSetupRebase`, `include*`, édition de `.git/config` ou de `~/.gitconfig`) et, avec
+  `gh`, tout ce qui fusionne, étiquette, publie ou supprime (`gh pr merge`,
   `gh release create|delete|edit|upload`, `gh repo delete|edit|rename`, `gh api` hors GET). Les
-  lectures (`git config --get`, `git remote -v`, `gh pr view`, `gh run list`…) restent permises.
+  lectures (`git config --get`, `core.hooksPath` compris depuis le lot 18, `git remote -v`,
+  `gh pr view`, `gh run list`…) restent permises ; écrire ou retirer `core.hooksPath` reste refusé.
 - Branche locale `main` (lot 14, décision de Julien du 19 nov. 2026) : aucune session, principale
   comprise, ne l'écrit (merge, pull, rebase, cherry-pick, revert, am, reset qui déplace la branche
   quand elle est la branche courante ; `branch`, `checkout -b|-B`, `switch -c|-C`,
@@ -379,7 +381,13 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   agents ; l'orchestrateur fournit et retire les worktrees.
 - Branche suivie (lot 14, décision de Julien du 20 nov. 2026) : `git branch -u` et
   `--set-upstream-to`, qui écrivent `branch.*.remote`, sont refusés aux agents ; la session
-  principale garde `git push -u origin develop`.
+  principale garde `git push -u origin develop`. Lot 18 (même décision) : aussi la création d'une
+  branche qui suit une autre branche (`--track` explicite ; `checkout -b|-B`, `switch -c|-C`,
+  `branch <nom> <départ>` ou `worktree add -b` quand le suivi automatique de
+  `branch.autoSetupMerge` s'applique, par défaut depuis une branche distante ; branche distante
+  devinée par `checkout <nom>` ou `switch <nom>` ; copie d'une branche suivie) et
+  `fetch|pull --set-upstream`. `--no-track` reste permis ; l'orchestrateur garde ces commandes,
+  dont `git worktree add -b lot/x <dossier> develop`.
 - Commits atomiques, un par micro-tâche, Conventional Commits en français :
   `feat(api): …`, `feat(contracts): …`, `feat(db): …`, `test(api): …`, `chore: …`, `docs: …`.
   Chaque message se termine par une ligne vide puis
