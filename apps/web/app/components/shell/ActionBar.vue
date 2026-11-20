@@ -53,7 +53,9 @@ defineProps<{
 
 .action-bar__buttons {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
+  min-height: var(--mobile-cta-bar);
   padding: 0.5rem 0.75rem;
   border-top: var(--border-strong);
   background-color: var(--top);
