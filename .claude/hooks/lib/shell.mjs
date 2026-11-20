@@ -1130,7 +1130,7 @@ export function analyzeCommand(
   command,
   cwd,
   role = null,
-  { depth = 0, fallback = null, vars = null } = {},
+  { depth = 0, fallback = null, vars = null, heads = null } = {},
 ) {
   if (depth > MAX_DEPTH) throw new ShellParseError('imbrication trop profonde (code dans du code)');
   const result = {
@@ -1143,7 +1143,15 @@ export function analyzeCommand(
   };
   const items = parseShell(command);
   const home = fallback ?? cwd ?? process.cwd();
-  const st = { base: cwd, vars: new Map(vars ?? []), written: new Set(), gitEnv: [] };
+  // heads : branche courante de chaque dépôt changée par la commande (checkout, switch, worktree
+  // add…), partagée avec le code imbriqué et jamais restaurée en sortie de sous-shell (L14-06).
+  const st = {
+    base: cwd,
+    vars: new Map(vars ?? []),
+    written: new Set(),
+    gitEnv: [],
+    heads: heads ?? new Map(),
+  };
   const scopes = [];
   // Le dernier motif l'emporte, sauf un motif « faible » (illisibilité générique), qui ne remplace
   // pas un motif déjà trouvé plus précis.
@@ -1204,7 +1212,14 @@ export function analyzeCommand(
     }
     // Les variables connues sont transmises : surestimation prudente pour sh -c (seules les
     // variables exportées y passent), exacte pour eval, trap et les alias.
-    merge(analyzeCommand(code, b, role, { depth: depth + 1, fallback: home, vars: st.vars }));
+    merge(
+      analyzeCommand(code, b, role, {
+        depth: depth + 1,
+        fallback: home,
+        vars: st.vars,
+        heads: st.heads,
+      }),
+    );
     opaque(what, code, b);
   };
   const env = {
@@ -1522,7 +1537,7 @@ function analyzeSegment(seg, env) {
       break;
     }
     case 'git':
-      analyzeGit(args, env, seg, { assignments, dashed });
+      analyzeGit(args, env, seg, { assignments, dashed, viaXargs });
       break;
     case 'gh':
       analyzeGh(args, env);
@@ -1871,7 +1886,93 @@ function gitConfigWrite(rest) {
   return null;
 }
 
-function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 0 }) {
+// ---------------------------------------------------------------------------------------------
+// Branche locale main (L14-06, décision de Julien du 19 nov. 2026) : aucune session, la principale
+// comprise, n'écrit la branche locale main, qui partirait dans le prochain push de Julien. Refusés :
+// merge, pull, rebase, cherry-pick, revert, am et reset qui déplace la branche quand la branche
+// courante est main ; création, déplacement, renommage, copie vers main ou suppression de main
+// (branch, checkout -b/-B/--orphan/--track, switch -c/-C/--orphan/--track, worktree add -b/-B,
+// update-ref, symbolic-ref, fetch ou pull vers main). Restent permis par la même décision :
+// l'étiquette locale (git tag) et le déplacement local de develop (branch -f, update-ref,
+// checkout -B). Le commit sur main et ses équivalents (décision de Julien du 20 nov. 2026) :
+// commit (sauf --dry-run), citool, gui, quiltimport, svn rebase, p4 rebase ; et les autres
+// écritures de références : stash branch, fast-import (références du flux lu), replay (sauf
+// --ref-action=print), rebase --update-refs (branches du parcours, illisibles).
+// La branche courante est lue dans le dépôt (git symbolic-ref) ou suivie dans la commande quand
+// elle y change (checkout, switch, worktree add, symbolic-ref, rebase <branche>) ; si elle est
+// illisible (dossier ou dépôt calculé, branche calculée, checkout -), l'écriture est refusée.
+
+const MAIN_REF = /^(refs\/heads\/|heads\/)?main$/;
+const MAIN_MOTIF =
+  'la branche locale main ne s’écrit pas, par aucune session (décision de Julien du 19 nov. 2026) : ' +
+  'elle partirait dans son prochain push ; seul Julien met à jour main';
+const FETCH_VALUED = new Set([
+  '--depth',
+  '--deepen',
+  '--shallow-since',
+  '--shallow-exclude',
+  '-j',
+  '--jobs',
+  '--upload-pack',
+  '--refmap',
+  '-o',
+  '--server-option',
+  '--negotiation-tip',
+  '--filter',
+  '-s',
+  '--strategy',
+  '-X',
+  '--strategy-option',
+]);
+const GIT_EXEC_OPTIONS = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 };
+
+/** Racine du dépôt qui contient `base`, ou `base` lui-même s'il n'est pas (encore) un dépôt. */
+function repoKey(base) {
+  try {
+    return resolve(
+      execFileSync('git', ['-C', base, 'rev-parse', '--show-toplevel'], GIT_EXEC_OPTIONS).trim(),
+    );
+  } catch {
+    return resolve(base);
+  }
+}
+
+/** Branche courante vue de `base` : nom, '' (HEAD détachée, pas de dépôt) ou texte illisible. */
+function currentBranch(st, base) {
+  if (base === null) return UNKNOWN;
+  const key = repoKey(base);
+  let best = null;
+  for (const k of st.heads.keys()) {
+    if ((key === k || key.startsWith(`${k}/`)) && (best === null || k.length > best.length))
+      best = k;
+  }
+  if (best !== null) return st.heads.get(best);
+  if (!existsSync(base)) return UNKNOWN;
+  try {
+    return execFileSync('git', ['-C', base, 'symbolic-ref', '-q', 'HEAD'], GIT_EXEC_OPTIONS)
+      .trim()
+      .replace(/^refs\/heads\//, '');
+  } catch {
+    return '';
+  }
+}
+
+/** Retient la branche courante d'un dépôt changée par la commande. */
+function setBranch(st, base, branch) {
+  if (base !== null) st.heads.set(repoKey(base), branch);
+}
+
+/** Nom de branche locale créée à partir d'une branche distante (checkout ou switch --track). */
+function trackedName(ref) {
+  return ref.replace(/^(refs\/remotes\/)?[^/]+\//, '');
+}
+
+function analyzeGit(
+  args,
+  env,
+  seg,
+  { assignments, dashed = false, aliasDepth = 0, viaXargs = false },
+) {
   const { st, role, result, deny, target, opaque, nested } = env;
   let gitBase = st.base;
   const globals = [];
@@ -1949,12 +2050,61 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
         assignments,
         dashed,
         aliasDepth: aliasDepth + 1,
+        viaXargs,
       });
     }
     if (/\bpush\b/.test(alias))
       deny(`un alias qui lance git push (${sub}=${alias}) contourne la règle de push`);
     return;
   }
+  /** Écriture d'une référence nommée : refusée si c'est main ou si le nom est illisible. */
+  const writesRef = (name, what) => {
+    if (name.includes(UNKNOWN))
+      deny(
+        `${what} : nom de branche illisible (${shown(name)}) ; la branche locale main ne s’écrit ` +
+          'pas, illisible donc refusé — écris le nom en clair',
+      );
+    else if (MAIN_REF.test(name.replace(/^\+/, ''))) deny(`${what} main : ${MAIN_MOTIF}`);
+  };
+  /** Écriture de la branche courante : refusée si c'est main ou si elle est illisible. */
+  const onMain = (what) => {
+    const illegible =
+      gitBase === null ||
+      globals.some(([o]) => /^--(git-dir|work-tree)(=|$)/.test(o)) ||
+      [...assignments, ...st.gitEnv].some((a) => /^GIT_(DIR|WORK_TREE|COMMON_DIR)=/.test(a));
+    const branch = illegible ? UNKNOWN : currentBranch(st, gitBase);
+    if (branch.includes(UNKNOWN))
+      deny(
+        `${what} : branche courante illisible (dossier ou dépôt calculé, ou branche changée par ` +
+          'la commande) ; la branche locale main ne s’écrit pas, illisible donc refusé',
+      );
+    else if (MAIN_REF.test(branch)) deny(`${what} sur la branche main : ${MAIN_MOTIF}`);
+  };
+  /** Refspecs de fetch et pull : une destination main (src:main) écrit la branche locale. */
+  const fetchDestinations = (what) => {
+    for (const spec of operands(rest, FETCH_VALUED).slice(1)) {
+      if (spec.includes(UNKNOWN)) writesRef(spec, what);
+      else if (spec.includes(':')) writesRef(spec.slice(spec.lastIndexOf(':') + 1), what);
+    }
+  };
+  const control = (...flags) => rest.some((a) => flags.includes(a));
+  /** Texte lu sur l'entrée standard (here-document, redirections), null s'il est illisible. */
+  const stdinText = () => {
+    let text = seg.heredoc;
+    for (const input of seg.inputs) {
+      const path = resolveWord(input, st);
+      text += path.includes(UNKNOWN)
+        ? UNKNOWN
+        : (readSmallFile(resolve(gitBase ?? env.cwd, path)) ?? UNKNOWN);
+    }
+    if (seg.dynamicInput || text.includes(UNKNOWN) || (text === '' && seg.pipedIn)) return null;
+    return text;
+  };
+  if (viaXargs && ['branch', 'update-ref', 'symbolic-ref', 'fetch', 'pull', 'rebase'].includes(sub))
+    deny(
+      `xargs git ${sub} : références lues sur l’entrée standard ; la branche locale main ne ` +
+        's’écrit pas, illisible donc refusé',
+    );
   switch (sub) {
     case 'push': {
       const refusal = pushRefusal(rest, {
@@ -1976,9 +2126,11 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
     case 'svn':
       if (['dcommit', 'set-tree'].includes(rest[0]))
         deny(`git svn ${rest[0]} publie vers un autre dépôt : réservé à Julien`);
+      else if (rest[0] === 'rebase') onMain('git svn rebase');
       break;
     case 'p4':
       if (rest[0] === 'submit') deny('git p4 submit publie vers un autre dépôt : réservé à Julien');
+      else if (rest[0] === 'rebase') onMain('git p4 rebase');
       break;
     case 'remote': {
       const op = rest.find((a) => !a.startsWith('-'));
@@ -1989,8 +2141,10 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
       break;
     }
     case 'commit': {
+      let dryRun = false;
       for (let j = 0; j < rest.length; j += 1) {
         const a = rest[j];
+        if (a === '--dry-run') dryRun = true;
         if (a === '--no-verify') deny('git commit --no-verify est interdit');
         else if (/^-[a-zA-Z]+$/.test(a) && a.includes('n'))
           deny('git commit -n (sans hook) est interdit');
@@ -2011,6 +2165,48 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
         )
           j += 1;
       }
+      // L14-06 (décision du 20 nov. 2026) : le commit écrit la branche courante.
+      if (!dryRun) onMain('git commit');
+      break;
+    }
+    case 'citool':
+      onMain('git citool');
+      break;
+    case 'gui':
+      if (!['blame', 'browser', 'version'].includes(rest[0])) onMain('git gui');
+      break;
+    case 'quiltimport':
+      if (!control('--dry-run', '-n')) onMain('git quiltimport');
+      break;
+    case 'fast-import': {
+      // Le flux nomme les références qu'il écrit : commit <réf> et reset <réf>.
+      const text = stdinText();
+      if (text === null) {
+        deny(
+          'git fast-import : flux lu sur un tube ou calculé ; la branche locale main ne s’écrit ' +
+            'pas, illisible donc refusé',
+        );
+        break;
+      }
+      for (const line of text.split('\n')) {
+        const m = /^(commit|reset) (\S+)/.exec(line);
+        if (m) writesRef(m[2], 'git fast-import');
+      }
+      break;
+    }
+    case 'replay': {
+      // git replay écrit les références par défaut (--ref-action=update, ou replay.refAction) :
+      // --ref, --advance et --revert nomment la branche écrite, --onto la déduit du parcours.
+      if (rest.includes('--ref-action=print')) break;
+      const named = valueOf(rest, ['--ref']);
+      const moved = named.length > 0 ? named : valueOf(rest, ['--advance', '--revert']);
+      if (moved.length > 0 && !rest.includes('--contained'))
+        moved.forEach((b) => writesRef(b, 'git replay'));
+      else
+        deny(
+          'git replay : branches écrites déduites du parcours ; la branche locale main ne ' +
+            's’écrit pas, illisible donc refusé (--ref-action=print, ou --ref en clair)',
+        );
       break;
     }
     case 'config': {
@@ -2046,6 +2242,201 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
     case 'rebase': {
       const codes = valueOf(rest, ['-x', '--exec']);
       codes.forEach((c) => nested('git rebase --exec', c, gitBase));
+      if (control('--abort', '--quit', '--edit-todo', '--show-current-patch')) break;
+      if (rest.includes('--update-refs'))
+        deny(
+          'git rebase --update-refs : il déplace les branches du parcours, main comprise si elle y ' +
+            'est ; la branche locale main ne s’écrit pas, illisible donc refusé',
+        );
+      // git rebase [--onto <base>] [<amont> [<branche>]] : <branche> est d'abord extraite.
+      const ops = operands(
+        rest,
+        new Set(['--onto', '-x', '--exec', '-s', '--strategy', '-X', '--strategy-option']),
+      );
+      const branch = rest.includes('--root') ? ops[0] : ops[1];
+      if (branch === undefined) onMain('git rebase');
+      else {
+        writesRef(branch, 'git rebase de la branche');
+        setBranch(st, gitBase, branch);
+      }
+      break;
+    }
+    case 'merge':
+      if (!control('--abort', '--quit')) onMain('git merge');
+      break;
+    case 'pull':
+      fetchDestinations('git pull vers');
+      onMain('git pull');
+      break;
+    case 'fetch':
+      fetchDestinations('git fetch vers');
+      break;
+    case 'cherry-pick':
+    case 'revert':
+      if (!control('--abort', '--quit')) onMain(`git ${sub}`);
+      break;
+    case 'branch': {
+      const valued = new Set([
+        '--contains',
+        '--no-contains',
+        '--merged',
+        '--no-merged',
+        '--points-at',
+        '--format',
+        '--sort',
+        '-u',
+        '--set-upstream-to',
+      ]);
+      const flags = new Set();
+      const ops = [];
+      for (let j = 0; j < rest.length; j += 1) {
+        const a = rest[j];
+        if (a === '--') {
+          ops.push(...rest.slice(j + 1));
+          break;
+        }
+        // L14-17 (décision de Julien du 20 nov. 2026) : -u et --set-upstream-to écrivent
+        // branch.<x>.remote et branch.<x>.merge ; refusés aux agents, sous toutes leurs formes
+        // (valeur collée, groupe d'options courtes, abréviation de l'option longue). Un mot
+        // illisible pourrait en être une.
+        if (
+          role !== 'main' &&
+          (a.includes(UNKNOWN) || /^--set-u/.test(a) || /^-[a-zA-Z]*u/.test(a))
+        ) {
+          deny(
+            `git branch ${shown(a) || '(mot calculé)'} : définir la branche suivie (-u, --set-upstream-to) écrit ` +
+              `branch.<branche>.remote, hors de la règle des destinations de push : interdit aux ` +
+              `agents (rôle ${role}) ; option illisible comprise, écris la commande en clair`,
+          );
+          break;
+        }
+        if (valued.has(a)) {
+          flags.add(a);
+          j += 1;
+        } else if (a.startsWith('--')) flags.add(a.split('=')[0]);
+        else if (/^-[a-zA-Z]+$/.test(a)) for (const c of a.slice(1)) flags.add(`-${c}`);
+        else ops.push(a);
+      }
+      const has = (...names) => names.some((n) => flags.has(n));
+      let written = [];
+      if (has('-d', '-D', '--delete')) written = ops;
+      else if (has('-m', '-M', '--move')) {
+        written = ops;
+        if (ops.length === 1) onMain('git branch -m');
+      } else if (has('-c', '-C', '--copy')) written = ops.slice(-1);
+      else if (
+        has(
+          '-l',
+          '--list',
+          '-a',
+          '--all',
+          '-r',
+          '--remotes',
+          '-v',
+          '--verbose',
+          '--show-current',
+          '--contains',
+          '--no-contains',
+          '--merged',
+          '--no-merged',
+          '--points-at',
+          '--format',
+          '--sort',
+          '-u',
+          '--set-upstream-to',
+          '--unset-upstream',
+          '--edit-description',
+        )
+      )
+        written = [];
+      else written = ops.slice(0, 1);
+      written.forEach((b) => writesRef(b, 'git branch'));
+      break;
+    }
+    case 'update-ref': {
+      if (rest.includes('--stdin')) {
+        const text = stdinText();
+        if (text === null) {
+          deny(
+            'git update-ref --stdin : références lues sur un tube ou calculées ; la branche ' +
+              'locale main ne s’écrit pas, illisible donc refusé',
+          );
+          break;
+        }
+        for (const line of text.split(/[\n\0]/)) {
+          const [verb, ref] = line.trim().split(/\s+/);
+          if (
+            ref === undefined ||
+            verb === 'verify' ||
+            !/^(symref-)?(update|create|delete)$/.test(verb)
+          )
+            continue;
+          writesRef(ref, 'git update-ref --stdin');
+          if (ref === 'HEAD') onMain('git update-ref --stdin HEAD');
+        }
+        break;
+      }
+      const ref = operands(rest, new Set(['-m']))[0];
+      if (ref !== undefined) {
+        writesRef(ref, 'git update-ref');
+        if (ref === 'HEAD' && !rest.includes('--no-deref')) onMain('git update-ref HEAD');
+      }
+      break;
+    }
+    case 'symbolic-ref': {
+      const ops = operands(rest, new Set(['-m']));
+      if (ops.length < 2) break;
+      if (ops[0] === 'HEAD') setBranch(st, gitBase, ops[1].replace(/^refs\/heads\//, ''));
+      else writesRef(ops[0], 'git symbolic-ref');
+      break;
+    }
+    case 'switch': {
+      const created = valueOf(rest, ['-c', '-C', '--create', '--force-create', '--orphan']);
+      created.forEach((b) => writesRef(b, 'git switch -c'));
+      const ops = operands(
+        rest,
+        new Set(['-c', '-C', '--create', '--force-create', '--orphan', '--conflict']),
+      );
+      const track = rest.some((a) => a === '-t' || a === '--track' || a.startsWith('--track='));
+      if (
+        viaXargs &&
+        (track || /(^| )(-[cC]|--create|--force-create|--orphan)( |$)/.test(rest.join(' ')))
+      )
+        deny('xargs git switch : branche créée lue sur l’entrée standard ; illisible, donc refusé');
+      if (created.length === 0 && track && ops[0] !== undefined)
+        writesRef(trackedName(ops[0]), 'git switch --track');
+      if (created.length > 0) setBranch(st, gitBase, created[created.length - 1]);
+      else if (control('-d', '--detach')) setBranch(st, gitBase, '');
+      else if (viaXargs) setBranch(st, gitBase, UNKNOWN);
+      else if (ops[0] !== undefined) setBranch(st, gitBase, ops[0] === '-' ? UNKNOWN : ops[0]);
+      break;
+    }
+    case 'worktree': {
+      const op = rest.find((a) => !a.startsWith('-'));
+      if (op !== undefined && op.includes(UNKNOWN)) {
+        deny(`git worktree ${shown(op)} : sous-commande illisible, donc refusée`);
+        break;
+      }
+      // L14-13 : un agent ne gère pas les worktrees, l'orchestrateur les lui fournit ; prune et
+      // remove --force feraient disparaître sans violation l'instantané d'un worktree (BF-11).
+      if (role !== 'main' && ['remove', 'prune', 'move'].includes(op)) {
+        deny(
+          `git worktree ${op} est réservé à la session principale : un agent ne retire, ne ` +
+            'déplace ni n’élague un worktree, l’orchestrateur les fournit et les retire',
+        );
+        break;
+      }
+      if (op !== 'add') break;
+      const add = rest.slice(rest.indexOf('add') + 1);
+      const created = valueOf(add, ['-b', '-B']);
+      created.forEach((b) => writesRef(b, 'git worktree add -b'));
+      const ops = operands(add, new Set(['-b', '-B', '--reason']));
+      if (ops[0] === undefined || gitBase === null || ops[0].includes(UNKNOWN)) break;
+      const path = resolve(gitBase, ops[0]);
+      let branch = ops[1] ?? basename(path);
+      if (control('--detach', '-d')) branch = '';
+      if (created.length > 0) branch = created[created.length - 1];
+      st.heads.set(path, branch);
       break;
     }
     case 'bisect':
@@ -2084,9 +2475,21 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
     case 'stash':
       if (rest.length === 0)
         deny('git stash nu est interdit (CLAUDE.md) : git stash push -u -m <étiquette>');
+      else if (rest[0] === 'branch' && rest[1] !== undefined) {
+        writesRef(rest[1], 'git stash branch');
+        setBranch(st, gitBase, rest[1]);
+      }
       break;
     case 'checkout': {
       const dash = rest.indexOf('--');
+      const created = valueOf(rest, ['-b', '-B', '--orphan']);
+      created.forEach((b) => writesRef(b, 'git checkout -b'));
+      const track = rest.some((a) => a === '-t' || a === '--track' || a.startsWith('--track='));
+      if (viaXargs && (track || /(^| )(-[bB]|--orphan)( |$)/.test(rest.join(' '))))
+        deny(
+          'xargs git checkout : branche créée lue sur l’entrée standard ; illisible, donc refusé',
+        );
+      if (created.length > 0) setBranch(st, gitBase, created[created.length - 1]);
       if (dash >= 0) rest.slice(dash + 1).forEach(t);
       else {
         const ops = operands(
@@ -2101,6 +2504,12 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
             (gitBase !== null && existsSync(resolve(gitBase, p))),
         );
         if (ops.length > 1 || paths.length === ops.length) paths.forEach(t);
+        if (created.length === 0 && track && ops[0] !== undefined)
+          writesRef(trackedName(ops[0]), 'git checkout --track');
+        // Une seule référence et aucun chemin : changement de branche (L14-06).
+        if (created.length === 0 && ops.length === 1 && paths.length === 0)
+          setBranch(st, gitBase, control('--detach') ? '' : ops[0] === '-' ? UNKNOWN : ops[0]);
+        else if (created.length === 0 && viaXargs) setBranch(st, gitBase, UNKNOWN);
       }
       if (rest.some((a) => a.startsWith('--pathspec-from-file')))
         opaque('git checkout', rest.join(' '), gitBase);
@@ -2124,6 +2533,15 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
         ops.some((o) => !/^HEAD$/.test(o))
       )
         t('.');
+      // L14-06 : un seul opérande, ni HEAD ni un chemin existant, déplace la branche courante
+      // (git reset <commit>) ; avec « -- » ou des chemins, seul l'index change.
+      const moves =
+        viaXargs ||
+        (dash < 0 &&
+          ops.length === 1 &&
+          !/^(HEAD|@)$/.test(ops[0]) &&
+          !(gitBase !== null && !ops[0].includes(UNKNOWN) && existsSync(resolve(gitBase, ops[0]))));
+      if (moves) onMain('git reset');
       break;
     }
     case 'apply':
@@ -2142,6 +2560,11 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
         result.repoTargets.push({ path: p, base: gitBase });
         result.writes = true;
       }
+      if (
+        sub === 'am' &&
+        !rest.some((a) => ['--abort', '--quit'].includes(a) || a.startsWith('--show-current-patch'))
+      )
+        onMain('git am');
       break;
     }
     default:

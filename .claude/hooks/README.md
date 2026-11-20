@@ -21,8 +21,16 @@ hooks, agents). Créer un nouveau fichier de test est permis. Les marqueurs de s
 Vitest et les commentaires d'ignore de couverture sont refusés partout (`lib/policy.mjs`). Le
 marqueur d'échec attendu `fails` n'est repéré que sur un appel direct ou enchaîné par des méthodes
 de l'API de test de Vitest (`each`, `for`, `concurrent`, `extend`…), pas sur un appel ordinaire
-comme `includes` sur la portée du même nom de `GRANTABLE` (BF-9, `tests/fails-marker.test.mjs`). Le
-dossier temporaire de session (`scratchpad_dir`) est libre.
+comme `includes` sur la portée du même nom de `GRANTABLE` (BF-9, `tests/fails-marker.test.mjs`). Un
+marqueur interdit est repéré devant une parenthèse, ou devant une méthode quelconque suivie d'une
+parenthèse ou d'un gabarit, précédée d'autant de méthodes de l'API de test qu'on veut (un saut, puis
+`concurrent`, puis `each` : L14-11, `tests/marker-chain.test.mjs`, qui compare l'ancien et le
+nouveau sur tout le corpus). Une directive `Stryker disable` d'un fichier JS/TS qui ne cite pas
+l'identifiant d'un mutant équivalent déclaré dans un `stryker.equivalents.json` du dépôt est
+refusée dès l'écriture, à toutes les sessions, par Edit, Write et le shell ; une directive déjà
+présente ne bloque pas les autres modifications du fichier (L14-01,
+`tests/stryker-directive-write.test.mjs`). Le dossier temporaire de session (`scratchpad_dir`) est
+libre.
 
 Front (`apps/web`, lot F0) : parcours Playwright `*.e2e.ts`, tests de composants `*.spec.ts`,
 fixtures et `test/` comme ci-dessus, captures attendues de Playwright (`<fichier de test>-snapshots/`)
@@ -46,6 +54,11 @@ chaque oracle et celle de chaque fichier non suivi. En fin de tâche (`verify`, 
   fichier non suivi relevé). La politique a pu s'élargir entre-temps (les hooks tournent depuis le
   checkout principal, mis à jour par une fusion) : un fichier devenu oracle mais inchangé n'est pas
   une violation (BF-10, `tests/snapshot-policy-widening.test.mjs`) ;
+- un fichier devenu test depuis l'instantané (politique élargie) qui existait déjà (commit `head`
+  ou fichier non suivi relevé) est un test existant : le modifier par Edit, Write ou le shell exige
+  une autorisation « tests » dès ce moment, et la fin de tâche signale sa modification ou sa
+  suppression sans autorisation ni commit justifié ; un test créé pendant la tâche reste libre
+  (L14-12, `tests/test-widening.test.mjs`) ;
 - l'instantané d'une racine disparue, ou d'un dossier qui n'est plus ce dépôt (plus de `.git`, ou
   `git rev-parse --show-toplevel` différent) et que git ne liste plus parmi les worktrees du
   projet, est ignoré et supprimé : worktree retiré dont un outil a recréé des fichiers (serveur
@@ -73,6 +86,11 @@ l'utilise. Création, usage, refus, révocation et violations sont journalisés 
 
 Le commit qui modifie un test existant ou une configuration protégée porte en plus la ligne
 `Justification-test: <identifiant> <raison>`, exigée par `scripts/ci/check-tests-integrity.sh`.
+Pour une directive `Stryker disable` (L14-02), c'est le commit qui ajoute la ligne qui porte la
+justification, ses lignes `Justification-test` citent l'identifiant de chaque équivalent de la
+directive (mot entier, depuis le 20 nov. 2026), et chaque équivalent cité désigne dans son `stryker.equivalents.json` le fichier,
+la ligne et le mutateur (champ `mutator`, obligatoire depuis le 20 nov. 2026) que la directive
+retire du score (`scripts/ci/stryker-directives.mjs`).
 
 ## git push (git flow, décision de Julien du 19 nov. 2026)
 
@@ -126,6 +144,57 @@ Fusionner dans `main` (branches `release/*`, `hotfix/*`), créer ou pousser une 
 `permissions.deny` (`.claude/settings.json`) doublent les variantes dangereuses qui s'écrivent en
 préfixe (push forcé, plomberie, `git remote …`, `gh pr merge`, `gh release …`, `gh repo …`, édition
 de `.git/config` et `~/.gitconfig`) ; l'autorité reste ce hook.
+
+## Branche locale main et worktrees (lot 14)
+
+Branche locale `main` (L14-06, décision de Julien du 19 nov. 2026) : aucune session, la principale
+comprise, ne l'écrit, car une écriture locale partirait dans le prochain push de Julien. Refusés :
+
+- quand la branche courante est `main` : `git commit` (hors `--dry-run` ; décision de Julien du
+  20 nov. 2026) et ses équivalents `citool`, `gui` (hors `blame`, `browser`, `version`),
+  `quiltimport` (hors `--dry-run`), `svn rebase`, `p4 rebase` ; `git merge`, `pull`, `rebase`,
+  `cherry-pick`, `revert`, `am` (hors `--abort`, `--quit`) et `git reset <commit>` qui déplace la
+  branche (`git reset`, `reset --hard` vers `HEAD` et `reset -- <chemins>` restent permis) ;
+- quelle que soit la branche courante : `git branch` qui crée, force, renomme, copie vers ou
+  supprime `main`, `checkout -b|-B|--orphan|--track` et `switch -c|-C|--orphan|--track` vers `main`,
+  `worktree add -b|-B main`, `update-ref` (et `--stdin`) sur `refs/heads/main` ou sur `HEAD` quand
+  elle est `main`, `symbolic-ref refs/heads/main`, `fetch` ou `pull` vers `main` (`…:main`),
+  `rebase <amont> main`, `stash branch main`, `fast-import` dont le flux écrit `main` (`commit` ou
+  `reset` de `refs/heads/main` ; flux lu sur un tube ou calculé : illisible), `replay` qui écrit
+  `main` (`--ref`, `--advance`, `--revert`) ou des branches déduites du parcours (`--onto` sans
+  `--ref`, `--contained`), sauf `--ref-action=print`, et `rebase --update-refs` (branches du
+  parcours).
+
+La branche courante est lue dans le dépôt (`git symbolic-ref`) ou suivie dans la commande quand elle
+y change (`checkout`, `switch`, `worktree add`, `symbolic-ref HEAD`, `rebase <amont> <branche>`,
+sous-shells et code imbriqué compris). Illisible (dossier ou dépôt calculé, `--git-dir`, `GIT_DIR`,
+`checkout -`, dossier qui n'existe pas encore), l'écriture est refusée ; un nom de branche écrit
+illisible aussi. Restent permis par la même décision : l'étiquette locale (`git tag`, son push étant
+refusé) et le déplacement local de `develop` (`branch -f`, `update-ref`, `checkout -B`), ainsi
+que le commit sur toute autre branche, y compris après un changement de branche dans la même
+commande. Tests : `tests/main-branch.test.mjs`, `tests/main-commit.test.mjs`.
+
+Branche suivie (L14-17, décision de Julien du 20 nov. 2026) : `git branch -u` et
+`--set-upstream-to` écrivent `branch.<branche>.remote` et `branch.<branche>.merge` hors de la règle
+des destinations de push ; ils sont refusés aux agents sous toutes les formes lues (valeur séparée
+ou collée, groupe d'options courtes, abréviation de l'option longue, `--set-upstream` retiré par
+git, alias, `-C`, code imbriqué, option illisible). La session principale garde
+`git push -u origin develop` et `git branch -u`. Tests : `tests/branch-upstream.test.mjs`.
+
+Worktrees (L14-13) : `git worktree remove` (forcé ou non), `move` et `prune` sont refusés aux agents,
+sous toutes les formes (alias, `-C`, code imbriqué, `xargs`) ; la session principale les garde.
+`git worktree list` et `add` restent permis. Tests : `tests/worktree.test.mjs`.
+
+Non-régression (L14-07) : `tests/ordinary-commands.test.mjs` rejoue les 88 commandes ordinaires de
+l'orchestrateur de la recette du lot 13 bis (toutes permises à la session principale), un
+échantillon de celles d'un agent pour un rôle de chaque famille de chemins d'écriture, et les refus
+de push de la recette du lot 13 pour chacun des quatorze rôles d'agent. Une règle plus stricte qui
+refuse une de ces commandes ordinaires fait échouer `pnpm hooks:test`.
+
+Fichiers d'agent (L14-14) : chaque `.claude/agents/*.md` se termine par la même section « Git et
+garde-fous » (règles et conduite face à un refus, sans rien du fonctionnement des garde-fous) ;
+`tests/agents-git-section.test.mjs` vérifie qu'elle est identique et finale dans les quatorze
+fichiers et que chaque refus qu'elle déclare est effectif pour chaque rôle.
 
 ## Illisible donc refusé
 

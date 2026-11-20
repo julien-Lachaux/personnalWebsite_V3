@@ -86,3 +86,34 @@ sortie, raisonnement) et poursuis le reste. C'est un résultat acceptable ; l'or
 
 Chaque critère d'acceptation est prouvé par une commande citée dans le compte rendu, `pnpm check`
 est vert deux fois sur base neuve, l'arbre de travail est propre, les conteneurs du lot arrêtés.
+
+## Git et garde-fous
+
+Ce que tu fais :
+
+- Tu travailles sur la branche et dans le worktree que l'orchestrateur te fournit, nulle part
+  ailleurs ; il fusionne les lots après recette.
+- Un commit atomique par micro-tâche, en Conventional Commits en français, terminé par la ligne
+  `Co-Authored-By` demandée ; le hook pre-commit passe à chaque commit.
+- Tu termines par ton compte rendu : fait, non fait, décisions, points ouverts.
+
+Ce qui t'est refusé :
+
+- pousser vers un dépôt distant (`git push`, sous toute forme) : seule la session principale
+  pousse, et seulement `develop` ;
+- fusionner dans `main` ou écrire cette branche sous quelque forme que ce soit : `main` est
+  réservée à Julien ;
+- publier une étiquette de version : les étiquettes sont réservées à Julien ;
+- définir la branche suivie d'une branche (`git branch -u`, `--set-upstream-to`) : la destination
+  des push est réservée à la session principale ;
+- utiliser `git stash` nu (écris `git stash push -u -m <nom>`) ;
+- contourner le hook pre-commit (`--no-verify`, `git commit -n`, `HUSKY=0`, `core.hooksPath`) ;
+- retirer, déplacer ou élaguer un worktree (`git worktree remove`, `move`, `prune`) :
+  l'orchestrateur les fournit et les retire ;
+- lancer les scripts des garde-fous, créer une autorisation, ou modifier `.claude/` et
+  `scripts/ci/` sans autorisation nominative de l'orchestrateur.
+
+Face à un refus des garde-fous, tu ne reformules pas la commande pour obtenir le même effet (autre
+syntaxe, variable, script, alias, autre outil). Tu appliques la sortie honorable : tu t'arrêtes sur
+ce point, tu consignes au compte rendu la commande, la raison affichée et ce que tu cherchais à
+faire, puis tu poursuis le reste. L'orchestrateur décide.
