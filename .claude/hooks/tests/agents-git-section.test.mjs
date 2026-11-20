@@ -139,6 +139,8 @@ const PROBES = {
   ],
   fusionner: [
     bash('git merge develop', () => onMain),
+    bash('git commit -m x', () => onMain),
+    bash('git commit --amend --no-edit', () => onMain),
     bash('git rebase develop', () => onMain),
     bash('git reset --soft HEAD~1', () => onMain),
     bash('git branch -f main develop'),
@@ -150,6 +152,11 @@ const PROBES = {
     bash('git push --tags origin develop'),
     bash('git push origin refs/tags/v1.0.0'),
     bash('git push --follow-tags origin develop'),
+  ],
+  définir: [
+    bash('git branch -u origin/develop'),
+    bash('git branch --set-upstream-to=origin/develop develop'),
+    bash('git branch --set-upstream-to origin/develop'),
   ],
   utiliser: [bash('git stash')],
   contourner: [

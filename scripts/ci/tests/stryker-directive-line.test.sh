@@ -16,7 +16,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 SD="$(printf '%s' Stryk)er $(printf '%s' dis)able"
 SR="$(printf '%s' Stryk)er $(printf '%s' rest)ore"
-JUSTIFIED="$(printf 'chore(mutation): équivalent\n\nJustification-test: MUT-9 mutant équivalent vérifié')"
+JUSTIFIED="$(printf 'chore(mutation): équivalent\n\nJustification-test: MUT-9 API-EQ-01 API-EQ-02 mutant équivalent vérifié')"
 # Deux équivalents déclarés : ligne 2 (StringLiteral) et ligne 4 (BooleanLiteral) de src/app.ts.
 EQUIVALENTS='{ "equivalents": [
   { "id": "API-EQ-01", "file": "src/app.ts", "line": 2, "mutator": "StringLiteral" },

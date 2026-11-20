@@ -104,6 +104,8 @@ Ce qui t'est refusé :
 - fusionner dans `main` ou écrire cette branche sous quelque forme que ce soit : `main` est
   réservée à Julien ;
 - publier une étiquette de version : les étiquettes sont réservées à Julien ;
+- définir la branche suivie d'une branche (`git branch -u`, `--set-upstream-to`) : la destination
+  des push est réservée à la session principale ;
 - utiliser `git stash` nu (écris `git stash push -u -m <nom>`) ;
 - contourner le hook pre-commit (`--no-verify`, `git commit -n`, `HUSKY=0`, `core.hooksPath`) ;
 - retirer, déplacer ou élaguer un worktree (`git worktree remove`, `move`, `prune`) :

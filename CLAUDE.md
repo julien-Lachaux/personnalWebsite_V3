@@ -212,7 +212,8 @@ apps/web/
   sont déclarés nominativement dans `stryker.equivalents.json` sous autorisation et
   Justification-test (une directive `Stryker disable` cite leur identifiant : les hooks refusent dès
   l'écriture une directive qui n'en cite pas un déclaré ; le commit qui l'ajoute porte lui-même
-  Justification-test et l'équivalent cité désigne la ligne et le mutateur de la directive, lot 14,
+  une ligne Justification-test qui cite l'identifiant de chaque équivalent de la directive, et
+  l'équivalent cité désigne la ligne et le mutateur, obligatoire, de la directive, lot 14,
   vérifié par `scripts/ci/check-tests-integrity.sh`), et les seules
   exclusions sont les deux motifs de `apps/api/stryker.config.mjs` (métadonnées déclaratives du
   schéma Drizzle, contexte des messages de journal).
@@ -354,10 +355,13 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   `worktree add -b|-B`, `update-ref`, `fetch` qui créent, déplacent, renomment ou suppriment
   `main`). Restent permis : `git tag` en local (son push est refusé) et le déplacement local de
   `develop` (`branch -f`, `update-ref`, `checkout -B`). Une branche courante illisible (dossier
-  calculé, `checkout -`) fait refuser l'écriture. `git commit` sur `main` n'est pas encore refusé
-  (point ouvert du lot 14).
+  calculé, `checkout -`) fait refuser l'écriture. `git commit` sur `main` et ses équivalents
+  (`citool`, `gui`, `quiltimport`) sont refusés aussi (décision de Julien du 20 nov. 2026).
 - Worktrees (lot 14) : `git worktree remove` (forcé ou non), `move` et `prune` sont refusés aux
   agents ; l'orchestrateur fournit et retire les worktrees.
+- Branche suivie (lot 14, décision de Julien du 20 nov. 2026) : `git branch -u` et
+  `--set-upstream-to`, qui écrivent `branch.*.remote`, sont refusés aux agents ; la session
+  principale garde `git push -u origin develop`.
 - Commits atomiques, un par micro-tâche, Conventional Commits en français :
   `feat(api): …`, `feat(contracts): …`, `feat(db): …`, `test(api): …`, `chore: …`, `docs: …`.
   Chaque message se termine par une ligne vide puis

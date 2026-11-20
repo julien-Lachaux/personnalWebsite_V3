@@ -1275,6 +1275,20 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   fusionnée ; les parcours Playwright du front, hors couverture, restent lancés. Côté orchestrateur :
   pas de nouveau `pnpm check` avant le push quand l'arbre fusionné (`git rev-parse <commit>^{tree}`)
   est identique à celui que la recette a vérifié sans cache.
+- **Décisions de Julien du 20 nov. 2026 sur les écarts de la branche des garde-fous**
+  (`docs/comptes-rendus/lot-14-hooks-lead.md`) :
+  - L14-06, commit sur `main` : le correcteur passe sur `develop` le dépôt temporaire du test
+    « accepte les commandes ordinaires » (`guard.test.mjs`), qui le créait sur `main`, puis le
+    lead-architecte ajoute le refus du commit quand HEAD est `main` ;
+  - L14-02, citation de l'identifiant : le correcteur met à jour les deux tests qui acceptaient une
+    justification sans l'identifiant de l'équivalent (`stryker-disable.test.mjs`,
+    `stryker-disable.test.sh`), puis le lead-architecte exige l'identifiant cité et le mutateur déclaré ;
+  - limites acceptées : la suppression du dossier d'un worktree efface son instantané sans
+    violation (les commits restent contrôlés par `pnpm integrity`, en CI et en recette) ; pas de règles
+    `permissions.deny` dans `.claude/settings.json` en doublon des hooks.
+- **L14-17** (lead-architecte, portée `config`), décidé par Julien le 20 nov. 2026 : `git branch -u` et
+  `--set-upstream-to`, qui écrivent `branch.*.remote` hors de la règle des destinations de push du lot
+  13 bis, sont refusés aux agents spécialisés.
 - **Ordre** : le lot 14 touche les hooks et la CI, que `docs/05-front-organisation.md` laissait à la
   session front pendant F0. F0, F1 bis (qui a touché `turbo.json`) et le lot 15 sont fusionnés le
   20 nov. 2026 : le lot est **débloqué**. Décision de Julien du 20 nov. : optimisations d'abord, travail
