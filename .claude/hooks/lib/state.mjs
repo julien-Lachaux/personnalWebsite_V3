@@ -365,6 +365,35 @@ function hashAt(top, commit, rel) {
   }
 }
 
+/** Fichiers d'un commit (liste vide si le commit est absent ou illisible). */
+function filesAt(top, commit) {
+  if (!commit) return [];
+  try {
+    return git(top, ['ls-tree', '-r', '-z', '--name-only', commit])
+      .split('\0')
+      .filter((f) => f.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * L14-12 : vrai si `rel` existait quand l'instantané a été pris (oracle relevé, fichier du commit
+ * `head` ou fichier non suivi relevé), même si la politique d'alors ne le classait pas oracle : un
+ * fichier devenu test depuis (politique élargie par une fusion) est un test existant, pas un
+ * nouveau test.
+ */
+export function existedAtSnapshot(snapshot, rel) {
+  if (rel in snapshot.oracles || rel in (snapshot.untracked ?? {})) return true;
+  if (!snapshot.head) return false;
+  try {
+    git(snapshot.top, ['cat-file', '-e', `${snapshot.head}:${rel}`]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Vrai si la modification de `rel` depuis `base` est commitée avec une ligne Justification-test. */
 export function committedWithJustification(top, base, rel) {
   if (!base) return false;
@@ -416,19 +445,30 @@ export function verifySnapshot(root, snapshot, { role, key }) {
   }
   for (const rel of current) {
     const kind = classify(rel);
-    if ((kind !== 'config' && kind !== 'guard') || rel in oracles) continue;
+    if (kind === null || kind === 'state' || rel in oracles) continue;
     // BF-10 : absent des oracles de l'instantané ne veut pas dire créé. La politique a pu s'élargir
     // depuis (hooks lancés du checkout principal, mis à jour par une fusion) : un fichier qui a le
     // contenu qu'il avait à l'instantané (commit `head`, ou fichier non suivi relevé) est inchangé.
     const now = hashFile(join(top, rel));
     const atHead = hashAt(top, head, rel);
     if (now !== null && (now === atHead || now === untracked[rel])) continue;
-    if (allowed(rel, 'config')) continue;
     const existed = atHead !== null || rel in untracked;
+    if (kind === 'test') {
+      // L14-12 : un test créé pendant la tâche est permis ; un fichier devenu test depuis
+      // l'instantané, qui existait déjà, est un test existant.
+      if (existed && !allowed(rel, 'tests')) violations.push({ rel, problem: 'oracle modifié' });
+      continue;
+    }
+    if (allowed(rel, 'config')) continue;
     violations.push({
       rel,
       problem: existed ? 'oracle modifié' : 'configuration de test ou garde-fou créé',
     });
+  }
+  // L14-12 : un fichier devenu test depuis l'instantané et supprimé depuis.
+  for (const rel of new Set([...filesAt(top, head), ...Object.keys(untracked ?? {})])) {
+    if (current.has(rel) || rel in oracles || classify(rel) !== 'test') continue;
+    if (!allowed(rel, 'tests')) violations.push({ rel, problem: 'oracle supprimé' });
   }
 
   // Marqueurs ajoutés dans les fichiers changés depuis l'instantané (commités ou non).

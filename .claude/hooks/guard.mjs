@@ -38,6 +38,7 @@ import {
   dropSnapshot,
   dropSnapshots,
   ensureSnapshot,
+  existedAtSnapshot,
   findAuthorization,
   globToRegExp,
   listSnapshots,
@@ -236,7 +237,9 @@ function checkFileTool(ctx, tool, ti) {
   if (kind === 'guard' || kind === 'config') {
     requireAuthorization(ctx, 'config', rel, 'configuration de test, de CI ou garde-fou');
   } else if (kind === 'test') {
-    const existing = snapshot ? rel in snapshot.oracles : existsSync(abs);
+    // L14-12 : un fichier devenu test en cours de session (politique élargie depuis l'instantané)
+    // est un test existant s'il existait à l'instantané, même hors de ses oracles.
+    const existing = snapshot ? existedAtSnapshot(snapshot, rel) : existsSync(abs);
     if (existing) requireAuthorization(ctx, 'tests', rel, 'modification d’un test existant');
   }
   if (
@@ -304,7 +307,7 @@ function checkShellTarget(ctx, abs, raw) {
       rel,
       'écriture shell sur une configuration de test ou un garde-fou',
     );
-  if (scope === 'tests' && rel in snapshot.oracles) {
+  if (scope === 'tests' && existedAtSnapshot(snapshot, rel)) {
     requireAuthorization(ctx, 'tests', rel, 'écriture shell sur un test existant');
   }
 }
