@@ -449,7 +449,7 @@ nombres des tests Vitest et Playwright sont ceux de la base (aucun code applicat
 
 ## Points ouverts du complément
 
-1. **L14-02, citation de l'identifiant dans la justification (sortie honorable).** La règle fait
+1. **L14-02, citation de l’identifiant dans la justification (sortie honorable ; levé par la reprise, ci-dessous).** La règle fait
    échouer quatre cas acceptés d'un test existant que je ne suis pas autorisé à modifier :
    `scripts/ci/tests/stryker-directive-line.test.sh` (créé par cette branche, absent de `develop`,
    mais existant à l'instantané de ma tâche), dont la constante `JUSTIFIED` vaut
@@ -502,7 +502,7 @@ nombres des tests Vitest et Playwright sont ceux de la base (aucun code applicat
    refus (justification qui ne cite pas l'identifiant, ou qui cite `API-EQ-10` pour `API-EQ-1`).
    Les deux directives réelles sont dans la base : la règle ne les recontrôle pas.
 
-2. **Section « Git et garde-fous » des agents (sortie honorable).** L14-17 s'y reflète (un refus
+2. **Section « Git et garde-fous » des agents (sortie honorable ; levé par la reprise).** L14-17 s'y reflète (un refus
    nouveau pour les agents), mais `.claude/agents/` est hors de l'autorisation `e7aaee4a` : l'Edit
    de `.claude/agents/correcteur.md` a été refusé (« configuration de test, de CI ou garde-fou :
    .claude/agents/correcteur.md. Aucune autorisation « config » … »). Refus respecté, rien
@@ -520,7 +520,7 @@ nombres des tests Vitest et Playwright sont ceux de la base (aucun code applicat
    branche sous quelque forme que ce soit » déclarait déjà et qui est désormais effectif). Les mots
    de la puce ne sont pas dans les termes interdits du test.
 
-3. **CLAUDE.md, à mettre à jour** (hors du périmètre demandé, je ne l'ai pas modifié) : section
+3. **CLAUDE.md, à mettre à jour** (levé par la reprise) (hors du périmètre demandé, je ne l'ai pas modifié) : section
    « Flux git et interdictions », la phrase « `git commit` sur `main` n'est pas encore refusé (point
    ouvert du lot 14) » est fausse après `d86d196` ; proposition : « `git commit` sur `main` et ses
    équivalents aussi (décision du 20 nov. 2026). », et ajouter que `git branch -u` et
@@ -528,7 +528,7 @@ nombres des tests Vitest et Playwright sont ceux de la base (aucun code applicat
    `.claude/hooks/tests/main-branch.test.mjs` (« Écart au ticket : git commit … n'est pas refusé »)
    est périmé de même ; c'est un test existant, je ne l'ai pas touché.
 
-4. **Hors ticket, constaté (L14-17)** : d'autres commandes écrivent `branch.<x>.remote` et
+4. **Hors ticket, constaté (L14-17 ; soumis à Julien par l’orchestrateur, non fait)** : d'autres commandes écrivent `branch.<x>.remote` et
    `branch.<x>.merge` : `--track` / `-t` de `git branch`, `checkout -b` et `switch -c`, et le
    suivi automatique (`branch.autoSetupMerge`, vrai par défaut) quand le point de départ est une
    branche distante (`git checkout -b x origin/develop`) ; `git branch --unset-upstream` les retire.
@@ -547,3 +547,91 @@ nombres des tests Vitest et Playwright sont ceux de la base (aucun code applicat
    `git config --remove-section` dans un dépôt jetable du dossier de session (destination de push) :
    remplacé par un dépôt neuf à chaque cas ; Edit de `.claude/agents/correcteur.md` (point 2) ; un
    `xargs sh -c 'cat …'` qui citait `stryker-directives.mjs` (écriture opaque) : remplacé par Read.
+
+### Reprise : points ouverts 1 à 3 (autorisation `d53f8482`)
+
+L'orchestrateur a repris les points ouverts 1 à 3 sous l'autorisation nominative « config »
+`d53f8482` : `scripts/ci/tests/stryker-directive-line.test.sh`,
+`.claude/hooks/tests/main-branch.test.mjs`, `.claude/agents/**`, `.claude/hooks/**` et
+`scripts/ci/**`. Le point 4 est soumis à Julien et n'est pas fait.
+
+| Commit    | Ticket | Sujet |
+| --------- | ------ | ----- |
+| `9066de3` | L14-02 | test existant `stryker-directive-line.test.sh` : `JUSTIFIED` cite `API-EQ-01` et `API-EQ-02` |
+| `45cea2f` | L14-02 | citation de l'identifiant exigée ; tests `stryker-citation.test.sh` (13 cas) |
+| `b11452b` | L14-17 | puce de la branche suivie dans les quatorze fichiers d'agent, test de concordance |
+| `e390894` | L14-02, 06, 17 | `CLAUDE.md` |
+| `b64b0c3` | L14-06 | en-tête de `main-branch.test.mjs`, commentaire seul |
+| `8144805` | L14-02 | README des garde-fous |
+| (ce CR)   |        | compte rendu |
+
+**`stryker-directive-line.test.sh`, avant et après (`9066de3`).** La ligne 19 seule change :
+
+```diff
+-JUSTIFIED="$(printf 'chore(mutation): équivalent\n\nJustification-test: MUT-9 mutant équivalent vérifié')"
++JUSTIFIED="$(printf 'chore(mutation): équivalent\n\nJustification-test: MUT-9 API-EQ-01 API-EQ-02 mutant équivalent vérifié')"
+```
+
+Les douze cas, leurs directives et leurs verdicts sont inchangés. Les huit refus restent refusés
+pour leur motif (glissée, non commitée, autre ligne, autre mutateur, deux équivalents dont l'un
+ailleurs, plage courte, autre fichier, fichier illisible). Les quatre cas acceptés le restent avec
+la règle de citation, ce qu'ils ne pouvaient pas faire avec l'ancienne ligne (mesure du point 1).
+
+**Règle de citation (`45cea2f`).** `check-tests-integrity.sh`, point 5 bis : les lignes
+`Justification-test` du commit qui ajoute la directive (attribué par `git blame`) citent chaque
+identifiant d'équivalent de la directive. La comparaison se fait en mot entier : `API-EQ-1` n'est
+pas `API-EQ-10`, et `XAPI-EQ-01` n'est pas `API-EQ-01`. Un identifiant cité ailleurs dans le
+message ne compte pas. Écart : « directive Stryker disable dont la Justification-test ne cite pas
+API-EQ-02 (<sha>) : apps/api/src/app.ts:3 ». `stryker-citation.test.sh` a 13 cas :
+
+- 5 acceptés : identifiant cité dans la raison ; identifiant en tête de la justification ;
+  identifiant dans une seconde ligne `Justification-test` ; identifiant entre parenthèses ; les
+  deux équivalents cités ;
+- 8 refusés : identifiant absent ; identifiant seulement dans le corps du message ; autre
+  identifiant ; `API-EQ-10` pour `API-EQ-1` ; `XAPI-EQ-01` ; `API-EQ-1` pour `API-EQ-10` ; un seul
+  des deux identifiants cité ; directive glissée par un commit justifié pour un autre équivalent.
+
+Sur le script de `9066de3` : « 5 réussi(s), 8 échoué(s) », soit les huit refus acceptés à tort.
+Sur le nouveau : 13 sur 13. Les deux directives réelles sont dans la base, donc la règle ne les
+recontrôle pas. `stryker-mutator.test.sh` (dont la conformité réelle) et les deux tests Stryker mis à
+jour plus tôt restent verts.
+
+**Section « Git et garde-fous » (`b11452b`).** La puce ajoutée dans les quatorze fichiers, dans le
+bloc final seulement, après celle des étiquettes, sans terme interdit par le test :
+
+```
+- définir la branche suivie d'une branche (`git branch -u`, `--set-upstream-to`) : la destination
+  des push est réservée à la session principale ;
+```
+
+Test de concordance (`agents-git-section.test.mjs`), contrôles ajoutés seulement, rien de retiré :
+
+- clé `définir` : `git branch -u origin/develop`, `--set-upstream-to=origin/develop develop`,
+  `--set-upstream-to origin/develop` ;
+- sous `fusionner`, sur le dépôt `onMain` : `git commit -m x` et `git commit --amend --no-edit`.
+
+Sur le code de `29ed330` (clone jetable, quatorze fichiers d'agent et test copiés), 14 échecs, un
+par rôle, le premier étant « chef-de-projet, « fusionner » : git commit -m x permis ». Sur le code
+du lot : vert.
+
+**`CLAUDE.md` (`e390894`).** Dans « Flux git et interdictions », la phrase périmée devient
+« `git commit` sur `main` et ses équivalents (`citool`, `gui`, `quiltimport`) sont refusés aussi
+(décision de Julien du 20 nov. 2026) », et une puce « Branche suivie (lot 14) » est ajoutée. Dans
+« Conventions de code », la puce sur la mutation dit désormais que la justification cite
+l'identifiant de chaque équivalent et que le mutateur est obligatoire.
+
+**`main-branch.test.mjs` (`b64b0c3`).** Seules les trois lignes de commentaire « Écart au ticket :
+git commit … n'est pas refusé … » sont remplacées par « Le commit sur main et ses équivalents
+(décision de Julien du 20 nov. 2026) sont vérifiés par main-commit.test.mjs. ». Aucun cas, aucune
+assertion ni aucun code ne change.
+
+| Critère (reprise) | Commande | Résultat |
+| --- | --- | --- |
+| Tests des hooks | `pnpm hooks:test` | 768 sur 768 |
+| Tests du script d'intégrité | `pnpm integrity:test` | 10 fichiers verts (19, 3, 13, 8, 95, 13, 13, 12, 8, 9) |
+| Avant/après | clones jetables | 8 refus acceptés et 14 rôles en échec avant, 0 après |
+| Formatage | `pnpm format` | aucun fichier modifié |
+| `pnpm check`, une passe | `pnpm db:down`, `docker compose down -v`, `TURBO_FORCE=true pnpm check` | code 0 ; hooks 768 sur 768 ; intégrité 10 fichiers verts et « OK » ; 12 tâches sur 12, 0 en cache (5 min 29 s) ; unitaires 220, 430, 682 ; e2e API 758, Playwright 252 ; couverture 220, 682, 1188 tests, 100 % partout ; journal `check-lot14h-reprise.log` (dossier de session) |
+
+Après la passe : `pnpm db:down` ; aucun processus vitest, turbo ou node de test de ce worktree ne
+reste.
