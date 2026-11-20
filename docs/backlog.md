@@ -1197,6 +1197,8 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   Stryker (`--incremental`, fichier d'incrément conservé entre les runs par le cache GitHub Actions) ; un
   run **complet**, seuils de rupture compris, n'a lieu que sur les **étiquettes de version** (`v*`), au
   moment de la release vers `main`. Déclencheur `tags: ['v*']` à ajouter à la CI.
+  Décidé par Julien le 20 nov. 2026 : le relèvement du `break` de l'API de 40 à 42 (scores du lot 15 de
+  42,03 à 42,89 % selon les timeouts) se tranche dans ce ticket, une fois la mesure stabilisée.
 - **L14-05** (plus tard, après la phase front) : **déploiement par étiquette**, décidé par Julien le
   19 nov. 2026. Chaque nouvelle étiquette `v*` posée par Julien déclenche un job CI qui déploie cette
   étiquette en production. Aujourd'hui les scripts de `scripts/deploy/` déploient `main` et refusent une
@@ -1251,6 +1253,11 @@ Décision connexe du même jour : l'**écart résiduel Caddy** (réponses `text/
 avant l'API : 400 URL mal encodée, 413 corps trop grand, 502 API injoignable) est **accepté** et reste
 consigné dans `docs/deploiement.md` ; le front le gérera de son côté (une réponse non JSON est traitée
 comme une erreur générique).
+
+Fusionné le 20 nov. 2026 (baa259d), recette acceptée. Décisions de Julien du 20 nov. 2026 sur les écarts au
+brief : `mainStackOrder` reste dans toutes les compétences servies, y compris celles imbriquées dans
+`/projects` (pas de schéma de compétence réduit) ; `cvPath` reste restreint à un chemin relatif à la racine du
+site (il est placé dans un `href` par le front).
 
 ## 8. Points ouverts et risques
 
