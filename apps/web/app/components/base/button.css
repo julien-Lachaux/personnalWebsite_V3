@@ -2,8 +2,8 @@
  * Apparence partagée de `Button.vue` et de `LinkButton.vue` (ticket F1-03) : un bouton et un lien en
  * forme de bouton se ressemblent à l'identique. Chargé par `<style scoped src>` dans les deux
  * composants. Couleurs, durées et courbes par les variables de tokens.css ; tailles de texte en rem.
- * Variantes du handoff : plein accent, contour, secondaire (bordure `line`), bleu LinkedIn, néon GitHub,
- * lien texte.
+ * Variantes du handoff : plein accent, contour, secondaire (bordure `line-control` de 3:1, D12), bleu
+ * LinkedIn, néon GitHub, lien texte.
  */
 .base-button {
   display: inline-flex;
@@ -63,7 +63,7 @@
 }
 
 .base-button--secondary {
-  border-color: var(--line);
+  border-color: var(--line-control);
   font-weight: var(--font-weight-semibold);
 }
 

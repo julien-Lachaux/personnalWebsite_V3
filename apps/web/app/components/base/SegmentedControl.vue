@@ -43,7 +43,7 @@ const selected = defineModel<T>({ required: true });
 .segmented__option {
   flex: 1;
   min-height: var(--touch-target);
-  border: var(--border-width) solid var(--line);
+  border: var(--border-control);
   border-radius: var(--radius-control);
   background-color: transparent;
   color: var(--text);

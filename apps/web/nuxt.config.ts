@@ -30,10 +30,16 @@ export default defineNuxtConfig({
   // L'API de dev écoute sur 3000 et autorise l'origine http://localhost:3001 (CORS_ORIGIN).
   devServer: { port: 3001 },
 
-  // Design system global (lot F1) : polices auto-hébergées (D6), tokens et thèmes, base. L'ordre
-  // compte : les tokens définissent les variables que la base utilise. Interface préférences → CSS :
-  // les attributs `data-*` de <html>, décrits en tête de app/assets/css/tokens.css.
-  css: ['~/assets/css/fonts.css', '~/assets/css/tokens.css', '~/assets/css/base.css'],
+  // Design system global (lot F1) : polices auto-hébergées (D6), tokens et thèmes du handoff, tokens
+  // ajoutés par décision (bordure des contrôles, D12), base. L'ordre compte : les tokens définissent
+  // les variables que la base utilise. Interface préférences → CSS : les attributs `data-*` de
+  // <html>, décrits en tête de app/assets/css/tokens.css.
+  css: [
+    '~/assets/css/fonts.css',
+    '~/assets/css/tokens.css',
+    '~/assets/css/control-tokens.css',
+    '~/assets/css/base.css',
+  ],
 
   app: {
     head: {

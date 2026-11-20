@@ -1,6 +1,8 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "stream",
+  "cacheDir": ".turbo/cache",
+  "globalDependencies": ["tsconfig.base.json", "eslint.config.js", ".npmrc", "pnpm-workspace.yaml"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -36,8 +38,12 @@
       "inputs": ["$TURBO_DEFAULT$", ".env"],
       "env": ["NUXT_PUBLIC_*"]
     },
-    "@siteperso/web#test:e2e": {
+    "@siteperso/web#test": {
       "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env.test"]
+    },
+    "@siteperso/web#test:e2e": {
+      "dependsOn": ["^build", "lint", "typecheck", "test"],
       "cache": false,
       "env": ["NUXT_PUBLIC_*", "PLAYWRIGHT_PORT", "WEB_E2E_PORT", "CI"]
     }

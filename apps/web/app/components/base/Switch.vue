@@ -75,7 +75,7 @@ const descriptionId = useId();
   flex-shrink: 0;
   width: 2.625rem;
   height: 1.5rem;
-  border: var(--border-width) solid var(--line);
+  border: var(--border-control);
   border-radius: 0.75rem;
   background-color: var(--bg);
   transition:

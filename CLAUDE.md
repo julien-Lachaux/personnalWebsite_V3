@@ -120,7 +120,9 @@ apps/web/
                           sous-dossier par section importé explicitement
     pages/                index, accessibilite, 404 (fichiers partagés)
     assets/css/           fonts.css (@font-face), tokens.css (tokens du handoff, thèmes, interface
-                          des préférences), base.css (reset, focus, réglages) ; fichiers partagés
+                          des préférences), control-tokens.css (tokens ajoutés par décision :
+                          bordure des contrôles D12, cible minimale D17), base.css (reset, focus,
+                          réglages) ; fichiers partagés
   i18n/locales/<langue>/  libellés d'interface, fr/ et en/ : common.json (partagé) et un fichier
                           par section (shell, profile, experience, recommendations, ai) qui ne
                           porte que son espace de clés ; mêmes clés dans les deux langues
@@ -144,9 +146,12 @@ apps/web/
   `hreflang` (fr, en, x-default) et `canonical` en URL absolue (`NUXT_PUBLIC_I18N_BASE_URL`).
   Toute chaîne visible passe par `t()`, dans les deux langues au même commit.
 - **Accessibilité** : WCAG 2.2 AA (D4, SPEC § 10) ; vrais `button`, `a`, `input` + `label`, jamais
-  de clic sur un `div` ; focus visible ; cibles de 44 px sur mobile et tablette ; contrastes
-  ≥ 4,5:1 dans les deux thèmes et en contraste renforcé ; `prefers-reduced-motion` ; tailles en
-  `rem`. ESLint (`eslint-plugin-vue`, `eslint-plugin-vuejs-accessibility`, zéro avertissement)
+  de clic sur un `div` ; focus visible ; cibles de 44 px sur mobile et tablette, sauf les puces de
+  techno (D17 : hauteur de la maquette, au moins 24 × 24 px par `--target-min`, WCAG 2.5.8) ;
+  contrastes ≥ 4,5:1 dans les deux thèmes et en contraste renforcé ; une bordure qui identifie un
+  contrôle (piste, contour de puce, segment, bouton secondaire, champ, panneau superposé) prend
+  `--line-control` ou `--border-control` (≥ 3:1, D12, `control-tokens.spec.ts`), le `--line` du
+  handoff restant décoratif ; `prefers-reduced-motion` ; tailles en `rem`. ESLint (`eslint-plugin-vue`, `eslint-plugin-vuejs-accessibility`, zéro avertissement)
   interdit `v-html` ; axe tourne dans chaque parcours Playwright (étiquettes WCAG 2.2 AA).
 - **Préférences → CSS (lot F1a)** : la seule interface est un jeu d'attributs posés sur `<html>`
   (détail en tête de `app/assets/css/tokens.css`) ; aucun composant ne calcule une couleur ou une
@@ -262,6 +267,16 @@ plus `PLAYWRIGHT_PORT` (serveur de navigateurs) et `WEB_E2E_PORT` (site statique
 parcours du front), et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `POSTGRES_PORT`.
 `docker compose`, `apps/api/vitest.config.ts` et `apps/web/playwright.config.ts` lisent ce `.env`
 racine. `pnpm db:down` n'arrête alors que ses conteneurs. La session front prend la plage 58xx.
+
+Cache Turborepo (lot F1 bis, D13) : chaque worktree a le sien, `.turbo/cache` à sa racine
+(`cacheDir` explicite de `turbo.json`) ; sans lui, Turborepo 2.x partage le cache du checkout
+principal entre tous les worktrees et rejoue le journal d'un autre worktree (ses chemins à
+l'affiche). Un premier `pnpm check` dans un worktree neuf exécute donc tout ; un « cache hit » ne
+rejoue que ce que ce worktree a déjà produit sur le même contenu. Un fichier racine lu par une tâche
+en cache s'ajoute à `globalDependencies` (aujourd'hui `tsconfig.base.json`, `eslint.config.js`,
+`.npmrc`, `pnpm-workspace.yaml`), un fichier ignoré par git qu'elle lit à ses `inputs` (ex.
+`apps/web/.env.test` pour `@siteperso/web#test`) : sinon le modifier n'invalide rien. Journaux de
+commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom générique partagé.
 
 ## Agents et garde-fous
 

@@ -9,7 +9,8 @@
 //   en `<span>` sans rôle de bouton ni `aria-pressed`.
 // `count` est le nombre affiché après le libellé (compteur dynamique du filtre). Le nom accessible
 // complet (« TypeScript, 2 expériences ») se passe par `aria-label` (attribut transmis à la racine).
-// Cibles de 44 px sur mobile et tablette (SPEC § 10.2).
+// Taille de la maquette à toutes les largeurs (D17 : environ 28 px de haut, et non 44 px sur mobile et
+// tablette) ; cible d'au moins 24 × 24 px (WCAG 2.2, 2.5.8) garantie par `--target-min`.
 withDefaults(
   defineProps<{
     /** État du filtre ; absent : la puce n'est pas un interrupteur. */
@@ -58,8 +59,11 @@ function onClick(event: MouseEvent, disabled: boolean): void {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
   padding: 0.25rem 0.5rem;
-  border: var(--border-width) solid var(--line);
+  /* Contour du contrôle (D12, 1.4.11) ; la puce pointillé, non interactive, garde `--line`. */
+  border: var(--border-control);
   border-radius: var(--radius-chip);
   background-color: transparent;
   color: var(--text);
@@ -115,13 +119,8 @@ function onClick(event: MouseEvent, disabled: boolean): void {
 /* Sans expérience détaillée : pointillé, texte atténué mais lisible (contraste `muted`). */
 .tech-chip--dashed {
   border-style: dashed;
+  border-color: var(--line);
   color: var(--muted);
   cursor: default;
-}
-
-@media (max-width: 1023px) {
-  .tech-chip:not(.tech-chip--dashed) {
-    min-height: var(--touch-target);
-  }
 }
 </style>
