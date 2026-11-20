@@ -91,9 +91,15 @@ describe('Intégrité (CI) : directives Stryker disable', () => {
   });
 
   it('accepte une directive justifiée qui cite un mutant équivalent déclaré', () => {
-    write('apps/api/stryker.equivalents.json', EQUIVALENTS);
+    // L14-02 : l'équivalent déclare son mutateur, la justification cite son identifiant.
+    write(
+      'apps/api/stryker.equivalents.json',
+      '{ "equivalents": [{ "id": "API-EQ-01", "file": "src/app.ts", "line": 2, "mutator": "StringLiteral" }] }\n',
+    );
     write('apps/api/src/app.ts', `${DIRECTIVE}: API-EQ-01 raison\nexport const mode = 'false';\n`);
-    commitAll(JUSTIFIED);
+    commitAll(
+      'chore(mutation): équivalent\n\nJustification-test: MUT-9 API-EQ-01 mutant équivalent vérifié un à un',
+    );
     const r = integrity();
     assert.equal(r.code, 0, r.out);
   });
