@@ -1298,6 +1298,25 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   parallèle, branche `lot/14-hooks` : lead-architecte, L14-01, 02, 06, 07, 11, 12, 13, 14 (hooks, script
   d'intégrité, fichiers d'agents), sans fichier commun avec l'autre branche. Recette du chef de projet
   sur les deux branches. L14-04 reste en phase 3 de la mutation, L14-05 après le front.
+- **Recette du 20 nov. 2026** (`docs/comptes-rendus/lot-14-recette.md`, acceptée avec réserves) ;
+  décisions de Julien du même jour :
+  - seuil de mutation de l'API à **41** et non 42 (marge de 0,03 point trop mince selon la charge de
+    l'exécuteur), à relever après le premier run complet sur une étiquette `v*` ;
+  - la section « Git et garde-fous » des fichiers d'agents garde les gestes refusés nommés (`HUSKY=0`,
+    `core.hooksPath`) ;
+  - `pnpm check` à 369 s après F3a : chemin critique dans le front (`web#lint`, parcours), à traiter
+    côté front (F11).
+
+## 7 septies bis. Lot 18 — Suites de la recette du lot 14 (décidé par Julien le 20 nov. 2026)
+
+- **L18-01** (lead-architecte, portée `config`) : la lecture `git config --get core.hooksPath` (et les
+  autres lectures `git config --get`) est permise, comme le dit `CLAUDE.md` ; l'écriture reste refusée.
+  Faux positif constaté en recette du lot 14.
+- **L18-02** (lead-architecte, portée `config`) : `git branch --track` et la création d'une branche qui
+  suit une branche distante (`git checkout -b|-B`, `git switch -c|-C`, `git branch` avec un point de
+  départ distant, réglage `branch.autoSetupMerge`) sont refusés aux agents spécialisés, comme
+  `git branch -u` (L14-17) ; la session principale les garde. Section « Git et garde-fous » et test de
+  concordance mis à jour.
 
 ## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
 

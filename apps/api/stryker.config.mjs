@@ -192,11 +192,13 @@ const config = {
   // `published` et constantes HTTP de create-app.ts) ; s'y ajoutent les 6 équivalents déclarés
   // « survivant déclaré » de stryker.equivalents.json et 1 survivant renvoyé « à tester »
   // (problem-details.ts:53). Lot 12 : 393 détectés sur 964, 40,77 % (couvert : 67,76 %).
-  // Lot 14 (L14-03) : 42, minimum de deux mesures (45,64 % à 15 processus, 42,03 % à 6) ; le nombre de
-  // timeouts, comptés détectés, varie avec la charge (57 contre 20).
+  // Lot 14 (L14-03) : deux mesures, 45,64 % à 15 processus et 42,03 % à 6 ; le nombre de timeouts,
+  // comptés détectés, varie avec la charge (57 contre 20). Décision de Julien du 20 nov. 2026 après
+  // recette : 41 et non 42 (marge de 0,03 point trop mince pour un exécuteur CI moins chargé), à
+  // relever après le premier run complet sur une étiquette `v*`.
   // `break` = score obtenu arrondi à l'entier inférieur, relevé à chaque progrès, JAMAIS abaissé ;
   // `low` = `break` (rouge = échec) ; `high` = 80 (défaut de Stryker), visé après la phase 3.
-  thresholds: { high: 80, low: 42, break: 42 },
+  thresholds: { high: 80, low: 41, break: 41 },
 
   // Vérificateur TypeScript : un mutant qui ne compile pas (tsconfig.json : src et tests) est
   // classé « CompileError » sans lancer de test, au lieu d'être compté tué ou survivant.
