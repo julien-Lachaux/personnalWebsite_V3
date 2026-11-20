@@ -45,7 +45,8 @@ les rapports de revue de code et de sécurité en cours.
 5. Mouvement : `prefers-reduced-motion` et réglage « réduire les animations » sur chaque animation
    (tuiles, accordéons, panneau, barre d'actions, glissements, easter egg) ; rien qui clignote.
 6. Pointeur et tactile : cibles ≥ 24 px (2.5.8) et 44 px sur mobile et tablette (exigence du
-   handoff), glissements doublés d'une alternative (2.5.1, 2.5.7).
+   handoff), sauf les puces de techno (D17 : hauteur de la maquette, environ 28 px, au moins
+   24 × 24 px espacement compris), glissements doublés d'une alternative (2.5.1, 2.5.7).
 7. Formulaires et contrôles : étiquettes, instructions, erreurs, groupes (`fieldset`), sélecteur de
    langue (`hreflang`, `lang`).
 8. Pages annexes : déclaration d'accessibilité, page 404, titres de page distincts par vue et par

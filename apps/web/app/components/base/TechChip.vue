@@ -91,7 +91,8 @@ function onClick(event: MouseEvent, disabled: boolean): void {
 }
 
 /* Néon : au survol (souris) et quand la puce est active. Sans lueur en thème clair (les variables
-   `--neon-*` y sont transparentes). */
+   `--neon-*` y sont transparentes). Aucun effet de survol sur une puce inactive ni sur la puce
+   pointillé, qui n'est pas interactive (`<span>`). */
 .tech-chip--pressed {
   border-color: var(--neon);
   background-color: var(--neon-bg);
@@ -99,7 +100,7 @@ function onClick(event: MouseEvent, disabled: boolean): void {
 }
 
 @media (hover: hover) {
-  .tech-chip:not([aria-disabled='true']):hover {
+  .tech-chip:not([aria-disabled='true'], .tech-chip--dashed):hover {
     border-color: var(--neon);
     background-color: var(--neon-bg);
     box-shadow:

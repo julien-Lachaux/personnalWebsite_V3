@@ -25,6 +25,16 @@ const PALETTES = {
 
 type Attributes = Record<string, string | null>;
 
+/**
+ * Charge la page et attend son hydratation (la coquille a choisi son mode : `data-mode`). Avant
+ * cela, le montage de l'application pose les attributs de <html> selon les préférences (D5) et
+ * écraserait ceux qu'un test poserait juste après `goto`.
+ */
+async function open(page: Page, path: string): Promise<void> {
+  await page.goto(path);
+  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+}
+
 /** Pose (ou retire, valeur null) des attributs sur <html>, comme le feront les préférences. */
 async function setRoot(page: Page, attributes: Attributes): Promise<void> {
   await page.evaluate((entries) => {
@@ -66,13 +76,22 @@ test.describe('thèmes', () => {
     test.describe(`système ${colorScheme}`, () => {
       test.use({ colorScheme });
 
-      test('sans data-theme, la page suit le schéma du système', async ({ page }) => {
-        await page.goto('/');
+      test('sans réglage enregistré, la page suit le schéma du système, avec ou sans data-theme', async ({
+        page,
+      }) => {
+        await open(page, '/');
+        const palette = PALETTES[colorScheme === 'dark' ? 'sombre' : 'clair'];
 
-        await expect(page.locator('html')).not.toHaveAttribute('data-theme');
-        expect(await rootStyle(page)).toEqual(
-          PALETTES[colorScheme === 'dark' ? 'sombre' : 'clair'],
+        // D5 : l'application pose toujours data-theme, d'après le schéma du système.
+        await expect(page.locator('html')).toHaveAttribute(
+          'data-theme',
+          colorScheme === 'dark' ? 'sombre' : 'clair',
         );
+        expect(await rootStyle(page)).toEqual(palette);
+        // Sans l'attribut (avant tout script), la feuille de style suit encore le système.
+        await setRoot(page, { 'data-theme': null });
+        await expect(page.locator('html')).not.toHaveAttribute('data-theme');
+        expect(await rootStyle(page)).toEqual(palette);
         expect(await page.evaluate(() => getComputedStyle(document.body).fontFamily)).toMatch(
           /^"?Space Grotesk"?,/,
         );
@@ -81,7 +100,7 @@ test.describe('thèmes', () => {
       test('data-theme l’emporte sur le système, data-contrast renforce le thème posé', async ({
         page,
       }) => {
-        await page.goto('/');
+        await open(page, '/');
 
         for (const [theme, contrast, expected] of [
           ['sombre', null, 'sombre'],
@@ -109,7 +128,7 @@ test.describe('thèmes', () => {
       test(`axe WCAG 2.2 AA : ${path}, ${theme}${contrast === null ? '' : ', contraste renforcé'}`, async ({
         page,
       }) => {
-        await page.goto(path);
+        await open(page, path);
         await setRoot(page, { 'data-theme': theme, 'data-contrast': contrast });
 
         const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
@@ -126,11 +145,15 @@ test.describe('focus, lien d’évitement, masquage visuel', () => {
       page,
     }) => {
       await page.emulateMedia({ colorScheme });
-      await page.goto('/');
+      await open(page, '/');
       await page.keyboard.press('Tab');
 
       const focused = page.locator(':focus');
-      await expect(focused).toHaveAttribute('hreflang', 'en');
+      // Premier arrêt : le lien d'évitement (son style a sa propre vérification plus bas) ; le
+      // second est le premier contrôle de la page.
+      await expect(focused).toHaveClass(/skip-link/);
+      await page.keyboard.press('Tab');
+      await expect(focused).not.toHaveClass(/skip-link/);
       const outline = await focused.evaluate((element) => {
         const style = getComputedStyle(element);
         return [style.outlineStyle, style.outlineWidth, style.outlineOffset, style.outlineColor];
@@ -141,15 +164,12 @@ test.describe('focus, lien d’évitement, masquage visuel', () => {
   }
 
   test('le lien d’évitement est hors de l’écran, puis visible au focus', async ({ page }) => {
-    await page.goto('/');
-    await page.evaluate(() => {
-      const link = document.createElement('a');
-      link.className = 'skip-link';
-      link.href = '#contenu';
-      link.textContent = 'Aller au contenu';
-      document.body.prepend(link);
-    });
+    await open(page, '/');
+    // Le lien de l'application (app.vue), pas un lien ajouté par le test.
     const link = page.locator('.skip-link');
+    await expect(link).toHaveCount(1);
+    await expect(link).toHaveAttribute('href', '#contenu');
+    await expect(link).toHaveText('Aller au contenu');
 
     const hidden = await link.boundingBox();
     expect(hidden?.y ?? 0).toBeLessThan(-(hidden?.height ?? 0) + 1);
@@ -171,7 +191,7 @@ test.describe('focus, lien d’évitement, masquage visuel', () => {
   test('.visually-hidden retire un titre de l’écran sans le retirer de l’arbre d’accessibilité', async ({
     page,
   }) => {
-    await page.goto('/');
+    await open(page, '/');
     await page.evaluate(() => {
       const heading = document.createElement('h2');
       heading.className = 'visually-hidden';
@@ -193,7 +213,7 @@ test.describe('réglages de lecture', () => {
   test('taille du texte : la racine passe à 115 % puis 130 %, les tailles en rem suivent', async ({
     page,
   }) => {
-    await page.goto('/');
+    await open(page, '/');
     const sizes = async (): Promise<number[]> =>
       page.evaluate(() =>
         [document.documentElement, document.querySelector('h1')].map((element) =>
@@ -201,7 +221,12 @@ test.describe('réglages de lecture', () => {
         ),
       );
 
-    expect(await sizes()).toEqual([16, 40]);
+    // La taille du h1 de la vraie page dépend de la largeur (tokens par palier) : elle se mesure à
+    // 100 %, puis se compare à elle-même aux autres tailles.
+    await setRoot(page, { 'data-text-size': '100' });
+    const [baseRoot = 0, baseHeading = 0] = await sizes();
+    expect(baseRoot).toBe(16);
+    expect(baseHeading).toBeGreaterThan(0);
     for (const [value, scale] of [
       ['100', 1],
       ['115', 1.15],
@@ -210,14 +235,14 @@ test.describe('réglages de lecture', () => {
       await setRoot(page, { 'data-text-size': value });
       const [root = 0, heading = 0] = await sizes();
       expect(root).toBeCloseTo(16 * scale, 5);
-      expect(heading).toBeCloseTo(40 * scale, 5);
+      expect(heading).toBeCloseTo(baseHeading * scale, 5);
     }
   });
 
   test('espacement du texte (WCAG 1.4.12) : interligne 1,5, lettres 0,12 em, mots 0,16 em', async ({
     page,
   }) => {
-    await page.goto('/');
+    await open(page, '/');
     const spacing = async (): Promise<{ size: number; values: string[] }> =>
       page
         .locator('main p')
@@ -249,8 +274,15 @@ test.describe('réglages de lecture', () => {
   });
 
   test('souligner les liens : même un lien sans soulignement le reçoit', async ({ page }) => {
-    await page.goto('/');
+    await open(page, '/');
     await page.evaluate(() => {
+      // Lien ordinaire : le seul `a[hreflang]` de la vraie page est le sélecteur de langue, qui a
+      // la forme d'un bouton (sans soulignement, D19).
+      const plain = document.createElement('a');
+      plain.id = 'lien-ordinaire';
+      plain.href = '#';
+      plain.textContent = 'lien';
+      document.body.append(plain);
       const link = document.createElement('a');
       link.id = 'sans-soulignement';
       link.href = '#';
@@ -261,7 +293,7 @@ test.describe('réglages de lecture', () => {
     const decoration = async (selector: string): Promise<string> =>
       page.locator(selector).evaluate((element) => getComputedStyle(element).textDecorationLine);
 
-    expect(await decoration('a[hreflang]')).toBe('underline');
+    expect(await decoration('#lien-ordinaire')).toBe('underline');
     expect(await decoration('#sans-soulignement')).toBe('none');
     await setRoot(page, { 'data-links': 'soulignes' });
     expect(await decoration('#sans-soulignement')).toBe('underline');
@@ -290,7 +322,7 @@ test.describe('polices auto-hébergées', () => {
         family,
       );
 
-    await page.goto('/');
+    await open(page, '/');
     await page.evaluate(async () => document.fonts.ready);
 
     expect(fonts('space-grotesk')).toEqual([
@@ -298,7 +330,12 @@ test.describe('polices auto-hébergées', () => {
     ]);
     expect(await loaded('Space Grotesk')).toContain('loaded');
     expect(fonts('atkinson-hyperlegible')).toEqual([]);
-    expect(fonts('jetbrains-mono')).toEqual([]);
+    // JetBrains Mono sert dès le chargement (nom de fichier des barres de fenêtre) : une seule
+    // requête, déjà chargée ; Atkinson Hyperlegible attend d'être demandée.
+    expect(fonts('jetbrains-mono')).toEqual([
+      `${baseURL}/fonts/jetbrains-mono/jetbrains-mono-latin-wght-normal.woff2`,
+    ]);
+    expect(await loaded('JetBrains Mono')).toContain('loaded');
     expect(await loaded('Atkinson Hyperlegible')).toEqual(Array(8).fill('unloaded'));
 
     await setRoot(page, { 'data-font': 'lisible' });
@@ -343,7 +380,7 @@ test.describe('mouvement', () => {
     test.use({ reducedMotion: 'no-preference' });
 
     test('durées du handoff, réduites par data-motion="reduit"', async ({ page }) => {
-      await page.goto('/');
+      await open(page, '/');
       expect(milliseconds(await rootVariable(page, '--dur-tile'))).toBeCloseTo(550, 5);
       expect(milliseconds(await rootVariable(page, '--dur-accordion'))).toBeCloseTo(320, 5);
       expect(await transition(page)).toBe(2000);
@@ -358,7 +395,7 @@ test.describe('mouvement', () => {
     test.use({ reducedMotion: 'reduce' });
 
     test('durées réduites par défaut, rétablies par data-motion="normal"', async ({ page }) => {
-      await page.goto('/');
+      await open(page, '/');
       expect(milliseconds(await rootVariable(page, '--dur-tile'))).toBeCloseTo(0.01, 5);
       expect(milliseconds(await rootVariable(page, '--dur-press'))).toBeCloseTo(0.01, 5);
       expect(await transition(page)).toBeCloseTo(0.01, 5);

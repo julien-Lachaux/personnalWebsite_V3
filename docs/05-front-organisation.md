@@ -32,7 +32,9 @@ fusion `--no-ff` dans `develop` par la session front.
 | D15 | `/fr` | Redirige vers `/` (F3). |
 | D16 | Défauts du script d'intégrité (noms accentués, motif `includes`) | Brief à la session back (`docs/briefs/back-002-integrite.md`). |
 | D17 | Puces de techno sur mobile et tablette | 28 px de haut comme la maquette (WCAG 2.2 AA demande 24 px) au lieu de 44 px. |
-| D19 | Sélecteur de langue | Affiche la langue courante (« FR » sur la page française), comme la maquette ; le nom accessible annonce l'action (« Passer en anglais », `lang`/`hreflang` de la cible). |
+| D19 | Sélecteur de langue | ~~Langue courante seule~~ remplacé par D21. |
+| D21 | Sélecteur de langue (20 nov., remplace D19) | Modèle GOV.UK : « FR \| EN » visibles ; la langue courante n'est pas un lien et porte `aria-current="true"` ; l'autre est un lien dont le texte visible est le nom accessible (WCAG 2.5.3, commande vocale), avec `lang` et `hreflang` de la cible. |
+| D22 | CV PDF (20 nov.) | Le PDF fourni par Julien est versionné tel quel dans `apps/web/public/cv/` (métadonnées nettoyées, SPEC § 11) : son e-mail et son téléphone y figurent, exception explicite de Julien à la règle « aucun e-mail ni téléphone dans le dépôt » de CLAUDE.md, limitée à ce fichier. Source hors dépôt : `../front-assets/cv-fr.pdf`. |
 | D20 | Prénom dans le contenu et les fixtures | Normal : c'est le CV de Julien ; seuls e-mail, téléphone et données de contact restent interdits dans le dépôt. |
 | D18 | Nom accessible des fenêtres | Nom explicite (« Me contacter »…), le nom de fichier (`contact.sh`) reste le titre visible (F3). |
 
@@ -71,7 +73,7 @@ F0 fondations ──┬── F1 design system ──┐
 [back : BF contrats] ──── F4 données ──┴─────────────────┘                                                      F9 déploiement ┘
 ```
 
-Bloquants back : **F4 attend le lot contrats du brief back-001** ; F9 attend le brief back-002
+Bloquants back : **F4 attend le lot contrats du brief back-001** ; F9 attend le brief back-005
 (service du front dans la pile). F0 à F3 ne dépendent pas du back.
 
 ### F0 Fondations front (lead-architecte, Opus)
@@ -134,9 +136,13 @@ Bloquants back : **F4 attend le lot contrats du brief back-001** ; F9 attend le 
   (oracles des garde-fous depuis F0), la comparaison et sa tolérance sont posées en F8.
 - F8-04 Tests en échec attendu pour chaque défaut trouvé.
 
-### F9 Déploiement (dev-devops, après le brief back-002)
+### F9 Déploiement (dev-devops, après le brief back-005)
 - F9-01 Build statique dans l'image, service par Caddy, CSP stricte (empreinte du script de thème), HSTS, en-têtes.
 - F9-02 Pile locale complète front + API + Caddy, e2e Playwright contre elle, job CI.
+- F9-03 (décidé le 20 nov.) CSP : empreinte du script de thème (`THEME_SCRIPT_SHA256`, F3a), empreintes des scripts en ligne de Nuxt (`importmap`, `window.__NUXT__`) recalculées à chaque génération, `<style>` en ligne ; Caddy : vraie redirection 301 de `/fr` et `/fr/*` vers le chemin sans préfixe (aujourd'hui une page `meta refresh`).
+
+### F11 Optimisation (décidé le 20 nov., en fin de chantier)
+- F11-01 Poids du JavaScript client : fixtures et Zod ne servent qu'au build et ne doivent pas partir dans le navigateur (473 ko de JS au total relevés en F3a).
 
 ### F10 Revues et recette (revue-code, revue-securite, revue-a11y, triage, correcteur, chef-de-projet)
 - Revues indépendantes, triage, corrections, recette finale depuis un clone neuf.

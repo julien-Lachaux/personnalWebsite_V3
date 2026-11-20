@@ -44,6 +44,20 @@ export default defineConfig({
                 include: ['app/**/*.spec.ts'],
                 exclude: unitInclude,
                 environment: 'nuxt',
+                // Configuration de l'application de test (lot F3a) : le CV vient des fixtures du
+                // dépôt (jamais du réseau) et le bouton « Lancer l'entretien » a une adresse
+                // placeholder, comme la génération des parcours Playwright. Un test qui exerce une
+                // autre configuration la pose lui-même (`useRuntimeConfig()`).
+                environmentOptions: {
+                  nuxt: {
+                    overrides: {
+                      runtimeConfig: {
+                        cvSource: 'fixtures',
+                        public: { contactEmail: 'contact@example.org' },
+                      },
+                    },
+                  },
+                },
               },
             }),
           ]),

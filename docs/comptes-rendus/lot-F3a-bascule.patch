@@ -1,0 +1,611 @@
+diff --git a/apps/web/app/components/shell/AccessibilityPanel-label.spec.ts b/apps/web/app/components/shell/AccessibilityPanel-label.spec.ts
+new file mode 100644
+index 0000000..099bcbb
+--- /dev/null
++++ b/apps/web/app/components/shell/AccessibilityPanel-label.spec.ts
+@@ -0,0 +1,44 @@
++import { mountSuspended } from '@nuxt/test-utils/runtime';
++import type { VueWrapper } from '@vue/test-utils';
++import { afterEach, describe, expect, it } from 'vitest';
++import { nextTick } from 'vue';
++
++import AccessibilityPanel from './AccessibilityPanel.vue';
++
++// D18 : le panneau s'annonce « Réglages d'accessibilité » (nom accessible), le nom de fichier
++// `accessibilite.cfg` restant son titre visible.
++
++const mounted: VueWrapper[] = [];
++
++afterEach(() => {
++  for (const wrapper of mounted.splice(0)) wrapper.unmount();
++});
++
++async function mountPanel(route: string): Promise<VueWrapper> {
++  const wrapper = await mountSuspended(AccessibilityPanel, {
++    route,
++    attachTo: document.body,
++    props: { declarationUrl: '/accessibilite' },
++  });
++  mounted.push(wrapper);
++  await wrapper.get('button[aria-haspopup="dialog"]').trigger('click');
++  await nextTick();
++  return wrapper;
++}
++
++describe('AccessibilityPanel : nom accessible (D18)', () => {
++  it('se nomme « Réglages d’accessibilité », titre visible accessibilite.cfg', async () => {
++    const wrapper = await mountPanel('/');
++
++    const dialog = wrapper.get('[role="dialog"]');
++    expect(dialog.attributes('aria-label')).toBe('Réglages d’accessibilité');
++    expect(dialog.attributes('aria-labelledby')).toBeUndefined();
++    expect(dialog.get('h2').text()).toBe('accessibilite.cfg');
++  });
++
++  it('se nomme « Accessibility settings » en anglais', async () => {
++    const wrapper = await mountPanel('/en');
++
++    expect(wrapper.get('[role="dialog"]').attributes('aria-label')).toBe('Accessibility settings');
++  });
++});
+diff --git a/apps/web/app/components/shell/AccessibilityPanel.vue b/apps/web/app/components/shell/AccessibilityPanel.vue
+index 8bc18e2..3fe5493 100644
+--- a/apps/web/app/components/shell/AccessibilityPanel.vue
++++ b/apps/web/app/components/shell/AccessibilityPanel.vue
+@@ -7,9 +7,8 @@
+ // statut de conformité.
+ //
+ // Position : sous la barre du haut, à droite ; sur mobile, sur toute la largeur moins les marges.
+-// À faire (D18) : le nom accessible de la fenêtre devrait être « Réglages d'accessibilité »
+-// (`shell.accessibility.panelLabel`), le nom de fichier restant le titre visible ; `Popover` n'a pas
+-// encore de prop pour les séparer (voir le compte rendu du lot F3b).
++// Nom accessible (D18) : « Réglages d'accessibilité » (`shell.accessibility.panelLabel`), le nom de
++// fichier `accessibilite.cfg` restant le titre visible.
+ import { computed, ref, useId, watch } from 'vue';
+ import { useI18n } from '#imports';
+ 
+@@ -72,6 +71,7 @@ watch(open, () => {
+     v-model:open="open"
+     class="a11y-panel"
+     title="accessibilite.cfg"
++    :label="t('shell.accessibility.panelLabel')"
+     :close-label="t('shell.accessibility.close')"
+   >
+     <template #trigger="{ props: trigger }">
+diff --git a/apps/web/app/components/shell/LanguageSwitch-d19.spec.ts b/apps/web/app/components/shell/LanguageSwitch-d19.spec.ts
+new file mode 100644
+index 0000000..9ee06e5
+--- /dev/null
++++ b/apps/web/app/components/shell/LanguageSwitch-d19.spec.ts
+@@ -0,0 +1,31 @@
++import { mountSuspended } from '@nuxt/test-utils/runtime';
++import { describe, expect, it } from 'vitest';
++
++import LanguageSwitch from './LanguageSwitch.vue';
++
++// D19 : le sélecteur affiche la langue courante (« FR » sur la page française), son nom accessible
++// annonce l'action dans la langue de la page ; le lien porte `lang` et `hreflang` de la cible.
++
++describe('LanguageSwitch (D19)', () => {
++  it('sur la page française : affiche FR, se nomme « Passer en anglais », mène à /en', async () => {
++    const wrapper = await mountSuspended(LanguageSwitch, { route: '/' });
++
++    const link = wrapper.get('a');
++    expect(link.attributes()).toMatchObject({ href: '/en', lang: 'en', hreflang: 'en' });
++    expect(link.get('[aria-hidden="true"]').text()).toBe('FR');
++    const name = link.get('.visually-hidden');
++    expect(name.text()).toBe('Passer en anglais');
++    expect(name.attributes('lang')).toBe('fr');
++  });
++
++  it('sur la page anglaise : affiche EN, se nomme « Switch to French », mène à /', async () => {
++    const wrapper = await mountSuspended(LanguageSwitch, { route: '/en' });
++
++    const link = wrapper.get('a');
++    expect(link.attributes()).toMatchObject({ href: '/', lang: 'fr', hreflang: 'fr' });
++    expect(link.get('[aria-hidden="true"]').text()).toBe('EN');
++    const name = link.get('.visually-hidden');
++    expect(name.text()).toBe('Switch to French');
++    expect(name.attributes('lang')).toBe('en');
++  });
++});
+diff --git a/apps/web/app/components/shell/LanguageSwitch.vue b/apps/web/app/components/shell/LanguageSwitch.vue
+index eada409..845a697 100644
+--- a/apps/web/app/components/shell/LanguageSwitch.vue
++++ b/apps/web/app/components/shell/LanguageSwitch.vue
+@@ -1,15 +1,17 @@
+ <script setup lang="ts">
+-// Sélecteur de langue FR/EN (F3-02) : un lien vers la même page dans l'autre langue
+-// (`useSwitchLocalePath`), qui affiche le code de la langue cible. `lang` et `hreflang` disent la
+-// langue de la cible ; le nom accessible est le nom de cette langue dans cette langue
+-// (« English », « Français »).
++// Sélecteur de langue FR/EN (F3-02, décision D19) : un lien vers la même page dans l'autre langue
++// (`useSwitchLocalePath`). Il affiche le code de la langue COURANTE (« FR » sur la page française, comme
++// la maquette) ; son nom accessible annonce l'action (« Passer en anglais », « Switch to French »), dans
++// la langue de la page. `hreflang` et `lang` du lien disent la langue de la cible ; le nom, écrit dans
++// la langue de la page, porte son propre `lang` pour être prononcé correctement.
+ import { computed } from 'vue';
+ import { useI18n, useSwitchLocalePath } from '#imports';
+ 
+ const { locale, t } = useI18n();
+ const switchLocalePath = useSwitchLocalePath();
+ 
+-const target = computed<'fr' | 'en'>(() => (locale.value === 'fr' ? 'en' : 'fr'));
++const current = computed<'fr' | 'en'>(() => (locale.value === 'fr' ? 'fr' : 'en'));
++const target = computed<'fr' | 'en'>(() => (current.value === 'fr' ? 'en' : 'fr'));
+ </script>
+ 
+ <template>
+@@ -19,8 +21,10 @@ const target = computed<'fr' | 'en'>(() => (locale.value === 'fr' ? 'en' : 'fr')
+     :hreflang="target"
+     class="shell-icon-button shell-press"
+   >
+-    <span aria-hidden="true">{{ target.toUpperCase() }}</span>
+-    <span class="visually-hidden">{{ t(`shell.language.${target}`) }}</span>
++    <span aria-hidden="true">{{ current.toUpperCase() }}</span>
++    <span class="visually-hidden" :lang="current">{{
++      t(`shell.language.switchTo.${target}`)
++    }}</span>
+   </NuxtLink>
+ </template>
+ 
+diff --git a/apps/web/app/pages/home.spec.ts b/apps/web/app/pages/home.spec.ts
+new file mode 100644
+index 0000000..a332e28
+--- /dev/null
++++ b/apps/web/app/pages/home.spec.ts
+@@ -0,0 +1,48 @@
++import { mountSuspended } from '@nuxt/test-utils/runtime';
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { clearNuxtData, useRuntimeConfig } from '#imports';
++
++import HomePage from '../components/home/HomePage.vue';
++import IndexPage from './index.vue';
++
++// Page d'accueil (lot F3a) : `/` et `/en` rendent la page réelle (`HomePage`, testée à part).
++
++let saved: { contactEmail: string; cvSource: string };
++
++beforeEach(() => {
++  const config = useRuntimeConfig();
++  saved = { contactEmail: config.public.contactEmail, cvSource: config.cvSource };
++  config.public.contactEmail = 'contact@example.org';
++  config.cvSource = 'fixtures';
++  clearNuxtData();
++  Object.defineProperty(document, 'fonts', {
++    configurable: true,
++    value: { ready: Promise.resolve() },
++  });
++  vi.spyOn(window, 'matchMedia').mockImplementation(
++    () =>
++      ({
++        matches: false,
++        addEventListener: () => undefined,
++        removeEventListener: () => undefined,
++      }) as unknown as MediaQueryList,
++  );
++});
++
++afterEach(() => {
++  const config = useRuntimeConfig();
++  config.public.contactEmail = saved.contactEmail;
++  config.cvSource = saved.cvSource;
++  clearNuxtData();
++  vi.restoreAllMocks();
++});
++
++describe('page d’accueil', () => {
++  it('rend HomePage : la coquille et le CV de la langue', async () => {
++    const wrapper = await mountSuspended(IndexPage, { route: '/' });
++
++    expect(wrapper.findComponent(HomePage).exists()).toBe(true);
++    expect(wrapper.get('h1').text()).toBe('Développeur full-stack');
++    expect(wrapper.get('main').attributes('id')).toBe('contenu');
++  });
++});
+diff --git a/apps/web/app/pages/index.vue b/apps/web/app/pages/index.vue
+index 69a2a25..f46f2ab 100644
+--- a/apps/web/app/pages/index.vue
++++ b/apps/web/app/pages/index.vue
+@@ -1,41 +1,8 @@
+ <script setup lang="ts">
+-// Page d'accueil provisoire (lot F0) : remplacée par la coquille et les sections (F3, F5).
+-const { t, locale } = useI18n();
+-const switchLocalePath = useSwitchLocalePath();
+-
+-const otherLocale = computed(() => (locale.value === 'fr' ? 'en' : 'fr'));
+-
+-useHead(() => ({ title: t('home.title') }));
++// Page d'accueil (lot F3a) : le CV de la langue dans la coquille (components/home/HomePage.vue).
++import HomePage from '../components/home/HomePage.vue';
+ </script>
+ 
+ <template>
+-  <main>
+-    <h1>{{ t('home.heading') }}</h1>
+-    <p>{{ t('home.intro') }}</p>
+-    <p>
+-      <NuxtLink :to="switchLocalePath(otherLocale)" :lang="otherLocale" :hreflang="otherLocale">
+-        {{ t('home.otherLanguage') }}
+-      </NuxtLink>
+-    </p>
+-  </main>
++  <HomePage />
+ </template>
+-
+-<style scoped>
+-/* Mise en page provisoire : fond, police, couleurs et focus viennent des styles globaux (F1). */
+-main {
+-  max-width: var(--content-max);
+-  margin-inline: auto;
+-  padding: 3rem var(--mobile-gutter);
+-}
+-
+-h1 {
+-  margin-block: 0 1rem;
+-  font-size: var(--font-size-h1-portable);
+-  font-weight: var(--font-weight-bold);
+-  line-height: 1.1;
+-}
+-
+-p {
+-  font-size: var(--font-size-lead-mobile);
+-}
+-</style>
+diff --git a/apps/web/i18n/locales/en/common.json b/apps/web/i18n/locales/en/common.json
+index ccd4060..664ca12 100644
+--- a/apps/web/i18n/locales/en/common.json
++++ b/apps/web/i18n/locales/en/common.json
+@@ -1,10 +1,4 @@
+ {
+-  "home": {
+-    "title": "Full-stack developer: website under construction",
+-    "heading": "Website under construction",
+-    "intro": "The new version of the website is coming soon.",
+-    "otherLanguage": "Lire en français"
+-  },
+   "common": {
+     "close": "Close",
+     "opensInNewTab": "opens in a new tab",
+diff --git a/apps/web/i18n/locales/en/shell.json b/apps/web/i18n/locales/en/shell.json
+index 09fa640..6eb14ac 100644
+--- a/apps/web/i18n/locales/en/shell.json
++++ b/apps/web/i18n/locales/en/shell.json
+@@ -16,8 +16,10 @@
+       "subject": "Getting in touch from your website"
+     },
+     "language": {
+-      "fr": "Français",
+-      "en": "English"
++      "switchTo": {
++        "fr": "Switch to French",
++        "en": "Switch to English"
++      }
+     },
+     "theme": {
+       "toLight": "Dark theme, switch to light theme",
+diff --git a/apps/web/i18n/locales/fr/common.json b/apps/web/i18n/locales/fr/common.json
+index d0084df..144b550 100644
+--- a/apps/web/i18n/locales/fr/common.json
++++ b/apps/web/i18n/locales/fr/common.json
+@@ -1,10 +1,4 @@
+ {
+-  "home": {
+-    "title": "Développeur full-stack : site en construction",
+-    "heading": "Site en construction",
+-    "intro": "La nouvelle version du site arrive bientôt.",
+-    "otherLanguage": "Read in English"
+-  },
+   "common": {
+     "close": "Fermer",
+     "opensInNewTab": "s'ouvre dans un nouvel onglet",
+diff --git a/apps/web/i18n/locales/fr/shell.json b/apps/web/i18n/locales/fr/shell.json
+index b8554ac..110c1a0 100644
+--- a/apps/web/i18n/locales/fr/shell.json
++++ b/apps/web/i18n/locales/fr/shell.json
+@@ -16,8 +16,10 @@
+       "subject": "Prise de contact depuis votre site"
+     },
+     "language": {
+-      "fr": "Français",
+-      "en": "English"
++      "switchTo": {
++        "fr": "Passer en français",
++        "en": "Passer en anglais"
++      }
+     },
+     "theme": {
+       "toLight": "Thème sombre, passer en thème clair",
+diff --git a/apps/web/test/shell.e2e.ts b/apps/web/test/shell.e2e.ts
+new file mode 100644
+index 0000000..2e23147
+--- /dev/null
++++ b/apps/web/test/shell.e2e.ts
+@@ -0,0 +1,287 @@
++import AxeBuilder from '@axe-core/playwright';
++import { expect, test, type Page } from '@playwright/test';
++
++// Parcours de la vraie page (lot F3a : coquille et données sur les fixtures), à chaque taille d'écran
++// des maquettes (un projet Playwright par taille), en français et en anglais :
++// - axe WCAG 2.2 AA dans les quatre palettes, sur chaque section (onglets du mobile et de la
++//   tablette, sections ensemble sur le bureau) ;
++// - lien d'évitement ; navigation par sections au clavier (onglets du bas et `aria-current` sous
++//   1024 px, barre du haut au-delà) ; panneau d'accessibilité au clavier (D18) ;
++// - thème et réglages enregistrés puis rechargés sans flash (D5) ;
++// - sélecteur de langue (D19).
++// Le mode se déduit de la largeur du projet : chaque test vérifie le comportement de la sienne.
++
++const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
++const STORAGE_KEY = 'siteperso:preferences';
++
++const LOCALES = {
++  fr: {
++    path: '/',
++    heading: 'Développeur full-stack',
++    sections: ['Profil', 'Expérience', 'Recommandations', 'IA'],
++    tabs: ['Profil', 'XP', 'Recos', 'IA'],
++    files: ['profil.cv', 'experience.log', 'recommandations.md', 'ia.md'],
++    skip: 'Aller au contenu',
++    panelTrigger: 'Options d’accessibilité',
++    panelName: 'Réglages d’accessibilité',
++    firstSetting: 'Taille de texte normale',
++    contrast: 'Contraste renforcé',
++    language: { shown: 'FR', name: 'Passer en anglais', target: 'en', targetPath: '/en' },
++    toLight: 'Thème sombre, passer en thème clair',
++  },
++  en: {
++    path: '/en',
++    heading: 'Full-stack developer',
++    sections: ['Profile', 'Experience', 'Recommendations', 'AI'],
++    tabs: ['Profile', 'XP', 'Recs', 'AI'],
++    files: ['profil.cv', 'experience.log', 'recommandations.md', 'ia.md'],
++    skip: 'Skip to content',
++    panelTrigger: 'Accessibility options',
++    panelName: 'Accessibility settings',
++    firstSetting: 'Normal text size',
++    contrast: 'Enhanced contrast',
++    language: { shown: 'EN', name: 'Switch to French', target: 'fr', targetPath: '/' },
++    toLight: 'Dark theme, switch to light theme',
++  },
++} as const;
++
++type LocaleCode = keyof typeof LOCALES;
++
++const PALETTES = [
++  { name: 'sombre', theme: 'sombre', highContrast: false },
++  { name: 'clair', theme: 'clair', highContrast: false },
++  { name: 'sombre renforcé', theme: 'sombre', highContrast: true },
++  { name: 'clair renforcé', theme: 'clair', highContrast: true },
++] as const;
++
++/** Sous 1024 px : onglets (une section à la fois) ; au-delà : sections ensemble. */
++function tabsMode(page: Page): boolean {
++  return (page.viewportSize()?.width ?? 0) < 1024;
++}
++
++/** Enregistre des préférences avant tout script de la page (format de domain/preferences). */
++async function storePreferences(page: Page, preferences: Record<string, unknown>): Promise<void> {
++  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
++    key: STORAGE_KEY,
++    value: JSON.stringify({ version: 1, ...preferences }),
++  });
++}
++
++/** Page chargée et hydratée (la coquille a choisi son mode). */
++async function open(page: Page, path: string): Promise<void> {
++  await page.goto(path);
++  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
++}
++
++async function axe(page: Page, label: string): Promise<void> {
++  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
++  expect(results.violations, label).toEqual([]);
++  expect(
++    results.passes.map((rule) => rule.id),
++    label,
++  ).toContain('color-contrast');
++}
++
++for (const code of Object.keys(LOCALES) as LocaleCode[]) {
++  const locale = LOCALES[code];
++
++  test.describe(`${code} (${locale.path})`, () => {
++    test('structure : un en-tête, un main, un h1, un h2 par section, lang', async ({ page }) => {
++      await open(page, locale.path);
++
++      await expect(page.locator('html')).toHaveAttribute('lang', code);
++      await expect(page.getByRole('banner')).toHaveCount(1);
++      await expect(page.getByRole('main')).toHaveCount(1);
++      await expect(page.getByRole('heading', { level: 1 })).toHaveText(locale.heading);
++      const headings = page.locator('main section h2');
++      await expect(headings).toHaveText([...locale.sections]);
++      if (tabsMode(page)) {
++        // Mobile et tablette : en-tête mobile, barre d'actions et navigation du bas ; h2 masqués.
++        await expect(page.locator('.top-bar')).toHaveCount(0);
++        await expect(page.getByRole('navigation', { name: 'Sections' })).toBeVisible();
++        await expect(page.locator('.action-bar')).toBeVisible();
++        const box = await page.locator('#titre-profile').boundingBox();
++        expect([box?.width, box?.height]).toEqual([1, 1]);
++        await expect(page.locator('main section:visible')).toHaveCount(1);
++      } else {
++        await expect(page.locator('.mobile-header, .bottom-nav, .action-bar')).toHaveCount(0);
++        await expect(page.locator('.top-bar')).toBeVisible();
++        await expect(page.locator('main section:visible')).toHaveCount(4);
++        await expect(page.locator('#titre-profile')).toBeVisible();
++      }
++    });
++
++    for (const palette of PALETTES) {
++      test(`axe WCAG 2.2 AA, palette ${palette.name}, chaque section`, async ({ page }) => {
++        await storePreferences(page, { theme: palette.theme, highContrast: palette.highContrast });
++        await open(page, locale.path);
++        await expect(page.locator('html')).toHaveAttribute('data-theme', palette.theme);
++
++        if (!tabsMode(page)) {
++          await axe(page, palette.name);
++          return;
++        }
++        for (const [index, tab] of locale.tabs.entries()) {
++          await page
++            .getByRole('navigation', { name: 'Sections' })
++            .getByRole('button')
++            .nth(index)
++            .click();
++          await expect(
++            page.getByRole('heading', { level: 2, name: locale.sections[index] ?? '' }),
++          ).toHaveCount(1);
++          await axe(page, `${palette.name}, onglet ${tab}`);
++        }
++      });
++    }
++
++    test('lien d’évitement : premier arrêt du clavier, visible, mène au contenu', async ({
++      page,
++    }) => {
++      await open(page, locale.path);
++
++      await page.keyboard.press('Tab');
++      const skip = page.getByRole('link', { name: locale.skip });
++      await expect(skip).toBeFocused();
++      await expect(skip).toBeInViewport({ ratio: 1 });
++      await page.keyboard.press('Enter');
++
++      await expect(page.locator('main#contenu')).toBeFocused();
++      await expect(page).toHaveURL(/#contenu$/);
++    });
++
++    test('sections au clavier : onglets (aria-current) ou barre du haut', async ({ page }) => {
++      await open(page, locale.path);
++
++      if (tabsMode(page)) {
++        const nav = page.getByRole('navigation', { name: 'Sections' });
++        const tabs = nav.getByRole('button');
++        await expect(tabs).toHaveText([...locale.tabs]);
++        await expect(tabs.nth(0)).toHaveAttribute('aria-current', 'true');
++
++        await tabs.nth(1).focus();
++        await page.keyboard.press('Enter');
++        await expect(tabs.nth(1)).toHaveAttribute('aria-current', 'true');
++        await expect(tabs.nth(0)).not.toHaveAttribute('aria-current');
++        await expect(page.locator('#section-experience')).toBeVisible();
++        await expect(page.locator('#section-profile')).toBeHidden();
++        await expect(page.locator('.mobile-header')).toContainText(locale.files[1]);
++
++        await tabs.nth(3).focus();
++        await page.keyboard.press('Space');
++        await expect(tabs.nth(3)).toHaveAttribute('aria-current', 'true');
++        await expect(page.locator('#section-ai')).toBeVisible();
++        await expect(page.locator('.mobile-header')).toContainText(locale.files[3]);
++        // h1 toujours présent pour les lecteurs d'écran, masqué visuellement hors du Profil.
++        await expect(page.getByRole('heading', { level: 1 })).toHaveText(locale.heading);
++      } else {
++        const tabs = page.locator('.top-bar__nav button');
++        await expect(tabs.nth(0)).toHaveAttribute('aria-current', 'true');
++        await tabs.nth(2).focus();
++        await page.keyboard.press('Enter');
++        await expect(tabs.nth(2)).toHaveAttribute('aria-current', 'true');
++        await expect(page.locator('#section-experience')).toBeFocused();
++      }
++    });
++
++    test('panneau d’accessibilité au clavier : nom, focus, Échap', async ({ page }) => {
++      await open(page, locale.path);
++      const trigger = page.getByRole('button', { name: locale.panelTrigger, exact: true });
++      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
++
++      await trigger.focus();
++      await page.keyboard.press('Enter');
++
++      const panel = page.getByRole('dialog', { name: locale.panelName });
++      await expect(panel).toBeVisible();
++      await expect(panel.getByRole('heading', { level: 2 })).toHaveText('accessibilite.cfg');
++      await expect(trigger).toHaveAttribute('aria-expanded', 'true');
++      await expect(page.getByRole('button', { name: locale.firstSetting })).toBeFocused();
++      await axe(page, 'panneau ouvert');
++
++      await page.keyboard.press('Escape');
++      await expect(panel).toBeHidden();
++      await expect(trigger).toBeFocused();
++    });
++
++    test('thème et réglages enregistrés, rechargés sans flash', async ({ page }) => {
++      await page.emulateMedia({ colorScheme: 'dark' });
++      await open(page, locale.path);
++      await expect(page.locator('html')).toHaveAttribute('data-theme', 'sombre');
++
++      await page.getByRole('button', { name: locale.toLight }).click();
++      await page.getByRole('button', { name: locale.panelTrigger, exact: true }).click();
++      await page.getByRole('switch', { name: locale.contrast }).click();
++      await expect(page.locator('html')).toHaveAttribute('data-theme', 'clair');
++      await expect(page.locator('html')).toHaveAttribute('data-contrast', 'renforce');
++      const stored = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
++      expect(JSON.parse(stored ?? 'null')).toMatchObject({
++        version: 1,
++        theme: 'clair',
++        highContrast: true,
++      });
++
++      // Rechargement : chaque changement d'attribut de <html> est noté, avec l'existence de <body>.
++      await page.addInitScript(() => {
++        const log: { name: string; value: string | null; beforeBody: boolean }[] = [];
++        Object.assign(window, { __rootMutations: log });
++        new MutationObserver((records) => {
++          for (const record of records) {
++            if (record.target !== document.documentElement) continue;
++            const name = record.attributeName ?? '';
++            log.push({
++              name,
++              value: document.documentElement.getAttribute(name),
++              beforeBody: document.body === null,
++            });
++          }
++        }).observe(document, { attributes: true, subtree: true });
++      });
++      await page.reload();
++      await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
++
++      const log = await page.evaluate(
++        () =>
++          (
++            window as unknown as {
++              __rootMutations: { name: string; value: string | null; beforeBody: boolean }[];
++            }
++          ).__rootMutations,
++      );
++      for (const [name, value] of [
++        ['data-theme', 'clair'],
++        ['data-contrast', 'renforce'],
++      ] as const) {
++        const changes = log.filter((entry) => entry.name === name);
++        expect(changes[0], name).toEqual({ name, value, beforeBody: true });
++        expect(new Set(changes.map((entry) => entry.value)), name).toEqual(new Set([value]));
++      }
++      expect(
++        await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor),
++      ).toBe('rgb(255, 255, 255)');
++    });
++
++    test('sélecteur de langue : langue courante affichée, action annoncée (D19)', async ({
++      page,
++    }) => {
++      await open(page, locale.path);
++
++      const link = page.getByRole('link', { name: locale.language.name });
++      await expect(link).toHaveCount(1);
++      await expect(link).toHaveAttribute('hreflang', locale.language.target);
++      await expect(link).toHaveAttribute('lang', locale.language.target);
++      await expect(link.locator('[aria-hidden="true"]')).toHaveText(locale.language.shown);
++
++      await link.click();
++      await expect(page).toHaveURL(new RegExp(`${locale.language.targetPath}$`));
++      await expect(page.locator('html')).toHaveAttribute('lang', locale.language.target);
++    });
++  });
++}
++
++test('/fr renvoie vers la page française sans préfixe (D15)', async ({ page, baseURL }) => {
++  await page.goto('/fr');
++
++  await expect(page).toHaveURL(`${baseURL}/`);
++  await expect(page.getByRole('heading', { level: 1 })).toHaveText(LOCALES.fr.heading);
++});

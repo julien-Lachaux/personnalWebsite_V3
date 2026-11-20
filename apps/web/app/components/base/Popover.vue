@@ -13,14 +13,14 @@
 // panneau marqué `autofocus` ou `data-autofocus`, sinon sur le premier élément focalisable, sinon sur
 // le bouton × ; Échap (focus dans le panneau ou sur le déclencheur) et × ferment et rendent le focus au
 // déclencheur. Le panneau reste dans le DOM, caché (`hidden`) : `aria-controls` vise toujours un
-// élément existant.
+// élément existant. Nom accessible : le titre (`aria-labelledby`), ou `label` s'il est donné (D18).
 //
 // Position : fixe sous l'en-tête, réglable par les variables `--popover-top` (62 px), `--popover-right`
 // (12 px) et `--popover-width` (360 px), à poser sur le composant (`style`). Sur écran étroit, la
 // largeur se limite à celle de l'écran moins les marges. Le contenu défile (focalisable au clavier
 // grâce à ses commandes) quand il dépasse la hauteur disponible.
 
-import { nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 
 // Nom multi-mot (règle `vue/multi-word-component-names`) : celui que Nuxt donne à l'élément de base.
 defineOptions({ name: 'BasePopover' });
@@ -29,7 +29,21 @@ defineProps<{
   /** Nom de fichier affiché dans la barre de titre, sans le `>_` (ex. `accessibilite.cfg`). */
   title: string;
   closeLabel: string;
+  /**
+   * Nom accessible du panneau quand il diffère du titre visible (D18, ex. « Réglages
+   * d'accessibilité ») : posé en `aria-label`, `aria-labelledby` est alors retiré (il l'emporterait).
+   * Absent : le panneau est nommé par son titre.
+   */
+  label?: string | undefined;
 }>();
+
+/** Propriétés à répandre sur le bouton déclencheur (slot `trigger`). */
+export interface PopoverTriggerProps {
+  'aria-haspopup': 'dialog';
+  'aria-expanded': 'true' | 'false';
+  'aria-controls': string;
+  onClick: () => void;
+}
 
 const open = defineModel<boolean>('open', { default: false });
 
@@ -45,6 +59,18 @@ const FOCUSABLE =
 function toggle(): void {
   open.value = !open.value;
 }
+
+const triggerProps = computed<PopoverTriggerProps>(() => ({
+  'aria-haspopup': 'dialog',
+  'aria-expanded': open.value ? 'true' : 'false',
+  'aria-controls': panelId,
+  onClick: toggle,
+}));
+
+defineSlots<{
+  trigger(props: { props: PopoverTriggerProps }): unknown;
+  default(props: Record<string, never>): unknown;
+}>();
 
 function triggerElement(): HTMLElement | null {
   return root.value!.querySelector<HTMLElement>(`[aria-controls="${panelId}"]`);
@@ -85,21 +111,14 @@ onBeforeUnmount(() => root.value!.removeEventListener('keydown', onKeydown));
 
 <template>
   <div ref="root" class="popover">
-    <slot
-      name="trigger"
-      :props="{
-        'aria-haspopup': 'dialog',
-        'aria-expanded': open ? 'true' : 'false',
-        'aria-controls': panelId,
-        onClick: toggle,
-      }"
-    />
+    <slot name="trigger" :props="triggerProps" />
     <div
       :id="panelId"
       role="dialog"
       aria-modal="false"
       class="popover__panel"
-      :aria-labelledby="titleId"
+      :aria-label="label"
+      :aria-labelledby="label ? undefined : titleId"
       :hidden="!open"
     >
       <div class="popover__bar">

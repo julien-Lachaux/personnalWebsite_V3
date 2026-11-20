@@ -7,10 +7,9 @@
 // statut de conformité.
 //
 // Position : sous la barre du haut, à droite ; sur mobile, sur toute la largeur moins les marges.
-// À faire (D18) : le nom accessible de la fenêtre devrait être « Réglages d'accessibilité »
-// (`shell.accessibility.panelLabel`), le nom de fichier restant le titre visible ; `Popover` n'a pas
-// encore de prop pour les séparer (voir le compte rendu du lot F3b).
-import { computed, ref, useId, watch, type ButtonHTMLAttributes } from 'vue';
+// Nom accessible (D18) : « Réglages d'accessibilité » (`shell.accessibility.panelLabel`), le nom de
+// fichier `accessibilite.cfg` restant le titre visible.
+import { computed, ref, useId, watch } from 'vue';
 import { useI18n } from '#imports';
 
 import { usePreferences } from '../../composables/shell/usePreferences.js';
@@ -72,11 +71,12 @@ watch(open, () => {
     v-model:open="open"
     class="a11y-panel"
     title="accessibilite.cfg"
+    :label="t('shell.accessibility.panelLabel')"
     :close-label="t('shell.accessibility.close')"
   >
     <template #trigger="{ props: trigger }">
       <button
-        v-bind="trigger as ButtonHTMLAttributes"
+        v-bind="trigger"
         type="button"
         class="shell-icon-button shell-press"
         :aria-label="t('shell.accessibility.open')"
