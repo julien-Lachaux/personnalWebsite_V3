@@ -62,6 +62,12 @@
       "declaration": "Déclaration d’accessibilité",
       "status": "Réglages mémorisés sur cet appareil. Conformité RGAA 4.1 : {pending}.",
       "pending": "[à compléter après audit]"
+    },
+    "headings": {
+      "profile": "Profil",
+      "experience": "Expérience",
+      "recommendations": "Recommandations",
+      "ai": "IA"
     }
   }
 }

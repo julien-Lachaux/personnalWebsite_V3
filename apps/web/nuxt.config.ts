@@ -33,14 +33,15 @@ export default defineNuxtConfig({
   devServer: { port: 3001 },
 
   // Design system global (lot F1) : polices auto-hébergées (D6), tokens et thèmes du handoff, tokens
-  // ajoutés par décision (bordure des contrôles, D12), base. L'ordre compte : les tokens définissent
-  // les variables que la base utilise. Interface préférences → CSS : les attributs `data-*` de
-  // <html>, décrits en tête de app/assets/css/tokens.css.
+  // ajoutés par décision (bordure des contrôles, D12), base, animations nommées (glissement des onglets,
+  // F3a). L'ordre compte : les tokens définissent les variables que la base utilise. Interface
+  // préférences → CSS : les attributs `data-*` de <html>, décrits en tête de app/assets/css/tokens.css.
   css: [
     '~/assets/css/fonts.css',
     '~/assets/css/tokens.css',
     '~/assets/css/control-tokens.css',
     '~/assets/css/base.css',
+    '~/assets/css/motion.css',
   ],
 
   app: {
