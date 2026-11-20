@@ -2,7 +2,8 @@
 // Fenêtre modale (ticket F1-04, SPEC § 8) : barre de titre `>_ fichier` (lilas), bouton ×, corps en
 // slot. Sert « Lancer l'entretien » (`contact.sh`) et l'easter egg (`huile-de-coude.sh`).
 //
-// Accessibilité : `role="dialog"` + `aria-modal="true"`, nommée par le titre (`aria-labelledby`) ;
+// Accessibilité : `role="dialog"` + `aria-modal="true"`, nommée par le titre (`aria-labelledby`), ou
+// par `label` quand le nom diffère du titre visible (D18) ;
 // piège de focus (Tab et Maj+Tab bouclent dans la fenêtre) ; Échap ferme ; voile cliquable (désactivable
 // avec `closeOnScrim`, il n'est pas dans l'ordre de tabulation : le bouton × et Échap ferment au
 // clavier) ; défilement de la page bloqué tant que la fenêtre est ouverte ; au retour, le focus revient
@@ -28,8 +29,14 @@ const props = withDefaults(
     closeOnScrim?: boolean;
     /** Élément à refocaliser à la fermeture, si ce n'est pas celui qui avait le focus à l'ouverture. */
     returnFocusTo?: HTMLElement | null | undefined;
+    /**
+     * Nom accessible quand il diffère du titre visible (D18, ex. « Me contacter » pour `contact.sh`) :
+     * posé en `aria-label`, `aria-labelledby` est alors retiré (il l'emporterait). Absent : la
+     * fenêtre est nommée par son titre.
+     */
+    label?: string | undefined;
   }>(),
-  { tone: 'accent', closeOnScrim: true, returnFocusTo: undefined },
+  { tone: 'accent', closeOnScrim: true, returnFocusTo: undefined, label: undefined },
 );
 
 const open = defineModel<boolean>('open', { default: false });
@@ -165,7 +172,8 @@ onBeforeUnmount(deactivate);
         aria-modal="true"
         class="window"
         :class="`window--${tone}`"
-        :aria-labelledby="titleId"
+        :aria-label="label"
+        :aria-labelledby="label ? undefined : titleId"
       >
         <div class="window__bar">
           <span class="window__prompt" aria-hidden="true">&gt;_</span>

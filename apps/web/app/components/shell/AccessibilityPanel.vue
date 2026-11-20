@@ -10,7 +10,7 @@
 // À faire (D18) : le nom accessible de la fenêtre devrait être « Réglages d'accessibilité »
 // (`shell.accessibility.panelLabel`), le nom de fichier restant le titre visible ; `Popover` n'a pas
 // encore de prop pour les séparer (voir le compte rendu du lot F3b).
-import { computed, ref, useId, watch, type ButtonHTMLAttributes } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import { useI18n } from '#imports';
 
 import { usePreferences } from '../../composables/shell/usePreferences.js';
@@ -76,7 +76,7 @@ watch(open, () => {
   >
     <template #trigger="{ props: trigger }">
       <button
-        v-bind="trigger as ButtonHTMLAttributes"
+        v-bind="trigger"
         type="button"
         class="shell-icon-button shell-press"
         :aria-label="t('shell.accessibility.open')"
