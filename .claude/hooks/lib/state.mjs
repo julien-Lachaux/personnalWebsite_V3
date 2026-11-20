@@ -224,6 +224,43 @@ export function dropSnapshots(root, key) {
   rmSync(join(root, 'snapshots', safeKey(key)), { recursive: true, force: true });
 }
 
+/** Supprime l'instantané d'un seul dépôt pour une clé. */
+export function dropSnapshot(root, key, top) {
+  rmSync(snapshotPath(root, key, top), { force: true });
+}
+
+/**
+ * Worktrees enregistrés du dépôt du projet (`root` = `<projet>/.claude/hooks/state`). Sortie
+ * `--porcelain` sans `-z` : l'option n'existe qu'à partir de git 2.36.
+ */
+function registeredWorktrees(root) {
+  try {
+    return git(resolve(root, '..', '..', '..'), ['worktree', 'list', '--porcelain'])
+      .split('\n')
+      .filter((line) => line.startsWith('worktree '))
+      .map((line) => normalize(line.slice('worktree '.length)));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * État de la racine d'un instantané (BF-11) :
+ * - 'ok'      : la racine est toujours le dépôt de l'instantané ;
+ * - 'absent'  : le dossier a disparu ;
+ * - 'retired' : le dossier existe mais n'est plus ce dépôt (plus de `.git`, ou
+ *   `git rev-parse --show-toplevel` différent) et git ne le connaît plus comme worktree : worktree
+ *   retiré dont un outil a recréé des fichiers (serveur `nuxt dev` orphelin…) ;
+ * - 'broken'  : même symptôme alors que le worktree est toujours enregistré (`.git` retiré à la
+ *   main) : signalé, car ce n'est pas un retrait.
+ */
+export function snapshotRootStatus(root, snapshot) {
+  const { top } = snapshot;
+  if (!existsSync(top)) return 'absent';
+  if (existsSync(join(top, '.git')) && toplevelOf(top) === top) return 'ok';
+  return registeredWorktrees(root).includes(top) ? 'broken' : 'retired';
+}
+
 // ---------------------------------------------------------------------------------------------
 // Autorisations nominatives (créées par authorize.mjs depuis la session principale)
 
@@ -318,6 +355,16 @@ function showAt(top, commit, rel) {
   }
 }
 
+/** Empreinte sha256 d'un fichier à un commit (ou null s'il n'y existe pas). */
+function hashAt(top, commit, rel) {
+  if (!commit) return null;
+  try {
+    return sha256(git(top, ['show', `${commit}:${rel}`], { encoding: 'buffer' }));
+  } catch {
+    return null;
+  }
+}
+
 /** Vrai si la modification de `rel` depuis `base` est commitée avec une ligne Justification-test. */
 export function committedWithJustification(top, base, rel) {
   if (!base) return false;
@@ -341,7 +388,18 @@ export function committedWithJustification(top, base, rel) {
 export function verifySnapshot(root, snapshot, { role, key }) {
   const { top, head, oracles, untracked } = snapshot;
   const violations = [];
-  if (!existsSync(top)) return violations;
+  const status = snapshotRootStatus(root, snapshot);
+  if (status === 'absent' || status === 'retired') return violations;
+  if (status === 'broken') {
+    return [
+      {
+        rel: '.git',
+        problem:
+          "la racine de l'instantané n'est plus un dépôt git alors que le worktree reste enregistré " +
+          '(retirer le worktree par git worktree remove, ou restaurer son .git)',
+      },
+    ];
+  }
 
   const allowed = (rel, scope) =>
     usedAuthorization(root, { role, key, scope, rel }) !== null ||
@@ -358,9 +416,19 @@ export function verifySnapshot(root, snapshot, { role, key }) {
   }
   for (const rel of current) {
     const kind = classify(rel);
-    if ((kind === 'config' || kind === 'guard') && !(rel in oracles) && !allowed(rel, 'config')) {
-      violations.push({ rel, problem: 'configuration de test ou garde-fou créé' });
-    }
+    if ((kind !== 'config' && kind !== 'guard') || rel in oracles) continue;
+    // BF-10 : absent des oracles de l'instantané ne veut pas dire créé. La politique a pu s'élargir
+    // depuis (hooks lancés du checkout principal, mis à jour par une fusion) : un fichier qui a le
+    // contenu qu'il avait à l'instantané (commit `head`, ou fichier non suivi relevé) est inchangé.
+    const now = hashFile(join(top, rel));
+    const atHead = hashAt(top, head, rel);
+    if (now !== null && (now === atHead || now === untracked[rel])) continue;
+    if (allowed(rel, 'config')) continue;
+    const existed = atHead !== null || rel in untracked;
+    violations.push({
+      rel,
+      problem: existed ? 'oracle modifié' : 'configuration de test ou garde-fou créé',
+    });
   }
 
   // Marqueurs ajoutés dans les fichiers changés depuis l'instantané (commités ou non).

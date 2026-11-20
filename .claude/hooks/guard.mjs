@@ -35,6 +35,7 @@ import {
 import {
   audit,
   clearViolations,
+  dropSnapshot,
   dropSnapshots,
   ensureSnapshot,
   findAuthorization,
@@ -45,6 +46,7 @@ import {
   pendingViolations,
   recordViolations,
   relativeTo,
+  snapshotRootStatus,
   stateRoot,
   toplevelOf,
   verifySnapshot,
@@ -420,7 +422,15 @@ function snapshotCwd(ctx) {
 }
 
 function verify(ctx) {
-  const violations = listSnapshots(ctx.root, ctx.key).flatMap((s) =>
+  // BF-11 : l'instantané d'une racine disparue ou d'un worktree retiré (dossier recréé par un outil,
+  // qui n'est plus ce dépôt) est ignoré et supprimé, sans attendre que les autres soient propres.
+  const snapshots = listSnapshots(ctx.root, ctx.key).filter((s) => {
+    const status = snapshotRootStatus(ctx.root, s);
+    if (status !== 'absent' && status !== 'retired') return true;
+    dropSnapshot(ctx.root, ctx.key, s.top);
+    return false;
+  });
+  const violations = snapshots.flatMap((s) =>
     verifySnapshot(ctx.root, s, { role: ctx.role, key: ctx.key }).map((v) => ({
       ...v,
       top: s.top,

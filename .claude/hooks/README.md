@@ -19,6 +19,9 @@ test par mutation (`stryker.config.mjs` et toute variante `stryker.<x>.<ext>` qu
 déclarés), `turbo.json` (racine et de paquet), `pnpm-workspace.yaml`, `.husky/`, `.github/workflows/`, `scripts/ci/`, et `.claude/` (réglages,
 hooks, agents). Créer un nouveau fichier de test est permis. Les marqueurs de saut ou de focus de
 Vitest et les commentaires d'ignore de couverture sont refusés partout (`lib/policy.mjs`). Le
+marqueur d'échec attendu `fails` n'est repéré que sur un appel direct ou enchaîné par des méthodes
+de l'API de test de Vitest (`each`, `for`, `concurrent`, `extend`…), pas sur un appel ordinaire
+comme `includes` sur la portée du même nom de `GRANTABLE` (BF-9, `tests/fails-marker.test.mjs`). Le
 dossier temporaire de session (`scratchpad_dir`) est libre.
 
 Front (`apps/web`, lot F0) : parcours Playwright `*.e2e.ts`, tests de composants `*.spec.ts`,
@@ -30,6 +33,24 @@ Marqueurs de Playwright, repérés après `test` ou `test.describe` : `fixme` et
 `skip`, `fail` traité comme l'échec attendu `fails` de Vitest (portée `fails`). Rôles limités :
 `qa-front` (tests et comptes rendus, comme `qa`), `revue-a11y` (`docs/revues/`, comme les autres
 revues). Tests : `tests/front-oracles.test.mjs` et `scripts/ci/tests/front-integrity.test.sh`.
+
+## Vérification de fin de tâche (instantanés)
+
+L'instantané d'un dépôt relève, pour une clé (agent ou session), le commit `head`, l'empreinte de
+chaque oracle et celle de chaque fichier non suivi. En fin de tâche (`verify`, `lib/state.mjs`) :
+
+- un oracle de l'instantané dont l'empreinte a changé est « modifié » ou « supprimé », sauf
+  autorisation ou commit justifié depuis `head` ;
+- une configuration ou un garde-fou absent des oracles de l'instantané n'est « créé » ou « modifié »
+  que si son contenu diffère de celui qu'il avait à l'instantané (fichier au commit `head`, ou
+  fichier non suivi relevé). La politique a pu s'élargir entre-temps (les hooks tournent depuis le
+  checkout principal, mis à jour par une fusion) : un fichier devenu oracle mais inchangé n'est pas
+  une violation (BF-10, `tests/snapshot-policy-widening.test.mjs`) ;
+- l'instantané d'une racine disparue, ou d'un dossier qui n'est plus ce dépôt (plus de `.git`, ou
+  `git rev-parse --show-toplevel` différent) et que git ne liste plus parmi les worktrees du
+  projet, est ignoré et supprimé : worktree retiré dont un outil a recréé des fichiers (serveur
+  `nuxt dev` orphelin). Si le worktree reste enregistré (`.git` retiré à la main), une seule
+  violation est signalée, pas une par oracle (BF-11, `tests/snapshot-retired-root.test.mjs`).
 
 ## Exception contrôlée (correcteur, qa, qa-front, lead-architecte, dev-devops)
 
