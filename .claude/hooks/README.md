@@ -87,7 +87,8 @@ l'utilise. Création, usage, refus, révocation et violations sont journalisés 
 Le commit qui modifie un test existant ou une configuration protégée porte en plus la ligne
 `Justification-test: <identifiant> <raison>`, exigée par `scripts/ci/check-tests-integrity.sh`.
 Pour une directive `Stryker disable` (L14-02), c'est le commit qui ajoute la ligne qui porte la
-justification, et chaque équivalent cité désigne dans son `stryker.equivalents.json` le fichier,
+justification, ses lignes `Justification-test` citent l'identifiant de chaque équivalent de la
+directive (mot entier, depuis le 20 nov. 2026), et chaque équivalent cité désigne dans son `stryker.equivalents.json` le fichier,
 la ligne et le mutateur (champ `mutator`, obligatoire depuis le 20 nov. 2026) que la directive
 retire du score (`scripts/ci/stryker-directives.mjs`).
 
