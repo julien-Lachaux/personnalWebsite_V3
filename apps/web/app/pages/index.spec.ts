@@ -39,7 +39,7 @@ afterEach(() => {
 });
 
 describe("page d'accueil", () => {
-  it('affiche un seul h1 et propose la version anglaise depuis le français', async () => {
+  it('affiche un seul h1 et propose la version anglaise depuis le français (D21)', async () => {
     const wrapper = await mountSuspended(IndexPage, { route: '/' });
 
     expect(wrapper.findAll('h1')).toHaveLength(1);
@@ -47,7 +47,7 @@ describe("page d'accueil", () => {
     const links = wrapper.findAll('a[hreflang]');
     expect(links).toHaveLength(1);
     expect(links[0]?.attributes()).toMatchObject({ href: '/en', lang: 'en', hreflang: 'en' });
-    expect(links[0]?.text()).toContain('Passer en anglais');
+    expect(links[0]?.text()).toBe('EN');
   });
 
   it('propose la version française depuis l’anglais', async () => {
@@ -58,6 +58,6 @@ describe("page d'accueil", () => {
     const links = wrapper.findAll('a[hreflang]');
     expect(links).toHaveLength(1);
     expect(links[0]?.attributes()).toMatchObject({ href: '/', lang: 'fr', hreflang: 'fr' });
-    expect(links[0]?.text()).toContain('Switch to French');
+    expect(links[0]?.text()).toBe('FR');
   });
 });

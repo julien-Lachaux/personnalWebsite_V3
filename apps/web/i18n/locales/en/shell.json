@@ -15,12 +15,6 @@
       "cv": "CV PDF",
       "subject": "Getting in touch from your website"
     },
-    "language": {
-      "switchTo": {
-        "fr": "Switch to French",
-        "en": "Switch to English"
-      }
-    },
     "theme": {
       "toLight": "Dark theme, switch to light theme",
       "toDark": "Light theme, switch to dark theme"

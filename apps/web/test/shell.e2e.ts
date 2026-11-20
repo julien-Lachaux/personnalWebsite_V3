@@ -8,7 +8,7 @@ import { expect, test, type Page } from '@playwright/test';
 // - lien d'évitement ; navigation par sections au clavier (onglets du bas et `aria-current` sous
 //   1024 px, barre du haut au-delà) ; panneau d'accessibilité au clavier (D18) ;
 // - thème et réglages enregistrés puis rechargés sans flash (D5) ;
-// - sélecteur de langue (D19).
+// - sélecteur de langue (D21).
 // Le mode se déduit de la largeur du projet : chaque test vérifie le comportement de la sienne.
 
 const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
@@ -26,7 +26,7 @@ const LOCALES = {
     panelName: 'Réglages d’accessibilité',
     firstSetting: 'Taille de texte normale',
     contrast: 'Contraste renforcé',
-    language: { shown: 'FR', name: 'Passer en anglais', target: 'en', targetPath: '/en' },
+    language: { current: 'FR', link: 'EN', target: 'en', targetPath: '/en' },
     toLight: 'Thème sombre, passer en thème clair',
   },
   en: {
@@ -40,7 +40,7 @@ const LOCALES = {
     panelName: 'Accessibility settings',
     firstSetting: 'Normal text size',
     contrast: 'Enhanced contrast',
-    language: { shown: 'EN', name: 'Switch to French', target: 'fr', targetPath: '/' },
+    language: { current: 'EN', link: 'FR', target: 'fr', targetPath: '/' },
     toLight: 'Dark theme, switch to light theme',
   },
 } as const;
@@ -261,16 +261,42 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       ).toBe('rgb(255, 255, 255)');
     });
 
-    test('sélecteur de langue : langue courante affichée, action annoncée (D19)', async ({
+    test('sélecteur de langue : « FR | EN », langue courante sans lien, nom = texte visible (D21)', async ({
       page,
     }) => {
       await open(page, locale.path);
 
-      const link = page.getByRole('link', { name: locale.language.name });
+      const switcher = page.locator('.language-switch');
+      await expect(switcher).toHaveCount(1);
+      await expect(switcher).toContainText(/^FR\s*\|\s*EN$/);
+      // Langue courante : un texte, pas un lien, avec le lang de la page.
+      const current = switcher.locator('[aria-current="true"]');
+      await expect(current).toHaveText(locale.language.current);
+      await expect(current).toHaveAttribute('lang', code);
+      await expect(switcher.getByRole('link')).toHaveCount(1);
+      // Autre langue : le nom accessible est exactement le texte visible, sans aria-label.
+      const link = page.getByRole('link', { name: locale.language.link, exact: true });
       await expect(link).toHaveCount(1);
+      await expect(link).toHaveText(locale.language.link);
+      await expect(link).not.toHaveAttribute('aria-label');
       await expect(link).toHaveAttribute('hreflang', locale.language.target);
       await expect(link).toHaveAttribute('lang', locale.language.target);
-      await expect(link.locator('[aria-hidden="true"]')).toHaveText(locale.language.shown);
+      await expect(switcher.locator('[aria-hidden="true"]')).toHaveText('|');
+      // Cible d'au moins 44 px sous 1024 px (D21), 24 px au-delà (WCAG 2.5.8).
+      const box = await link.boundingBox();
+      const minimum = tabsMode(page) ? 44 : 24;
+      expect(box?.width).toBeGreaterThanOrEqual(minimum);
+      expect(box?.height).toBeGreaterThanOrEqual(minimum);
+      // Focus visible au clavier.
+      await link.focus();
+      await page.keyboard.press('Shift+Tab');
+      await page.keyboard.press('Tab');
+      await expect(link).toBeFocused();
+      const outline = await link.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return [style.outlineStyle, style.outlineWidth];
+      });
+      expect(outline).toEqual(['solid', '2px']);
 
       await link.click();
       await expect(page).toHaveURL(new RegExp(`${locale.language.targetPath}$`));

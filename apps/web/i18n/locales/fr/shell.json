@@ -15,12 +15,6 @@
       "cv": "CV PDF",
       "subject": "Prise de contact depuis votre site"
     },
-    "language": {
-      "switchTo": {
-        "fr": "Passer en français",
-        "en": "Passer en anglais"
-      }
-    },
     "theme": {
       "toLight": "Thème sombre, passer en thème clair",
       "toDark": "Thème clair, passer en thème sombre"
