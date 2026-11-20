@@ -71,8 +71,11 @@ describe('contraintes du schéma SQL', () => {
   it('refuse une locale hors fr/en, un code de langue de trois lettres et un niveau CECRL inconnu', async () => {
     await expect(sql`
       insert into profile_translations
-        (profile_id, locale, title, headline, bio, availability, picture_alt)
-      values (1, 'de', 't', 'h', 'b', 'a', 'p')`).rejects.toThrow(/locale_code_check/);
+        (profile_id, locale, title, picture_alt, title_badge, taglines, intro, mission,
+         current_activity, seeking_format, seeking_location, seeking_availability, cv_path)
+      values (1, 'de', 't', 'p', 'b', array['a'], 'i', 'm', 'c', 'f', 'l', 'd', '/cv.pdf')`).rejects.toThrow(
+      /locale_code_check/,
+    );
     await expect(sql`insert into languages (slug, code) values ('t-fra', 'fra')`).rejects.toThrow(
       /languages_code_check/,
     );

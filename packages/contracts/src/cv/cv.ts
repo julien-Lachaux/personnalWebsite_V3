@@ -1,12 +1,15 @@
 import { z } from 'zod';
 
+import { AiOverviewSchema } from '../ai-overview/ai-overview.js';
 import { CertificationSchema } from '../certifications/certifications.js';
 import { LocaleSchema } from '../common/locale.js';
+import { nullable } from '../common/nullable.js';
 import { EducationSchema } from '../education/education.js';
 import { ExperienceSchema } from '../experiences/experiences.js';
 import { LanguageSchema } from '../languages/languages.js';
 import { ProfileSchema } from '../profile/profile.js';
 import { ProjectSchema } from '../projects/projects.js';
+import { RecommendationSchema } from '../recommendations/recommendations.js';
 import { ResourceSchema } from '../resources/resources.js';
 import { SkillGroupSchema } from '../skill-groups/skill-groups.js';
 import { SocialLinkSchema } from '../social-links/social-links.js';
@@ -30,6 +33,11 @@ export const CvSchema = z
     certifications: z.array(CertificationSchema),
     education: z.array(EducationSchema),
     languages: z.array(LanguageSchema),
+    recommendations: z.array(RecommendationSchema),
+    aiOverview: nullable(AiOverviewSchema).meta({
+      description:
+        'Section IA ; `null` quand elle est absente ou supprimée (`GET /ai-overview` répond alors 404).',
+    }),
   })
   .meta({ id: 'Cv', description: 'CV complet : agrégat de toutes les ressources.' });
 

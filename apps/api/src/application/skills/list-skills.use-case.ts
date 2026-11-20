@@ -15,6 +15,7 @@ export class ListSkillsUseCase {
       icon: skill.icon,
       iconPath: skill.iconPath,
       groupSlug: skill.groupSlug,
+      mainStackOrder: skill.mainStackOrder,
     }));
   }
 }

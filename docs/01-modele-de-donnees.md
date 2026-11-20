@@ -40,8 +40,11 @@ dès le départ. Accessibilité complète : toute image a un texte alternatif tr
 | picture_path | text | |
 | location | text | « Melun, Île-de-France » |
 
-profile_translations : profile_id, locale, title (« Développeur full-stack TypeScript senior »),
-headline (accroche), bio, availability (« Disponible pour des missions »), picture_alt.
+profile_translations : profile_id, locale, title (« Développeur full-stack »), picture_alt, et les champs
+du design v6 (brief back-001, BF-1, 20 nov. 2026), tous `not null` et non vides : title_badge, taglines `text[]`
+(au moins une accroche, aucune vide), intro, mission, current_activity, seeking_format, seeking_location,
+seeking_availability, cv_path (chemin relatif à la racine du site, ex. `/cv.pdf`). Les anciennes colonnes
+headline, bio et availability sont supprimées (migration 0016).
 
 ### social_links
 id, slug, kind (`github`, `linkedin`, `website`, …), url, sort_order, published.
@@ -55,6 +58,8 @@ skill_groups_translations : name, description.
 id, slug, group_id FK, level smallint (1-5), icon text (slug devicon ou chemin SVG), icon_path text null,
 sort_order, published.
 skills_translations : name (la plupart sont des noms propres, le `en` est alors identique).
+main_stack_order smallint null (BF-3) : rang dans la stack principale, `> 0`, unique quand il est renseigné ;
+null = hors stack principale.
 
 ### experiences
 | colonne | type | note |
@@ -73,7 +78,9 @@ skills_translations : name (la plupart sont des noms propres, le `en` est alors 
 experiences_translations : job_title, location, summary, achievements `text[]`, logo_alt, stack_label
 (« Huile de coude » pour la pause).
 
-experience_skills : experience_id, skill_id, sort_order (PK composite).
+experience_skills : experience_id, skill_id, sort_order, shown_in_stack boolean not null default true
+(PK composite). `shown_in_stack = false` (BF-2) : lien servi mais caché de la stack affichée, utile au filtre
+du front.
 
 ### projects (ex-réalisations)
 id, slug, url, repo_url, image_desktop_path, image_mobile_path, year, sort_order, published.
@@ -100,6 +107,18 @@ education_translations : title, description.
 id, slug, code (`fr`, `en`), cefr_level text null (`C1`), sort_order, published.
 languages_translations : name, level_label (« langue maternelle », « professionnel »).
 
+### recommendations (BF-4)
+id, slug, author_name, recommended_on date, sort_order, published, deleted_at.
+recommendations_translations : author_role, relationship, paragraphs `text[]` (au moins un paragraphe, aucun
+vide). Tous les textes sont non vides. Recommandations publiques sur LinkedIn : `published = true` (décision
+du 19 nov. 2026). Le lien vers la page LinkedIn des recommandations est un social_link (BF-6).
+
+### ai_overview (une seule ligne, id = 1, BF-5)
+id, deleted_at ; pas de `published` (comme profile).
+ai_overview_translations : title, in_product_label, in_product_items `text[]` (au moins un élément, aucun vide),
+daily_label, daily_text, tous non vides.
+ai_overview_skills : ai_overview_id, skill_id, sort_order (PK composite).
+
 ## Ce qui disparaît de la V2
 panels, color_themes (présentation), colonnes github/linkedin/freelance_website du profil
 (remplacées par social_links), `description` HTML des expériences (remplacée par summary + achievements).
@@ -107,8 +126,12 @@ panels, color_themes (présentation), colonnes github/linkedin/freelance_website
 ## Contrat d'API (lecture seule, préfixe `/api/v1`, `?lang=fr|en`, défaut `fr`)
 - `GET /profile`, `/social-links`, `/skill-groups` (avec skills imbriqués), `/skills`,
   `/experiences` (avec skills), `/projects`, `/tools`, `/resources`, `/certifications`,
-  `/education`, `/languages`
-- `GET /cv` : agrégat de tout ce qui précède en un appel (pour la génération statique du front)
+  `/education`, `/languages`, `/recommendations`, `/ai-overview` (BF-4, BF-5 ; `/ai-overview` répond 404 si
+  la section est absente, supprimée ou sans traduction `fr`)
+- Les compétences (`Skill`, partout où elles sont servies) portent `mainStackOrder` (entier ou `null`) ; les
+  compétences d'une expérience portent en plus `shownInStack` (schéma `ExperienceSkill`).
+- `GET /cv` : agrégat de tout ce qui précède en un appel (pour la génération statique du front), dont
+  `recommendations` et `aiOverview` (`null` si la section est absente)
 - Pas d'endpoint de contact : le `mailto:` et le lien LinkedIn sont gérés dans le front
   (l'e-mail est une constante de configuration du front, jamais en base).
 - `GET /health`

@@ -18,6 +18,7 @@ const groups: SkillGroup[] = [
         icon: 'typescript',
         iconPath: null,
         groupSlug: 'langages',
+        mainStackOrder: 1,
       },
       {
         slug: 'php',
@@ -26,6 +27,7 @@ const groups: SkillGroup[] = [
         icon: 'php',
         iconPath: null,
         groupSlug: 'langages',
+        mainStackOrder: null,
       },
     ],
   },

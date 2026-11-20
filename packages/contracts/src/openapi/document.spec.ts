@@ -56,6 +56,7 @@ describe('createOpenApiDocument', () => {
   });
 
   const expectedPaths = [
+    '/ai-overview',
     '/certifications',
     '/cv',
     '/education',
@@ -64,6 +65,7 @@ describe('createOpenApiDocument', () => {
     '/languages',
     '/profile',
     '/projects',
+    '/recommendations',
     '/resources',
     '/skill-groups',
     '/skills',
@@ -71,12 +73,12 @@ describe('createOpenApiDocument', () => {
     '/tools',
   ];
 
-  it('déclare exactement les 13 chemins, relatifs à /api/v1, sans /docs.json', () => {
+  it('déclare exactement les 15 chemins, relatifs à /api/v1, sans /docs.json', () => {
     expect(Object.keys(document.paths ?? {}).sort()).toEqual(expectedPaths);
     expect(JSON.stringify(document)).not.toContain('docs.json');
   });
 
-  it('porte le paramètre lang (Locale) sur 12 chemins, pas sur /health', () => {
+  it('porte le paramètre lang (Locale) sur 14 chemins, pas sur /health', () => {
     for (const path of expectedPaths) {
       const parameters = document.paths?.[path]?.get?.parameters ?? [];
       const lang = parameters.find((p) => 'name' in p && p.name === 'lang');
@@ -127,6 +129,7 @@ describe('createOpenApiDocument', () => {
 
   it('publie tous les composants nommés', () => {
     expect(Object.keys(document.components?.schemas ?? {}).sort()).toEqual([
+      'AiOverview',
       'CefrLevel',
       'Certification',
       'ContractType',
@@ -134,6 +137,7 @@ describe('createOpenApiDocument', () => {
       'Education',
       'Experience',
       'ExperienceKind',
+      'ExperienceSkill',
       'HealthResponse',
       'Image',
       'IsoDate',
@@ -142,6 +146,7 @@ describe('createOpenApiDocument', () => {
       'ProblemDetails',
       'Profile',
       'Project',
+      'Recommendation',
       'Resource',
       'Skill',
       'SkillGroup',

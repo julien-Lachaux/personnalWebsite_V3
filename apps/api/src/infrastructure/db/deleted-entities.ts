@@ -1,10 +1,10 @@
 import { type LogFn, openSingleConnection } from './migrations-runner.js';
-import { SEEDED_ENTITIES } from './seeds-convergence.js';
+import { entityLabel, SEEDED_ENTITIES } from './seeds-convergence.js';
 
 /** Entité marquée supprimée (`deleted_at` non nul), en attente d'un nettoyage physique. */
 export interface DeletedEntity {
   table: string;
-  /** Slug de l'entité (`profil` pour le profil, qui n'en a pas). */
+  /** Slug de l'entité (`profil` pour le profil, `ai-overview` pour la section IA : ils n'en ont pas). */
   label: string;
   deletedAt: Date;
 }
@@ -43,7 +43,7 @@ export async function listDeletedEntities(options: ListDeletedOptions): Promise<
     const entities: DeletedEntity[] = [];
     for (const entity of SEEDED_ENTITIES) {
       const rows = await sql<{ label: string; deleted_at: Date }[]>`
-        select ${entity.hasSlug ? sql`p.slug` : sql`'profil'`}::text as label, p.deleted_at
+        select ${entityLabel(sql, entity)}::text as label, p.deleted_at
         from ${sql(entity.table)} p
         where p.deleted_at is not null
         order by p.deleted_at, 1`;
@@ -105,9 +105,9 @@ export async function purgeDeletedEntities(options: PurgeDeletedOptions): Promis
           const rows = options.confirm
             ? await tx<{ label: string }[]>`
                 delete from ${tx(entity.table)} p where ${where}
-                returning ${entity.hasSlug ? tx`p.slug` : tx`'profil'`}::text as label`
+                returning ${entityLabel(tx, entity)}::text as label`
             : await tx<{ label: string }[]>`
-                select ${entity.hasSlug ? tx`p.slug` : tx`'profil'`}::text as label
+                select ${entityLabel(tx, entity)}::text as label
                 from ${tx(entity.table)} p where ${where}`;
           if (rows.length > 0) {
             total += rows.length;

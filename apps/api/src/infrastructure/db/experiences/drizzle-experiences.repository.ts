@@ -2,8 +2,7 @@ import { type Locale } from '@siteperso/contracts';
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 
 import { type ExperiencesRepository } from '../../../application/experiences/ports/experiences-repository.port.js';
-import { type Experience } from '../../../domain/experiences/experience.js';
-import { type Skill } from '../../../domain/skills/skill.js';
+import { type Experience, type ExperienceSkill } from '../../../domain/experiences/experience.js';
 import { type DrizzleDatabaseClient } from '../drizzle-database-client.js';
 import { experiences, experienceSkills, experiencesTranslations, skills } from '../schema/index.js';
 import { selectPublishedSkills } from '../skills/select-published-skills.js';
@@ -51,7 +50,7 @@ export class DrizzleExperiencesRepository implements ExperiencesRepository {
     const skillRows = await selectPublishedSkills(
       this.client.db,
       locale,
-      { experienceId: experienceSkills.experienceId },
+      { experienceId: experienceSkills.experienceId, shownInStack: experienceSkills.shownInStack },
       inArray(
         experienceSkills.experienceId,
         rows.map((row) => row.id),
@@ -60,7 +59,7 @@ export class DrizzleExperiencesRepository implements ExperiencesRepository {
       .innerJoin(experienceSkills, eq(experienceSkills.skillId, skills.id))
       .orderBy(asc(experienceSkills.experienceId), asc(experienceSkills.sortOrder), asc(skills.id));
 
-    const skillsByExperience = new Map<number, Skill[]>();
+    const skillsByExperience = new Map<number, ExperienceSkill[]>();
     for (const { experienceId, ...skill } of skillRows) {
       const siblings = skillsByExperience.get(experienceId);
       if (siblings === undefined) {

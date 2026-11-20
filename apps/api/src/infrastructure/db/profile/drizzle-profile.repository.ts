@@ -22,9 +22,15 @@ export class DrizzleProfileRepository implements ProfileRepository {
         picturePath: profile.picturePath,
         pictureAlt: translated(en, fr, 'pictureAlt'),
         title: translated(en, fr, 'title'),
-        headline: translated(en, fr, 'headline'),
-        bio: translated(en, fr, 'bio'),
-        availability: translated(en, fr, 'availability'),
+        titleBadge: translated(en, fr, 'titleBadge'),
+        taglines: translated(en, fr, 'taglines'),
+        intro: translated(en, fr, 'intro'),
+        mission: translated(en, fr, 'mission'),
+        currentActivity: translated(en, fr, 'currentActivity'),
+        seekingFormat: translated(en, fr, 'seekingFormat'),
+        seekingLocation: translated(en, fr, 'seekingLocation'),
+        seekingAvailability: translated(en, fr, 'seekingAvailability'),
+        cvPath: translated(en, fr, 'cvPath'),
       })
       .from(profile)
       .innerJoin(fr, and(eq(fr.profileId, profile.id), eq(fr.locale, 'fr')))

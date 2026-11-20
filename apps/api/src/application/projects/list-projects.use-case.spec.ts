@@ -24,6 +24,7 @@ function project(overrides: Partial<Project> = {}): Project {
         icon: 'typescript',
         iconPath: null,
         groupSlug: 'langages',
+        mainStackOrder: 1,
       },
     ],
     ...overrides,
@@ -64,6 +65,7 @@ describe('ListProjectsUseCase', () => {
       icon: slug,
       iconPath: null,
       groupSlug: 'g',
+      mainStackOrder: null,
     }));
     const repository = new InMemoryProjectsRepository([
       project({ slug: 'z-premier', skills }),

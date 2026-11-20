@@ -221,7 +221,7 @@ describe('convergence de la base vers les seeds', () => {
   it('supprime une liaison et une traduction retirées d’un fichier de seed', async () => {
     const directory = await seedsWith('0004_experiences.sql', (content) =>
       content
-        .replace("  ('nopillo', 'docker', 6),\n", '')
+        .replace("  ('nopillo', 'docker', 6, true),\n", '')
         .replace(
           /insert into experiences_translations[^;]*'en',\s*'Senior Software Engineer'[\s\S]*?where p\.slug = 'nopillo'\s*on conflict[^;]*;/,
           '',
@@ -285,7 +285,7 @@ describe('convergence de la base vers les seeds', () => {
     const tables = await tableNames(sql);
     const before = await snapshot(sql, tables);
     const broken = await seedsWith('0004_experiences.sql', (content) =>
-      content.replace("('nopillo', 'elysia', 2)", "('nopillo', 'elysiaa', 2)"),
+      content.replace("('nopillo', 'elysia', 2, true)", "('nopillo', 'elysiaa', 2, true)"),
     );
 
     await expect(run(broken)).rejects.toThrow(/null value|not-null/i);
