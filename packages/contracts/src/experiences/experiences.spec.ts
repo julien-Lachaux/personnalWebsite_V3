@@ -9,6 +9,7 @@ const skill = {
   icon: 'typescript',
   iconPath: null,
   groupSlug: 'langages',
+  shownInStack: true,
 };
 
 const employment = {

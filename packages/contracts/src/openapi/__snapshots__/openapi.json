@@ -173,8 +173,8 @@
           },
           "skills": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/Skill" },
-            "description": "Compétences mobilisées, par ordre de tri."
+            "items": { "$ref": "#/components/schemas/ExperienceSkill" },
+            "description": "Compétences liées, par ordre de tri : puces de la pile (`shownInStack`) et mots-clés cachés."
           }
         },
         "required": [
@@ -202,6 +202,43 @@
         "enum": ["employment", "freelance", "break", "mentoring"],
         "description": "Nature de l'expérience. La pause professionnelle est un `break`.",
         "examples": ["employment"]
+      },
+      "ExperienceSkill": {
+        "type": "object",
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/Slug" },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Nom affiché (le plus souvent un nom propre, identique en `en`).",
+            "examples": ["TypeScript"]
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Niveau de maîtrise, de 1 à 5."
+          },
+          "icon": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Slug devicon ou chemin SVG.",
+            "examples": ["typescript"]
+          },
+          "iconPath": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "description": "Chemin d'une icône statique propre ; `null` si `icon` suffit."
+          },
+          "groupSlug": { "$ref": "#/components/schemas/Slug" },
+          "shownInStack": {
+            "type": "boolean",
+            "description": "`true` : puce affichée dans la pile de l'expérience ; `false` : mot-clé caché, servi pour le filtre."
+          }
+        },
+        "required": ["slug", "name", "level", "icon", "iconPath", "groupSlug", "shownInStack"],
+        "additionalProperties": false,
+        "description": "Compétence liée à une expérience, avec son affichage dans la pile."
       },
       "HealthResponse": {
         "type": "object",

@@ -21,7 +21,7 @@ import { ProblemDetailsSchema } from '../common/problem-details.js';
 import { SlugSchema } from '../common/slug.js';
 import { CvSchema } from '../cv/cv.js';
 import { EducationSchema } from '../education/education.js';
-import { ExperienceSchema } from '../experiences/experiences.js';
+import { ExperienceSchema, ExperienceSkillSchema } from '../experiences/experiences.js';
 import { HealthResponseSchema } from '../health/health.js';
 import { LanguageSchema } from '../languages/languages.js';
 import { ProfileSchema } from '../profile/profile.js';
@@ -222,6 +222,7 @@ const namedSchemas = [
   SocialLinkSchema,
   SkillSchema,
   SkillGroupSchema,
+  ExperienceSkillSchema,
   ExperienceSchema,
   ProjectSchema,
   ToolSchema,

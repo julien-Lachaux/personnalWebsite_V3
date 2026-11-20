@@ -52,7 +52,7 @@ const data: Omit<Cv, 'locale'> = {
       summary: 'Résumé.',
       achievements: ['Une réalisation'],
       stackLabel: 'Huile de coude',
-      skills: [skill],
+      skills: [{ ...skill, shownInStack: true }],
     },
   ],
   projects: [

@@ -55,7 +55,10 @@ export const cvExample: Cv = {
       summary: 'Résumé.',
       achievements: ['Une réalisation'],
       stackLabel: 'Huile de coude',
-      skills: [skillExample],
+      skills: [
+        { ...skillExample, shownInStack: true },
+        { ...skillExample, slug: 'ocr', name: 'OCR', shownInStack: false },
+      ],
     },
   ],
   projects: [

@@ -134,6 +134,7 @@ describe('createOpenApiDocument', () => {
       'Education',
       'Experience',
       'ExperienceKind',
+      'ExperienceSkill',
       'HealthResponse',
       'Image',
       'IsoDate',
