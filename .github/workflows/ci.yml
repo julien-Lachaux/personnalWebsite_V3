@@ -2,9 +2,12 @@ name: CI
 
 # Git flow (décision de Julien du 19 nov. 2026) : intégration sur develop, production sur main,
 # branches release/* et hotfix/* fusionnées dans main par Julien, branches de lot lot/*.
+# Étiquettes de version v* (L14-03) : posées par Julien à la release, elles déclenchent le run complet
+# du test par mutation, seuils de rupture compris.
 on:
   push:
     branches: [develop, main, 'release/**', 'hotfix/**', 'lot/**']
+    tags: ['v*']
   pull_request:
 
 # Annule les runs obsolètes d'une même branche ou PR.
@@ -39,7 +42,10 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm build
-      - run: pnpm test
+      # Tests du pre-commit (format des fichiers indexés) : ils chargent Prettier depuis node_modules.
+      - run: pnpm husky:test
+      # Pas de `pnpm test` ici : les unitaires des contrats et de l'API sont exécutés par le job `e2e`
+      # (`test:coverage`, projets unit et e2e) et ceux du front par le job `front` (`test:coverage`).
 
   garde-fous:
     name: Garde-fous (intégrité des tests, hooks des agents)
@@ -96,7 +102,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Passe fusionnée unitaires + e2e : échoue sous 100 % (lignes, branches, fonctions,
       # instructions) pour apps/api comme pour packages/contracts (seuils dans vitest.config.ts).
-      - run: pnpm test:coverage
+      # Le front est exclu : son `test:coverage` est exécuté par le job `front`.
+      - run: pnpm turbo run test:coverage --filter=!@siteperso/web
       # Résumé de couverture dans le récapitulatif du run (coverage-summary.json des deux paquets).
       - name: Publier le résumé de couverture
         if: always()
@@ -183,8 +190,18 @@ jobs:
         if: always()
         run: docker compose down
 
+  analyse-statique:
+    name: Analyse statique (actionlint des workflows, shellcheck des scripts)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Images Docker épinglées par digest dans le script, même commande que `pnpm check`.
+      - run: bash scripts/ci/static-analysis.sh workflows
+      - run: bash scripts/ci/static-analysis.sh shell
+
   mutation:
-    name: Test par mutation (Stryker, seuil de rupture par paquet)
+    name: Test par mutation (Stryker, incrémental ou complet sur étiquette v*)
     runs-on: ubuntu-latest
     # Hors de `pnpm check` (trop long pour chaque commit), job dédié et indépendant des autres.
     # Durée attendue : 12 à 15 min ; mesurée en local (16 fils) à 2 min 30 pour les contrats et
@@ -199,10 +216,40 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # L14-03 : hors étiquette, mode incrémental de Stryker. Le fichier d'incrément de chaque paquet
+      # (reports/stryker-incremental.json) est restauré depuis le cache du dernier run de la branche
+      # (ou, pour une PR, de la branche de base) et réenregistré après le run, même en échec. Un mutant
+      # dont le code et les tests n'ont pas changé reprend son statut ; le score comparé à
+      # `thresholds.break` reste celui du total, donc l'incrémental ne peut abaisser aucun seuil.
+      - name: Restaurer les incréments de Stryker
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            packages/contracts/reports/stryker-incremental.json
+            apps/api/reports/stryker-incremental.json
+            apps/web/reports/stryker-incremental.json
+          key: stryker-incremental-${{ github.run_id }}
+          restore-keys: stryker-incremental-
       # Contrats, API et front (app/domain, app/data ; turbo --concurrency=1) : chaque paquet échoue
       # sous le `thresholds.break` de son stryker.config.mjs (score total, survivants déclarés et
       # sans couverture compris).
-      - run: pnpm test:mutation
+      - name: Mutation incrémentale (hors étiquette)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: pnpm exec turbo run test:mutation --concurrency=1 -- --incremental
+      # Étiquette de version : run complet, sans incrément, seuils de rupture compris.
+      - name: Mutation complète (étiquette v*)
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: pnpm test:mutation
+      - name: Enregistrer les incréments de Stryker
+        if: ${{ always() && !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            packages/contracts/reports/stryker-incremental.json
+            apps/api/reports/stryker-incremental.json
+            apps/web/reports/stryker-incremental.json
+          key: stryker-incremental-${{ github.run_id }}
       # Rapports HTML des trois paquets (mutants survivants, ignorés avec leur motif), même en échec ;
       # `warn` : si un paquet passe sous son seuil, turbo s'arrête avant les rapports suivants.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
