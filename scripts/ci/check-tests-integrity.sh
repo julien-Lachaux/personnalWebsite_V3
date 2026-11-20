@@ -4,12 +4,13 @@
 # Compare la branche courante à son point de divergence avec la branche d'intégration et échoue si :
 #   1. un fichier de test existant est modifié ou supprimé sans qu'un commit qui le touche porte une
 #      ligne « Justification-test: <identifiant du finding> <raison> » ;
-#   2. une configuration protégée (Vitest, couverture, Stryker et mutants équivalents, turbo.json,
-#      pnpm-workspace.yaml, .husky, .github/workflows, scripts/ci, .claude/settings.json,
+#   2. une configuration protégée (Vitest, couverture, Stryker et mutants équivalents, Playwright,
+#      turbo.json, pnpm-workspace.yaml, .husky, .github/workflows, scripts/ci, .claude/settings.json,
 #      .claude/hooks) ou un script de test d'un package.json change sans la même justification ;
 #   3. une ligne ajoutée (commitée, modifiée ou non suivie) contient un marqueur de saut ou de focus
-#      de Vitest ou un commentaire d'ignore de couverture ; le marqueur d'échec attendu (fails) est
-#      admis seulement si un commit qui touche le fichier porte une ligne Justification-test ;
+#      de Vitest (ou fixme, slow de Playwright) ou un commentaire d'ignore de couverture ; le
+#      marqueur d'échec attendu (fails de Vitest, fail de Playwright) est admis seulement si un
+#      commit qui touche le fichier porte une ligne Justification-test ;
 #   4. un fichier de code suivi contient l'un de ces marqueurs ou commentaires (tout l'arbre) ;
 #   5. une directive « Stryker disable » (commentaire qui retire des mutants du score) est ajoutée
 #      dans un fichier JS/TS sans qu'un commit qui le touche porte une ligne Justification-test ;
@@ -40,11 +41,16 @@ fi
 merge_base="$(git merge-base HEAD "$base_ref")"
 
 # Motifs (expressions régulières étendues, chemins relatifs à la racine du dépôt).
-TEST_RE='(^|/)[^/]+\.(spec|e2e-spec|test)\.[cm]?[jt]sx?$|(^|/)[^/]+\.test\.sh$|(^|/)[^/]+\.fixtures?\.[cm]?[jt]sx?$|(^|/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__)/|\.snap$'
-CONFIG_RE='(^|/)vitest(\.[A-Za-z0-9_-]+)*\.(config|workspace)\.[cm]?[jt]s$|(^|/)vite\.config\.[cm]?[jt]s$|(^|/)\.(c8rc|nycrc)(\.json|\.ya?ml)?$|(^|/)(\.|tsconfig\.)?stryker(\.[A-Za-z0-9_-]+)*\.(json|[cm]?[jt]s)$|^turbo\.json$|^pnpm-workspace\.yaml$|^\.husky/|^\.github/workflows/|^scripts/ci/|^\.claude/settings\.json$|^\.claude/hooks/'
+# Front (lot F0) : parcours Playwright `*.e2e.ts`, captures attendues `<test>-snapshots/`, captures
+# de référence du handoff de design ; configuration Playwright et turbo.json de paquet.
+TEST_RE='(^|/)[^/]+\.(spec|e2e-spec|test|e2e)\.[cm]?[jt]sx?$|(^|/)[^/]+\.test\.sh$|(^|/)[^/]+\.fixtures?\.[cm]?[jt]sx?$|(^|/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__)/|\.snap$|(^|/)[^/]+-snapshots/|^apps/web/design/handoff-v6/design/reference/'
+CONFIG_RE='(^|/)vitest(\.[A-Za-z0-9_-]+)*\.(config|workspace)\.[cm]?[jt]s$|(^|/)vite\.config\.[cm]?[jt]s$|(^|/)\.(c8rc|nycrc)(\.json|\.ya?ml)?$|(^|/)(\.|tsconfig\.)?stryker(\.[A-Za-z0-9_-]+)*\.(json|[cm]?[jt]s)$|(^|/)playwright(\.[A-Za-z0-9_-]+)*\.config\.[cm]?[jt]s$|(^|/)turbo\.json$|^pnpm-workspace\.yaml$|^\.husky/|^\.github/workflows/|^scripts/ci/|^\.claude/settings\.json$|^\.claude/hooks/'
 SCRIPT_RE='^[-+][[:space:]]*"(test|test:[^"]*|check|hooks:test|integrity|integrity:[^"]*|pretest|posttest|prepare)"[[:space:]]*:'
-FORBIDDEN_RE='\.(skip|only|todo|skipIf|runIf)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])|(v8|c8|istanbul)[[:space:]]+ignore|node:coverage[[:space:]]+(ignore|disable)'
-FAILS_RE='\.(fails)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])'
+# Playwright (front) : fixme et slow après `test` ou `test.describe` sont interdits, fail y vaut
+# l'échec attendu fails de Vitest (mêmes formes que lib/policy.mjs).
+PW_PREFIX='(^|[^A-Za-z0-9_$.])test(\.describe)?(\.(serial|parallel))?'
+FORBIDDEN_RE='\.(skip|only|todo|skipIf|runIf)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])|(v8|c8|istanbul)[[:space:]]+ignore|node:coverage[[:space:]]+(ignore|disable)|'"${PW_PREFIX}"'\.(fixme|slow)[[:space:]]*\('
+FAILS_RE='\.(fails)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])|'"${PW_PREFIX}"'\.fail[[:space:]]*\('
 # Directive de Stryker qui ignore des mutants (https://stryker-mutator.io/docs/stryker-js/disable-mutants/),
 # dans un commentaire // ou /* … */ d'un fichier JS/TS ; identifiant d'équivalent déclaré cité.
 STRYKER_DISABLE_RE='(//|/\*|^[[:space:]]*\*)[[:space:]]*Stryker[[:space:]]+disable'

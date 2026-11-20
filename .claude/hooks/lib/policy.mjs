@@ -9,12 +9,22 @@
 
 /** Fichiers de test : un fichier EXISTANT de cette catégorie ne se modifie pas. */
 const TEST_PATTERNS = [
-  /(^|\/)[^/]+\.(spec|e2e-spec|test)\.[cm]?[jt]sx?$/,
+  // `.e2e` : parcours Playwright du front (apps/web/test/**/*.e2e.ts, lot F0).
+  /(^|\/)[^/]+\.(spec|e2e-spec|test|e2e)\.[cm]?[jt]sx?$/,
   /(^|\/)[^/]+\.test\.sh$/,
   /(^|\/)[^/]+\.fixtures?\.[cm]?[jt]sx?$/,
   /(^|\/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__)\//,
   /\.snap$/,
+  // Captures attendues de Playwright (`toHaveScreenshot`, dossier `<fichier de test>-snapshots/`).
+  /(^|\/)[^/]+-snapshots\//,
 ];
+
+/**
+ * Captures de référence du handoff de design (régression visuelle du front, D7 de docs/05) : un
+ * oracle de la classe « test », que personne ne crée ni ne retouche sans autorisation (elles
+ * viennent du design, pas des tests : hors des chemins d'écriture de la qa).
+ */
+const REFERENCE_CAPTURES = [/^apps\/web\/design\/handoff-v6\/design\/reference\//];
 
 /** Configurations qui décident de ce qui est testé et du seuil : jamais modifiées sans autorisation. */
 const CONFIG_PATTERNS = [
@@ -27,7 +37,11 @@ const CONFIG_PATTERNS = [
   // les mutants classés « CompileError », donc le score) et fichier des mutants équivalents
   // déclarés (stryker.equivalents.json, phase 2) ; le motif couvre toute variante stryker.<x>.<ext>.
   /(^|\/)(\.|tsconfig\.)?stryker(\.[\w-]+)*\.(json|[cm]?[jt]s)$/,
-  /^turbo\.json$/,
+  // Parcours navigateur du front : projets (tailles d'écran), délais, reprises, serveur testé.
+  /(^|\/)playwright(\.[\w-]+)*\.config\.[cm]?[jt]s$/,
+  // turbo.json racine et configurations de paquet (apps/web/turbo.json…), qui redéfiniraient
+  // les tâches de test d'un paquet.
+  /(^|\/)turbo\.json$/,
   /^pnpm-workspace\.yaml$/,
   /^\.husky\//,
   /^\.github\/workflows\//,
@@ -53,6 +67,7 @@ export function classify(rel) {
   if (GUARD_PATTERNS.some((re) => re.test(rel))) return 'guard';
   if (CONFIG_PATTERNS.some((re) => re.test(rel))) return 'config';
   if (TEST_PATTERNS.some((re) => re.test(rel))) return 'test';
+  if (REFERENCE_CAPTURES.some((re) => re.test(rel))) return 'test';
   return null;
 }
 
@@ -64,7 +79,9 @@ export function isOracle(rel) {
 
 /** Segment de chemin qui désigne une zone de tests, même si le dossier n'existe pas encore. */
 export function hasTestSegment(rel) {
-  return /(^|\/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__)(\/|$)/.test(rel);
+  return /(^|\/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__|[^/]+-snapshots)(\/|$)/.test(
+    rel,
+  );
 }
 
 // Marqueurs de Vitest qui sautent, isolent ou inversent un test : skip, only, todo, skipIf et
@@ -73,6 +90,12 @@ export function hasTestSegment(rel) {
 // directement ou après un enchaînement (each, concurrent…) ; « it.fails » cité en prose ne
 // compte pas.
 const MARKER_RE = /\.(skip|only|todo|fails|skipIf|runIf)(?=\s*\(|\.\w+\s*[(`])/g;
+// Playwright (front, lot F0) : skip et only sont déjà couverts ci-dessus ; fixme saute un test et
+// slow triple son délai (toujours interdits), fail inverse le résultat (échec attendu, comme fails
+// de Vitest). Repérés seulement après `test` (ou `test.describe`) pour ne pas confondre avec
+// l'appel `expect` du même nom, qui fait échouer un test.
+const PLAYWRIGHT_MARKER_RE =
+  /(?<![\w$.])test(?:\.describe)?(?:\.(?:serial|parallel))?\.(fixme|slow|fail)(?=\s*\()/g;
 // Commentaires qui retirent du code de la mesure de couverture.
 const IGNORE_RE = /\b(?:v8|c8|istanbul)\s+ignore\b|node:coverage\s+(?:ignore|disable)/g;
 
@@ -84,6 +107,11 @@ export function countMarkers(text) {
     if (m[1] === 'fails') result.fails += 1;
     else result.forbidden += 1;
     result.kinds.add(`.${m[1]}`);
+  }
+  for (const m of text.matchAll(PLAYWRIGHT_MARKER_RE)) {
+    if (m[1] === 'fail') result.fails += 1;
+    else result.forbidden += 1;
+    result.kinds.add(`test.${m[1]}`);
   }
   for (const m of text.matchAll(IGNORE_RE)) {
     result.forbidden += 1;
@@ -109,8 +137,9 @@ export function hasMarker(text) {
 export const GRANTABLE = {
   // dev-contrats, dev-sql, dev-api : seulement quand un brief validé par Julien rend un test existant
   // obsolète (décision du 19 nov. 2026), avec Justification-test BF-n.
-  tests: ['correcteur', 'qa', 'main', 'dev-contrats', 'dev-sql', 'dev-api'],
-  fails: ['qa', 'correcteur', 'main'],
+  // qa-front : mêmes portées que qa, pour les tests du front (lot F0).
+  tests: ['correcteur', 'qa', 'qa-front', 'main', 'dev-contrats', 'dev-sql', 'dev-api'],
+  fails: ['qa', 'qa-front', 'correcteur', 'main'],
   config: ['lead-architecte', 'dev-devops', 'main'],
 };
 
@@ -132,8 +161,10 @@ const REVIEW_DOCS = [/^docs\/revues\//];
  */
 export const ROLE_WRITE_SCOPES = {
   qa: [...TEST_WRITES, /^docs\/comptes-rendus\//, ...ENV_FILES],
+  'qa-front': [...TEST_WRITES, /^docs\/comptes-rendus\//, ...ENV_FILES],
   'revue-code': [...REVIEW_DOCS, ...ENV_FILES],
   'revue-securite': [...REVIEW_DOCS, ...ENV_FILES],
+  'revue-a11y': [...REVIEW_DOCS, ...ENV_FILES],
   triage: [...REVIEW_DOCS, ...ENV_FILES],
   'chef-de-projet': [
     /^docs\/backlog\.md$/,

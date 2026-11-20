@@ -29,6 +29,17 @@
     "test:mutation": {
       "dependsOn": ["^build"],
       "cache": false
+    },
+    "@siteperso/web#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".output/**"],
+      "inputs": ["$TURBO_DEFAULT$", ".env"],
+      "env": ["NUXT_PUBLIC_*"]
+    },
+    "@siteperso/web#test:e2e": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "env": ["NUXT_PUBLIC_*", "PLAYWRIGHT_PORT", "WEB_E2E_PORT", "CI"]
     }
   }
 }

@@ -33,14 +33,16 @@ apps/web/
     composables/     pont entre domain et composants (état, URL, préférences)
     pages/           index, accessibilite, page 404
     assets/css/      tokens.css (du handoff), base, thèmes
-  i18n/locales/      fr.json, en.json (libellés d'interface)
+  i18n/locales/      fr/ et en/ : common.json et un fichier par section (libellés d'interface ;
+                     découpage décidé par Julien le 20 nov. 2026, posé en F0)
   public/            polices, CV PDF, favicon
   test/              e2e Playwright (*.e2e.ts), visuel, axe ; fixtures
 ```
 
 Règle « modules isolés » transposée : un agent de section n'écrit que dans
 `components/<section>/`, ses composables et ses tests. Fichiers partagés réservés au lead :
-configuration Nuxt, `app.vue`, `assets/css/`, `components/base/` après le lot F1, i18n communs,
+configuration Nuxt, `app.vue`, `assets/css/`, `components/base/` après le lot F1, i18n communs
+(`common.json` ; chaque section a son fichier de libellés),
 `data/`.
 
 ## Lots
@@ -110,7 +112,9 @@ Bloquants back : **F4 attend le lot contrats du brief back-001** ; F9 attend le 
 ### F8 QA front (qa-front)
 - F8-01 Parcours Playwright : filtre avec URL, agrandir puis réduire, thème, panneau au clavier, onglets mobile, easter egg.
 - F8-02 Matrice taille × thème × langue avec axe ; contraste renforcé.
-- F8-03 Régression visuelle contre les captures du handoff (tolérance fixée en F0).
+- F8-03 Régression visuelle contre les captures du handoff. Décision de Julien du 20 nov. 2026 :
+  pas de tolérance en F0, on vise une V1 d'abord ; les captures de référence restent protégées
+  (oracles des garde-fous depuis F0), la comparaison et sa tolérance sont posées en F8.
 - F8-04 Tests en échec attendu pour chaque défaut trouvé.
 
 ### F9 Déploiement (dev-devops, après le brief back-002)

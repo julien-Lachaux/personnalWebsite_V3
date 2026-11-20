@@ -16,12 +16,22 @@ Oracles : fichiers de test existants (`*.spec.*`, `*.e2e-spec.*`, `*.test.*`, fi
 `test/`, `tests/`, `__snapshots__/`), configurations Vitest et de couverture, configurations du
 test par mutation (`stryker.config.mjs` et toute variante `stryker.<x>.<ext>` que Stryker lit,
 `tsconfig.stryker.json` de son vérificateur, `stryker.equivalents.json` des mutants équivalents
-déclarés), `turbo.json`, `pnpm-workspace.yaml`, `.husky/`, `.github/workflows/`, `scripts/ci/`, et `.claude/` (réglages,
+déclarés), `turbo.json` (racine et de paquet), `pnpm-workspace.yaml`, `.husky/`, `.github/workflows/`, `scripts/ci/`, et `.claude/` (réglages,
 hooks, agents). Créer un nouveau fichier de test est permis. Les marqueurs de saut ou de focus de
 Vitest et les commentaires d'ignore de couverture sont refusés partout (`lib/policy.mjs`). Le
 dossier temporaire de session (`scratchpad_dir`) est libre.
 
-## Exception contrôlée (correcteur, qa, lead-architecte, dev-devops)
+Front (`apps/web`, lot F0) : parcours Playwright `*.e2e.ts`, tests de composants `*.spec.ts`,
+fixtures et `test/` comme ci-dessus, captures attendues de Playwright (`<fichier de test>-snapshots/`)
+et captures de référence du handoff (`apps/web/design/handoff-v6/design/reference/`, oracles de
+classe « test » hors des chemins d'écriture de la qa) ; configurations `vitest.config.ts`,
+`playwright.config.ts` (et ses variantes `playwright.<x>.config.<ext>`), `stryker.config.mjs`.
+Marqueurs de Playwright, repérés après `test` ou `test.describe` : `fixme` et `slow` refusés comme
+`skip`, `fail` traité comme l'échec attendu `fails` de Vitest (portée `fails`). Rôles limités :
+`qa-front` (tests et comptes rendus, comme `qa`), `revue-a11y` (`docs/revues/`, comme les autres
+revues). Tests : `tests/front-oracles.test.mjs` et `scripts/ci/tests/front-integrity.test.sh`.
+
+## Exception contrôlée (correcteur, qa, qa-front, lead-architecte, dev-devops)
 
 Seule la session principale crée une autorisation (le hook refuse aux sous-agents l'exécution des
 scripts de ce dossier) :
@@ -33,8 +43,8 @@ node .claude/hooks/authorize.mjs list
 node .claude/hooks/authorize.mjs revoke --id <identifiant>
 ```
 
-Portées : `tests` (correcteur, qa ; dev-contrats, dev-sql, dev-api seulement quand un brief validé
-par Julien rend le test obsolète) modifier un test existant ; `fails` (qa, correcteur) écrire un
+Portées : `tests` (correcteur, qa, qa-front ; dev-contrats, dev-sql, dev-api seulement quand un brief validé
+par Julien rend le test obsolète) modifier un test existant ; `fails` (qa, qa-front, correcteur) écrire un
 test en échec attendu ; `config` (lead-architecte, dev-devops) une configuration protégée. Une
 autorisation vise des chemins précis, expire (4 h par défaut) et se lie au premier sous-agent qui
 l'utilise. Création, usage, refus, révocation et violations sont journalisés dans

@@ -1,0 +1,49 @@
+{
+  "name": "@siteperso/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Front du site perso V3 : Nuxt 4 en génération statique, FR et EN",
+  "type": "module",
+  "engines": {
+    "node": ">=26 <27"
+  },
+  "scripts": {
+    "postinstall": "nuxt prepare",
+    "dev": "nuxt dev",
+    "build": "nuxt generate",
+    "generate": "nuxt generate",
+    "preview": "sirv .output/public --port 3001 --host 127.0.0.1",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "vue-tsc -b --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "nuxt generate && playwright test",
+    "test:mutation": "stryker run"
+  },
+  "dependencies": {
+    "@nuxtjs/i18n": "10.6.0",
+    "@siteperso/contracts": "workspace:*",
+    "nuxt": "4.6.4",
+    "vue": "3.5.45",
+    "vue-router": "5.5.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@nuxt/test-utils": "4.4.0",
+    "@playwright/test": "1.65.1",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
+    "@types/node": "26.6.6",
+    "@vitest/coverage-v8": "5.1.1",
+    "@vue/test-utils": "2.6.0",
+    "eslint-plugin-vue": "10.12.1",
+    "eslint-plugin-vuejs-accessibility": "2.6.3",
+    "globals": "17.14.0",
+    "happy-dom": "21.0.4",
+    "sirv-cli": "3.0.1",
+    "typescript": "6.0.3",
+    "vitest": "5.1.1",
+    "vue-eslint-parser": "10.4.2",
+    "vue-tsc": "3.3.14"
+  }
+}
