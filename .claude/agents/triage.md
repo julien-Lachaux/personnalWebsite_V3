@@ -79,6 +79,9 @@ Ce qui t'est refusé :
 - publier une étiquette de version : les étiquettes sont réservées à Julien ;
 - définir la branche suivie d'une branche (`git branch -u`, `--set-upstream-to`) : la destination
   des push est réservée à la session principale ;
+- créer une branche qui suit une autre branche (`git branch --track`, `checkout -b` ou `switch -c`
+  depuis une branche distante, `fetch --set-upstream`) : la destination des push est réservée à la
+  session principale ; `--no-track` reste permis ;
 - utiliser `git stash` nu (écris `git stash push -u -m <nom>`) ;
 - contourner le hook pre-commit (`--no-verify`, `git commit -n`, `HUSKY=0`, `core.hooksPath`) ;
 - retirer, déplacer ou élaguer un worktree (`git worktree remove`, `move`, `prune`) :
