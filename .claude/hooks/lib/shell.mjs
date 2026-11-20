@@ -1894,7 +1894,10 @@ function gitConfigWrite(rest) {
 // (branch, checkout -b/-B/--orphan/--track, switch -c/-C/--orphan/--track, worktree add -b/-B,
 // update-ref, symbolic-ref, fetch ou pull vers main). Restent permis par la même décision :
 // l'étiquette locale (git tag) et le déplacement local de develop (branch -f, update-ref,
-// checkout -B). git commit sur main n'est pas refusé ici (voir le compte rendu du lot 14).
+// checkout -B). Le commit sur main et ses équivalents (décision de Julien du 20 nov. 2026) :
+// commit (sauf --dry-run), citool, gui, quiltimport, svn rebase, p4 rebase ; et les autres
+// écritures de références : stash branch, fast-import (références du flux lu), replay (sauf
+// --ref-action=print), rebase --update-refs (branches du parcours, illisibles).
 // La branche courante est lue dans le dépôt (git symbolic-ref) ou suivie dans la commande quand
 // elle y change (checkout, switch, worktree add, symbolic-ref, rebase <branche>) ; si elle est
 // illisible (dossier ou dépôt calculé, branche calculée, checkout -), l'écriture est refusée.
@@ -2085,6 +2088,18 @@ function analyzeGit(
     }
   };
   const control = (...flags) => rest.some((a) => flags.includes(a));
+  /** Texte lu sur l'entrée standard (here-document, redirections), null s'il est illisible. */
+  const stdinText = () => {
+    let text = seg.heredoc;
+    for (const input of seg.inputs) {
+      const path = resolveWord(input, st);
+      text += path.includes(UNKNOWN)
+        ? UNKNOWN
+        : (readSmallFile(resolve(gitBase ?? env.cwd, path)) ?? UNKNOWN);
+    }
+    if (seg.dynamicInput || text.includes(UNKNOWN) || (text === '' && seg.pipedIn)) return null;
+    return text;
+  };
   if (viaXargs && ['branch', 'update-ref', 'symbolic-ref', 'fetch', 'pull', 'rebase'].includes(sub))
     deny(
       `xargs git ${sub} : références lues sur l’entrée standard ; la branche locale main ne ` +
@@ -2111,9 +2126,11 @@ function analyzeGit(
     case 'svn':
       if (['dcommit', 'set-tree'].includes(rest[0]))
         deny(`git svn ${rest[0]} publie vers un autre dépôt : réservé à Julien`);
+      else if (rest[0] === 'rebase') onMain('git svn rebase');
       break;
     case 'p4':
       if (rest[0] === 'submit') deny('git p4 submit publie vers un autre dépôt : réservé à Julien');
+      else if (rest[0] === 'rebase') onMain('git p4 rebase');
       break;
     case 'remote': {
       const op = rest.find((a) => !a.startsWith('-'));
@@ -2124,8 +2141,10 @@ function analyzeGit(
       break;
     }
     case 'commit': {
+      let dryRun = false;
       for (let j = 0; j < rest.length; j += 1) {
         const a = rest[j];
+        if (a === '--dry-run') dryRun = true;
         if (a === '--no-verify') deny('git commit --no-verify est interdit');
         else if (/^-[a-zA-Z]+$/.test(a) && a.includes('n'))
           deny('git commit -n (sans hook) est interdit');
@@ -2146,6 +2165,48 @@ function analyzeGit(
         )
           j += 1;
       }
+      // L14-06 (décision du 20 nov. 2026) : le commit écrit la branche courante.
+      if (!dryRun) onMain('git commit');
+      break;
+    }
+    case 'citool':
+      onMain('git citool');
+      break;
+    case 'gui':
+      if (!['blame', 'browser', 'version'].includes(rest[0])) onMain('git gui');
+      break;
+    case 'quiltimport':
+      if (!control('--dry-run', '-n')) onMain('git quiltimport');
+      break;
+    case 'fast-import': {
+      // Le flux nomme les références qu'il écrit : commit <réf> et reset <réf>.
+      const text = stdinText();
+      if (text === null) {
+        deny(
+          'git fast-import : flux lu sur un tube ou calculé ; la branche locale main ne s’écrit ' +
+            'pas, illisible donc refusé',
+        );
+        break;
+      }
+      for (const line of text.split('\n')) {
+        const m = /^(commit|reset) (\S+)/.exec(line);
+        if (m) writesRef(m[2], 'git fast-import');
+      }
+      break;
+    }
+    case 'replay': {
+      // git replay écrit les références par défaut (--ref-action=update, ou replay.refAction) :
+      // --ref, --advance et --revert nomment la branche écrite, --onto la déduit du parcours.
+      if (rest.includes('--ref-action=print')) break;
+      const named = valueOf(rest, ['--ref']);
+      const moved = named.length > 0 ? named : valueOf(rest, ['--advance', '--revert']);
+      if (moved.length > 0 && !rest.includes('--contained'))
+        moved.forEach((b) => writesRef(b, 'git replay'));
+      else
+        deny(
+          'git replay : branches écrites déduites du parcours ; la branche locale main ne ' +
+            's’écrit pas, illisible donc refusé (--ref-action=print, ou --ref en clair)',
+        );
       break;
     }
     case 'config': {
@@ -2182,6 +2243,11 @@ function analyzeGit(
       const codes = valueOf(rest, ['-x', '--exec']);
       codes.forEach((c) => nested('git rebase --exec', c, gitBase));
       if (control('--abort', '--quit', '--edit-todo', '--show-current-patch')) break;
+      if (rest.includes('--update-refs'))
+        deny(
+          'git rebase --update-refs : il déplace les branches du parcours, main comprise si elle y ' +
+            'est ; la branche locale main ne s’écrit pas, illisible donc refusé',
+        );
       // git rebase [--onto <base>] [<amont> [<branche>]] : <branche> est d'abord extraite.
       const ops = operands(
         rest,
@@ -2274,14 +2340,8 @@ function analyzeGit(
     }
     case 'update-ref': {
       if (rest.includes('--stdin')) {
-        let text = seg.heredoc;
-        for (const input of seg.inputs) {
-          const path = resolveWord(input, st);
-          text += path.includes(UNKNOWN)
-            ? UNKNOWN
-            : (readSmallFile(resolve(gitBase ?? env.cwd, path)) ?? UNKNOWN);
-        }
-        if (seg.dynamicInput || text.includes(UNKNOWN) || (text === '' && seg.pipedIn)) {
+        const text = stdinText();
+        if (text === null) {
           deny(
             'git update-ref --stdin : références lues sur un tube ou calculées ; la branche ' +
               'locale main ne s’écrit pas, illisible donc refusé',
@@ -2400,6 +2460,10 @@ function analyzeGit(
     case 'stash':
       if (rest.length === 0)
         deny('git stash nu est interdit (CLAUDE.md) : git stash push -u -m <étiquette>');
+      else if (rest[0] === 'branch' && rest[1] !== undefined) {
+        writesRef(rest[1], 'git stash branch');
+        setBranch(st, gitBase, rest[1]);
+      }
       break;
     case 'checkout': {
       const dash = rest.indexOf('--');
