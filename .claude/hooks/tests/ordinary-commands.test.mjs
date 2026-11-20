@@ -12,7 +12,7 @@
 // Lancé par `pnpm hooks:test`.
 
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import {
   mkdirSync,
   mkdtempSync,
@@ -86,6 +86,44 @@ function hook(command, role) {
     env: { ...process.env, CLAUDE_PROJECT_DIR: project, HOME: home },
   });
   return { code: res.status, stderr: res.stderr };
+}
+
+/** Même entrée que `hook`, processus lancé sans attendre (rejeux en parallèle). */
+function hookAsync(command, role) {
+  return new Promise((done) => {
+    const input = {
+      session_id: 's-ordinaires',
+      cwd: W,
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command, description: 'test' },
+    };
+    if (role !== 'main') {
+      input.agent_type = role;
+      input.agent_id = `id-${role}`;
+    }
+    const child = spawn(process.execPath, [GUARD, 'pre-tool-use'], {
+      env: { ...process.env, CLAUDE_PROJECT_DIR: project, HOME: home },
+    });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.stdout.resume();
+    child.on('close', (code) => done({ command, code, stderr }));
+    child.stdin.end(JSON.stringify(input));
+  });
+}
+
+/** Commandes refusées parmi `commands` pour un rôle, rejouées par lots de huit processus. */
+async function refusedAmong(commands, role) {
+  const results = [];
+  for (let k = 0; k < commands.length; k += 8) {
+    results.push(...(await Promise.all(commands.slice(k, k + 8).map((c) => hookAsync(c, role)))));
+  }
+  return results
+    .filter((r) => r.code !== 0)
+    .map((r) => `${r.command} : ${r.stderr.split('\n')[0]}`);
 }
 
 /** Les 88 commandes de la recette du lot 13 bis ; X : worktree d'un lot, S : dossier de session. */
@@ -340,22 +378,20 @@ describe('L14-07 : commandes ordinaires de l’orchestrateur (recette du lot 13 
     for (const role of SAMPLE_ROLES) assert.ok(ROLES.includes(role), role);
   });
 
-  it('les 88 restent permises à la session principale', () => {
-    const refused = orchestrator()
-      .map((command) => ({ command, ...hook(command, 'main') }))
-      .filter((r) => r.code !== 0)
-      .map((r) => `${r.command} : ${r.stderr.split('\n')[0]}`);
-    assert.deepEqual(refused, []);
+  it('les 88 restent permises à la session principale', async () => {
+    assert.deepEqual(await refusedAmong(orchestrator(), 'main'), []);
   });
 
   for (const role of SAMPLE_ROLES) {
-    it(`l’échantillon des commandes d’agent reste permis au rôle ${role}`, () => {
+    it(`l’échantillon des commandes d’agent reste permis au rôle ${role}`, async () => {
       const all = orchestrator();
-      const refused = AGENT_SAMPLE.map((k) => all[k - 1])
-        .map((command) => ({ command, ...hook(command, role) }))
-        .filter((r) => r.code !== 0)
-        .map((r) => `${r.command} : ${r.stderr.split('\n')[0]}`);
-      assert.deepEqual(refused, []);
+      assert.deepEqual(
+        await refusedAmong(
+          AGENT_SAMPLE.map((k) => all[k - 1]),
+          role,
+        ),
+        [],
+      );
     });
   }
 });

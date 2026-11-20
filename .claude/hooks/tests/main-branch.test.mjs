@@ -2,8 +2,10 @@
 // principale comprise, n'écrit la branche locale main (elle partirait dans le prochain push de
 // Julien) : fusion, rebase, cherry-pick, revert, am, pull et reset qui déplace la branche quand la
 // branche courante est main ; création, déplacement, renommage, copie vers main ou suppression de
-// main. Restent permis : l'étiquette locale et le déplacement local de develop. Chaque cas rejoue
-// l'entrée JSON du hook PreToolUse ; rien n'est exécuté. Lancé par `pnpm hooks:test`.
+// main. Restent permis : l'étiquette locale et le déplacement local de develop. Chaque cas passe
+// par l'analyse de la commande (lib/shell.mjs, qui décide de ces refus) pour chaque rôle, et par
+// l'entrée JSON du hook PreToolUse pour la session principale et dev-api ; rien n'est exécuté.
+// Lancé par `pnpm hooks:test`.
 //
 // Écart au ticket : git commit quand la branche courante est main n'est pas refusé, car un test
 // existant (guard.test.mjs, « accepte les commandes ordinaires ») l'exige permis ; voir le compte
@@ -16,6 +18,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+
+import { analyzeCommand } from '../lib/shell.mjs';
 
 const GUARD = join(dirname(dirname(fileURLToPath(import.meta.url))), 'guard.mjs');
 const ROLES = ['main', 'dev-api', 'lead-architecte', 'correcteur', 'chef-de-projet'];
@@ -81,8 +85,14 @@ function bash(command, role, cwd) {
   return { code: res.status, stderr: res.stderr };
 }
 
+/** Rôles rejoués par le hook complet ; les autres par l'analyse de la commande, qui décide seule. */
+const BY_HOOK = new Set(['main', 'dev-api']);
+
 function refused(command, cwd, reason = /la branche locale main ne s’écrit pas/) {
   for (const role of ROLES) {
+    const deny = analyzeCommand(command, cwd, role).deny;
+    assert.match(deny ?? '', reason, `${role} (analyse) : ${command}`);
+    if (!BY_HOOK.has(role)) continue;
     const r = bash(command, role, cwd);
     assert.equal(r.code, 2, `${role} : ${command} : ${r.stderr}`);
     assert.match(r.stderr, reason, `${role} : ${command}`);
@@ -91,6 +101,9 @@ function refused(command, cwd, reason = /la branche locale main ne s’écrit pa
 
 function allowed(command, cwd) {
   for (const role of WRITERS) {
+    const deny = analyzeCommand(command, cwd, role).deny;
+    assert.equal(deny, null, `${role} (analyse) : ${command}`);
+    if (!BY_HOOK.has(role)) continue;
     const r = bash(command, role, cwd);
     assert.equal(r.code, 0, `${role} : ${command} : ${r.stderr}`);
   }

@@ -2,8 +2,9 @@
 // pas les worktrees, l'orchestrateur les lui fournit. git worktree prune et remove --force feraient
 // disparaître sans violation l'instantané d'un worktree (BF-11) ; par cohérence, tout git worktree
 // remove ou move est refusé aux agents. La session principale (rôle « main ») garde ces commandes
-// (ménage après fusion ; le .env non suivi d'un worktree impose la force). Chaque cas rejoue
-// l'entrée JSON du hook PreToolUse ; rien n'est exécuté. Lancé par `pnpm hooks:test`.
+// (ménage après fusion ; le .env non suivi d'un worktree impose la force). Chaque cas passe par
+// l'analyse de la commande (lib/shell.mjs) pour chaque rôle, et par l'entrée JSON du hook
+// PreToolUse pour dev-api et la session principale ; rien n'est exécuté. Lancé par `pnpm hooks:test`.
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -12,6 +13,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+
+import { analyzeCommand } from '../lib/shell.mjs';
 
 const HOOKS = dirname(dirname(fileURLToPath(import.meta.url)));
 const GUARD = join(HOOKS, 'guard.mjs');
@@ -85,6 +88,10 @@ describe('L14-13 : git worktree remove, move et prune refusés aux agents', () =
   for (const role of ROLES) {
     it(`refuse chaque forme au rôle ${role}`, () => {
       for (const command of REFUSED) {
+        // L'analyse de la commande décide de ce refus ; le hook complet est rejoué pour dev-api.
+        const deny = analyzeCommand(command, repo, role).deny;
+        assert.match(deny ?? '', /réservé à la session principale/, `${role} : ${command}`);
+        if (role !== 'dev-api') continue;
         const r = bash(command, role);
         assert.equal(r.code, 2, `${role} : ${command}`);
         assert.match(r.stderr, /réservé à la session principale/, `${role} : ${command}`);
