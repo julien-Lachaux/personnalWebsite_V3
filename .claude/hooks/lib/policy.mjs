@@ -89,7 +89,13 @@ export function hasTestSegment(rel) {
 // test en échec attendu. Repérés quand ils suivent un point et précèdent une parenthèse
 // directement ou après un enchaînement (each, concurrent…) ; « it.fails » cité en prose ne
 // compte pas.
-const MARKER_RE = /\.(skip|only|todo|fails|skipIf|runIf)(?=\s*\(|\.\w+\s*[(`])/g;
+// BF-9 : l'échec attendu n'est reconnu, avant la parenthèse ou le gabarit, qu'après une ou
+// plusieurs méthodes de l'API de test de Vitest 5 (clés de createChainable et méthodes qui
+// déclarent un test : each, for, extend…), plus après n'importe quel appel : la portée d'échec
+// attendu de GRANTABLE suivie d'includes ou de map n'est pas un marqueur. Les marqueurs interdits
+// gardent l'enchaînement libre (détection plus large, sans autorisation possible).
+const MARKER_RE =
+  /\.(?:(skip|only|todo|skipIf|runIf)(?=\s*\(|\.\w+\s*[(`])|(fails)(?=\s*\(|(?:\.(?:each|for|concurrent|sequential|shuffle|skip|only|todo|fails|skipIf|runIf|extend|scoped|override))+\s*[(`]))/g;
 // Playwright (front, lot F0) : skip et only sont déjà couverts ci-dessus ; fixme saute un test et
 // slow triple son délai (toujours interdits), fail inverse le résultat (échec attendu, comme fails
 // de Vitest). Repérés seulement après `test` (ou `test.describe`) pour ne pas confondre avec
@@ -104,9 +110,9 @@ export function countMarkers(text) {
   const result = { forbidden: 0, fails: 0, kinds: new Set() };
   if (typeof text !== 'string' || text.length === 0) return result;
   for (const m of text.matchAll(MARKER_RE)) {
-    if (m[1] === 'fails') result.fails += 1;
-    else result.forbidden += 1;
-    result.kinds.add(`.${m[1]}`);
+    if (m[2] === undefined) result.forbidden += 1;
+    else result.fails += 1;
+    result.kinds.add(`.${m[1] ?? m[2]}`);
   }
   for (const m of text.matchAll(PLAYWRIGHT_MARKER_RE)) {
     if (m[1] === 'fail') result.fails += 1;

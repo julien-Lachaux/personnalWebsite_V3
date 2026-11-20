@@ -58,7 +58,11 @@ SCRIPT_RE='^[-+][[:space:]]*"(test|test:[^"]*|check|hooks:test|integrity|integri
 # l'échec attendu fails de Vitest (mêmes formes que lib/policy.mjs).
 PW_PREFIX='(^|[^A-Za-z0-9_$.])test(\.describe)?(\.(serial|parallel))?'
 FORBIDDEN_RE='\.(skip|only|todo|skipIf|runIf)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])|(v8|c8|istanbul)[[:space:]]+ignore|node:coverage[[:space:]]+(ignore|disable)|'"${PW_PREFIX}"'\.(fixme|slow)[[:space:]]*\('
-FAILS_RE='\.(fails)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])|'"${PW_PREFIX}"'\.fail[[:space:]]*\('
+# BF-9 : l'échec attendu de Vitest n'est reconnu, avant la parenthèse ou le gabarit, qu'après une ou
+# plusieurs méthodes de son API de test (mêmes méthodes que MARKER_RE de lib/policy.mjs), plus après
+# n'importe quel appel : la portée d'échec attendu de GRANTABLE suivie d'includes n'est pas un marqueur.
+VITEST_CHAIN='(each|for|concurrent|sequential|shuffle|skip|only|todo|fails|skipIf|runIf|extend|scoped|override)'
+FAILS_RE='\.(fails)([[:space:]]*\(|(\.'"${VITEST_CHAIN}"')+[[:space:]]*[(`])|'"${PW_PREFIX}"'\.fail[[:space:]]*\('
 # Directive de Stryker qui ignore des mutants (https://stryker-mutator.io/docs/stryker-js/disable-mutants/),
 # dans un commentaire // ou /* … */ d'un fichier JS/TS ; identifiant d'équivalent déclaré cité.
 STRYKER_DISABLE_RE='(//|/\*|^[[:space:]]*\*)[[:space:]]*Stryker[[:space:]]+disable'

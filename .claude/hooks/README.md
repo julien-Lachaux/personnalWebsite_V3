@@ -19,6 +19,9 @@ test par mutation (`stryker.config.mjs` et toute variante `stryker.<x>.<ext>` qu
 déclarés), `turbo.json` (racine et de paquet), `pnpm-workspace.yaml`, `.husky/`, `.github/workflows/`, `scripts/ci/`, et `.claude/` (réglages,
 hooks, agents). Créer un nouveau fichier de test est permis. Les marqueurs de saut ou de focus de
 Vitest et les commentaires d'ignore de couverture sont refusés partout (`lib/policy.mjs`). Le
+marqueur d'échec attendu `fails` n'est repéré que sur un appel direct ou enchaîné par des méthodes
+de l'API de test de Vitest (`each`, `for`, `concurrent`, `extend`…), pas sur un appel ordinaire
+comme `includes` sur la portée du même nom de `GRANTABLE` (BF-9, `tests/fails-marker.test.mjs`). Le
 dossier temporaire de session (`scratchpad_dir`) est libre.
 
 Front (`apps/web`, lot F0) : parcours Playwright `*.e2e.ts`, tests de composants `*.spec.ts`,
