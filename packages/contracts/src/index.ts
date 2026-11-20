@@ -1,4 +1,5 @@
 // Point d'entrée du paquet : tout ce qui est partagé entre l'API, le front et le contrat OpenAPI.
+export * from './ai-overview/ai-overview.js';
 export * from './certifications/certifications.js';
 export * from './common/date.js';
 export * from './common/enums.js';

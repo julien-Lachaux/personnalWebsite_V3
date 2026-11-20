@@ -19,11 +19,63 @@
     { "name": "Formations", "description": "Parcours de formation" },
     { "name": "Langues", "description": "Langues parlées" },
     { "name": "Recommandations", "description": "Recommandations professionnelles" },
+    { "name": "IA", "description": "L’IA dans le produit et au quotidien" },
     { "name": "CV", "description": "Agrégat de tout le contenu en un appel" },
     { "name": "Système", "description": "Supervision de l’API" }
   ],
   "components": {
     "schemas": {
+      "AiOverview": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Titre de la section.",
+            "examples": ["L’IA, dans le produit et au quotidien"]
+          },
+          "inProductLabel": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Intitulé du bloc « l'IA dans le produit ».",
+            "examples": ["dans le produit · 2026"]
+          },
+          "inProductItems": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1,
+            "description": "Usages de l'IA dans le produit, un par entrée (au moins un).",
+            "examples": [["OCR des factures", "Remplissage automatique"]]
+          },
+          "dailyLabel": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Intitulé du bloc « l'IA au quotidien ».",
+            "examples": ["au quotidien"]
+          },
+          "dailyText": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Usage quotidien de l'IA (texte brut).",
+            "examples": ["Usage quotidien de l’IA."]
+          },
+          "skills": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Skill" },
+            "description": "Compétences liées (étiquettes), par ordre de tri."
+          }
+        },
+        "required": [
+          "title",
+          "inProductLabel",
+          "inProductItems",
+          "dailyLabel",
+          "dailyText",
+          "skills"
+        ],
+        "additionalProperties": false,
+        "description": "Section « IA » du site, traduite selon `lang`, avec ses compétences liées."
+      },
       "CefrLevel": {
         "type": "string",
         "enum": ["A1", "A2", "B1", "B2", "C1", "C2"],
@@ -87,6 +139,10 @@
           "recommendations": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/Recommendation" }
+          },
+          "aiOverview": {
+            "anyOf": [{ "$ref": "#/components/schemas/AiOverview" }, { "type": "null" }],
+            "description": "Section IA ; `null` quand elle est absente ou supprimée (`GET /ai-overview` répond alors 404)."
           }
         },
         "required": [
@@ -101,7 +157,8 @@
           "certifications",
           "education",
           "languages",
-          "recommendations"
+          "recommendations",
+          "aiOverview"
         ],
         "additionalProperties": false,
         "description": "CV complet : agrégat de toutes les ressources."
@@ -1361,6 +1418,62 @@
                   "items": { "$ref": "#/components/schemas/Recommendation" }
                 }
               }
+            }
+          },
+          "400": {
+            "description": "Paramètre de requête invalide (par exemple `lang` inconnu).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource ou chemin introuvable.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes : limite de débit atteinte pour cette IP.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne, sans détail technique.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai-overview": {
+      "get": {
+        "operationId": "getAiOverview",
+        "summary": "Section IA",
+        "tags": ["IA"],
+        "parameters": [
+          {
+            "schema": { "$ref": "#/components/schemas/Locale" },
+            "required": false,
+            "description": "Langue du contenu. Défaut : `fr`. Si une traduction `en` manque, l'API renvoie le `fr`.",
+            "name": "lang",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La section IA, traduite selon `lang`, avec ses compétences liées.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/AiOverview" } }
             }
           },
           "400": {

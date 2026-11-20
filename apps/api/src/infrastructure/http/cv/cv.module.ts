@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { FindAiOverviewUseCase } from '../../../application/ai-overview/find-ai-overview.use-case.js';
 import { ListCertificationsUseCase } from '../../../application/certifications/list-certifications.use-case.js';
 import { GetCvUseCase } from '../../../application/cv/get-cv.use-case.js';
 import { ListEducationUseCase } from '../../../application/education/list-education.use-case.js';
@@ -12,6 +13,7 @@ import { ListResourcesUseCase } from '../../../application/resources/list-resour
 import { ListSkillGroupsUseCase } from '../../../application/skill-groups/list-skill-groups.use-case.js';
 import { ListSocialLinksUseCase } from '../../../application/social-links/list-social-links.use-case.js';
 import { ListToolsUseCase } from '../../../application/tools/list-tools.use-case.js';
+import { AiOverviewModule } from '../ai-overview/ai-overview.module.js';
 import { CertificationsModule } from '../certifications/certifications.module.js';
 import { EducationModule } from '../education/education.module.js';
 import { ExperiencesModule } from '../experiences/experiences.module.js';
@@ -26,7 +28,7 @@ import { ToolsModule } from '../tools/tools.module.js';
 import { CvController } from './cv.controller.js';
 
 /**
- * Module de la ressource « CV agrégé ». Aucun dépôt propre : il importe les modules des 11
+ * Module de la ressource « CV agrégé ». Aucun dépôt propre : il importe les modules des 12
  * ressources agrégées et compose leurs cas d'usage exportés. L'ordre de `inject` est celui des
  * paramètres du constructeur de `GetCvUseCase` (ordre des clés de `CvSchema`, `locale` exclue).
  * `ListSkillsUseCase` n'en fait pas partie : les compétences sont imbriquées dans `skillGroups`.
@@ -44,6 +46,7 @@ import { CvController } from './cv.controller.js';
     EducationModule,
     LanguagesModule,
     RecommendationsModule,
+    AiOverviewModule,
   ],
   controllers: [CvController],
   providers: [
@@ -61,6 +64,7 @@ import { CvController } from './cv.controller.js';
         education: ListEducationUseCase,
         languages: ListLanguagesUseCase,
         recommendations: ListRecommendationsUseCase,
+        aiOverview: FindAiOverviewUseCase,
       ) =>
         new GetCvUseCase(
           profile,
@@ -74,6 +78,7 @@ import { CvController } from './cv.controller.js';
           education,
           languages,
           recommendations,
+          aiOverview,
         ),
       inject: [
         GetProfileUseCase,
@@ -87,6 +92,7 @@ import { CvController } from './cv.controller.js';
         ListEducationUseCase,
         ListLanguagesUseCase,
         ListRecommendationsUseCase,
+        FindAiOverviewUseCase,
       ],
     },
   ],

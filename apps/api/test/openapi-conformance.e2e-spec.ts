@@ -103,8 +103,8 @@ describe('Conformité des réponses au document OpenAPI servi', () => {
     expect(valid, JSON.stringify(validateBody.errors, null, 2)).toBe(true);
   }
 
-  it('couvre les 13 routes de contenu', () => {
-    expect(ENDPOINTS).toHaveLength(13);
+  it('couvre les 14 routes de contenu', () => {
+    expect(ENDPOINTS).toHaveLength(14);
   });
 
   describe.each(ENDPOINTS)('$path', (endpoint) => {
@@ -164,9 +164,9 @@ describe('Conformité des réponses au document OpenAPI servi', () => {
     expect(Object.keys(responses).sort()).toEqual(['200', '429', '500', '503']);
   });
 
-  it('le contrat OpenAPI servi est en 3.2.0 et déclare 14 routes GET', () => {
+  it('le contrat OpenAPI servi est en 3.2.0 et déclare 15 routes GET', () => {
     expect(document.openapi).toBe('3.2.0');
-    expect(Object.keys(document.paths)).toHaveLength(14);
+    expect(Object.keys(document.paths)).toHaveLength(15);
   });
 
   it('GET /api/v1/docs.json est strictement égal à packages/contracts/dist/openapi.json', async () => {

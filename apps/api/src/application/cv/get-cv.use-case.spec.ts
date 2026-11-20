@@ -117,6 +117,14 @@ const data: Omit<Cv, 'locale'> = {
       locale: 'fr',
     },
   ],
+  aiOverview: {
+    title: 'L’IA',
+    inProductLabel: 'dans le produit',
+    inProductItems: ['Usage'],
+    dailyLabel: 'au quotidien',
+    dailyText: 'Texte.',
+    skills: [skill],
+  },
 };
 
 type Key = keyof typeof data;
@@ -163,6 +171,7 @@ function build(overrides: Partial<Record<Key, Stub<unknown>>> = {}): {
     stubs.education,
     stubs.languages,
     stubs.recommendations,
+    stubs.aiOverview,
   );
   return { stubs, useCase };
 }
@@ -187,7 +196,7 @@ describe('GetCvUseCase', () => {
     }
   });
 
-  it('lance les 11 cas d’usage en parallèle (Promise.all)', async () => {
+  it('lance les 12 cas d’usage en parallèle (Promise.all)', async () => {
     const { stubs, useCase } = build();
     let release: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {

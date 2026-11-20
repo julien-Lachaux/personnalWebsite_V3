@@ -14,6 +14,7 @@ const CONTENT_TABLES = [
   'education',
   'languages',
   'recommendations',
+  'ai_overview',
 ] as const;
 
 /**

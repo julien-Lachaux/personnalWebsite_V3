@@ -124,4 +124,12 @@ export const cvExample: Cv = {
       locale: 'fr',
     },
   ],
+  aiOverview: {
+    title: 'L’IA',
+    inProductLabel: 'dans le produit',
+    inProductItems: ['Premier usage', 'Second usage'],
+    dailyLabel: 'au quotidien',
+    dailyText: 'Usage quotidien.',
+    skills: [skillExample],
+  },
 };

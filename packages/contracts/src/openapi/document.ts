@@ -7,6 +7,7 @@ import type { OpenAPIObject } from 'openapi3-ts/oas32';
 
 import { z } from 'zod';
 
+import { AiOverviewSchema } from '../ai-overview/ai-overview.js';
 import { CertificationSchema } from '../certifications/certifications.js';
 import { IsoDateSchema } from '../common/date.js';
 import {
@@ -49,7 +50,7 @@ const problemResponse = (description: string): ResponseConfig => ({
 
 /**
  * Routes décrites par le contrat. Les chemins sont relatifs au préfixe `/api/v1` (voir `servers`).
- * Une seule table décrit les 13 routes de contenu : même forme, même jeu de réponses d'erreur.
+ * Une seule table décrit les 14 routes de contenu : même forme, même jeu de réponses d'erreur.
  */
 interface ContentRoute {
   path: string;
@@ -160,6 +161,14 @@ const contentRoutes: ContentRoute[] = [
     schema: z.array(RecommendationSchema),
   },
   {
+    path: '/ai-overview',
+    operationId: 'getAiOverview',
+    tag: 'IA',
+    summary: 'Section IA',
+    description: 'La section IA, traduite selon `lang`, avec ses compétences liées.',
+    schema: AiOverviewSchema,
+  },
+  {
     path: '/cv',
     operationId: 'getCv',
     tag: 'CV',
@@ -241,6 +250,7 @@ const namedSchemas = [
   EducationSchema,
   LanguageSchema,
   RecommendationSchema,
+  AiOverviewSchema,
   CvSchema,
 ];
 
@@ -278,6 +288,7 @@ export function createOpenApiDocument(): OpenApiDocument {
       { name: 'Formations', description: 'Parcours de formation' },
       { name: 'Langues', description: 'Langues parlées' },
       { name: 'Recommandations', description: 'Recommandations professionnelles' },
+      { name: 'IA', description: 'L’IA dans le produit et au quotidien' },
       { name: 'CV', description: 'Agrégat de tout le contenu en un appel' },
       { name: 'Système', description: 'Supervision de l’API' },
     ],

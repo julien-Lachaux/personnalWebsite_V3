@@ -40,8 +40,8 @@ describe('Matrice endpoints x langues', () => {
 
   const get = (url: string) => app.inject({ method: 'GET', url });
 
-  it('couvre les 13 routes', () => {
-    expect(ENDPOINTS).toHaveLength(13);
+  it('couvre les 14 routes', () => {
+    expect(ENDPOINTS).toHaveLength(14);
   });
 
   describe.each(ENDPOINTS)('$path', (endpoint) => {
