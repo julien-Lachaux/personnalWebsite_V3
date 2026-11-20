@@ -17,7 +17,7 @@ Rien n'a été modifié dans `apps/api/`, `db/` ni `packages/contracts/`.
 | F0-03 | Vitest : projets `unit` (`app/domain`, `app/data`, `app/architecture.spec.ts`, Node) et `nuxt` (`@nuxt/test-utils` 4.4.0, `mountSuspended`, happy-dom) ; couverture v8 fusionnée, seuil 100 % sur `app/**/*.{ts,vue}`, aucune exclusion hors `*.spec.ts` ; tests d'`app.vue` (lang, hreflang, canonical en fr et en) et de la page (h1 unique, lien de langue dans les deux sens) ; test d'architecture (`app/domain` sans `vue`, `nuxt`, `#imports`, `#app`, composants, composables ni données ; `app/data` sans composants ni pages), qui prouve aussi son détecteur sur des sources et un arbre temporaire. Stryker 10.1.1 sur `app/domain` et `app/data`, seuil de rupture 100, job CI `mutation` étendu au front | `pnpm --filter @siteperso/web test:coverage` : 10 tests, 100 % (12/12 instructions, 2/2 branches, 4/4 fonctions, 9/9 lignes) ; `pnpm --filter @siteperso/web test:mutation` : sortie 0, « Final mutation score of NaN is greater than or equal to break threshold 100 » (aucun fichier à muter) ; sonde (fonction `clamp` dans `app/domain`, retirée ensuite) : test faible 11,11 % et code 1, tests forts 77,78 % (deux mutants de borne équivalents) et code 1 : le seuil mord |
 | F0-04 | Playwright 1.65.1 + `@axe-core/playwright` 4.14.0 ; sept projets (mobile-390 390×844, tablette-834 834×1112, portable-1024 1024×768, desktop-1280 1280×844, grand-1440 1440×900, fullhd-1920 1920×1080, ultra-3440 3440×1440) ; fumée en fr et en, schémas `light` et `dark` (`test.use({ colorScheme })`, vérifié par `matchMedia`) : statut 200, `lang`, h1 unique, hreflang fr/en/x-default, aucune violation axe sur `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`, navigation vers l'autre langue ; témoin : axe signale `color-contrast`, `html-has-lang`, `image-alt` sur une page non conforme. `test:e2e` = `nuxt generate && playwright test`, appelé par `pnpm check` et le job CI `front` | `pnpm --filter @siteperso/web exec playwright test` : 35 tests verts (28 fumées + 7 témoins) |
 | F0-05 | `@nuxtjs/i18n` 10.6.0, `prefix_except_default`, FR par défaut sans préfixe, EN sous `/en`, `detectBrowserLanguage: false`, `i18n/locales/fr.json` et `en.json`, `useLocaleHead` dans `app.vue` : `lang`, `hreflang` (fr, en, x-default), `canonical`, `og:locale` ; URL absolue par `baseUrl` (surchargée par `NUXT_PUBLIC_I18N_BASE_URL`) | `app/app.spec.ts` ; HTML généré : `<link rel="alternate" hreflang="en" href="http://localhost:3001/en">`, `canonical` |
-| F0-06 | `policy.mjs` : configuration Playwright (tous ses noms), `turbo.json` de paquet, parcours `*.e2e.ts`, captures attendues `<test>-snapshots/`, captures de référence du handoff (classe « test », hors chemins d'écriture de la qa) ; marqueurs de Playwright (`fixme`, `slow` interdits, `fail` = échec attendu, repérés après `test`/`test.describe` pour laisser l'appel du même nom sur `expect`) ; rôles `qa-front` (tests et comptes rendus, portées tests et fails) et `revue-a11y` (docs/revues). `check-tests-integrity.sh` : mêmes motifs. CI : job `front` (navigateurs par le même service docker compose, `turbo run lint typecheck test:coverage test:e2e --filter=@siteperso/web`, résumé de couverture, artefacts), job `mutation` avec le rapport du front | `pnpm hooks:test` : 535/535 ; `pnpm integrity:test` : 19 + 3 + 8 réussis ; `pnpm integrity develop` : OK. Démonstration sur un clone jetable (dossier temporaire) : commit qui modifie `apps/web/test/smoke.e2e.ts` sans justification → `ÉCHEC test existant modifié sans Justification-test : apps/web/test/smoke.e2e.ts`, code 1 ; commit qui modifie `playwright.config.ts`, une capture de référence et crée `apps/web/turbo.json` → trois `ÉCHEC`, puis `OK` après ajout d'une ligne Justification-test ; nouveau parcours avec `test.fixme` → `ÉCHEC marqueur … ajouté` et `marqueur interdit dans l'arbre` ; test de composant `apps/web/app/pages/index.spec.ts` modifié → `ÉCHEC`, nouvelle capture attendue acceptée puis la même régénérée → `ÉCHEC test existant modifié … smoke.e2e.ts-snapshots/a.png`. Classification : `node` sur `policy.mjs` du worktree (configurations du front = `config`, tests, fixtures, captures = `test`, code et SPEC = ordinaires ; `roleMayWrite('qa-front', 'apps/web/app/domain/filter.ts')` = false, capture de référence = false ; `revue-a11y` hors `docs/revues` = false). Les tests automatisés des hooks et du script : voir « Points ouverts » |
+| F0-06 | `policy.mjs` : configuration Playwright (tous ses noms), `turbo.json` de paquet, parcours `*.e2e.ts`, captures attendues `<test>-snapshots/`, captures de référence du handoff (classe « test », hors chemins d'écriture de la qa) ; marqueurs de Playwright (`fixme`, `slow` interdits, `fail` = échec attendu, repérés après `test`/`test.describe` pour laisser l'appel du même nom sur `expect`) ; rôles `qa-front` (tests et comptes rendus, portées tests et fails) et `revue-a11y` (docs/revues). `check-tests-integrity.sh` : mêmes motifs. CI : job `front` (navigateurs par le même service docker compose, `turbo run lint typecheck test:coverage test:e2e --filter=@siteperso/web`, résumé de couverture, artefacts), job `mutation` avec le rapport du front | `pnpm hooks:test` : 535/535 ; `pnpm integrity:test` : 19 + 3 + 8 réussis ; `pnpm integrity develop` : OK. Démonstration sur un clone jetable (dossier temporaire) : commit qui modifie `apps/web/test/smoke.e2e.ts` sans justification → `ÉCHEC test existant modifié sans Justification-test : apps/web/test/smoke.e2e.ts`, code 1 ; commit qui modifie `playwright.config.ts`, une capture de référence et crée `apps/web/turbo.json` → trois `ÉCHEC`, puis `OK` après ajout d'une ligne Justification-test ; nouveau parcours avec `test.fixme` → `ÉCHEC marqueur … ajouté` et `marqueur interdit dans l'arbre` ; test de composant `apps/web/app/pages/index.spec.ts` modifié → `ÉCHEC`, nouvelle capture attendue acceptée puis la même régénérée → `ÉCHEC test existant modifié … smoke.e2e.ts-snapshots/a.png`. Classification : `node` sur `policy.mjs` du worktree (configurations du front = `config`, tests, fixtures, captures = `test`, code et SPEC = ordinaires ; `roleMayWrite('qa-front', 'apps/web/app/domain/filter.ts')` = false, capture de référence = false ; `revue-a11y` hors `docs/revues` = false). Les tests automatisés des hooks et du script : voir « Suites du 20 novembre 2026 » |
 | F0-07 | `.claude/agents/dev-front.md` (Sonnet, high ; règle « modules isolés » du front), `qa-front.md` (Sonnet, medium ; tests seulement), `revue-a11y.md` (Opus, high ; lecture seule, `docs/revues/a11y-<date>.md`, chaque finding constaté par une commande), au format des agents existants ; sections front de `lead-architecte`, `dev-devops`, `revue-code`, `revue-securite` (contenus de docs/05) ; tableau des agents de `docs/03` | fichiers commités (0ef78ae, a44991e) |
 | F0-08 | `CLAUDE.md` : section « Front » (structure d'`apps/web`, couches, règle « modules isolés » du front, i18n, accessibilité, `NUXT_PUBLIC_CONTACT_EMAIL` avec placeholder `contact@example.org` dans `apps/web/.env.example`, tests, `nuxt prepare`), commandes `pnpm --filter @siteperso/web …`, `pnpm dev:web`, `pnpm e2e:browsers:up`, ports des worktrees, quatorze agents, marqueurs de Playwright ; README ; handoff versionné à l'identique dans `apps/web/design/handoff-v6/` (D7, 64 fichiers, 9,8 Mo, `diff -r` identique, aucun e-mail ni téléphone par recherche de motifs ; le lien LinkedIn public y figure, déjà présent dans `db/seeds/0002_social_links.sql`) ; `docs/02` section Front alignée sur D1 à D8 | commits 9e580bd, 9c70c61, 7559fbc |
 
@@ -82,37 +82,40 @@ Rien n'a été modifié dans `apps/api/`, `db/` ni `packages/contracts/`.
 ## Non fait (hors périmètre F0 ou bloqué)
 
 - Design system, polices, composants, logique métier, couche de données : lots F1 à F4.
-- Tests automatisés des garde-fous du front dans `.claude/hooks/tests/` et `scripts/ci/tests/` :
-  écrits mais non commités (point ouvert 1).
-- `.claude/hooks/README.md` non mis à jour (liste des oracles et des marqueurs) : chemin hors
-  autorisation (point ouvert 1).
+- Régression visuelle contre les captures du handoff : reportée en F8 (décision du 20 nov. 2026,
+  plus bas).
+
+## Suites du 20 novembre 2026 (points ouverts 1 à 3 tranchés par Julien)
+
+1. **Tests des garde-fous du front** (autorisation faef9b2d) : les deux fichiers de la première
+   livraison, alors bloqués faute d'autorisation, sont créés depuis l'annexe, puis exécutés :
+   - `.claude/hooks/tests/front-oracles.test.mjs` (14 cas : classification, chemins de qa-front et
+     revue-a11y, portées, marqueurs de Playwright, refus des hooks sur un parcours, un test de
+     composant, la configuration Playwright, une capture attendue ou de référence, intégrité) ;
+     `pnpm hooks:test` : 549/549 (535 + 14) ;
+   - `scripts/ci/tests/front-integrity.test.sh` (8 cas), sans la surcharge `SCRIPT` par variable
+     d'environnement de la proposition (chemin fixe comme les autres tests du dossier) ;
+     `pnpm integrity:test` : 19 + 3 + 8 + 8 réussis.
+   - `.claude/hooks/README.md` : oracles, marqueurs et rôles du front, portées de qa-front.
+   Aucun test existant modifié. L'annexe `lot-F0-lead-annexe-tests.md`, devenue redondante avec
+   les fichiers commités, est supprimée.
+2. **Régression visuelle : pas de tolérance en F0.** On vise une V1 d'abord ; les captures de
+   référence restent protégées (oracles des garde-fous), la comparaison et sa tolérance viendront
+   en F8. Reporté dans `docs/05` (F8-03) et dans `qa-front.md`.
+3. **Un fichier de libellés par section, posé dès maintenant** (c'était léger) :
+   `apps/web/i18n/locales/{fr,en}/` contient `common.json` (les libellés existants, déplacés) et
+   `shell.json`, `profile.json`, `experience.json`, `recommendations.json`, `ai.json`, chacun
+   réduit à son espace de clés vide ; `nuxt.config.ts` les charge par l'option `files` de
+   @nuxtjs/i18n (documentée : chargés dans l'ordre et fusionnés). Constat : les messages générés
+   (`.output/public/_i18n/…/fr/messages.json`) contiennent `home` et les cinq espaces. Nouveau test
+   `app/i18n-messages.spec.ts` : liste des fichiers par langue, un seul espace de clés par fichier de
+   section, mêmes clés en fr et en ; sonde (clé ajoutée en anglais seulement et clé `home` dans
+   `profile.json`) → deux cas en échec, sonde retirée. CLAUDE.md, `docs/05`, `dev-front.md` et
+   `lead-architecte.md` mis à jour (une section écrit `i18n/locales/{fr,en}/<section>.json`,
+   `common.json` reste au lead).
 
 ## Points ouverts
 
-1. **Autorisation manquante pour les tests des garde-fous (sortie honorable).** F0-06 demande des
-   tests des hooks et des cas d'intégrité ; l'autorisation 7302c938 couvre `policy.mjs` et
-   `check-tests-integrity.sh` mais ni `.claude/hooks/tests/**`, ni `scripts/ci/tests/**`, ni
-   `.claude/hooks/README.md` (classés « guard » ou « config » : création refusée sans autorisation).
-   De plus, les hooks refusent à un sous-agent d'exécuter un script situé sous `.claude/hooks/`, même
-   copié dans le dossier temporaire (« les scripts des garde-fous ne se lancent que depuis la
-   session principale ») et un `bash` sur un script qui nomme un oracle (« écriture opaque »).
-   Je ne les ai donc ni créés ni contournés. Les deux fichiers prêts à copier sont dans
-   `docs/comptes-rendus/lot-F0-lead-annexe-tests.md` (`front-oracles.test.mjs` : classification,
-   rôles, marqueurs de Playwright, refus des hooks sur les oracles du front, intégrité ;
-   `front-integrity.test.sh` : huit cas). Ce qui les remplace pour l'instant : les démonstrations
-   de la ligne F0-06 (clone jetable, `pnpm integrity`). Demande : une autorisation `config` sur
-   `.claude/hooks/tests/front-oracles.test.mjs`, `scripts/ci/tests/front-integrity.test.sh` et
-   `.claude/hooks/README.md`, ou leur application par la session principale.
-2. **Tolérance de la régression visuelle** : `docs/05` (F8-03) dit « tolérance fixée en F0 », mais
-   les tickets F0 n'en parlent pas et aucune valeur n'est décidée. Proposition, à trancher par
-   Julien : `expect.toHaveScreenshot.pathTemplate` vers
-   `design/handoff-v6/design/reference/{arg}{ext}` (comparaison directe aux captures du handoff,
-   protégées) et une tolérance `maxDiffPixelRatio` mesurée sur le premier écran réel (F3), les
-   maquettes venant d'un autre moteur de rendu (canvas).
-3. **Libellés des sections en parallèle (F5-A ∥ F5-B)** : `fr.json` et `en.json` sont des fichiers
-   uniques ; deux agents y ajoutent leurs clés `<section>.` et risquent un conflit de fusion.
-   Proposition pour le lead avant F5 : un fichier de messages par section (`@nuxtjs/i18n` accepte
-   plusieurs fichiers par langue), changement de `nuxt.config.ts`.
 4. **CSP et carte d'import de Nuxt (pour F9)** : le HTML généré contient un
    `<script type="importmap">` en ligne ; la CSP stricte devra en porter l'empreinte, comme le
    script de thème (D5). Noté dans la section front de `dev-devops.md`.
@@ -172,3 +175,10 @@ touchés en commits dédiés, à prendre en compte en fusionnant (`docker-compos
 - `pnpm --filter @siteperso/web test:mutation` : code 0 (aucun fichier à muter, seuil 100).
 - `pnpm integrity develop` : OK. `pnpm db:down` en fin de lot ; arbre de travail propre (`.env`
   racine, `apps/api/.env`, `.nuxt`, `.output`, rapports : gitignorés).
+
+Après les suites du 20 novembre (session interrompue puis reprise ; autorisation faef9b2d expirée
+ensuite, aucun fichier protégé touché après son expiration) : `pnpm hooks:test` 549/549,
+`pnpm integrity:test` 19 + 3 + 8 + 8 réussis, `pnpm format` sans modification, puis
+`pnpm check` code 0 sur conteneurs neufs (`docker compose down -v` avant) : intégrité OK, 12 tâches
+réussies (unitaires front 14, e2e front 35, API 391 + 552, contrats 133), couverture 100 % sur les
+trois paquets (front 12/12 instructions, 2/2 branches) ; `pnpm db:down`, arbre propre.
