@@ -19,8 +19,9 @@ apps/api/                 API NestJS 12 sur Fastify (ESM), architecture hexagona
                           puis un dossier par ressource (profile/, skills/, cv/…)
   src/cli/                points d'entrée Node sans Nest : migrate.ts, seed.ts, reset.ts (scripts db:*),
                           provision-api-role.ts (rôle PostgreSQL de lecture seule de l'API, prod)
-  test/                   tests e2e (*.e2e-spec.ts) via app.inject contre le Postgres de test ;
-                          test/support/database.ts : resetTestDatabase(), openTestSql()
+  test/                   tests e2e (*.e2e-spec.ts) via app.inject contre le Postgres de test,
+                          fichiers en parallèle, une base par processus Vitest copiée d'une base
+                          modèle (lot 14) ; test/support/database.ts : resetTestDatabase(), openTestSql()
 apps/web/                 front Nuxt 4 en génération statique (FR, EN) : voir « Front » plus bas
 packages/contracts/       schémas Zod partagés + document OpenAPI 3.2.0 (createOpenApiDocument)
 db/migrations/            SQL manuel NNNN_description.sql (source de vérité du schéma)
@@ -194,7 +195,10 @@ apps/web/
 - Tests : deux projets Vitest dans `apps/api/vitest.config.ts`, `unit` (`*.spec.ts` à côté du
   code, `pnpm test`) et `e2e` (`test/**/*.e2e-spec.ts`, `pnpm test:e2e`), tous deux transformés
   avec SWC (`unplugin-swc`) : esbuild n'émet pas les métadonnées de décorateurs dont Nest dépend.
-  Un module de ressource livre les deux.
+  Un module de ressource livre les deux. Les fichiers e2e tournent en parallèle (lot 14), chacun
+  dans la base de son processus (`<base>_w<VITEST_POOL_ID>`) : un test e2e ne suppose ni l'ordre
+  des fichiers ni une base partagée ; s'il modifie la base, il la remet à zéro par
+  `resetTestDatabase()` (copie de la base modèle).
 - Couverture 100 % obligatoire (lignes, branches, fonctions, instructions) sur `apps/api/src`,
   `packages/contracts/src` et `apps/web/app` (unitaires + composants), mesurée en une passe fusionnée unitaires + e2e (`pnpm test:coverage`,
   dans `pnpm check` et en CI). Aucun fichier de production exclu de la mesure, aucun commentaire
@@ -238,15 +242,19 @@ pnpm e2e:browsers:up         # navigateurs Playwright des e2e du front (service 
 pnpm lint | typecheck | test | test:e2e | build   # build du front = nuxt generate
 pnpm test:coverage           # unitaires + e2e en une passe, couverture fusionnée, échoue sous 100 %
 pnpm test:mutation           # Stryker sur les unitaires (contrats, API, front), rapports dans reports/mutation/ ; échoue sous le seuil de chaque paquet ; hors check, job CI dédié
-pnpm check                   # tout : garde-fous, intégrité des tests, postgres de test, navigateurs, lint, typecheck, unit, e2e (API et front), couverture
+pnpm check                   # tout : garde-fous, intégrité des tests, formatage, postgres de test, navigateurs, lint, typecheck,
+                             # test:coverage (chaque test Vitest une seule fois : unitaires et e2e de l'API, contrats, front), parcours Playwright du front
 pnpm --filter @siteperso/web generate        # pages statiques fr et en dans apps/web/.output/public
 pnpm --filter @siteperso/web test            # unitaires + composants (projets unit et nuxt)
 pnpm --filter @siteperso/web test:coverage   # idem avec couverture, échoue sous 100 %
 pnpm --filter @siteperso/web test:e2e        # nuxt generate puis Playwright + axe (navigateurs démarrés)
 pnpm --filter @siteperso/web test:mutation   # Stryker sur app/domain et app/data
 pnpm hooks:test              # tests des hooks garde-fous (.claude/hooks/tests)
+pnpm husky:test              # tests de la vérification de formatage du pre-commit (.husky/tests)
 pnpm integrity [base]        # intégrité des tests depuis la base (défaut origin/develop, sinon develop)
 pnpm format                  # Prettier sur tout le dépôt (docs/ exclu)
+pnpm format:check            # vérification seule, tout le dépôt (dans pnpm check et en CI)
+pnpm format:staged           # vérification des seuls fichiers indexés, contenu de l'index (pre-commit)
 pnpm db:down                 # arrête les conteneurs
 pnpm stack:up                # pile locale complète = prod (Caddy, API, PostgreSQL) : build, démarrage, attente de /health
 pnpm stack:ps | stack:logs   # état et journaux de la pile locale
@@ -338,8 +346,9 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   `feat(api): …`, `feat(contracts): …`, `feat(db): …`, `test(api): …`, `chore: …`, `docs: …`.
   Chaque message se termine par une ligne vide puis
   `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
-- Aucun commit si `lint`, `typecheck` et `test` ne passent pas (hook pre-commit) ; les e2e
-  doivent aussi passer avant de livrer un lot (`pnpm check`).
+- Aucun commit si le formatage Prettier des fichiers indexés (`pnpm format:staged`), `lint`,
+  `typecheck` et `test` ne passent pas (hook pre-commit) ; les e2e doivent aussi passer avant de
+  livrer un lot (`pnpm check`).
 - JAMAIS de `git push` par un agent. Jamais de `--no-verify`, jamais de `git stash` nu, jamais de
   push forcé.
 - Aucun e-mail, téléphone ou donnée personnelle de Julien dans le dépôt (code, SQL, tests,
