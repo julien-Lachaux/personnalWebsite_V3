@@ -10,7 +10,8 @@
 //   - fichier : champ « file », relatif au dossier du stryker.equivalents.json ;
 //   - ligne : champ « line » ; la ligne suivante pour une directive next-line, sinon une ligne de la
 //     plage qui va de la directive à la directive de rétablissement suivante (ou à la fin) ;
-//   - mutateur : champ « mutator », l'un de ceux de la directive (« all » les couvre tous).
+//   - mutateur : champ « mutator », obligatoire (décision de Julien du 20 nov. 2026), l'un de ceux
+//     de la directive (« all » les couvre tous) ; un équivalent sans mutateur ne justifie rien.
 // Un identifiant que rien ne déclare est signalé par le script d'intégrité lui-même (point 6).
 // Sortie : un écart par ligne sur la sortie standard ; code 0 si l'entrée et les fichiers sont lus,
 // 2 sinon (fichier d'équivalents ou de code illisible : refusé plutôt que lu de travers).
@@ -95,9 +96,16 @@ for (const row of input.split('\n')) {
         d.line !== null &&
         d.line >= number + 1 &&
         d.line <= last &&
-        (d.mutator === null || mutators.includes('all') || mutators.includes(d.mutator)),
+        d.mutator !== null &&
+        (mutators.includes('all') || mutators.includes(d.mutator)),
     );
-    if (!match) {
+    if (!match && declared.every((d) => d.mutator === null)) {
+      process.stdout.write(
+        `${file}:${number} : ${id} ne déclare pas son mutateur (champ « mutator » de ` +
+          `${declared.map((d) => d.source).join(', ')}), contrôlé contre la directive (mutateur ` +
+          `${mutators.join(', ')})\n`,
+      );
+    } else if (!match) {
       const seen = declared
         .map((d) => `${d.file ?? '?'}:${d.line ?? '?'} ${d.mutator ?? '(mutateur non précisé)'}`)
         .join(', ');
