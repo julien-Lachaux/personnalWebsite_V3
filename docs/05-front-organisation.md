@@ -137,6 +137,10 @@ Bloquants back : **F4 attend le lot contrats du brief back-001** ; F9 attend le 
 ### F9 Déploiement (dev-devops, après le brief back-002)
 - F9-01 Build statique dans l'image, service par Caddy, CSP stricte (empreinte du script de thème), HSTS, en-têtes.
 - F9-02 Pile locale complète front + API + Caddy, e2e Playwright contre elle, job CI.
+- F9-03 (décidé le 20 nov.) CSP : empreinte du script de thème (`THEME_SCRIPT_SHA256`, F3a), empreintes des scripts en ligne de Nuxt (`importmap`, `window.__NUXT__`) recalculées à chaque génération, `<style>` en ligne ; Caddy : vraie redirection 301 de `/fr` et `/fr/*` vers le chemin sans préfixe (aujourd'hui une page `meta refresh`).
+
+### F11 Optimisation (décidé le 20 nov., en fin de chantier)
+- F11-01 Poids du JavaScript client : fixtures et Zod ne servent qu'au build et ne doivent pas partir dans le navigateur (473 ko de JS au total relevés en F3a).
 
 ### F10 Revues et recette (revue-code, revue-securite, revue-a11y, triage, correcteur, chef-de-projet)
 - Revues indépendantes, triage, corrections, recette finale depuis un clone neuf.
