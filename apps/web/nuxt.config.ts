@@ -2,6 +2,8 @@
 // pages FR (sans préfixe) et EN (`/en/...`) ; aucun serveur Node du front en production.
 // Fichier partagé : réservé au lead-architecte (règle « modules isolés » du front, CLAUDE.md).
 
+import { readdirSync } from 'node:fs';
+
 import { themeScript } from './app/domain/theme-script';
 
 // Libellés d'interface : un fichier commun et un fichier par section et par langue
@@ -11,6 +13,12 @@ import { themeScript } from './app/domain/theme-script';
 const messageFiles = ['common', 'shell', 'profile', 'experience', 'recommendations', 'ai'];
 const filesOf = (language: string): string[] =>
   messageFiles.map((name) => `${language}/${name}.json`);
+
+// CV PDF présents dans public/cv/ (D22), relevés à chaque build : le bouton « CV PDF » d'une langue
+// sans CV mène au CV français (app/domain/cv-link.ts) ; déposer `cv-<langue>.pdf` suffit à y mettre fin.
+const cvFiles = readdirSync(new URL('./public/cv/', import.meta.url))
+  .filter((name) => name.endsWith('.pdf'))
+  .sort();
 
 const strictCompilerOptions = {
   // Mêmes exigences que tsconfig.base.json du back, en plus du `strict` de Nuxt.
@@ -70,12 +78,14 @@ export default defineNuxtConfig({
   //   `api` par défaut ou `fixtures`) et URL de base de l'API (`NUXT_API_BASE_URL`, sans `/api/v1`),
   //   lues par `app/composables/use-cv.ts` (docs/04, F4-04) ;
   // - publiques (`NUXT_PUBLIC_*`) : adresse du bouton « Lancer l'entretien » (aucune vraie adresse
-  //   dans le dépôt ; vide ou invalide, la génération échoue).
+  //   dans le dépôt ; vide ou invalide, la génération échoue) ; noms des CV de public/cv/ (relevés
+  //   ci-dessus, pas une variable d'environnement à poser).
   runtimeConfig: {
     cvSource: '',
     apiBaseUrl: '',
     public: {
       contactEmail: '',
+      cvFiles,
     },
   },
 
