@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import LanguageSwitch from './LanguageSwitch.vue';
 
+// D19 : le sélecteur affiche le code de la langue COURANTE et son nom accessible annonce l'action.
+
 describe('LanguageSwitch', () => {
   it('propose l’anglais depuis le français : lien vers la même page sous /en', async () => {
     const wrapper = await mountSuspended(LanguageSwitch, { route: '/' });
@@ -18,34 +20,31 @@ describe('LanguageSwitch', () => {
     expect(link.attributes()).toMatchObject({ href: '/', lang: 'fr', hreflang: 'fr' });
   });
 
-  it('affiche le code de la langue cible, masqué aux lecteurs d’écran', async () => {
+  it('affiche le code de la langue courante, masqué aux lecteurs d’écran', async () => {
     const wrapper = await mountSuspended(LanguageSwitch, { route: '/' });
-
-    expect(wrapper.get('a [aria-hidden="true"]').text()).toBe('EN');
-  });
-
-  it('affiche FR sur la page anglaise', async () => {
-    const wrapper = await mountSuspended(LanguageSwitch, { route: '/en' });
 
     expect(wrapper.get('a [aria-hidden="true"]').text()).toBe('FR');
   });
 
-  it('se nomme « English » depuis le français', async () => {
-    const wrapper = await mountSuspended(LanguageSwitch, { route: '/' });
-
-    expect(wrapper.get('a .visually-hidden').text()).toBe('English');
-  });
-
-  it('se nomme « Français » depuis l’anglais', async () => {
+  it('affiche EN sur la page anglaise', async () => {
     const wrapper = await mountSuspended(LanguageSwitch, { route: '/en' });
 
-    expect(wrapper.get('a .visually-hidden').text()).toBe('Français');
+    expect(wrapper.get('a [aria-hidden="true"]').text()).toBe('EN');
   });
 
-  it('a un nom accessible qui contient le code visible (étiquette dans le nom, WCAG 2.5.3)', async () => {
+  it('se nomme « Passer en anglais » depuis le français, dans la langue de la page', async () => {
     const wrapper = await mountSuspended(LanguageSwitch, { route: '/' });
 
-    const visible = wrapper.get('a [aria-hidden="true"]').text().toLowerCase();
-    expect(wrapper.get('a .visually-hidden').text().toLowerCase()).toContain(visible);
+    const name = wrapper.get('a .visually-hidden');
+    expect(name.text()).toBe('Passer en anglais');
+    expect(name.attributes('lang')).toBe('fr');
+  });
+
+  it('se nomme « Switch to French » depuis l’anglais, dans la langue de la page', async () => {
+    const wrapper = await mountSuspended(LanguageSwitch, { route: '/en' });
+
+    const name = wrapper.get('a .visually-hidden');
+    expect(name.text()).toBe('Switch to French');
+    expect(name.attributes('lang')).toBe('en');
   });
 });

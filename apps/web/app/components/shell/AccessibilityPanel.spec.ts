@@ -92,14 +92,15 @@ describe('AccessibilityPanel : ouverture et fermeture au clavier', () => {
     );
   });
 
-  it('a pour titre visible le nom de fichier accessibilite.cfg', async () => {
+  it('a pour titre visible le nom de fichier accessibilite.cfg (D18 : nom accessible par aria-label)', async () => {
     const wrapper = await mountPanel();
     await open(wrapper);
 
     const dialog = wrapper.get('[role="dialog"]');
-    const title = wrapper.get(`#${dialog.attributes('aria-labelledby')}`);
+    const title = dialog.get('h2');
     expect(title.text()).toBe('accessibilite.cfg');
-    expect(title.element.tagName).toBe('H2');
+    expect(dialog.attributes('aria-labelledby')).toBeUndefined();
+    expect(dialog.attributes('aria-label')).toBe('Réglages d’accessibilité');
   });
 
   it('se ferme par Échap et rend le focus au déclencheur', async () => {

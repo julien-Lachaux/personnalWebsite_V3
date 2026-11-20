@@ -16,8 +16,10 @@
       "subject": "Prise de contact depuis votre site"
     },
     "language": {
-      "fr": "Français",
-      "en": "English"
+      "switchTo": {
+        "fr": "Passer en français",
+        "en": "Passer en anglais"
+      }
     },
     "theme": {
       "toLight": "Thème sombre, passer en thème clair",

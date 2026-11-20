@@ -16,8 +16,10 @@
       "subject": "Getting in touch from your website"
     },
     "language": {
-      "fr": "Français",
-      "en": "English"
+      "switchTo": {
+        "fr": "Switch to French",
+        "en": "Switch to English"
+      }
     },
     "theme": {
       "toLight": "Dark theme, switch to light theme",
