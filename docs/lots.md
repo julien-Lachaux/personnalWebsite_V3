@@ -30,6 +30,8 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
 | 13 | Git flow : `develop`, push de la session principale | lead-architecte Opus, chef-de-projet Sonnet | 802360b | 115 tests hooks, 133 + 391 unitaires, 552 e2e, 100 % |
 | 13 bis | Durcissement des refus de push et de l'analyseur | lead-architecte Opus, chef-de-projet Sonnet | fb31042 | 527 tests hooks, 133 + 391 unitaires, 552 e2e, 100 % |
 | 15 | Brief back-001 du front (BF-1 à BF-7) | dev-sql Sonnet, dev-api Sonnet, chef-de-projet Sonnet | baa259d | 220 + 430 unitaires, 705 e2e, 100 %, mutation 100 % / 42,03 % |
+| 16 | Briefs back-002 et back-003 : intégrité des tests, instantanés des hooks (BF-8 à BF-11) | lead-architecte Opus, chef-de-projet Sonnet | c382bae | 569 tests hooks (20 ajoutés), scripts d'intégrité verts, 100 % |
+| 17 | Brief back-004 : lieu nul de l'expérience OpenClassrooms (BF-12) | dev-sql Sonnet, chef-de-projet Sonnet | d5f2097 | 1 e2e ajouté (5 cas), 100 % |
 
 ## Lot 0 : fondations
 
@@ -289,6 +291,30 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
 - **Écarts au brief** : BF-4 `published = true` (décision de Julien du 19 nov.), `cvPath` restreint à un
   chemin relatif au site, `mainStackOrder` aussi dans les compétences imbriquées de `/projects`, slugs des
   recommandations, libellés EN à relire (`docs/traductions-a-relire.md`).
+
+## Lot 16 : briefs back-002 et back-003 (intégrité des tests, instantanés des hooks)
+
+- **Livré** : BF-10, un fichier devenu oracle en cours de session (par une fusion) et resté identique au
+  `head` de l'instantané n'est plus pris pour une création ; BF-11, l'instantané d'un worktree retiré est
+  ignoré et supprimé, même si des fichiers générés recréent son dossier ; BF-8, chemins non ASCII et
+  particuliers dans le script d'intégrité (`core.quotePath=false`, `-z`, `--literal-pathspecs`) ; BF-9,
+  marqueur d'échec attendu reconnu sur les seules méthodes de l'API de test de Vitest, enchaînements
+  multiples compris.
+- **Trou corrigé** : avant BF-8, une configuration protégée ou un test au nom accentué se modifiait sans
+  `Justification-test`.
+- **Écart au brief** (BF-11) : un worktree encore listé par `git worktree list` garde son instantané et
+  donne une violation unique ; retirer son `.git` ne suffit pas à couper la vérification de fin de tâche.
+- **Recette** : acceptée ; sonde de 42 formes (ancien script contre nouveau), aucune forme refusée avant
+  n'est acceptée. Points ouverts : saut enchaîné sur deux méthodes non détecté, fichier devenu test en
+  cours de session éditable sans autorisation (`checkFileTool`), `git worktree prune` et `remove --force`
+  non refusés aux agents.
+
+## Lot 17 : brief back-004, lieu de l'expérience OpenClassrooms
+
+- **Livré** (BF-12) : `location` nul pour `openclassrooms-mentor` en `fr` et en `en` (le mode de travail
+  `remote` suffit, le front n'affiche plus « À distance, à distance ») ; ligne retirée de
+  `docs/traductions-a-relire.md`. Recette acceptée : le nouveau test passe au rouge si le seed revient à
+  « À distance ».
 
 ## Transverse
 
