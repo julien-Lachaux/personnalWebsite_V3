@@ -134,6 +134,40 @@ export function hasMarker(text) {
   return c.forbidden + c.fails > 0;
 }
 
+// Directives de Stryker qui retirent des mutants du score (lot 12, MUT-2 ; L14-01, dès l'écriture) :
+// dans un commentaire // ou /* … */ d'un fichier JS/TS, chacune cite l'identifiant
+// (<PAQUET>-EQ-<n>) d'un mutant équivalent déclaré dans un stryker.equivalents.json, comme l'exige
+// scripts/ci/check-tests-integrity.sh. Le shell est lu plus largement (tout « Stryker disable »
+// d'une ligne), son texte pouvant échapper les barres obliques.
+const STRYKER_DIRECTIVE_RE = /(?:\/\/|\/\*|^\s*\*)\s*Stryker\s+disable/;
+const STRYKER_LOOSE_RE = /Stryker\s+disable/;
+const EQUIVALENT_ID_RE = /[A-Z]+-EQ-[0-9]+/g;
+/** Fichiers où une directive compte (mêmes extensions que le script d'intégrité). */
+export const STRYKER_CODE_FILE = /\.[cm]?[jt]sx?$/;
+/** Fichier des mutants équivalents déclarés d'un paquet. */
+export const STRYKER_EQUIVALENTS_FILE = /(^|\/)stryker\.equivalents\.json$/;
+
+/** Identifiants déclarés dans le texte d'un stryker.equivalents.json (champ « id »). */
+export function declaredEquivalentIds(text) {
+  return [...String(text).matchAll(/"id"\s*:\s*"([A-Z]+-EQ-[0-9]+)"/g)].map((m) => m[1]);
+}
+
+/**
+ * Nombre de directives d'un texte qui ne citent aucun identifiant d'équivalent, ou en citent un
+ * absent de `declared` (Set). `loose` : lecture large, pour le texte d'une commande shell.
+ */
+export function countUndeclaredDirectives(text, declared, { loose = false } = {}) {
+  if (typeof text !== 'string' || text.length === 0) return 0;
+  const re = loose ? STRYKER_LOOSE_RE : STRYKER_DIRECTIVE_RE;
+  let count = 0;
+  for (const line of text.split('\n')) {
+    if (!re.test(line)) continue;
+    const ids = line.match(EQUIVALENT_ID_RE) ?? [];
+    if (ids.length === 0 || ids.some((id) => !declared.has(id))) count += 1;
+  }
+  return count;
+}
+
 /**
  * Portées d'autorisation et rôles qui peuvent les recevoir. « main » est la session principale
  * (l'orchestrateur ou Julien) : elle n'a pas d'agent_type.

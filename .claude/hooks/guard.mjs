@@ -20,11 +20,15 @@ import { isAbsolute, join, resolve } from 'node:path';
 import {
   classify,
   countMarkers,
+  countUndeclaredDirectives,
+  declaredEquivalentIds,
   hasMarker,
   hasTestSegment,
   roleMayWrite,
   scopeFor,
   startReminder,
+  STRYKER_CODE_FILE,
+  STRYKER_EQUIVALENTS_FILE,
 } from './lib/policy.mjs';
 import {
   analyzeCommand,
@@ -41,6 +45,7 @@ import {
   existedAtSnapshot,
   findAuthorization,
   globToRegExp,
+  listFiles,
   listSnapshots,
   markReported,
   normalize,
@@ -194,6 +199,25 @@ function isGitConfigFile(abs) {
     .some((file) => abs === file || abs === normalize(file));
 }
 
+/** Identifiants des mutants équivalents déclarés dans les stryker.equivalents.json d'un dépôt. */
+function declaredEquivalents(top) {
+  const ids = new Set();
+  for (const rel of listFiles(top)) {
+    if (!STRYKER_EQUIVALENTS_FILE.test(rel)) continue;
+    try {
+      for (const id of declaredEquivalentIds(readFileSync(join(top, rel), 'utf8'))) ids.add(id);
+    } catch {
+      // Fichier illisible : ses identifiants ne comptent pas comme déclarés.
+    }
+  }
+  return ids;
+}
+
+const DIRECTIVE_MOTIF =
+  'une directive Stryker disable cite l’identifiant (<PAQUET>-EQ-<n>) d’un mutant équivalent déjà ' +
+  'déclaré dans un stryker.equivalents.json, sous autorisation et Justification-test (CLAUDE.md, ' +
+  '« Conventions de code »)';
+
 function checkFileTool(ctx, tool, ti) {
   const filePath = ti.file_path ?? ti.notebook_path;
   if (typeof filePath !== 'string' || filePath === '')
@@ -225,6 +249,19 @@ function checkFileTool(ctx, tool, ti) {
     requireAuthorization(ctx, 'fails', rel, 'test en échec attendu (marqueur fails)');
   }
   if (rel === null) return;
+  // L14-01 : une directive Stryker disable qui ne cite pas un équivalent déclaré est refusée dès
+  // l'écriture, comme un marqueur de saut (le script d'intégrité la refuse au commit et en CI).
+  if (STRYKER_CODE_FILE.test(rel) && /Stryker\s+disable/.test(after)) {
+    const declared = declaredEquivalents(top);
+    if (countUndeclaredDirectives(after, declared) > countUndeclaredDirectives(before, declared))
+      deny(
+        ctx,
+        `directive Stryker disable sans équivalent déclaré dans ${rel} : ${DIRECTIVE_MOTIF}`,
+        {
+          path: rel,
+        },
+      );
+  }
 
   const kind = classify(rel);
   if (kind === 'state')
@@ -358,6 +395,21 @@ function checkShell(ctx, ti) {
       ctx,
       "écriture shell d'un marqueur de saut, de focus ou d'un commentaire d'ignore : utilise l'outil Write, qui le refusera aussi sauf autorisation",
     );
+  }
+  // L14-01 : directive Stryker disable écrite par le shell dans un fichier de code (ou par une
+  // écriture opaque, dont la cible n'est pas lisible) sans équivalent déclaré.
+  if (
+    analysis.writes &&
+    /Stryker\s+disable/.test(command) &&
+    (analysis.opaque.length > 0 ||
+      [...analysis.targets, ...analysis.repoTargets].some((t) => STRYKER_CODE_FILE.test(t.path)))
+  ) {
+    const declared = cwdTop ? declaredEquivalents(cwdTop) : new Set();
+    if (countUndeclaredDirectives(command, declared, { loose: true }) > 0)
+      deny(
+        ctx,
+        `écriture shell d'une directive Stryker disable sans équivalent déclaré : ${DIRECTIVE_MOTIF}`,
+      );
   }
 
   let guardScript = false;
