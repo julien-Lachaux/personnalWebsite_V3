@@ -10,7 +10,8 @@
     "opensInNewTab": "opens in a new tab",
     "expand": "Expand {name}",
     "collapse": "Collapse {name}",
-    "showDetails": "Show details: {name}"
+    "showDetails": "Show details: {name}",
+    "skipToContent": "Skip to content"
   },
   "declaration": {
     "title": "Accessibility statement",

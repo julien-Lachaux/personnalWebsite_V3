@@ -10,7 +10,8 @@
     "opensInNewTab": "s'ouvre dans un nouvel onglet",
     "expand": "Agrandir {name}",
     "collapse": "Réduire {name}",
-    "showDetails": "Voir le détail : {name}"
+    "showDetails": "Voir le détail : {name}",
+    "skipToContent": "Aller au contenu"
   },
   "declaration": {
     "title": "Déclaration d’accessibilité",
