@@ -29,6 +29,7 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
 | 12 | Test par mutation, phase 2 : la règle | qa Sonnet, lead-architecte Opus, chef-de-projet Sonnet | 5ee5690 | 133 + 389 unitaires, 552 e2e, mutation 100 % / 40,87 % |
 | 13 | Git flow : `develop`, push de la session principale | lead-architecte Opus, chef-de-projet Sonnet | 802360b | 115 tests hooks, 133 + 391 unitaires, 552 e2e, 100 % |
 | 13 bis | Durcissement des refus de push et de l'analyseur | lead-architecte Opus, chef-de-projet Sonnet | fb31042 | 527 tests hooks, 133 + 391 unitaires, 552 e2e, 100 % |
+| 14 | Garde-fous, CI, e2e de l'API en parallèle, `pnpm check` en une passe (L14-01 à 03, 06 à 17) | dev-api Sonnet, lead-architecte Opus (×3), dev-devops Sonnet, chef-de-projet Sonnet | e7607a4 | 768 tests hooks, 13 husky, 220 + 430 unitaires, 764 e2e de l'API (20 s au lieu de 254 s), 100 %, mutation API seuil 41 |
 | 15 | Brief back-001 du front (BF-1 à BF-7) | dev-sql Sonnet, dev-api Sonnet, chef-de-projet Sonnet | baa259d | 220 + 430 unitaires, 705 e2e, 100 %, mutation 100 % / 42,03 % |
 | 16 | Briefs back-002 et back-003 : intégrité des tests, instantanés des hooks (BF-8 à BF-11) | lead-architecte Opus, chef-de-projet Sonnet | c382bae | 569 tests hooks (20 ajoutés), scripts d'intégrité verts, 100 % |
 | 17 | Brief back-004 : lieu nul de l'expérience OpenClassrooms (BF-12) | dev-sql Sonnet, chef-de-projet Sonnet | d5f2097 | 1 e2e ajouté (5 cas), 100 % |
@@ -315,6 +316,23 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
   `remote` suffit, le front n'affiche plus « À distance, à distance ») ; ligne retirée de
   `docs/traductions-a-relire.md`. Recette acceptée : le nouveau test passe au rouge si le seed revient à
   « À distance ».
+
+## Lot 14 : garde-fous, CI et optimisation des tests
+
+- **Livré** (fusion e7607a4, recette acceptée avec réserves, `docs/comptes-rendus/lot-14-recette.md`) :
+  e2e de l'API sur une base modèle recopiée et une base par processus, fichiers en parallèle (254 s →
+  environ 20 s) ; `pnpm check` en une seule passe des tests, avec `format:check`, `husky:test`,
+  actionlint et shellcheck par Docker (images épinglées par digest) ; Prettier au pre-commit sur les
+  fichiers indexés ; mutation incrémentale sur `develop`, complète sur les étiquettes `v*` ; seuil de
+  l'API relevé de 40 à 41 ; hooks : directives Stryker contrôlées dès l'écriture et à la ligne
+  (identifiant cité, mutateur), `main` locale non inscriptible, marqueurs enchaînés, fichier devenu test,
+  worktrees et branche suivie refusés aux agents ; section commune « Git et garde-fous » des quatorze
+  fichiers d'agents.
+- **Exécution** : deux branches en parallèle (`lot/14-garde-fous-ci`, `lot/14-hooks`), réunies avant
+  recette ; F3a (front) fusionné dans la branche avant recette, conflit de `ci.yml` résolu.
+- **Suites** : lot 18 (lecture de `core.hooksPath`, suivi de branche distante refusé aux agents) ;
+  vérifications au premier run CI (cache de l'incrément, déclencheur `v*`, images, parallélisme) ;
+  chemin critique de `pnpm check` côté front (F11).
 
 ## Transverse
 

@@ -1,7 +1,7 @@
 // Configuration Vitest de l'API : deux projets, une seule mesure de couverture.
 // - `unit` : tests unitaires `src/**/*.spec.ts`, aucun accès réseau ni base de données.
 // - `e2e`  : application Nest complète (app.inject de Fastify) contre le PostgreSQL de test
-//            de docker-compose (`pnpm db:test:up`).
+//            de docker-compose (`pnpm db:test:up`), fichiers en parallèle, une base par processus.
 // `vitest run --project unit` (pnpm test), `--project e2e` (pnpm test:e2e) ; sans filtre, les deux
 // projets tournent et la couverture (`--coverage`, pnpm test:coverage) est fusionnée : 100 % exigé
 // sur les quatre métriques, aucun fichier de production exclu, aucun commentaire d'ignore.
@@ -47,11 +47,16 @@ export default defineConfig({
         test: {
           name: 'e2e',
           include: ['test/**/*.e2e-spec.ts'],
-          // Base neuve garantie avant le premier fichier (migrations + seeds).
+          // Fichiers en parallèle (L14-15). Le globalSetup construit une fois par run la base modèle
+          // (migrations + seeds), puis une base par processus Vitest (`<base>_w<VITEST_POOL_ID>`)
+          // copiée du modèle ; `resetTestDatabase()` la recopie à chaque remise à zéro
+          // (test/support/database.ts). Nombre de processus : `maxWorkers` par défaut de Vitest
+          // (cœurs disponibles moins un en `vitest run`), le même pour les deux projets. Un
+          // `maxWorkers` propre à e2e exigerait un `sequence.groupOrder` distinct (Vitest refuse deux
+          // valeurs dans un même groupe) : unitaires et e2e ne partageraient plus les processus dans
+          // `pnpm test:coverage`. Borne ponctuelle, hors Turborepo : `vitest run --maxWorkers=<n>`.
           globalSetup: ['test/support/global-setup.ts'],
           environment: 'node',
-          // Un seul processus : l'application et sa connexion sont partagées entre les fichiers.
-          fileParallelism: false,
           testTimeout: 15_000,
           hookTimeout: 30_000,
           env: {
