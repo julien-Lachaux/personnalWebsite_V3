@@ -197,7 +197,8 @@ apps/web/
   sombre, fr et en ; ils ne comptent pas dans la couverture (D3). Navigateurs dans le service
   docker `playwright` (image officielle épinglée par digest, même version que `@playwright/test`),
   le lanceur et le serveur statique (`sirv`) sur l'hôte ; `test:e2e` génère le site sur les
-  fixtures (`NUXT_CV_SOURCE=fixtures`, adresse placeholder).
+  fixtures (`pnpm --filter @siteperso/web generate:fixtures` : `NUXT_CV_SOURCE=fixtures`, adresse
+  placeholder).
 - Après un changement de `nuxt.config.ts` (module, i18n), relancer
   `pnpm --filter @siteperso/web exec nuxt prepare` (fait aussi par `pnpm install`, `dev` et
   `generate`) pour régénérer `.nuxt/` (types et tsconfig lus par le lint et le typecheck).
