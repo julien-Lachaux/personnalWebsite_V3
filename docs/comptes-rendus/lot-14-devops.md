@@ -76,3 +76,10 @@ avec couverture). Graphe du filtre vérifié par `--dry=json` : `contracts#build
 `TURBO_FORCE=true pnpm check`, chacun après `pnpm db:down`, l'un après l'autre : 1) vert, 290 s au mur ;
 2) vert, 337s au mur. `pnpm db:down` fait en fin de tâche, aucun processus
 stryker, vitest ou turbo restant. Aucun test existant ni oracle modifié.
+
+## Complément après la fusion des deux branches (HEAD a0d5686)
+
+SC1112 : la liste nominative de trois fichiers est remplacée par le motif `scripts/ci/tests/*.test.sh`
+(les tests venus de la branche des garde-fous, `stryker-mutator.test.sh` et peut-être `stryker-citation.test.sh`,
+l'émettent aussi). L'exclusion reste limitée aux tests protégés, sans liste à tenir à jour ; les autres scripts
+sont analysés sans exclusion. Vérifié : `pnpm lint:shell`, `pnpm lint:workflows`, `pnpm integrity:test`, `pnpm hooks:test`.

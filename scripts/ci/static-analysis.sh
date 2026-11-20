@@ -28,17 +28,14 @@ case "${1:-}" in
     run_docker -v "$root:/repo:ro" -w /repo "$ACTIONLINT_IMAGE" -color
     ;;
   shell)
-    # SC1112 (guillemets typographiques dans une chaîne) n'est écarté que pour les trois tests
-    # ci-dessous : tests protégés (on ne les retouche pas), guillemets typographiques voulus dans des
-    # libellés français. Tous les autres scripts sont analysés sans exclusion.
-    quotes_tests=(
-      scripts/ci/tests/fails-marker.test.sh
-      scripts/ci/tests/paths.test.sh
-      scripts/ci/tests/stryker-directive-line.test.sh
-    )
-    mapfile -t scripts < <(find scripts -name '*.sh' | sort | grep -vxF -f <(printf '%s\n' "${quotes_tests[@]}"))
+    # SC1112 (guillemets typographiques dans une chaîne) n'est écarté que pour les tests protégés de
+    # scripts/ci/tests/*.test.sh : on ne les retouche pas, et leurs libellés français contiennent
+    # volontairement des apostrophes et guillemets typographiques. Tous les autres scripts sont
+    # analysés sans exclusion.
+    mapfile -t scripts < <(find scripts -name '*.sh' -not -path 'scripts/ci/tests/*.test.sh' | sort)
+    mapfile -t protected_tests < <(find scripts/ci/tests -maxdepth 1 -name '*.test.sh' | sort)
     run_docker -v "$root:/repo:ro" -w /repo "$SHELLCHECK_IMAGE" "${scripts[@]}" .claude/hooks/run.sh
-    run_docker -v "$root:/repo:ro" -w /repo "$SHELLCHECK_IMAGE" -e SC1112 "${quotes_tests[@]}"
+    run_docker -v "$root:/repo:ro" -w /repo "$SHELLCHECK_IMAGE" -e SC1112 "${protected_tests[@]}"
     # Aucune ligne shebang (convention husky 9, lancé par `sh -e`) : dialecte à fournir.
     run_docker -v "$root:/repo:ro" -w /repo "$SHELLCHECK_IMAGE" --shell=sh .husky/pre-commit
     ;;
