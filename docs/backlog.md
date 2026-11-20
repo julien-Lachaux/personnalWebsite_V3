@@ -1259,13 +1259,31 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   détections (rien d'exploitable dans des fichiers destinés à devenir publics). Un test des hooks
   vérifie que les quatorze fichiers portent la section, à l'identique, et qu'elle concorde avec les
   refus effectifs des hooks.
+- **L14-15** (dev-api pour `apps/api/test/support/`, autorisation `tests` ; lead-architecte pour
+  `apps/api/vitest.config.ts`, autorisation `config`), décidé par Julien le 20 nov. 2026, **prioritaire** :
+  e2e de l'API plus rapides sans toucher aux oracles. Mesure du 20 nov. sur 71ff6b5 : 280 s, dont environ
+  156 s pour 184 tests qui partent d'une base recréée (schéma vidé, 16 migrations, seeds : environ 1 s,
+  83 appels dont 13 en `beforeEach`), et fichiers en série (`fileParallelism: false`, une seule base).
+  1) base modèle migrée et seedée une fois par run (`globalSetup`), chaque remise à zéro la recopie au
+  lieu de tout rejouer ; les tests des seeds et des migrations rejouent toujours les vrais fichiers ;
+  2) une base par processus Vitest, puis fichiers en parallèle. Aucun fichier `*.e2e-spec.ts` modifié ;
+  un test prouve qu'une base recopiée est identique à une base migrée et seedée (schéma et données) ;
+  mêmes tests, mêmes résultats, couverture inchangée ; durées avant et après au compte rendu. Prépare la
+  phase 3 de la mutation (une base par processus Stryker).
+- **L14-16** (lead-architecte, portée `config`), même décision, **prioritaire** : `pnpm check` exécute
+  une seule fois les unitaires et les e2e de l'API : `test:coverage` les rejoue déjà tous, en une passe
+  fusionnée ; les parcours Playwright du front, hors couverture, restent lancés. Côté orchestrateur :
+  pas de nouveau `pnpm check` avant le push quand l'arbre fusionné (`git rev-parse <commit>^{tree}`)
+  est identique à celui que la recette a vérifié sans cache.
 - **Ordre** : le lot 14 touche les hooks et la CI, que `docs/05-front-organisation.md` laissait à la
   session front pendant F0. F0, F1 bis (qui a touché `turbo.json`) et le lot 15 sont fusionnés le
-  20 nov. 2026 : le lot est **débloqué**. Une branche `lot/14-garde-fous-ci`, deux étapes : 1)
-  lead-architecte, L14-01, 02, 06, 07, 09, 11, 12, 13, 14 (hooks, script d'intégrité, pre-commit,
-  fichiers d'agents) ; 2) dev-devops, L14-03, 08, 10 (CI, actionlint, shellcheck), après l'étape 1
-  parce que les deux touchent le script `check` racine ; puis recette du chef de projet. L14-04 reste en
-  phase 3 de la mutation, L14-05 après le front.
+  20 nov. 2026 : le lot est **débloqué**. Décision de Julien du 20 nov. : optimisations d'abord, travail
+  en parallèle. Branche `lot/14-garde-fous-ci` : a) dev-api, L14-15 (support des e2e) ; b)
+  lead-architecte, L14-15 (configuration), L14-16, L14-09 (script `check`, pre-commit) ; c) dev-devops,
+  L14-03, 08, 10 (CI, actionlint, shellcheck ; touchent aussi le script `check`, donc après b). En
+  parallèle, branche `lot/14-hooks` : lead-architecte, L14-01, 02, 06, 07, 11, 12, 13, 14 (hooks, script
+  d'intégrité, fichiers d'agents), sans fichier commun avec l'autre branche. Recette du chef de projet
+  sur les deux branches. L14-04 reste en phase 3 de la mutation, L14-05 après le front.
 
 ## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
 
