@@ -25,6 +25,14 @@
 
 set -euo pipefail
 
+# BF-8 : chemins non ASCII en clair. Avec core.quotePath (défaut), git cite un chemin accentué
+# ("apps/web/test/cass\303\251.e2e.ts") : il échappait aux motifs ci-dessous et `git log -- <chemin
+# cité>` ne retrouvait pas sa Justification-test. Les listes de chemins sont lues en `-z` (aucune
+# citation) ; core.quotePath=false couvre les sorties qui n'ont pas de `-z` (git grep).
+git() {
+  command git -c core.quotePath=false "$@"
+}
+
 base_ref="${1:-}"
 if [ -z "$base_ref" ]; then
   for candidate in origin/develop develop; do
@@ -66,16 +74,28 @@ fail() {
 
 # Vrai si un commit de la branche qui touche ce chemin porte une ligne Justification-test.
 # (sortie capturée d'abord : avec pipefail, grep -q fermerait le tube et ferait échouer git log.)
+# Chemin pris littéralement : un nom qui contient `*`, `?` ou `[` ne vise pas d'autres fichiers.
 justified() {
   local messages
-  messages="$(git log --format='%B' "${merge_base}..HEAD" -- "$1")"
+  messages="$(git --literal-pathspecs log --format='%B' "${merge_base}..HEAD" -- "$1")"
   grep -Eq "$JUSTIFICATION_RE" <<<"$messages"
 }
 
 echo "Intégrité des tests : HEAD comparé à ${base_ref} (point de divergence ${merge_base:0:12})"
 
+# 0. Les lignes ajoutées sont lues « chemin<TAB>ligne » : un chemin changé ou non suivi qui contient
+#    une tabulation ou un saut de ligne serait mal attribué. Refusé plutôt que lu de travers.
+while IFS= read -r -d '' path; do
+  if [[ "$path" == *$'\t'* || "$path" == *$'\n'* ]]; then
+    fail "chemin avec tabulation ou saut de ligne, illisible donc refusé : ${path@Q}"
+  fi
+done < <(
+  git diff --name-only -z --no-renames "$merge_base"
+  git ls-files -z -o --exclude-standard
+)
+
 # 1 et 2. Tests existants et configurations protégées.
-while IFS=$'\t' read -r status path; do
+while IFS= read -r -d '' status && IFS= read -r -d '' path; do
   [ -n "$path" ] || continue
   if [[ "$status" != A && "$path" =~ $TEST_RE ]] && ! justified "$path"; then
     case "$status" in
@@ -86,27 +106,33 @@ while IFS=$'\t' read -r status path; do
   if [[ "$path" =~ $CONFIG_RE && ! "$path" =~ $TEST_RE ]] && ! justified "$path"; then
     fail "configuration protégée modifiée sans Justification-test ($status) : $path"
   fi
-done < <(git diff --name-status --no-renames "$merge_base" HEAD)
+done < <(git diff --name-status -z --no-renames "$merge_base" HEAD)
 
 # 2 bis. Scripts de test des package.json.
-while IFS= read -r pkg; do
+while IFS= read -r -d '' pkg; do
   changes="$(git diff -U0 "$merge_base" HEAD -- "$pkg" | grep -Ev '^(\+\+\+|---)' || true)"
   if grep -Eq "$SCRIPT_RE" <<<"$changes"; then
     justified "$pkg" || fail "script de test modifié sans Justification-test : $pkg"
   fi
-done < <(git diff --name-only "$merge_base" HEAD -- 'package.json' '**/package.json')
+done < <(git diff --name-only -z "$merge_base" HEAD -- 'package.json' '**/package.json')
 
 # 3. Marqueurs dans les lignes ajoutées depuis le point de divergence (arbre de travail compris),
-#    puis dans les fichiers non suivis.
+#    puis dans les fichiers non suivis. Un diff par fichier (liste en `-z`) : le chemin vient de la
+#    liste, jamais de l'en-tête du diff (cité pour certains noms) ; seules les lignes des sections
+#    @@ comptent, si bien qu'une ligne ajoutée qui commence par « ++ » n'est pas prise pour un en-tête.
 added_lines() {
-  git diff -U0 --no-color --no-ext-diff "$merge_base" -- . |
-    awk '/^\+\+\+ /{ file = substr($0, 5); sub(/^b\//, "", file); next } /^\+/{ print file "\t" substr($0, 2) }'
+  local f
+  git diff --name-only -z --no-renames "$merge_base" -- . | while IFS= read -r -d '' f; do
+    git --literal-pathspecs diff -U0 --no-color --no-ext-diff --no-renames "$merge_base" -- "$f" |
+      F="$f" awk '/^@@/{ body = 1; next } body && /^\+/{ print ENVIRON["F"] "\t" substr($0, 2) }'
+  done
   git ls-files -z -o --exclude-standard | while IFS= read -r -d '' f; do
     if [ -f "$f" ] && [ "$(wc -c <"$f")" -lt 2097152 ] && grep -Iq . "$f"; then
-      awk -v file="$f" '{ print file "\t" $0 }' "$f"
+      F="$f" awk '{ print ENVIRON["F"] "\t" $0 }' "$f"
     fi
   done
 }
+added="$(added_lines)"
 declare -A reported=()
 while IFS=$'\t' read -r file line; do
   if [[ "$line" =~ $FORBIDDEN_RE ]]; then
@@ -115,7 +141,7 @@ while IFS=$'\t' read -r file line; do
     reported[$file]=1
     justified "$file" || fail "test en échec attendu ajouté sans Justification-test : $file"
   fi
-done < <(added_lines)
+done <<<"$added"
 
 # 4. Tout l'arbre suivi : aucun marqueur interdit dans un fichier de code.
 while IFS= read -r hit; do
@@ -130,7 +156,7 @@ while IFS=$'\t' read -r file line; do
     stryker_reported[$file]=1
     justified "$file" || fail "directive Stryker disable ajoutée sans Justification-test : $file"
   fi
-done < <(added_lines)
+done <<<"$added"
 
 # 6. Tout l'arbre suivi : chaque directive Stryker disable cite un mutant équivalent déclaré (champ
 #    « id » d'un stryker.equivalents.json suivi).
