@@ -42,7 +42,12 @@ chaque oracle et celle de chaque fichier non suivi. En fin de tâche (`verify`, 
   que si son contenu diffère de celui qu'il avait à l'instantané (fichier au commit `head`, ou
   fichier non suivi relevé). La politique a pu s'élargir entre-temps (les hooks tournent depuis le
   checkout principal, mis à jour par une fusion) : un fichier devenu oracle mais inchangé n'est pas
-  une violation (BF-10, `tests/snapshot-policy-widening.test.mjs`).
+  une violation (BF-10, `tests/snapshot-policy-widening.test.mjs`) ;
+- l'instantané d'une racine disparue, ou d'un dossier qui n'est plus ce dépôt (plus de `.git`, ou
+  `git rev-parse --show-toplevel` différent) et que git ne liste plus parmi les worktrees du
+  projet, est ignoré et supprimé : worktree retiré dont un outil a recréé des fichiers (serveur
+  `nuxt dev` orphelin). Si le worktree reste enregistré (`.git` retiré à la main), une seule
+  violation est signalée, pas une par oracle (BF-11, `tests/snapshot-retired-root.test.mjs`).
 
 ## Exception contrôlée (correcteur, qa, qa-front, lead-architecte, dev-devops)
 

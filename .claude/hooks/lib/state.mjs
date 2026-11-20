@@ -224,6 +224,43 @@ export function dropSnapshots(root, key) {
   rmSync(join(root, 'snapshots', safeKey(key)), { recursive: true, force: true });
 }
 
+/** Supprime l'instantané d'un seul dépôt pour une clé. */
+export function dropSnapshot(root, key, top) {
+  rmSync(snapshotPath(root, key, top), { force: true });
+}
+
+/**
+ * Worktrees enregistrés du dépôt du projet (`root` = `<projet>/.claude/hooks/state`). Sortie
+ * `--porcelain` sans `-z` : l'option n'existe qu'à partir de git 2.36.
+ */
+function registeredWorktrees(root) {
+  try {
+    return git(resolve(root, '..', '..', '..'), ['worktree', 'list', '--porcelain'])
+      .split('\n')
+      .filter((line) => line.startsWith('worktree '))
+      .map((line) => normalize(line.slice('worktree '.length)));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * État de la racine d'un instantané (BF-11) :
+ * - 'ok'      : la racine est toujours le dépôt de l'instantané ;
+ * - 'absent'  : le dossier a disparu ;
+ * - 'retired' : le dossier existe mais n'est plus ce dépôt (plus de `.git`, ou
+ *   `git rev-parse --show-toplevel` différent) et git ne le connaît plus comme worktree : worktree
+ *   retiré dont un outil a recréé des fichiers (serveur `nuxt dev` orphelin…) ;
+ * - 'broken'  : même symptôme alors que le worktree est toujours enregistré (`.git` retiré à la
+ *   main) : signalé, car ce n'est pas un retrait.
+ */
+export function snapshotRootStatus(root, snapshot) {
+  const { top } = snapshot;
+  if (!existsSync(top)) return 'absent';
+  if (existsSync(join(top, '.git')) && toplevelOf(top) === top) return 'ok';
+  return registeredWorktrees(root).includes(top) ? 'broken' : 'retired';
+}
+
 // ---------------------------------------------------------------------------------------------
 // Autorisations nominatives (créées par authorize.mjs depuis la session principale)
 
@@ -351,7 +388,18 @@ export function committedWithJustification(top, base, rel) {
 export function verifySnapshot(root, snapshot, { role, key }) {
   const { top, head, oracles, untracked } = snapshot;
   const violations = [];
-  if (!existsSync(top)) return violations;
+  const status = snapshotRootStatus(root, snapshot);
+  if (status === 'absent' || status === 'retired') return violations;
+  if (status === 'broken') {
+    return [
+      {
+        rel: '.git',
+        problem:
+          "la racine de l'instantané n'est plus un dépôt git alors que le worktree reste enregistré " +
+          '(retirer le worktree par git worktree remove, ou restaurer son .git)',
+      },
+    ];
+  }
 
   const allowed = (rel, scope) =>
     usedAuthorization(root, { role, key, scope, rel }) !== null ||
