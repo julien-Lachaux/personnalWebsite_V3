@@ -32,6 +32,8 @@ fusion `--no-ff` dans `develop` par la session front.
 | D15 | `/fr` | Redirige vers `/` (F3). |
 | D16 | Défauts du script d'intégrité (noms accentués, motif `includes`) | Brief à la session back (`docs/briefs/back-002-integrite.md`). |
 | D17 | Puces de techno sur mobile et tablette | 28 px de haut comme la maquette (WCAG 2.2 AA demande 24 px) au lieu de 44 px. |
+| D19 | Sélecteur de langue | Affiche la langue courante (« FR » sur la page française), comme la maquette ; le nom accessible annonce l'action (« Passer en anglais », `lang`/`hreflang` de la cible). |
+| D20 | Prénom dans le contenu et les fixtures | Normal : c'est le CV de Julien ; seuls e-mail, téléphone et données de contact restent interdits dans le dépôt. |
 | D18 | Nom accessible des fenêtres | Nom explicite (« Me contacter »…), le nom de fichier (`contact.sh`) reste le titre visible (F3). |
 
 ## Structure d'`apps/web`
