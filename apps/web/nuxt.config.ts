@@ -2,6 +2,8 @@
 // pages FR (sans préfixe) et EN (`/en/...`) ; aucun serveur Node du front en production.
 // Fichier partagé : réservé au lead-architecte (règle « modules isolés » du front, CLAUDE.md).
 
+import { themeScript } from './app/domain/theme-script';
+
 // Libellés d'interface : un fichier commun et un fichier par section et par langue
 // (i18n/locales/<langue>/<fichier>.json), pour que deux agents de section en parallèle n'écrivent
 // jamais le même fichier (décision du 20 nov. 2026). Chaque fichier de section ne contient que
@@ -43,6 +45,10 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      // Script de thème sans flash (D5) : en tête, avant les feuilles de style et tout module, il pose
+      // les attributs de <html> (thème, réglages d'accessibilité) depuis le réglage enregistré et le
+      // système, avant le premier affichage. Texte et empreinte CSP : app/domain/theme-script.ts.
+      script: [{ key: 'theme', innerHTML: themeScript(), tagPriority: 'critical' }],
       // Seule la police du texte courant (Space Grotesk, sous-ensemble latin) est préchargée ; même
       // URL que son @font-face (fonts.css), `crossorigin` exigé pour une police. JetBrains Mono et
       // Atkinson Hyperlegible ne se téléchargent qu'à l'usage (F1-02).

@@ -5,27 +5,18 @@
 // démontage. Rien n'est lu ni écrit avant le montage : aucun accès au DOM pendant le rendu serveur.
 import { onBeforeUnmount, onMounted, watch } from 'vue';
 
-import type { Preferences, SystemPreferences } from '../../domain/preferences.js';
+import type { SystemPreferences } from '../../domain/preferences.js';
+import {
+  DARK_QUERY,
+  REDUCED_MOTION_QUERY,
+  rootAttributes,
+  type RootAttributes,
+} from '../../domain/root-attributes.js';
 import { usePreferences } from './usePreferences.js';
 
-export const DARK_QUERY = '(prefers-color-scheme: dark)';
-export const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
-
-/** Valeur de chaque attribut de `<html>` ; `null` : attribut retiré. */
-export type RootAttributes = Record<string, string | null>;
-
-/** Interface préférences → CSS (tête de tokens.css) : les seuls attributs que la CSS lit. */
-export function rootAttributes(preferences: Preferences): RootAttributes {
-  return {
-    'data-theme': preferences.theme,
-    'data-contrast': preferences.highContrast ? 'renforce' : null,
-    'data-text-size': String(preferences.textSize),
-    'data-font': preferences.readableFont ? 'lisible' : null,
-    'data-spacing': preferences.textSpacing ? 'augmente' : null,
-    'data-links': preferences.underlineLinks ? 'soulignes' : null,
-    'data-motion': preferences.reduceMotion ? 'reduit' : 'normal',
-  };
-}
+// La table des attributs vit dans `domain/root-attributes.ts`, partagée avec le script de thème
+// sans flash (D5, `domain/theme-script.ts`) ; réexportée ici pour les appelants existants.
+export { DARK_QUERY, REDUCED_MOTION_QUERY, rootAttributes, type RootAttributes };
 
 /** Pose (ou retire) les attributs sur l'élément. */
 export function applyRootAttributes(root: Element, attributes: RootAttributes): void {
