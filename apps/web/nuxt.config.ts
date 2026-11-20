@@ -92,9 +92,18 @@ export default defineNuxtConfig({
     baseUrl: 'http://localhost:3001',
   },
 
+  // D15 : la langue par défaut n'a pas de préfixe ; `/fr` et `/fr/...` renvoient vers la même page
+  // sans préfixe. En génération statique, Nitro écrit pour chaque route redirigée prérendue une page
+  // de redirection (`<meta http-equiv="refresh">`) ; le proxy de production double la règle par une
+  // vraie redirection HTTP (F9, Caddy).
+  routeRules: {
+    '/fr': { redirect: { to: '/', statusCode: 301 } },
+    '/fr/**': { redirect: { to: '/**', statusCode: 301 } },
+  },
+
   nitro: {
     prerender: {
-      routes: ['/', '/en'],
+      routes: ['/', '/en', '/fr'],
       crawlLinks: true,
       failOnError: true,
     },
