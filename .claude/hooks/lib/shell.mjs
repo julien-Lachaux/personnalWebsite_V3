@@ -2081,6 +2081,22 @@ function analyzeGit(args, env, seg, { assignments, dashed = false, aliasDepth = 
     case 'replace':
       deny("la réécriture de l'historique est réservée à Julien");
       break;
+    case 'worktree': {
+      const op = rest.find((a) => !a.startsWith('-'));
+      if (op !== undefined && op.includes(UNKNOWN)) {
+        deny(`git worktree ${shown(op)} : sous-commande illisible, donc refusée`);
+        break;
+      }
+      // L14-13 : un agent ne gère pas les worktrees, l'orchestrateur les lui fournit ; prune et
+      // remove --force feraient disparaître sans violation l'instantané d'un worktree (BF-11).
+      if (role !== 'main' && ['remove', 'prune', 'move'].includes(op)) {
+        deny(
+          `git worktree ${op} est réservé à la session principale : un agent ne retire, ne ` +
+            'déplace ni n’élague un worktree, l’orchestrateur les fournit et les retire',
+        );
+      }
+      break;
+    }
     case 'stash':
       if (rest.length === 0)
         deny('git stash nu est interdit (CLAUDE.md) : git stash push -u -m <étiquette>');
