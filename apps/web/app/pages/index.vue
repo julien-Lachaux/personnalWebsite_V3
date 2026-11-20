@@ -19,3 +19,23 @@ useHead(() => ({ title: t('home.title') }));
     </p>
   </main>
 </template>
+
+<style scoped>
+/* Mise en page provisoire : fond, police, couleurs et focus viennent des styles globaux (F1). */
+main {
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding: 3rem var(--mobile-gutter);
+}
+
+h1 {
+  margin-block: 0 1rem;
+  font-size: var(--font-size-h1-portable);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.1;
+}
+
+p {
+  font-size: var(--font-size-lead-mobile);
+}
+</style>
