@@ -210,7 +210,10 @@ apps/web/
   mutant survivant non justifié sur le code atteignable par les unitaires, et le seuil
   `thresholds.break` de chaque paquet est relevé au score obtenu, jamais abaissé. Les équivalents
   sont déclarés nominativement dans `stryker.equivalents.json` sous autorisation et
-  Justification-test (une directive `Stryker disable` cite leur identifiant), et les seules
+  Justification-test (une directive `Stryker disable` cite leur identifiant : les hooks refusent dès
+  l'écriture une directive qui n'en cite pas un déclaré ; le commit qui l'ajoute porte lui-même
+  Justification-test et l'équivalent cité désigne la ligne et le mutateur de la directive, lot 14,
+  vérifié par `scripts/ci/check-tests-integrity.sh`), et les seules
   exclusions sont les deux motifs de `apps/api/stryker.config.mjs` (métadonnées déclaratives du
   schéma Drizzle, contexte des messages de journal).
 - `@siteperso/contracts` est consommé via son `dist/` : Turborepo le compile avant `lint`,
@@ -293,7 +296,10 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   revue-securite, revue-a11y, triage, correcteur). L'orchestrateur est la session principale (rôle `main` des hooks) ; il fournit à
   chaque appel branche, worktree, isolation Docker, tickets et date, fusionne les lots dans
   `develop` et est le seul à pousser, uniquement `develop` vers `origin`. Tableau et flux :
-  `docs/03-organisation-agents.md`.
+  `docs/03-organisation-agents.md`. Chaque fichier d'agent se termine par la même section « Git et
+  garde-fous » (lot 14) : règles et conduite face à un refus, jamais le fonctionnement des
+  détections (fichiers destinés à devenir publics) ; `.claude/hooks/tests/agents-git-section.test.mjs`
+  vérifie qu'elle est identique dans les quatorze fichiers et que ses refus sont effectifs.
 - Un test se protège, il ne se négocie pas. Interdits à tout agent : modifier ou supprimer un test
   existant, ajouter un marqueur de saut ou de focus de Vitest ou de Playwright (dont `test.fixme`
   et `test.slow`) ou un commentaire d'ignore de couverture, désactiver une règle axe, régénérer une
@@ -342,6 +348,16 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   `~/.gitconfig`) et, avec `gh`, tout ce qui fusionne, étiquette, publie ou supprime (`gh pr merge`,
   `gh release create|delete|edit|upload`, `gh repo delete|edit|rename`, `gh api` hors GET). Les
   lectures (`git config --get`, `git remote -v`, `gh pr view`, `gh run list`…) restent permises.
+- Branche locale `main` (lot 14, décision de Julien du 19 nov. 2026) : aucune session, principale
+  comprise, ne l'écrit (merge, pull, rebase, cherry-pick, revert, am, reset qui déplace la branche
+  quand elle est la branche courante ; `branch`, `checkout -b|-B`, `switch -c|-C`,
+  `worktree add -b|-B`, `update-ref`, `fetch` qui créent, déplacent, renomment ou suppriment
+  `main`). Restent permis : `git tag` en local (son push est refusé) et le déplacement local de
+  `develop` (`branch -f`, `update-ref`, `checkout -B`). Une branche courante illisible (dossier
+  calculé, `checkout -`) fait refuser l'écriture. `git commit` sur `main` n'est pas encore refusé
+  (point ouvert du lot 14).
+- Worktrees (lot 14) : `git worktree remove` (forcé ou non), `move` et `prune` sont refusés aux
+  agents ; l'orchestrateur fournit et retire les worktrees.
 - Commits atomiques, un par micro-tâche, Conventional Commits en français :
   `feat(api): …`, `feat(contracts): …`, `feat(db): …`, `test(api): …`, `chore: …`, `docs: …`.
   Chaque message se termine par une ligne vide puis

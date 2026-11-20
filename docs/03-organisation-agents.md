@@ -67,6 +67,12 @@ millions de tokens au total ; le lot 3 et le lot 6 sont les plus coûteux.
   de version, le push de `main` et le lancement du déploiement, qui se fait depuis `main` et
   jamais depuis `develop`. Aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse
   d'étiquette, ne supprime de branche distante, ne force un push.
+- Branche locale `main` (décision de Julien du 19 novembre 2026, hooks du lot 14) : aucune session,
+  la principale comprise, ne l'écrit (fusion, rebase, réinitialisation, création ou déplacement) ;
+  une écriture locale partirait dans le prochain push de Julien. Restent permis l'étiquette locale
+  et le déplacement local de `develop`.
+- Worktrees (lot 14) : l'orchestrateur les crée et les retire ; les agents ne retirent, ne
+  déplacent ni n'élaguent un worktree (`git worktree remove`, `move`, `prune` refusés).
 - Le lot 0 crée des modules NestJS vides déjà enregistrés pour chaque ressource : les deux agents
   API du lot 3 ne touchent ensuite que leurs propres fichiers.
 - Depuis le lot 8 : l'orchestrateur lance les agents de `.claude/agents/` par leur nom, dans le
@@ -81,6 +87,8 @@ Chaque rôle est un fichier `.claude/agents/<nom>.md` au format natif de Claude 
 session principale (pas de fichier) : il choisit l'agent par sa description et lui fournit à
 l'appel branche, worktree, isolation Docker, tickets, date et, si besoin, une autorisation
 nominative des garde-fous. Aucun agent n'a l'outil `Agent` : aucun ne lance de sous-agent.
+Chaque fichier d'agent se termine par la même section « Git et garde-fous » (lot 14) : ce que
+l'agent fait, ce qui lui est refusé et la conduite face à un refus.
 
 | Agent | Mission | Écrit | Modèle, effort |
 |---|---|---|---|
