@@ -1,2 +1,5 @@
-# Lint, typecheck et tests unitaires avant chaque commit (les e2e sont dans `pnpm check` et en CI).
+# Avant chaque commit (husky lance ce fichier par `sh -e` : la première commande en échec arrête) :
+# 1. formatage Prettier des seuls fichiers indexés, contenu de l'index (L14-09, quelques secondes) ;
+# 2. lint, typecheck et tests unitaires (les e2e sont dans `pnpm check` et en CI).
+pnpm format:staged
 pnpm turbo run lint typecheck test

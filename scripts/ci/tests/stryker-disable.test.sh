@@ -61,9 +61,10 @@ commit 'refactor: commentaire'
 expect 1 'directive ajoutée sans Justification-test' 'ajoutée sans Justification-test : apps/api/src/app.ts'
 
 new_repo declaree
-printf '%s\n' "$EQUIVALENTS" >apps/api/stryker.equivalents.json
+# L14-02 : l'équivalent déclare son mutateur, la justification cite son identifiant.
+printf '%s\n' '{ "equivalents": [{ "id": "API-EQ-01", "file": "src/app.ts", "line": 2, "mutator": "StringLiteral" }] }' >apps/api/stryker.equivalents.json
 printf "%s: API-EQ-01 raison\nexport const mode = 'false';\n" "$DIRECTIVE" >apps/api/src/app.ts
-commit "$JUSTIFIED"
+commit "$(printf 'chore(mutation): équivalent\n\nJustification-test: MUT-9 API-EQ-01 mutant équivalent vérifié')"
 expect 0 'directive justifiée qui cite un équivalent déclaré'
 
 new_repo sans-identifiant
