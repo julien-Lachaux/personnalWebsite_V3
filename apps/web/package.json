@@ -17,7 +17,7 @@
     "typecheck": "vue-tsc -b --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "nuxt generate && playwright test",
+    "test:e2e": "NUXT_CV_SOURCE=fixtures NUXT_PUBLIC_CONTACT_EMAIL=contact@example.org nuxt generate && playwright test",
     "test:mutation": "stryker run"
   },
   "dependencies": {

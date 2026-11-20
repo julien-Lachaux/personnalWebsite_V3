@@ -58,9 +58,15 @@ export default defineNuxtConfig({
     },
   },
 
-  // Valeurs publiques lues au moment de `nuxt generate` (variables NUXT_PUBLIC_*), jamais commitées :
-  // modèle dans apps/web/.env.example. Aucune vraie adresse dans le dépôt.
+  // Valeurs lues au moment de `nuxt generate`, jamais commitées : modèle dans apps/web/.env.example.
+  // - privées (absentes de la charge utile envoyée au navigateur) : source du CV (`NUXT_CV_SOURCE`,
+  //   `api` par défaut ou `fixtures`) et URL de base de l'API (`NUXT_API_BASE_URL`, sans `/api/v1`),
+  //   lues par `app/composables/use-cv.ts` (docs/04, F4-04) ;
+  // - publiques (`NUXT_PUBLIC_*`) : adresse du bouton « Lancer l'entretien » (aucune vraie adresse
+  //   dans le dépôt ; vide ou invalide, la génération échoue).
   runtimeConfig: {
+    cvSource: '',
+    apiBaseUrl: '',
     public: {
       contactEmail: '',
     },
