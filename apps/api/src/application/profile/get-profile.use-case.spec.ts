@@ -12,10 +12,16 @@ const profile: Profile = {
   location: 'Melun, Île-de-France',
   picturePath: '/images/profile/portrait.jpg',
   pictureAlt: 'Portrait',
-  title: 'Développeur full-stack TypeScript senior',
-  headline: 'Accroche',
-  bio: 'Présentation',
-  availability: 'Disponible pour des missions',
+  title: 'Développeur full-stack',
+  titleBadge: 'senior',
+  taglines: ['Accroche'],
+  intro: 'Introduction',
+  mission: 'Mission',
+  currentActivity: 'Activité du moment',
+  seekingFormat: 'Temps partiel',
+  seekingLocation: 'Paris',
+  seekingAvailability: 'Immédiate',
+  cvPath: '/cv/cv-fr.pdf',
 };
 
 describe('GetProfileUseCase', () => {

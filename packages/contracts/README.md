@@ -12,9 +12,9 @@ Schémas Zod partagés (API, front) et génération du contrat OpenAPI 3.2.0 de 
   helper `nullable`.
 - `src/<ressource>/` : un dossier par ressource de docs/01 (`profile`, `social-links`, `skills`,
   `skill-groups`, `experiences`, `projects`, `tools`, `resources`, `certifications`, `education`,
-  `languages`), plus `cv` (agrégat de `GET /cv`) et `health`. Chaque fichier exporte
+  `languages`, `recommendations`, `ai-overview`), plus `cv` (agrégat de `GET /cv`) et `health`. Chaque fichier exporte
   `XxxSchema` et le type `Xxx` (`z.infer`).
-- `src/openapi/document.ts` : assemblage du document OpenAPI (`createOpenApiDocument()`) : 13 chemins
+- `src/openapi/document.ts` : assemblage du document OpenAPI (`createOpenApiDocument()`) : 15 chemins
   relatifs à `/api/v1`, paramètre `lang`, réponses 200/400/404/429/500 (503 pour `/health`).
 - `scripts/export-openapi.ts` : écrit `dist/openapi.json` (déterministe : exécuté par `pnpm build`).
 - `*.fixtures.ts` : exemples de test, exclus du build.

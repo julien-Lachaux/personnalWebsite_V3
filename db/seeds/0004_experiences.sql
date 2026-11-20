@@ -305,48 +305,60 @@ from experiences p
 where p.slug = 'openclassrooms-mentor'
 on conflict (experience_id, locale) do update set job_title = excluded.job_title, location = excluded.location, summary = excluded.summary, achievements = excluded.achievements, logo_alt = excluded.logo_alt, stack_label = excluded.stack_label;
 
--- Compétences liées à chaque expérience (stack), dans l'ordre de la stack du CV.
-insert into experience_skills (experience_id, skill_id, sort_order)
-select e.id, s.id, v.sort_order
+-- Compétences liées à chaque expérience, dans l'ordre de la stack du CV (shown_in_stack = true : puces
+-- de la stack), puis les liens supplémentaires issus des mots-clés de recherche (shown_in_stack = false :
+-- pris en compte par le filtre du front, non affichés ; BF-2).
+insert into experience_skills (experience_id, skill_id, sort_order, shown_in_stack)
+select e.id, s.id, v.sort_order, v.shown_in_stack
 from (values
-  ('nopillo', 'typescript', 1),
-  ('nopillo', 'elysia', 2),
-  ('nopillo', 'solidjs', 3),
-  ('nopillo', 'mastra', 4),
-  ('nopillo', 'posthog', 5),
-  ('nopillo', 'docker', 6),
-  ('contentsquare', 'typescript', 1),
-  ('contentsquare', 'nestjs', 2),
-  ('contentsquare', 'vuejs', 3),
-  ('contentsquare', 'postgresql', 4),
-  ('contentsquare', 'kafka', 5),
-  ('contentsquare', 'redis', 6),
-  ('contentsquare', 'docker', 7),
-  ('wynd-integration', 'php', 1),
-  ('wynd-integration', 'symfony', 2),
-  ('wynd-integration', 'streamsets', 3),
-  ('wynd-integration', 'rabbitmq', 4),
-  ('wynd-integration', 'mysql', 5),
-  ('wynd-integration', 'magento', 6),
-  ('wynd-integration', 'docker', 7),
-  ('wynd-etl', 'streamsets', 1),
-  ('wynd-etl', 'kafka', 2),
-  ('wynd-etl', 'rabbitmq', 3),
-  ('wynd-etl', 'mysql', 4),
-  ('wynd-etl', 'docker', 5),
-  ('leboncoin', 'php', 1),
-  ('leboncoin', 'javascript', 2),
-  ('afluens', 'php', 1),
-  ('afluens', 'javascript', 2),
-  ('afluens', 'nodejs', 3),
-  ('afluens', 'mongodb', 4),
-  ('afluens', 'html5', 5),
-  ('afluens', 'css', 6),
-  ('openclassrooms-mentor', 'php', 1),
-  ('openclassrooms-mentor', 'javascript', 2),
-  ('openclassrooms-mentor', 'html5', 3),
-  ('openclassrooms-mentor', 'css', 4)
-) as v (experience_slug, skill_slug, sort_order)
+  ('nopillo', 'typescript', 1, true),
+  ('nopillo', 'elysia', 2, true),
+  ('nopillo', 'solidjs', 3, true),
+  ('nopillo', 'mastra', 4, true),
+  ('nopillo', 'posthog', 5, true),
+  ('nopillo', 'docker', 6, true),
+  ('nopillo', 'ocr', 7, false),
+  ('nopillo', 'agentic-development', 8, false),
+  ('contentsquare', 'typescript', 1, true),
+  ('contentsquare', 'nestjs', 2, true),
+  ('contentsquare', 'vuejs', 3, true),
+  ('contentsquare', 'postgresql', 4, true),
+  ('contentsquare', 'kafka', 5, true),
+  ('contentsquare', 'redis', 6, true),
+  ('contentsquare', 'docker', 7, true),
+  ('contentsquare', 'google-analytics', 8, false),
+  ('contentsquare', 'adobe-analytics', 9, false),
+  ('contentsquare', 'production-operations', 10, false),
+  ('wynd-integration', 'php', 1, true),
+  ('wynd-integration', 'symfony', 2, true),
+  ('wynd-integration', 'streamsets', 3, true),
+  ('wynd-integration', 'rabbitmq', 4, true),
+  ('wynd-integration', 'mysql', 5, true),
+  ('wynd-integration', 'magento', 6, true),
+  ('wynd-integration', 'docker', 7, true),
+  ('wynd-integration', 'rest-api', 8, false),
+  ('wynd-integration', 'production-operations', 9, false),
+  ('wynd-etl', 'streamsets', 1, true),
+  ('wynd-etl', 'kafka', 2, true),
+  ('wynd-etl', 'rabbitmq', 3, true),
+  ('wynd-etl', 'mysql', 4, true),
+  ('wynd-etl', 'docker', 5, true),
+  ('leboncoin', 'php', 1, true),
+  ('leboncoin', 'javascript', 2, true),
+  ('afluens', 'php', 1, true),
+  ('afluens', 'javascript', 2, true),
+  ('afluens', 'nodejs', 3, true),
+  ('afluens', 'mongodb', 4, true),
+  ('afluens', 'html5', 5, true),
+  ('afluens', 'css', 6, true),
+  ('afluens', 'rest-api', 7, false),
+  ('openclassrooms-mentor', 'php', 1, true),
+  ('openclassrooms-mentor', 'javascript', 2, true),
+  ('openclassrooms-mentor', 'html5', 3, true),
+  ('openclassrooms-mentor', 'css', 4, true)
+) as v (experience_slug, skill_slug, sort_order, shown_in_stack)
 left join experiences e on e.slug = v.experience_slug -- left join : un slug inconnu viole not null au lieu d'être ignoré
 left join skills s on s.slug = v.skill_slug
-on conflict (experience_id, skill_id) do update set sort_order = excluded.sort_order;
+on conflict (experience_id, skill_id) do update set
+  sort_order = excluded.sort_order,
+  shown_in_stack = excluded.shown_in_stack;

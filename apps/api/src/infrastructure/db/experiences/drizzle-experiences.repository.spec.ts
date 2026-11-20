@@ -23,9 +23,9 @@ function clientDouble(withExperiences: boolean) {
       if (query.includes('from "skills"')) {
         return Promise.resolve({
           rows: [
-            ['typescript', 'TypeScript', 3, 'typescript', null, 'langages', 2],
-            ['docker', 'Docker', 3, 'docker', null, 'devops', 2],
-            ['php', 'PHP', 3, 'php', null, 'langages', 1],
+            ['typescript', 'TypeScript', 3, 'typescript', null, 'langages', 1, 2, true],
+            ['docker', 'Docker', 3, 'docker', null, 'devops', null, 2, true],
+            ['php', 'PHP', 3, 'php', null, 'langages', null, 1, true],
           ],
         });
       }

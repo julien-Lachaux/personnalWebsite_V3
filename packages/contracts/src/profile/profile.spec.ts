@@ -7,10 +7,16 @@ const valid = {
   lastName: 'Nom',
   location: 'Melun, Île-de-France',
   picture: { path: '/images/profile.webp', alt: 'Portrait de profil' },
-  title: 'Développeur full-stack TypeScript senior',
-  headline: 'Accroche',
-  bio: 'Présentation.',
-  availability: 'Disponible pour des missions',
+  title: 'Développeur full-stack',
+  titleBadge: 'senior',
+  taglines: ['Accroche'],
+  intro: 'Introduction.',
+  mission: 'Mission.',
+  currentActivity: 'Activité du moment.',
+  seekingFormat: 'Temps partiel',
+  seekingLocation: 'Paris',
+  seekingAvailability: 'Immédiate',
+  cvPath: '/cv/cv-fr.pdf',
 };
 
 describe('ProfileSchema', () => {

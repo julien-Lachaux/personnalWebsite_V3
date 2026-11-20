@@ -29,6 +29,8 @@ const employment: Experience = {
       icon: 'typescript',
       iconPath: null,
       groupSlug: 'langages',
+      mainStackOrder: 1,
+      shownInStack: true,
     },
   ],
 };

@@ -9,6 +9,7 @@ const valid = {
   icon: 'typescript',
   iconPath: null,
   groupSlug: 'langages',
+  mainStackOrder: null,
 };
 
 describe('SkillSchema', () => {

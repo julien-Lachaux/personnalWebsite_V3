@@ -10,4 +10,6 @@ export interface Skill {
   readonly iconPath: string | null;
   /** Slug du groupe de compétences parent. */
   readonly groupSlug: string;
+  /** Rang dans la stack principale (1 = premier) ; `null` hors de la stack principale. */
+  readonly mainStackOrder: number | null;
 }

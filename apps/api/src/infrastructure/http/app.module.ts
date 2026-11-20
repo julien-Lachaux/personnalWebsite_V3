@@ -13,6 +13,8 @@ import { ResourcesModule } from './resources/resources.module.js';
 import { CertificationsModule } from './certifications/certifications.module.js';
 import { EducationModule } from './education/education.module.js';
 import { LanguagesModule } from './languages/languages.module.js';
+import { RecommendationsModule } from './recommendations/recommendations.module.js';
+import { AiOverviewModule } from './ai-overview/ai-overview.module.js';
 import { CvModule } from './cv/cv.module.js';
 import { DocsModule } from './docs/docs.module.js';
 import { HealthModule } from './health/health.module.js';
@@ -30,6 +32,8 @@ const RESOURCE_MODULES = [
   CertificationsModule,
   EducationModule,
   LanguagesModule,
+  RecommendationsModule,
+  AiOverviewModule,
   CvModule,
 ];
 

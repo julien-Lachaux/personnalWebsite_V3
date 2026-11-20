@@ -9,6 +9,26 @@ import { SkillSchema } from '../skills/skills.js';
 import { HttpUrlSchema } from '../common/url.js';
 
 /**
+ * Compétence liée à une expérience (`experience_skills`) : la compétence entière, plus son affichage.
+ * Les compétences cachées (`shownInStack = false`) ne sont pas des puces de la pile : ce sont des
+ * mots-clés que le front utilise pour son filtre par techno.
+ */
+export const ExperienceSkillSchema = z
+  .strictObject({
+    ...SkillSchema.shape,
+    shownInStack: z.boolean().meta({
+      description:
+        "`true` : puce affichée dans la pile de l'expérience ; `false` : mot-clé caché, servi pour le filtre.",
+    }),
+  })
+  .meta({
+    id: 'ExperienceSkill',
+    description: 'Compétence liée à une expérience, avec son affichage dans la pile.',
+  });
+
+export type ExperienceSkill = z.infer<typeof ExperienceSkillSchema>;
+
+/**
  * Expérience professionnelle (ou pause, mentorat). Triée par `dateStart` décroissant par défaut.
  * Les champs `null` sont toujours présents dans la réponse, jamais omis.
  */
@@ -44,7 +64,10 @@ export const ExperienceSchema = z
       description:
         'Libellé affiché devant la pile technique (ex. « Huile de coude » pour la pause).',
     }),
-    skills: z.array(SkillSchema).meta({ description: 'Compétences mobilisées, par ordre de tri.' }),
+    skills: z.array(ExperienceSkillSchema).meta({
+      description:
+        'Compétences liées, par ordre de tri : puces de la pile (`shownInStack`) et mots-clés cachés.',
+    }),
   })
   .meta({ id: 'Experience', description: 'Expérience professionnelle.' });
 

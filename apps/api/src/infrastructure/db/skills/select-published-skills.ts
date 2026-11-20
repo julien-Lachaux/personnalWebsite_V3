@@ -29,6 +29,7 @@ export function selectPublishedSkills<TExtra extends SelectedFields>(
       icon: skills.icon,
       iconPath: skills.iconPath,
       groupSlug: skillGroups.slug,
+      mainStackOrder: skills.mainStackOrder,
       ...extra,
     })
     .from(skills)

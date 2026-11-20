@@ -26,6 +26,15 @@ export const SkillSchema = z
     }),
     // Slug du groupe de compétences parent.
     groupSlug: SlugSchema,
+    mainStackOrder: z
+      .int()
+      .min(1)
+      .nullable()
+      .meta({
+        description:
+          'Rang dans la stack principale (1 = premier, unique) ; `null` hors de la stack principale.',
+        examples: [1],
+      }),
   })
   .meta({ id: 'Skill', description: 'Compétence technique.' });
 

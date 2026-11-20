@@ -8,6 +8,7 @@ export const skillExample = {
   icon: 'typescript',
   iconPath: null,
   groupSlug: 'langages',
+  mainStackOrder: 1,
 };
 
 export const cvExample: Cv = {
@@ -17,10 +18,16 @@ export const cvExample: Cv = {
     lastName: 'Nom',
     location: 'Melun, Île-de-France',
     picture: { path: '/images/profile.webp', alt: 'Portrait de profil' },
-    title: 'Développeur full-stack TypeScript senior',
-    headline: 'Accroche',
-    bio: 'Présentation.',
-    availability: 'Disponible pour des missions',
+    title: 'Développeur full-stack',
+    titleBadge: 'senior',
+    taglines: ['Première accroche', 'Seconde accroche'],
+    intro: 'Introduction.',
+    mission: 'Mission.',
+    currentActivity: 'Activité du moment.',
+    seekingFormat: 'Temps partiel',
+    seekingLocation: 'Paris · hybride',
+    seekingAvailability: 'Immédiate',
+    cvPath: '/cv/cv-fr.pdf',
   },
   socialLinks: [
     { slug: 'github', kind: 'github', url: 'https://github.com/example', label: 'GitHub' },
@@ -49,7 +56,10 @@ export const cvExample: Cv = {
       summary: 'Résumé.',
       achievements: ['Une réalisation'],
       stackLabel: 'Huile de coude',
-      skills: [skillExample],
+      skills: [
+        { ...skillExample, shownInStack: true },
+        { ...skillExample, slug: 'ocr', name: 'OCR', mainStackOrder: null, shownInStack: false },
+      ],
     },
   ],
   projects: [
@@ -103,4 +113,23 @@ export const cvExample: Cv = {
     { slug: 'fr', code: 'fr', cefrLevel: null, name: 'Français', levelLabel: 'langue maternelle' },
     { slug: 'en', code: 'en', cefrLevel: 'C1', name: 'Anglais', levelLabel: 'professionnel' },
   ],
+  recommendations: [
+    {
+      slug: 'prenom-nom',
+      authorName: 'Prénom Nom',
+      authorRole: 'CTO',
+      relationship: 'Responsable direct',
+      recommendedOn: '2025-12-08',
+      paragraphs: ['Premier paragraphe.', 'Second paragraphe.'],
+      locale: 'fr',
+    },
+  ],
+  aiOverview: {
+    title: 'L’IA',
+    inProductLabel: 'dans le produit',
+    inProductItems: ['Premier usage', 'Second usage'],
+    dailyLabel: 'au quotidien',
+    dailyText: 'Usage quotidien.',
+    skills: [skillExample],
+  },
 };

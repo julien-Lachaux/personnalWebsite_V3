@@ -22,6 +22,7 @@ const CONTENT_TABLES = [
   'certifications',
   'education',
   'languages',
+  'recommendations',
   'social_links',
   'skills',
   'skill_groups',

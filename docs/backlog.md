@@ -1197,6 +1197,8 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   Stryker (`--incremental`, fichier d'incrément conservé entre les runs par le cache GitHub Actions) ; un
   run **complet**, seuils de rupture compris, n'a lieu que sur les **étiquettes de version** (`v*`), au
   moment de la release vers `main`. Déclencheur `tags: ['v*']` à ajouter à la CI.
+  Décidé par Julien le 20 nov. 2026 : le relèvement du `break` de l'API de 40 à 42 (scores du lot 15 de
+  42,03 à 42,89 % selon les timeouts) se tranche dans ce ticket, une fois la mesure stabilisée.
 - **L14-05** (plus tard, après la phase front) : **déploiement par étiquette**, décidé par Julien le
   19 nov. 2026. Chaque nouvelle étiquette `v*` posée par Julien déclenche un job CI qui déploie cette
   étiquette en production. Aujourd'hui les scripts de `scripts/deploy/` déploient `main` et refusent une
@@ -1213,6 +1215,22 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   88 commandes de l'orchestrateur rejouées en recette du lot 13 bis (une règle plus stricte ne doit pas
   casser le travail courant), et le rejeu des refus de push couvre tous les rôles d'agent, pas
   seulement `dev-api`.
+- **L14-08** (dev-devops, portée `config`), décidé par Julien le 20 nov. 2026 : **actionlint** valide
+  les workflows GitHub (syntaxe, expressions, déclencheurs, épinglages, scripts `run:` par shellcheck)
+  dans `pnpm check` et dans un job CI, lancé par Docker avec une image épinglée par digest (rien installé
+  sur l'hôte), en remplacement de la validation de l'extension VS Code GitHub Actions, désactivée par
+  Julien sur ce projet : elle signalait à tort « Unable to resolve action » sur des SHA pourtant
+  vérifiés (commit, étiquette et `action.yml` servis par GitHub). Un workflow invalide est alors
+  refusé avant le push.
+- **L14-09** (lead-architecte, portée `config`), décidé par Julien le 20 nov. 2026 : le **formatage** est
+  vérifié avant le push, plus seulement en CI. `pnpm format:check` entre dans `pnpm check`, et le hook
+  pre-commit vérifie Prettier sur les seuls fichiers indexés (rapide). Aujourd'hui un fichier mal
+  formaté passe en local et ne casse qu'au job « Qualité » de GitHub.
+- **L14-10** (dev-devops, portée `config`), décidé par Julien le 20 nov. 2026 : **shellcheck** analyse
+  les scripts shell du dépôt (`scripts/**/*.sh`, `.claude/hooks/run.sh`, `.husky/pre-commit`), dans
+  `pnpm check` et dans un job CI, lancé par Docker avec une image épinglée par digest, comme actionlint
+  (L14-08). Les avertissements existants sont corrigés, ou justifiés ligne par ligne par une directive
+  `# shellcheck disable=SCxxxx` commentée.
 - **Ordre** : le lot 14 touche les hooks et la CI, fichiers que `docs/05-front-organisation.md` laisse
   à la session front pendant son lot F0 ; il passe donc **après la fusion de F0**, et après le lot 15.
 
@@ -1235,6 +1253,11 @@ Décision connexe du même jour : l'**écart résiduel Caddy** (réponses `text/
 avant l'API : 400 URL mal encodée, 413 corps trop grand, 502 API injoignable) est **accepté** et reste
 consigné dans `docs/deploiement.md` ; le front le gérera de son côté (une réponse non JSON est traitée
 comme une erreur générique).
+
+Fusionné le 20 nov. 2026 (baa259d), recette acceptée. Décisions de Julien du 20 nov. 2026 sur les écarts au
+brief : `mainStackOrder` reste dans toutes les compétences servies, y compris celles imbriquées dans
+`/projects` (pas de schéma de compétence réduit) ; `cvPath` reste restreint à un chemin relatif à la racine du
+site (il est placé dans un `href` par le front).
 
 ## 8. Points ouverts et risques
 

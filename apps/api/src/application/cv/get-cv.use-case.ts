@@ -1,4 +1,5 @@
 import {
+  type AiOverview,
   type Certification,
   type Cv,
   type Education,
@@ -7,6 +8,7 @@ import {
   type Locale,
   type Profile,
   type Project,
+  type Recommendation,
   type Resource,
   type SkillGroup,
   type SocialLink,
@@ -23,7 +25,8 @@ export interface LocalizedUseCase<T> {
  * des autres ressources, sans requête ni dépôt propres. Chaque dépendance est typée par
  * l'interface `{ execute(locale) }` : les classes `GetProfileUseCase`, `ListSocialLinksUseCase`…
  * la satisfont structurellement. Ordre du constructeur = ordre des clés de `CvSchema` (`locale` exclue).
- * Les compétences ne sont pas répétées à plat : elles sont imbriquées dans `skillGroups`.
+ * Les compétences ne sont pas répétées à plat : elles sont imbriquées dans `skillGroups`. La section
+ * IA vient de `FindAiOverviewUseCase` : absente, elle vaut `null` sans faire échouer le CV.
  */
 export class GetCvUseCase {
   constructor(
@@ -37,10 +40,12 @@ export class GetCvUseCase {
     private readonly listCertifications: LocalizedUseCase<Certification[]>,
     private readonly listEducation: LocalizedUseCase<Education[]>,
     private readonly listLanguages: LocalizedUseCase<Language[]>,
+    private readonly listRecommendations: LocalizedUseCase<Recommendation[]>,
+    private readonly findAiOverview: LocalizedUseCase<AiOverview | null>,
   ) {}
 
   /**
-   * Exécute les 10 cas d'usage en parallèle. Une seule erreur fait échouer l'ensemble : jamais de
+   * Exécute les 12 cas d'usage en parallèle. Une seule erreur fait échouer l'ensemble : jamais de
    * réponse partielle. La validation stricte par `CvSchema` est faite une fois, par le controller.
    */
   async execute(locale: Locale): Promise<Cv> {
@@ -55,6 +60,8 @@ export class GetCvUseCase {
       certifications,
       education,
       languages,
+      recommendations,
+      aiOverview,
     ] = await Promise.all([
       this.getProfile.execute(locale),
       this.listSocialLinks.execute(locale),
@@ -66,6 +73,8 @@ export class GetCvUseCase {
       this.listCertifications.execute(locale),
       this.listEducation.execute(locale),
       this.listLanguages.execute(locale),
+      this.listRecommendations.execute(locale),
+      this.findAiOverview.execute(locale),
     ]);
 
     return {
@@ -80,6 +89,8 @@ export class GetCvUseCase {
       certifications,
       education,
       languages,
+      recommendations,
+      aiOverview,
     };
   }
 }

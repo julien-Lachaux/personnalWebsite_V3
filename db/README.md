@@ -52,8 +52,10 @@ quel langage (le portage Rust reprendra ces fichiers tels quels).
     lacunaire fait échouer le seed : la compléter (marquée « à relire ») ou retirer la ligne `en` ;
   - tout échec annule l'ensemble : aucun seed n'est appliqué à moitié.
 - Soft delete (docs/01) : chaque table d'entité (`profile`, `social_links`, `skill_groups`, `skills`,
-  `experiences`, `projects`, `tools`, `resources`, `certifications`, `education`, `languages`) porte
-  `deleted_at timestamptz null` (migration `0010_soft_delete.sql`), distinct de `published` (dépublié = gardé
+  `experiences`, `projects`, `tools`, `resources`, `certifications`, `education`, `languages`,
+  `recommendations`, `ai_overview`) porte
+  `deleted_at timestamptz null` (migration `0010_soft_delete.sql`, puis `0014` et `0015` pour les deux dernières),
+  distinct de `published` (dépublié = gardé
   mais non servi ; supprimé = marqué pour nettoyage). L'API ne sert jamais une ligne marquée ; ses
   traductions et ses liaisons restent en base et suivent leur entité. Le nettoyage physique est manuel :
   - `pnpm db:deleted:list` liste les entités marquées, par table, avec le slug et la date de marquage ;
@@ -61,6 +63,10 @@ quel langage (le portage Rust reprendra ces fichiers tels quels).
     une seule transaction) celles marquées depuis plus de N jours (0 : toutes). Sans `--confirm`, simule ;
     avec `--confirm`, supprime. En production (`NODE_ENV=production`), la suppression est refusée sans
     `ALLOW_PRODUCTION_PURGE=yes`.
+- Lignes uniques sans slug : `profile` et `ai_overview` (id = 1) s'écrivent par `on conflict (id)`. La section IA
+  n'a pas de `published` : elle est servie tant qu'elle n'est pas marquée supprimée et qu'elle a une traduction `fr`.
+- Une entité sans traduction `en` est valide (repli sur la ligne `fr` entière) : c'est le cas des recommandations,
+  dont les citations ne sont pas traduites.
 - Les seeds référencent les lignes par `slug` (sous-requêtes), jamais par id numérique.
 - Aucune donnée personnelle de contact (e-mail, téléphone) : le contact est géré par le front.
 - Traductions `fr` obligatoires, `en` fournies et marquées « à relire » dans un commentaire SQL

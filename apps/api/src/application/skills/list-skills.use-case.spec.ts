@@ -13,6 +13,7 @@ const skills: Skill[] = [
     icon: 'typescript',
     iconPath: null,
     groupSlug: 'langages',
+    mainStackOrder: 1,
   },
   {
     slug: 'kafka',
@@ -21,6 +22,7 @@ const skills: Skill[] = [
     icon: 'apachekafka',
     iconPath: '/icons/kafka.svg',
     groupSlug: 'donnees',
+    mainStackOrder: null,
   },
 ];
 
