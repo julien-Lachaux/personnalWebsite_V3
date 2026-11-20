@@ -158,6 +158,13 @@ const PROBES = {
     bash('git branch --set-upstream-to=origin/develop develop'),
     bash('git branch --set-upstream-to origin/develop'),
   ],
+  créer: [
+    bash('git branch --track lot/y develop'),
+    bash('git checkout -b lot/y --track develop'),
+    bash('git switch -c lot/y --track develop'),
+    bash('git -c branch.autoSetupMerge=always branch lot/y develop'),
+    bash('git fetch --set-upstream origin develop'),
+  ],
   utiliser: [bash('git stash')],
   contourner: [
     bash('git commit --no-verify -m x'),
