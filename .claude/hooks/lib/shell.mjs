@@ -1845,43 +1845,78 @@ function gitAlias(base, sub, globals) {
   }
 }
 
-/** Écriture git config : clés et sections touchées, ou édition libre ; null pour une lecture. */
+/** Options de git config suivies d'une valeur (mot séparé) : cette valeur n'est pas une option. */
+const CONFIG_VALUED = new Set([
+  '-f',
+  '--file',
+  '--blob',
+  '--type',
+  '-t',
+  '--default',
+  '--comment',
+  '--value',
+]);
+/** Actions de lecture de l'ancienne syntaxe (mot exact). */
+const CONFIG_READS = new Set([
+  '--get',
+  '--get-all',
+  '--get-regexp',
+  '--get-urlmatch',
+  '--get-color',
+  '--get-colorbool',
+  '-l',
+  '--list',
+]);
+/** Actions d'écriture de l'ancienne syntaxe ; git accepte un préfixe sans ambiguïté (--unset-a). */
+const CONFIG_WRITES = [
+  '--add',
+  '--replace-all',
+  '--unset',
+  '--unset-all',
+  '--rename-section',
+  '--remove-section',
+  '--edit',
+];
+
+/**
+ * Écriture git config : clés et sections touchées, ou édition libre ; null pour une lecture
+ * (L18-01). Les options sont lues à leur place : la valeur d'une option (--comment --get) n'est
+ * pas prise pour une action. Une lecture se reconnaît à son action écrite en entier (--get…,
+ * --list, sous-commandes get et list) ou à l'absence de valeur (git config <clé>) ; un mot qui
+ * peut abréger une action d'écriture (--unset-a, --un) compte comme écriture.
+ */
 function gitConfigWrite(rest) {
-  const valued = new Set([
-    '-f',
-    '--file',
-    '--blob',
-    '--type',
-    '-t',
-    '--default',
-    '--comment',
-    '--value',
-  ]);
-  const ops = operands(rest, valued);
-  const has = (...flags) => rest.some((a) => flags.includes(a));
-  if (
-    has(
-      '--get',
-      '--get-all',
-      '--get-regexp',
-      '--get-urlmatch',
-      '--get-color',
-      '--get-colorbool',
-      '-l',
-      '--list',
-    )
-  )
+  const flags = [];
+  const ops = [];
+  for (let j = 0; j < rest.length; j += 1) {
+    const a = rest[j];
+    if (a === '--') {
+      ops.push(...rest.slice(j + 1));
+      break;
+    }
+    if (CONFIG_VALUED.has(a)) j += 1;
+    else if (a.startsWith('-') && a !== '-') flags.push(a.split('=')[0]);
+    else ops.push(a);
+  }
+  const writes = (...names) =>
+    flags.some((f) =>
+      names.some((n) => f === n || (f.startsWith('--') && f.length > 2 && n.startsWith(f))),
+    );
+  const written =
+    flags.includes('-e') ||
+    flags.some((f) => f.length > 2 && CONFIG_WRITES.some((n) => n.startsWith(f)));
+  if (!written && (flags.some((f) => CONFIG_READS.has(f)) || ['get', 'list'].includes(ops[0])))
     return null;
-  if (['get', 'list'].includes(ops[0])) return null;
-  if (has('--edit', '-e') || ops[0] === 'edit')
+  if (flags.includes('-e') || writes('--edit') || ops[0] === 'edit')
     return { edit: true, keys: [], sections: [], values: [] };
   if (['set', 'unset'].includes(ops[0]))
     return { keys: [ops[1] ?? ''], values: ops.slice(2), sections: [] };
   if (['rename-section', 'remove-section'].includes(ops[0]))
     return { keys: [], values: [], sections: ops.slice(1) };
-  if (has('--rename-section', '--remove-section')) return { keys: [], values: [], sections: ops };
-  if (has('--unset', '--unset-all')) return { keys: [ops[0] ?? ''], values: [], sections: [] };
-  if (ops.length >= 2 || has('--add', '--replace-all'))
+  if (writes('--rename-section', '--remove-section'))
+    return { keys: [ops[0] ?? ''], values: [], sections: ops };
+  if (writes('--unset', '--unset-all')) return { keys: [ops[0] ?? ''], values: [], sections: [] };
+  if (ops.length >= 2 || written)
     return { keys: [ops[0] ?? ''], values: ops.slice(1), sections: [] };
   return null;
 }
@@ -2210,15 +2245,22 @@ function analyzeGit(
       break;
     }
     case 'config': {
-      if (rest.some((a) => /^core\.hookspath$/i.test(a)))
+      // L18-01 : une lecture (--get, get, --list, git config <clé>) est permise, core.hooksPath
+      // compris ; seules les écritures sont examinées.
+      const write = gitConfigWrite(rest);
+      if (write === null) break;
+      if (write.keys.some((key) => /^core\.hookspath$/i.test(key)))
         deny('changer core.hooksPath désactive le hook pre-commit');
+      if (write.sections.some((section) => /^core$/i.test(section)))
+        deny(
+          'retirer ou renommer la section core retire core.hooksPath, ce qui désactive le hook ' +
+            'pre-commit',
+        );
       if (
         rest.some((a) => /^alias\./i.test(a)) &&
         rest.some((a) => !/^alias\./i.test(a) && /\bpush\b/i.test(a))
       )
         deny('un alias qui lance git push contourne la règle de push');
-      const write = gitConfigWrite(rest);
-      if (write === null) break;
       if (write.edit) {
         deny(`git config --edit : édition libre de la configuration, qui ${DESTINATION_MOTIF}`);
         break;
