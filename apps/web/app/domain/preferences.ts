@@ -39,6 +39,15 @@ export interface PreferencesStorage {
   setItem(key: string, value: string): void;
 }
 
+/**
+ * `PreferencesStorage` avec suppression (décision D11 : « Réinitialiser » supprime le réglage
+ * enregistré). `window.localStorage` la satisfait ; `PreferencesStorage` reste le contrat minimal de
+ * lecture et d'écriture.
+ */
+export interface RemovablePreferencesStorage extends PreferencesStorage {
+  removeItem(key: string): void;
+}
+
 /** Clé unique du stockage : un seul document JSON versionné. */
 export const PREFERENCES_STORAGE_KEY = 'siteperso:preferences';
 /** Version du format stocké ; une autre version est ignorée (valeurs par défaut). */
@@ -59,6 +68,8 @@ export interface LoadResult {
 }
 /** `unavailable` : pas de stockage ; `error` : le stockage a refusé l'écriture (quota, mode privé). */
 export type SaveStatus = 'saved' | 'unavailable' | 'error';
+/** `unavailable` : pas de stockage ; `error` : le stockage a refusé la suppression. */
+export type ClearStatus = 'cleared' | 'unavailable' | 'error';
 
 /**
  * Valeurs initiales : thème et animations suivent le système, le reste est désactivé
@@ -166,7 +177,27 @@ export function savePreferences(
   return 'saved';
 }
 
-/** Réinitialisation (bouton « Réinitialiser ») : valeurs par défaut, écrites dans le stockage. */
+/**
+ * Supprime le réglage enregistré (décision D11, bouton « Réinitialiser ») : le site suit de nouveau
+ * le système tant que l'utilisateur ne choisit rien. Ne lève jamais.
+ */
+export function clearPreferences(
+  storage: RemovablePreferencesStorage | null | undefined,
+): ClearStatus {
+  if (!storage) return 'unavailable';
+  try {
+    storage.removeItem(PREFERENCES_STORAGE_KEY);
+  } catch {
+    return 'error';
+  }
+  return 'cleared';
+}
+
+/**
+ * Valeurs par défaut écrites dans le stockage. Depuis D11, le bouton « Réinitialiser » utilise
+ * `clearPreferences` (suppression) : cette fonction est conservée parce que son test existant ne se
+ * modifie pas (voir le compte rendu du lot F3b).
+ */
 export function resetPreferences(
   storage: PreferencesStorage | null | undefined,
   system: SystemPreferences,

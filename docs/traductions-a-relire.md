@@ -68,7 +68,6 @@ puis retire la ligne et le commentaire correspondants. Aucune traduction n'est d
 | 0004_experiences.sql | experiences_translations | afluens | achievements[3] | Exploitation : maintien du service, administration du serveur, gestion des incidents, support de niveau 2 | Operations: keeping the service running, server administration, incident management, level 2 support |
 | 0004_experiences.sql | experiences_translations | afluens | logo_alt | Logo de Afluens | Afluens logo |
 | 0004_experiences.sql | experiences_translations | openclassrooms-mentor | job_title | Mentor en développement web | Web development mentor |
-| 0004_experiences.sql | experiences_translations | openclassrooms-mentor | location | À distance | Remote |
 | 0004_experiences.sql | experiences_translations | openclassrooms-mentor | summary | Mentorat d'étudiants en développement web, avec cours individuels en visioconférence. | Mentoring web development students, with one-to-one video lessons. |
 | 0004_experiences.sql | experiences_translations | openclassrooms-mentor | logo_alt | Logo de OpenClassrooms | OpenClassrooms logo |
 | 0005_certifications_education_languages.sql | certifications_translations | ef-set-plus-62 | name | EF SET Plus 62, anglais C1 | EF SET Plus 62, English C1 |

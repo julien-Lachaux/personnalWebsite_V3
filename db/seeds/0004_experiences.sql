@@ -280,7 +280,7 @@ on conflict (experience_id, locale) do update set job_title = excluded.job_title
 insert into experiences_translations (experience_id, locale, job_title, location, summary, achievements, logo_alt, stack_label)
 select p.id, 'fr',
   'Mentor en développement web',
-  'À distance',
+  null,
   'Mentorat d''étudiants en développement web, avec cours individuels en visioconférence.',
   '{}'::text[],
   'Logo de OpenClassrooms',
@@ -293,8 +293,7 @@ insert into experiences_translations (experience_id, locale, job_title, location
 select p.id, 'en',
   -- EN : à relire
   'Web development mentor',
-  -- EN : à relire
-  'Remote',
+  null,
   -- EN : à relire
   'Mentoring web development students, with one-to-one video lessons.',
   '{}'::text[],
