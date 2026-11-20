@@ -1,0 +1,65 @@
+/*
+ * Styles partagés des composants de la coquille (lot F3b), chargés par `<style scoped src>` : bouton
+ * d'icône des barres du haut (accessibilité, langue, thème) et retour d'interaction (survol, appui)
+ * des boutons de navigation. Couleurs, durées et tailles par les variables de tokens.css.
+ */
+
+/* Bouton d'icône : 40 px sur le bureau (`--desktop-control`), 44 px sur mobile et tablette (SPEC § 10.2). */
+.shell-icon-button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--desktop-control);
+  height: var(--desktop-control);
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-meta);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+@media (max-width: 1023px) {
+  .shell-icon-button {
+    width: var(--touch-target);
+    height: var(--touch-target);
+  }
+}
+
+/* Retour d'interaction : le survol (souris seulement) soulève et éclaire, l'appui rétrécit. */
+.shell-press {
+  transition:
+    transform var(--dur-press) var(--ease-press),
+    filter var(--dur-press),
+    background-color var(--dur-press),
+    color var(--dur-press);
+}
+
+@media (hover: hover) {
+  .shell-press:hover {
+    transform: translateY(-1px);
+    filter: var(--hov);
+  }
+}
+
+.shell-press:active {
+  transform: scale(0.95);
+  filter: var(--hov-a);
+}
+
+/* Mouvement réduit : plus de déplacement ni de mise à l'échelle (les durées valent déjà 0,01 ms). */
+:root[data-motion='reduit'] .shell-press:hover,
+:root[data-motion='reduit'] .shell-press:active {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='normal']) .shell-press:hover,
+  :root:not([data-motion='normal']) .shell-press:active {
+    transform: none;
+  }
+}
