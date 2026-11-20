@@ -305,3 +305,245 @@ la base.
 6. **`.claude/settings.json`** hors de mon autorisation : `permissions.deny` n'a pas reçu de
    doublons pour `git worktree remove|move|prune` ni pour `main` ; l'autorité reste les hooks.
 7. **Durée** : `pnpm hooks:test` passe de 27 s à 32 s environ (146 tests de plus), après `ec8eee8`.
+
+## Compléments du 20 nov.
+
+Lead-architecte, même branche (`lot/14-hooks`, base `29ed330`), même worktree et même isolation
+Docker (`siteperso-v3-lot14h`, 5762 à 5765). Décisions de Julien du 20 nov. 2026 sur les écarts 1 et 2
+et le point ouvert 3 ci-dessus (`docs/backlog.md`, 7 sexies), ticket L14-17. Autorisation
+nominative « config » `e7aaee4a` (`.claude/hooks/**`, `scripts/ci/**`), trois tests existants
+désignés par l'orchestrateur comme seuls modifiables. Rien poussé, aucun worktree géré, aucun
+fichier de `lot/14-garde-fous-ci` (`.github/`, `package.json`, `scripts/ci/static-analysis.sh`) ni
+d'`apps/` touché.
+
+### Commits
+
+| Commit    | Ticket | Sujet |
+| --------- | ------ | ----- |
+| `aa6c61f` | L14-06 | test existant : dépôt de « accepte les commandes ordinaires » sur `develop` |
+| `d86d196` | L14-06 | commit sur `main` et équivalents refusés à toute session ; tests `main-commit.test.mjs` |
+| `51b2665` | L14-02 | test existant : `stryker-disable.test.mjs`, cas accepté avec mutateur et identifiant |
+| `9505aa8` | L14-02 | test existant : `stryker-disable.test.sh`, cas accepté avec mutateur et identifiant |
+| `d64f583` | L14-02 | mutateur obligatoire de l'équivalent cité ; tests `stryker-mutator.test.sh` |
+| `54117ed` | L14-17 | `git branch -u` et `--set-upstream-to` refusés aux agents ; tests `branch-upstream.test.mjs` |
+| `c0d4cb1` | tous   | README des garde-fous |
+| (ce CR)   |        | compte rendu |
+
+Chaque commit porte `Justification-test: L14-xx <raison>`. Les trois tests existants modifiés le
+sont chacun dans un commit dédié ; tous les autres fichiers de test sont nouveaux.
+
+### Les trois tests existants, avant et après
+
+1. `.claude/hooks/tests/guard.test.mjs`, « accepte les commandes ordinaires » (`aa6c61f`). Avant :
+   le dépôt de `makeRepo()` (`git init -b main`) servait tel quel ; `git commit -q -m "feat: x"`
+   de `dev-api` était attendu permis **sur `main`**. Après, en tête du test seulement :
+
+   ```js
+   // L14-06 : un agent travaille sur sa branche, jamais sur main (refusée à l'écriture).
+   sh(repo, 'git', ['branch', '-m', 'develop']);
+   assert.equal(sh(repo, 'git', ['symbolic-ref', '--short', 'HEAD']).trim(), 'develop');
+   ```
+
+   Mêmes six commandes, même rôle, même verdict (code 0) ; l'assertion ajoutée garantit que le
+   dépôt est bien sur `develop`. `makeRepo()` et les autres tests du fichier sont inchangés.
+
+2. `.claude/hooks/tests/stryker-disable.test.mjs`, « accepte une directive justifiée qui cite un
+   mutant équivalent déclaré » (`51b2665`). Avant : `EQUIVALENTS` (`{ "id": "API-EQ-01", "file":
+   "src/app.ts", "line": 2 }`, sans `mutator`) et `JUSTIFIED` (`Justification-test: MUT-9 mutant
+   équivalent vérifié un à un`, sans l'identifiant). Après, dans ce test seulement : l'équivalent
+   déclare `"mutator": "StringLiteral"` (le mutateur de la directive) et la ligne devient
+   `Justification-test: MUT-9 API-EQ-01 mutant équivalent vérifié un à un`. Même directive, même
+   verdict (code 0). Les constantes partagées et les quatre cas de refus restent tels quels.
+
+3. `scripts/ci/tests/stryker-disable.test.sh`, cas « directive justifiée qui cite un équivalent
+   déclaré » (`9505aa8`) : même changement, dans le cas `declaree` seulement (équivalent avec
+   `"mutator": "StringLiteral"`, justification `MUT-9 API-EQ-01 …`), verdict 0 inchangé.
+
+Aucun ne s'affaiblit : l'entrée devient conforme à la règle plus stricte, ce que chacun vérifie
+(une commande ordinaire d'agent est permise ; une directive conforme est acceptée) est le même.
+
+### L14-06 : commit sur main
+
+`lib/shell.mjs`, `analyzeGit` : `git commit` (sauf `--dry-run` lu hors des valeurs d'option : `git
+commit -m --dry-run` reste refusé) passe par la règle de la branche courante (`onMain`), à toutes
+les sessions. Équivalents refusés de même quand la branche courante est `main` : `git citool`,
+`git gui` (hors `blame`, `browser`, `version`), `git quiltimport` (hors `--dry-run`, `-n`),
+`git svn rebase`, `git p4 rebase`. Autres écritures de `main` qui n'étaient pas lues (même
+décision, refusées quelle que soit la branche courante) :
+
+- `git stash branch main` (et la branche créée est suivie : `git stash branch lot/y && git commit`
+  sur `main` est permis) ;
+- `git fast-import` : les références `commit <réf>` et `reset <réf>` du flux (here-document,
+  fichier redirigé) ; flux lu sur un tube ou calculé, illisible donc refusé ;
+- `git replay` (documentation de git 2.56 : il écrit les références par défaut, `--ref-action=update`
+  ou `replay.refAction`) : `--ref`, sinon `--advance` et `--revert`, nomment la branche écrite ;
+  sans elles (`--onto`) ou avec `--contained`, les branches se déduisent du parcours, illisible
+  donc refusé ; `--ref-action=print` permis ;
+- `git rebase --update-refs` : déplace les branches du parcours, `main` comprise si elle y est,
+  illisible donc refusé.
+
+Restent permis : le commit sur toute autre branche, y compris après `git checkout develop &&` ou
+`git switch -c lot/y &&` depuis `main`. Nouveau refus à connaître : un commit après un `cd`
+calculé (`cd "$W" && git commit …`) ou après `git checkout -` est refusé (branche courante
+illisible), comme les autres écritures de la branche courante.
+
+### L14-02 : mutateur déclaré (fait) et identifiant cité (non fait)
+
+`scripts/ci/stryker-directives.mjs` : l'équivalent cité doit déclarer son mutateur (chaîne non vide
+du champ `mutator`), contrôlé contre la directive ; une déclaration sans mutateur ne justifie plus
+rien, même sur la bonne ligne ou pour une directive `all`, avec l'écart « API-EQ-01 ne déclare pas
+son mutateur (champ « mutator » de …) ». Conformité de l'existant : les neuf équivalents de
+`apps/api/stryker.equivalents.json` déclarent `file`, `line` et `mutator`, `packages/contracts`
+n'en déclare aucun ; le dernier cas de `scripts/ci/tests/stryker-mutator.test.sh` passe les deux
+directives réelles du dépôt (`env.schema.ts:76`, `sql-statements.ts:62`) au contrôle, avec les
+deux fichiers d'équivalents réels : aucun écart (« directives réelles du dépôt (2 ; 2 fichiers
+d'équivalents) conformes »).
+
+La citation de l'identifiant dans la ligne `Justification-test` n'est pas appliquée : sortie
+honorable, point ouvert 1 ci-dessous.
+
+### L14-17 : branche suivie
+
+`lib/shell.mjs`, cas `branch` : pour tout rôle autre que `main`, un mot d'option `--set-u…`
+(`--set-upstream-to`, ses abréviations que git accepte, `--set-upstream` retiré par git), un groupe
+d'options courtes qui contient `u` (`-u`, `-uorigin/develop`, `-vu`, `-qu` : dans `git branch`,
+seul `-u` prend une valeur, donc tout ce qui suit le `u` est sa valeur) ou un mot illisible
+(`$OPT`) avant `--` est refusé avec le motif « définir la branche suivie (-u, --set-upstream-to)
+écrit branch.<branche>.remote, hors de la règle des destinations de push : interdit aux agents ».
+Les valeurs d'options (`--sort -u`) et les opérandes après `--` ne sont pas pris pour l'option.
+Mesure préalable sur git 2.30.2 dans un dépôt jetable : `git branch -uext` et
+`git branch --set-upstream-t=ext` écrivent bien `branch.develop.merge` (code 0) ; `--set-u=` est
+ambigu pour git (code 129), refusé quand même. Le test rejoue la forme collée et l'abréviation sur
+un dépôt jetable pour prouver qu'elles sont réelles. La session principale garde
+`git push -u origin develop`, `git push --set-upstream origin develop` et `git branch -u`.
+
+### Comparaison de l'ancien et du nouveau
+
+| Fichier de test | Sur le code d'avant | Sur le code du complément |
+| --- | --- | --- |
+| `main-commit.test.mjs` (35 tests, code de `29ed330`) | 25 échecs : les 19 commits et équivalents sur `main`, commit via `-C`, `cd` et changement de branche, branche illisible, `stash branch`, `fast-import`, `replay`, `rebase --update-refs` ; les 10 cas « permis » passent | 35 sur 35 |
+| `branch-upstream.test.mjs` (18 tests, code de `29ed330`) | 14 échecs : les quatorze rôles ; les cas permis et la session principale passent | 18 sur 18 |
+| `stryker-mutator.test.sh` (9 cas, code de `9505aa8`) | 6 échecs : les six refus (sans mutateur, `all`, plage, nul, nombre, deux déclarations) ; les deux cas acceptés et la conformité réelle passent | 9 sur 9 |
+
+Commandes : clone jetable du worktree dans le dossier de session, `git checkout 29ed330` (ou
+`9505aa8`), nouveaux fichiers de test copiés, `pnpm hooks:test` (768 tests, 729 verts, 39 échecs,
+tous dans les deux nouveaux fichiers) et `pnpm integrity:test` (« 3 réussi(s), 6 échoué(s) » pour
+le nouveau fichier). Non-régression : `ordinary-commands.test.mjs` (88 commandes de l'orchestrateur,
+34 d'agent pour quatre rôles), `shell-compound.test.mjs` et `guard.test.mjs` restent verts avec les
+nouvelles règles.
+
+### Preuves
+
+| Critère | Commande | Résultat |
+| --- | --- | --- |
+| Tests des hooks | `pnpm hooks:test` | 768 tests, 768 verts (715 avant) |
+| Tests du script d'intégrité | `pnpm integrity:test` | 19, 3, 13, 8, 95, 13, 12, 8, 9 réussis, 0 échec |
+| Rejeu des commandes ordinaires (L14-07) | `pnpm hooks:test` | `ordinary-commands.test.mjs` vert |
+| Avant/après | clones jetables, voir ci-dessus | 39 et 6 échecs avant, 0 après |
+| Citation de l'identifiant (mesure) | clone, règle ajoutée, `pnpm integrity:test` | 4 échecs, tous dans `stryker-directive-line.test.sh` |
+| Formatage | `pnpm format` | aucun fichier modifié |
+| `pnpm check`, une passe (consigne de ressources) | `pnpm db:down`, `docker compose down -v`, `TURBO_FORCE=true pnpm check` | code 0 ; hooks 768 sur 768 ; intégrité 9 fichiers verts et « OK » ; lint, typecheck, unitaires, e2e 12 tâches sur 12, 0 en cache (6 min 18 s) ; unitaires contrats, API, front 220, 430, 682 ; e2e API 758, parcours Playwright 252 ; couverture fusionnée 220, 682, 1188 tests, 100 % partout ; journal `check-lot14h-complements.log` (dossier de session) |
+
+Après la passe : `pnpm db:down` ; aucun processus vitest, turbo ou node de test restant. Les
+nombres des tests Vitest et Playwright sont ceux de la base (aucun code applicatif touché).
+
+## Points ouverts du complément
+
+1. **L14-02, citation de l'identifiant dans la justification (sortie honorable).** La règle fait
+   échouer quatre cas acceptés d'un test existant que je ne suis pas autorisé à modifier :
+   `scripts/ci/tests/stryker-directive-line.test.sh` (créé par cette branche, absent de `develop`,
+   mais existant à l'instantané de ma tâche), dont la constante `JUSTIFIED` vaut
+   `Justification-test: MUT-9 mutant équivalent vérifié`, sans `API-EQ-01` ni `API-EQ-02`.
+   Démonstration : la règle ajoutée dans `check-tests-integrity.sh` (point 5 bis : chaque
+   identifiant cité par la directive figure dans les lignes `Justification-test` du commit qui
+   l'ajoute, à la frontière d'un mot pour que `API-EQ-1` ne vaille pas `API-EQ-10`), puis
+   `pnpm integrity:test` :
+
+   ```
+   ÉCHEC   directive justifiée, ligne et mutateur déclarés (code 1, attendu 0)
+             ÉCHEC  directive Stryker disable dont la Justification-test ne cite pas API-EQ-01 (…) : apps/api/src/app.ts:1
+   ÉCHEC   directive « all » sur la ligne déclarée (code 1, attendu 0)
+   ÉCHEC   plage jusqu’au rétablissement qui couvre les deux lignes déclarées (code 1, attendu 0)
+   ÉCHEC   directive en commentaire bloc sur la ligne déclarée (code 1, attendu 0)
+   8 réussi(s), 4 échoué(s)
+   ```
+
+   Les autres fichiers passent, dont les deux tests mis à jour. Dans un clone jetable, la même règle
+   plus la seule ligne `JUSTIFIED` de ce test changée en
+   `Justification-test: MUT-9 API-EQ-01 API-EQ-02 mutant équivalent vérifié` donnent
+   `pnpm integrity:test` tout vert (« 12 réussi(s), 0 échoué(s) » pour ce fichier) et
+   `pnpm hooks:test` 768 sur 768. Le correctif complet tient en deux fichiers :
+
+   ```diff
+   --- a/scripts/ci/check-tests-integrity.sh
+   +++ b/scripts/ci/check-tests-integrity.sh
+        message="$(git log -1 --format='%B' "$sha")"
+   -    grep -Eq "$JUSTIFICATION_RE" <<<"$message" ||
+   +    if ! grep -Eq "$JUSTIFICATION_RE" <<<"$message"; then
+          fail "directive Stryker disable ajoutée par un commit sans Justification-test (${sha:0:12}) : ${file}:${number}"
+   +    else
+   +      justification="$(grep -E "$JUSTIFICATION_RE" <<<"$message")"
+   +      text="${blame##*$'\n'$'\t'}"
+   +      while IFS= read -r id; do
+   +        [ -n "$id" ] || continue
+   +        grep -Eq "(^|[^A-Za-z0-9-])${id}([^0-9]|$)" <<<"$justification" ||
+   +          fail "directive Stryker disable dont la Justification-test ne cite pas ${id} (${sha:0:12}) : ${file}:${number}"
+   +      done < <(grep -oE "$EQUIVALENT_ID_RE" <<<"$text" | sort -u || true)
+   +    fi
+      fi
+   --- a/scripts/ci/tests/stryker-directive-line.test.sh
+   +++ b/scripts/ci/tests/stryker-directive-line.test.sh
+   -JUSTIFIED="$(printf 'chore(mutation): équivalent\n\nJustification-test: MUT-9 mutant équivalent vérifié')"
+   +JUSTIFIED="$(printf 'chore(mutation): équivalent\n\nJustification-test: MUT-9 API-EQ-01 API-EQ-02 mutant équivalent vérifié')"
+   ```
+
+   À décider : autoriser la mise à jour de ce quatrième test (même nature que les deux autres :
+   entrée mise en conformité, verdicts inchangés), puis appliquer le correctif, avec un test de
+   refus (justification qui ne cite pas l'identifiant, ou qui cite `API-EQ-10` pour `API-EQ-1`).
+   Les deux directives réelles sont dans la base : la règle ne les recontrôle pas.
+
+2. **Section « Git et garde-fous » des agents (sortie honorable).** L14-17 s'y reflète (un refus
+   nouveau pour les agents), mais `.claude/agents/` est hors de l'autorisation `e7aaee4a` : l'Edit
+   de `.claude/agents/correcteur.md` a été refusé (« configuration de test, de CI ou garde-fou :
+   .claude/agents/correcteur.md. Aucune autorisation « config » … »). Refus respecté, rien
+   modifié ; le test de concordance n'est donc pas touché. Proposition, identique dans les
+   quatorze fichiers, après la puce des étiquettes :
+
+   ```
+   - définir la branche suivie d'une branche (`git branch -u`, `--set-upstream-to`) : la destination
+     des push est réservée à la session principale ;
+   ```
+
+   et dans `agents-git-section.test.mjs`, `PROBES` : une clé `définir` avec
+   `git branch -u origin/develop` et `git branch --set-upstream-to=origin/develop develop`, plus,
+   sous `fusionner`, `git commit -m x` sur le dépôt `onMain` (le refus que la puce « écrire cette
+   branche sous quelque forme que ce soit » déclarait déjà et qui est désormais effectif). Les mots
+   de la puce ne sont pas dans les termes interdits du test.
+
+3. **CLAUDE.md, à mettre à jour** (hors du périmètre demandé, je ne l'ai pas modifié) : section
+   « Flux git et interdictions », la phrase « `git commit` sur `main` n'est pas encore refusé (point
+   ouvert du lot 14) » est fausse après `d86d196` ; proposition : « `git commit` sur `main` et ses
+   équivalents aussi (décision du 20 nov. 2026). », et ajouter que `git branch -u` et
+   `--set-upstream-to` sont refusés aux agents (L14-17). Le commentaire d'en-tête de
+   `.claude/hooks/tests/main-branch.test.mjs` (« Écart au ticket : git commit … n'est pas refusé »)
+   est périmé de même ; c'est un test existant, je ne l'ai pas touché.
+
+4. **Hors ticket, constaté (L14-17)** : d'autres commandes écrivent `branch.<x>.remote` et
+   `branch.<x>.merge` : `--track` / `-t` de `git branch`, `checkout -b` et `switch -c`, et le
+   suivi automatique (`branch.autoSetupMerge`, vrai par défaut) quand le point de départ est une
+   branche distante (`git checkout -b x origin/develop`) ; `git branch --unset-upstream` les retire.
+   La décision ne vise que `-u` et `--set-upstream-to` : non refusés. Le refus du suivi automatique
+   toucherait des commandes ordinaires de création de branche. À trancher si utile.
+
+5. **Limite connue (L14-06)** : `rebase.updateRefs=true` en configuration (ou par `-c`) donne le
+   comportement de `--update-refs` sans l'option écrite, et `replay.refAction` celui de
+   `--ref-action` ; seule l'option écrite est lue. L'écriture de la configuration git est déjà
+   refusée sur les clés de destination, pas sur celles-ci.
+
+6. **Refus rencontrés et respectés pendant le complément** : `node --test` d'un fichier de test des
+   garde-fous (relancé par `pnpm hooks:test`) ; un code `python3` d'édition de `lib/shell.mjs` dont
+   le texte de commandes git a été lu comme un push caché (« git push dans du code opaque
+   (python3) ») : remplacé par l'outil Edit ;
+   `git config --remove-section` dans un dépôt jetable du dossier de session (destination de push) :
+   remplacé par un dépôt neuf à chaque cas ; Edit de `.claude/agents/correcteur.md` (point 2) ; un
+   `xargs sh -c 'cat …'` qui citait `stryker-directives.mjs` (écriture opaque) : remplacé par Read.
