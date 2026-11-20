@@ -103,7 +103,7 @@ export default defineNuxtConfig({
 
   nitro: {
     prerender: {
-      routes: ['/', '/en', '/fr'],
+      routes: ['/', '/en', '/fr', '/fr/accessibilite'],
       crawlLinks: true,
       failOnError: true,
     },

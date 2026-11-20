@@ -11,5 +11,10 @@
     "expand": "Expand {name}",
     "collapse": "Collapse {name}",
     "showDetails": "Show details: {name}"
+  },
+  "declaration": {
+    "title": "Accessibility statement",
+    "pending": "The accessibility statement will be published after the site audit.",
+    "back": "Back to the home page"
   }
 }

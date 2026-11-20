@@ -11,5 +11,10 @@
     "expand": "Agrandir {name}",
     "collapse": "Réduire {name}",
     "showDetails": "Voir le détail : {name}"
+  },
+  "declaration": {
+    "title": "Déclaration d’accessibilité",
+    "pending": "La déclaration d’accessibilité sera publiée après l’audit du site.",
+    "back": "Retour à l’accueil"
   }
 }
