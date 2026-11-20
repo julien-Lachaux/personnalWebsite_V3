@@ -59,7 +59,8 @@ function onClick(event: MouseEvent, disabled: boolean): void {
   align-items: center;
   gap: 0.375rem;
   padding: 0.25rem 0.5rem;
-  border: var(--border-width) solid var(--line);
+  /* Contour du contrôle (D12, 1.4.11) ; la puce pointillé, non interactive, garde `--line`. */
+  border: var(--border-control);
   border-radius: var(--radius-chip);
   background-color: transparent;
   color: var(--text);
@@ -115,6 +116,7 @@ function onClick(event: MouseEvent, disabled: boolean): void {
 /* Sans expérience détaillée : pointillé, texte atténué mais lisible (contraste `muted`). */
 .tech-chip--dashed {
   border-style: dashed;
+  border-color: var(--line);
   color: var(--muted);
   cursor: default;
 }

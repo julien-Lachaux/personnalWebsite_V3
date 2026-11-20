@@ -131,7 +131,7 @@ onBeforeUnmount(() => root.value!.removeEventListener('keydown', onKeydown));
   width: min(var(--popover-width, 22.5rem), 100vw - 1.5rem);
   max-height: calc(100dvh - var(--popover-top, 3.875rem) - 1.125rem);
   overflow: hidden;
-  border: var(--border-strong);
+  border: var(--border-control);
   border-radius: var(--radius-window);
   background-color: var(--card);
   color: var(--text);
