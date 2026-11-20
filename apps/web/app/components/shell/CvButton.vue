@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // « CV PDF » (F3-05) : lien vers le fichier du CV (`href`, fourni par la page : il viendra de l'API),
-// téléchargé (`download`), avec l'icône de téléchargement du handoff. La classe et les attributs reçus
-// vont sur le lien.
+// téléchargé (`download`), annoncé comme PDF (`type`, D22), avec l'icône de téléchargement du handoff.
+// La classe et les attributs reçus vont sur le lien.
 import { useI18n } from '#imports';
 
 import LinkButton from '../base/LinkButton.vue';
@@ -12,7 +12,7 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <LinkButton :href="href" variant="outline" :size="size" download>
+  <LinkButton :href="href" variant="outline" :size="size" type="application/pdf" download>
     <template #icon>
       <svg
         focusable="false"
