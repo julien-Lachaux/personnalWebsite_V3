@@ -2295,6 +2295,21 @@ function analyzeGit(
           ops.push(...rest.slice(j + 1));
           break;
         }
+        // L14-17 (décision de Julien du 20 nov. 2026) : -u et --set-upstream-to écrivent
+        // branch.<x>.remote et branch.<x>.merge ; refusés aux agents, sous toutes leurs formes
+        // (valeur collée, groupe d'options courtes, abréviation de l'option longue). Un mot
+        // illisible pourrait en être une.
+        if (
+          role !== 'main' &&
+          (a.includes(UNKNOWN) || /^--set-u/.test(a) || /^-[a-zA-Z]*u/.test(a))
+        ) {
+          deny(
+            `git branch ${shown(a) || '(mot calculé)'} : définir la branche suivie (-u, --set-upstream-to) écrit ` +
+              `branch.<branche>.remote, hors de la règle des destinations de push : interdit aux ` +
+              `agents (rôle ${role}) ; option illisible comprise, écris la commande en clair`,
+          );
+          break;
+        }
         if (valued.has(a)) {
           flags.add(a);
           j += 1;
