@@ -145,3 +145,11 @@ Vérifications :
 - **Demande de changement partagé** : aucune.
 
 ## Vérifications finales
+
+- `pnpm format` : propre (aucun fichier modifié ensuite).
+- `pnpm check` : code 0 (garde-fous des hooks, intégrité, postgres de test, lint, typecheck, unitaires,
+  e2e API 753 tests, Playwright front 35 tests, couverture fusionnée) ; couverture 100 % sur
+  `apps/web/app` (185/185 instructions), `packages/contracts` (59/59) et `apps/api` (765/765).
+- `pnpm integrity develop` : « Intégrité des tests : OK » (aucun test existant modifié).
+- `pnpm --filter @siteperso/web test:mutation` : score 100,00, aucun survivant.
+- `pnpm db:down` exécuté en fin de lot.
