@@ -9,15 +9,30 @@ import { useAsyncData, useRuntimeConfig } from '#imports';
 
 import { fetchCv } from '../data/fetch-cv.js';
 
-export function useCv(locale: Locale): Promise<Cv> {
+/**
+ * Erreur de lecture, relevée telle quelle pour la génération. `useAsyncData` range l'erreur en
+ * `NuxtError` : le rendu la traite comme une erreur HTTP « gérée » et le prérendu n'affiche qu'un
+ * « [500] Server Error », sans la cause. Une `Error` simple au même message (cause conservée) est
+ * journalisée par le prérendu (« API injoignable (GET …) : … »).
+ */
+export class CvReadError extends Error {
+  override readonly name = 'CvReadError';
+}
+
+export async function useCv(locale: Locale): Promise<Cv> {
   // Lue pendant le `setup` (contexte de Nuxt) ; ses clés privées ne sont lues que par le gestionnaire.
   const config = useRuntimeConfig();
-  return fetchCv(
-    {
-      asyncData: (key, handler) => useAsyncData(key, handler),
-      settings: () => ({ source: config.cvSource, apiBaseUrl: config.apiBaseUrl }),
-      fetch: globalThis.fetch,
-    },
-    locale,
-  );
+  try {
+    return await fetchCv(
+      {
+        asyncData: (key, handler) => useAsyncData(key, handler),
+        settings: () => ({ source: config.cvSource, apiBaseUrl: config.apiBaseUrl }),
+        fetch: globalThis.fetch,
+      },
+      locale,
+    );
+  } catch (error) {
+    // `fetchCv` ne lève que des `Error` (voir fetch-cv.ts).
+    throw new CvReadError((error as Error).message, { cause: error });
+  }
 }
