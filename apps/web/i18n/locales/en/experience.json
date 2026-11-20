@@ -1,3 +1,18 @@
 {
-  "experience": {}
+  "experience": {
+    "present": "present",
+    "breakOrganisation": "Personal project",
+    "workMode": {
+      "onsite": "on-site",
+      "hybrid": "hybrid",
+      "remote": "remote"
+    },
+    "contractType": {
+      "cdi": "Permanent",
+      "freelance": "Freelance"
+    },
+    "provisional": {
+      "count": "no experience | {n} experience | {n} experiences"
+    }
+  }
 }

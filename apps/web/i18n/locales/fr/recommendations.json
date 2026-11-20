@@ -1,3 +1,7 @@
 {
-  "recommendations": {}
+  "recommendations": {
+    "provisional": {
+      "count": "aucune recommandation | {n} recommandation | {n} recommandations"
+    }
+  }
 }
