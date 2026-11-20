@@ -11,6 +11,7 @@ const linked = {
   icon: 'ocr',
   iconPath: null,
   groupSlug: 'ia',
+  mainStackOrder: null,
   shownInStack: false,
 };
 

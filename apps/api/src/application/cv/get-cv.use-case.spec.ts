@@ -10,6 +10,7 @@ const skill = {
   icon: 'typescript',
   iconPath: null,
   groupSlug: 'langages',
+  mainStackOrder: 1,
 };
 
 /** Contenu fictif valide pour `CvSchema` (jamais de donnée réelle). */

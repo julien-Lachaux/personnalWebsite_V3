@@ -11,6 +11,7 @@ const linked = (slug: string, shownInStack: boolean): ExperienceSkill => ({
   icon: slug,
   iconPath: null,
   groupSlug: 'langages',
+  mainStackOrder: null,
   shownInStack,
 });
 

@@ -8,6 +8,7 @@ export const skillExample = {
   icon: 'typescript',
   iconPath: null,
   groupSlug: 'langages',
+  mainStackOrder: 1,
 };
 
 export const cvExample: Cv = {
@@ -57,7 +58,7 @@ export const cvExample: Cv = {
       stackLabel: 'Huile de coude',
       skills: [
         { ...skillExample, shownInStack: true },
-        { ...skillExample, slug: 'ocr', name: 'OCR', shownInStack: false },
+        { ...skillExample, slug: 'ocr', name: 'OCR', mainStackOrder: null, shownInStack: false },
       ],
     },
   ],

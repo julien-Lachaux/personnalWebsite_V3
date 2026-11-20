@@ -231,12 +231,27 @@
             "description": "Chemin d'une icône statique propre ; `null` si `icon` suffit."
           },
           "groupSlug": { "$ref": "#/components/schemas/Slug" },
+          "mainStackOrder": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "Rang dans la stack principale (1 = premier, unique) ; `null` hors de la stack principale.",
+            "examples": [1]
+          },
           "shownInStack": {
             "type": "boolean",
             "description": "`true` : puce affichée dans la pile de l'expérience ; `false` : mot-clé caché, servi pour le filtre."
           }
         },
-        "required": ["slug", "name", "level", "icon", "iconPath", "groupSlug", "shownInStack"],
+        "required": [
+          "slug",
+          "name",
+          "level",
+          "icon",
+          "iconPath",
+          "groupSlug",
+          "mainStackOrder",
+          "shownInStack"
+        ],
         "additionalProperties": false,
         "description": "Compétence liée à une expérience, avec son affichage dans la pile."
       },
@@ -529,9 +544,15 @@
             "minLength": 1,
             "description": "Chemin d'une icône statique propre ; `null` si `icon` suffit."
           },
-          "groupSlug": { "$ref": "#/components/schemas/Slug" }
+          "groupSlug": { "$ref": "#/components/schemas/Slug" },
+          "mainStackOrder": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "Rang dans la stack principale (1 = premier, unique) ; `null` hors de la stack principale.",
+            "examples": [1]
+          }
         },
-        "required": ["slug", "name", "level", "icon", "iconPath", "groupSlug"],
+        "required": ["slug", "name", "level", "icon", "iconPath", "groupSlug", "mainStackOrder"],
         "additionalProperties": false,
         "description": "Compétence technique."
       },

@@ -37,6 +37,7 @@ function toResponse(experience: Experience): ExperienceResponse {
       icon: skill.icon,
       iconPath: skill.iconPath,
       groupSlug: skill.groupSlug,
+      mainStackOrder: skill.mainStackOrder,
       shownInStack: skill.shownInStack,
     })),
   };

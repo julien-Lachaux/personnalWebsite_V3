@@ -15,11 +15,12 @@ function clientDouble() {
     (query) => {
       queries.push(query);
       if (query.includes('from "skills"')) {
-        // slug, name, level, icon, iconPath, groupSlug, puis experienceId et shownInStack.
+        // slug, name, level, icon, iconPath, groupSlug, mainStackOrder, puis experienceId et
+        // shownInStack.
         return Promise.resolve({
           rows: [
-            ['typescript', 'TypeScript', 3, 'typescript', null, 'langages', 7, true],
-            ['ocr', 'OCR', 3, 'ocr', null, 'ia', 7, false],
+            ['typescript', 'TypeScript', 3, 'typescript', null, 'langages', 1, 7, true],
+            ['ocr', 'OCR', 3, 'ocr', null, 'ia', null, 7, false],
           ],
         });
       }

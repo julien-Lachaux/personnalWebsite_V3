@@ -9,6 +9,7 @@ const skill = {
   icon: 'typescript',
   iconPath: null,
   groupSlug: 'langages',
+  mainStackOrder: 1,
 };
 
 const valid = {
