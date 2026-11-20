@@ -14,6 +14,8 @@
 #   4. un fichier de code suivi contient l'un de ces marqueurs ou commentaires (tout l'arbre) ;
 #   5. une directive « Stryker disable » (commentaire qui retire des mutants du score) est ajoutée
 #      dans un fichier JS/TS sans qu'un commit qui le touche porte une ligne Justification-test ;
+#      à la ligne (L14-02), le commit qui ajoute la directive porte lui-même cette ligne, et chaque
+#      équivalent déclaré qu'elle cite désigne la ligne et le mutateur qu'elle retire du score ;
 #   6. une directive « Stryker disable » d'un fichier JS/TS suivi (tout l'arbre) ne cite pas
 #      l'identifiant (<PAQUET>-EQ-<n>) d'un mutant équivalent déclaré dans un stryker.equivalents.json.
 #
@@ -128,21 +130,24 @@ done < <(git diff --name-only -z "$merge_base" HEAD -- 'package.json' '**/packag
 #    puis dans les fichiers non suivis. Un diff par fichier (liste en `-z`) : le chemin vient de la
 #    liste, jamais de l'en-tête du diff (cité pour certains noms) ; seules les lignes des sections
 #    @@ comptent, si bien qu'une ligne ajoutée qui commence par « ++ » n'est pas prise pour un en-tête.
+#    Sortie « chemin<TAB>numéro<TAB>ligne » : numéro de la ligne dans le fichier de l'arbre de travail
+#    (L14-02, contrôle des directives Stryker disable à la ligne), lu dans l'en-tête « +c,d » de
+#    chaque section (diff sans contexte : seules les lignes ajoutées avancent le compteur).
 added_lines() {
   local f
   git diff --name-only -z --no-renames "$merge_base" -- . | while IFS= read -r -d '' f; do
     git --literal-pathspecs diff -U0 --no-color --no-ext-diff --no-renames "$merge_base" -- "$f" |
-      F="$f" awk '/^@@/{ body = 1; next } body && /^\+/{ print ENVIRON["F"] "\t" substr($0, 2) }'
+      F="$f" awk '/^@@/{ split($3, a, ","); n = substr(a[1], 2) + 0; body = 1; next } body && /^\+/{ print ENVIRON["F"] "\t" n "\t" substr($0, 2); n++ }'
   done
   git ls-files -z -o --exclude-standard | while IFS= read -r -d '' f; do
     if [ -f "$f" ] && [ "$(wc -c <"$f")" -lt 2097152 ] && grep -Iq . "$f"; then
-      F="$f" awk '{ print ENVIRON["F"] "\t" $0 }' "$f"
+      F="$f" awk '{ print ENVIRON["F"] "\t" NR "\t" $0 }' "$f"
     fi
   done
 }
 added="$(added_lines)"
 declare -A reported=()
-while IFS=$'\t' read -r file line; do
+while IFS=$'\t' read -r file _ line; do
   if [[ "$line" =~ $FORBIDDEN_RE ]]; then
     fail "marqueur de saut, de focus ou commentaire d'ignore ajouté : $file : ${line:0:120}"
   elif [[ "$line" =~ $FAILS_RE && -z "${reported[$file]:-}" ]]; then
@@ -159,12 +164,55 @@ done < <(git grep -nIE "$FORBIDDEN_RE" -- '*.ts' '*.tsx' '*.mts' '*.cts' '*.js' 
 # 5. Directives Stryker disable ajoutées (lignes commitées, modifiées ou non suivies) : comme une
 #    configuration protégée, elles retirent des mutants du score et exigent une Justification-test.
 declare -A stryker_reported=()
-while IFS=$'\t' read -r file line; do
-  if [[ "$file" =~ $CODE_FILE_RE && "$line" =~ $STRYKER_DISABLE_RE && -z "${stryker_reported[$file]:-}" ]]; then
-    stryker_reported[$file]=1
-    justified "$file" || fail "directive Stryker disable ajoutée sans Justification-test : $file"
+directives=""
+while IFS=$'\t' read -r file number line; do
+  if [[ "$file" =~ $CODE_FILE_RE && "$line" =~ $STRYKER_DISABLE_RE ]]; then
+    directives+="${file}"$'\t'"${number}"$'\n'
+    if [ -z "${stryker_reported[$file]:-}" ]; then
+      stryker_reported[$file]=1
+      justified "$file" || fail "directive Stryker disable ajoutée sans Justification-test : $file"
+    fi
   fi
 done <<<"$added"
+
+# 5 bis. L14-02 : le contrôle passe du fichier à la ligne. Chaque directive ajoutée dans un fichier
+#    suivi vient d'un commit (git blame) qui porte lui-même une ligne Justification-test : une
+#    directive glissée dans un fichier qu'un autre commit justifié touche déjà est refusée, comme une
+#    directive pas encore commitée. Une ligne que blame attribue à un commit de la base n'est pas
+#    ajoutée par la branche (contenu déplacé). Puis chaque équivalent déclaré qu'elle cite désigne la
+#    ligne et le mutateur qu'elle retire du score (scripts/ci/stryker-directives.mjs).
+while IFS=$'\t' read -r file number; do
+  [ -n "$file" ] || continue
+  git --literal-pathspecs ls-files --error-unmatch -- "$file" >/dev/null 2>&1 || continue
+  blame="$(git --literal-pathspecs blame --porcelain -L "${number},${number}" -- "$file" 2>/dev/null || true)"
+  sha="${blame%% *}"
+  if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+    fail "directive Stryker disable dont l'origine est illisible (git blame) : ${file}:${number}"
+  elif [[ "$sha" =~ ^0+$ ]]; then
+    fail "directive Stryker disable non commitée : ${file}:${number} (le commit qui l'ajoute porte une Justification-test)"
+  elif ! git merge-base --is-ancestor "$sha" "$merge_base"; then
+    message="$(git log -1 --format='%B' "$sha")"
+    grep -Eq "$JUSTIFICATION_RE" <<<"$message" ||
+      fail "directive Stryker disable ajoutée par un commit sans Justification-test (${sha:0:12}) : ${file}:${number}"
+  fi
+done <<<"$directives"
+if [ -n "$directives" ]; then
+  equivalents=()
+  while IFS= read -r -d '' f; do equivalents+=("$f"); done < <(git ls-files -z -- '*stryker.equivalents.json')
+  if ! command -v node >/dev/null 2>&1; then
+    fail "node introuvable : le contrôle à la ligne des directives Stryker disable est impossible"
+  else
+    code=0
+    report="$(node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/stryker-directives.mjs" "${equivalents[@]}" <<<"$directives" 2>&1)" || code=$?
+    if [ "$code" -ne 0 ]; then
+      fail "contrôle des directives Stryker disable impossible : ${report:0:200}"
+    else
+      while IFS= read -r gap; do
+        [ -n "$gap" ] && fail "directive Stryker disable : $gap"
+      done <<<"$report"
+    fi
+  fi
+fi
 
 # 6. Tout l'arbre suivi : chaque directive Stryker disable cite un mutant équivalent déclaré (champ
 #    « id » d'un stryker.equivalents.json suivi).
