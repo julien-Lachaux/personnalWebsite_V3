@@ -2,6 +2,8 @@
 // pages FR (sans préfixe) et EN (`/en/...`) ; aucun serveur Node du front en production.
 // Fichier partagé : réservé au lead-architecte (règle « modules isolés » du front, CLAUDE.md).
 
+import { themeScript } from './app/domain/theme-script';
+
 // Libellés d'interface : un fichier commun et un fichier par section et par langue
 // (i18n/locales/<langue>/<fichier>.json), pour que deux agents de section en parallèle n'écrivent
 // jamais le même fichier (décision du 20 nov. 2026). Chaque fichier de section ne contient que
@@ -31,18 +33,23 @@ export default defineNuxtConfig({
   devServer: { port: 3001 },
 
   // Design system global (lot F1) : polices auto-hébergées (D6), tokens et thèmes du handoff, tokens
-  // ajoutés par décision (bordure des contrôles, D12), base. L'ordre compte : les tokens définissent
-  // les variables que la base utilise. Interface préférences → CSS : les attributs `data-*` de
-  // <html>, décrits en tête de app/assets/css/tokens.css.
+  // ajoutés par décision (bordure des contrôles, D12), base, animations nommées (glissement des onglets,
+  // F3a). L'ordre compte : les tokens définissent les variables que la base utilise. Interface
+  // préférences → CSS : les attributs `data-*` de <html>, décrits en tête de app/assets/css/tokens.css.
   css: [
     '~/assets/css/fonts.css',
     '~/assets/css/tokens.css',
     '~/assets/css/control-tokens.css',
     '~/assets/css/base.css',
+    '~/assets/css/motion.css',
   ],
 
   app: {
     head: {
+      // Script de thème sans flash (D5) : en tête, avant les feuilles de style et tout module, il pose
+      // les attributs de <html> (thème, réglages d'accessibilité) depuis le réglage enregistré et le
+      // système, avant le premier affichage. Texte et empreinte CSP : app/domain/theme-script.ts.
+      script: [{ key: 'theme', innerHTML: themeScript(), tagPriority: 'critical' }],
       // Seule la police du texte courant (Space Grotesk, sous-ensemble latin) est préchargée ; même
       // URL que son @font-face (fonts.css), `crossorigin` exigé pour une police. JetBrains Mono et
       // Atkinson Hyperlegible ne se téléchargent qu'à l'usage (F1-02).
@@ -58,9 +65,15 @@ export default defineNuxtConfig({
     },
   },
 
-  // Valeurs publiques lues au moment de `nuxt generate` (variables NUXT_PUBLIC_*), jamais commitées :
-  // modèle dans apps/web/.env.example. Aucune vraie adresse dans le dépôt.
+  // Valeurs lues au moment de `nuxt generate`, jamais commitées : modèle dans apps/web/.env.example.
+  // - privées (absentes de la charge utile envoyée au navigateur) : source du CV (`NUXT_CV_SOURCE`,
+  //   `api` par défaut ou `fixtures`) et URL de base de l'API (`NUXT_API_BASE_URL`, sans `/api/v1`),
+  //   lues par `app/composables/use-cv.ts` (docs/04, F4-04) ;
+  // - publiques (`NUXT_PUBLIC_*`) : adresse du bouton « Lancer l'entretien » (aucune vraie adresse
+  //   dans le dépôt ; vide ou invalide, la génération échoue).
   runtimeConfig: {
+    cvSource: '',
+    apiBaseUrl: '',
     public: {
       contactEmail: '',
     },
@@ -80,9 +93,18 @@ export default defineNuxtConfig({
     baseUrl: 'http://localhost:3001',
   },
 
+  // D15 : la langue par défaut n'a pas de préfixe ; `/fr` et `/fr/...` renvoient vers la même page
+  // sans préfixe. En génération statique, Nitro écrit pour chaque route redirigée prérendue une page
+  // de redirection (`<meta http-equiv="refresh">`) ; le proxy de production double la règle par une
+  // vraie redirection HTTP (F9, Caddy).
+  routeRules: {
+    '/fr': { redirect: { to: '/', statusCode: 301 } },
+    '/fr/**': { redirect: { to: '/**', statusCode: 301 } },
+  },
+
   nitro: {
     prerender: {
-      routes: ['/', '/en'],
+      routes: ['/', '/en', '/fr', '/fr/accessibilite'],
       crawlLinks: true,
       failOnError: true,
     },

@@ -33,6 +33,16 @@ interface Chip {
   dashed?: boolean;
 }
 
+/**
+ * Charge la page et attend son hydratation (la coquille a choisi son mode : `data-mode`). Avant
+ * cela, le montage de l'application remet les attributs de <html> aux préférences (D5) et
+ * écraserait ceux qu'un test poserait juste après `goto`.
+ */
+async function open(page: Page, path: string): Promise<void> {
+  await page.goto(path);
+  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+}
+
 /** Pose (ou retire, valeur null) des attributs sur <html>, comme le feront les préférences. */
 async function setRoot(page: Page, attributes: Record<string, string | null>): Promise<void> {
   await page.evaluate((entries) => {
@@ -154,7 +164,7 @@ test('critère 2.5.8 : cibles assez grandes, ou assez espacées (témoins de la 
 test('puces des cartes : hauteur de la maquette, cible d’au moins 24 × 24 px, même collées (D17)', async ({
   page,
 }) => {
-  await page.goto('/');
+  await open(page, '/');
   const boxes = await mountChips(page, LABELS);
 
   for (const box of boxes) {
@@ -174,7 +184,7 @@ for (const [name, value] of [
   test(`puces des cartes : cible d’au moins 24 × 24 px avec ${name}="${value}"`, async ({
     page,
   }) => {
-    await page.goto('/');
+    await open(page, '/');
     await setRoot(page, { [name]: value });
     const boxes = await mountChips(page, LABELS);
 
@@ -189,7 +199,7 @@ for (const [name, value] of [
 test('puces du filtre : 40 px de haut comme la maquette, à toutes les largeurs', async ({
   page,
 }) => {
-  await page.goto('/');
+  await open(page, '/');
   const boxes = await mountChips(page, LABELS, 'md');
 
   for (const box of boxes) {
@@ -206,7 +216,7 @@ for (const [theme, contrast, control, decorative] of [
   test(`contour : --line-control sur la puce cliquable, --line sur la puce pointillé (${theme}${contrast === null ? '' : ', renforcé'}, D12)`, async ({
     page,
   }) => {
-    await page.goto('/');
+    await open(page, '/');
     await setRoot(page, { 'data-theme': theme, 'data-contrast': contrast });
     await mountChips(page, [{ label: 'Go' }, { label: 'COBOL', dashed: true }]);
 

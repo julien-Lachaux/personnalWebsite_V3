@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-// Fumée du lot F0 : la page provisoire générée s'affiche dans les deux langues et les deux schémas
+// Fumée (lot F0, page réelle depuis F3a) : la page d'accueil générée s'affiche dans les deux langues et les deux schémas
 // de couleur système, avec `lang`, hreflang et un seul h1, sans violation axe WCAG 2.2 AA (D4).
 
 /** Règles axe des niveaux A et AA de WCAG 2.0, 2.1 et 2.2. */
@@ -11,13 +11,13 @@ const pages = [
   {
     locale: 'fr',
     path: '/',
-    heading: 'Site en construction',
+    heading: 'Développeur full-stack',
     other: { locale: 'en', path: '/en' },
   },
   {
     locale: 'en',
     path: '/en',
-    heading: 'Website under construction',
+    heading: 'Full-stack developer',
     other: { locale: 'fr', path: '/' },
   },
 ] as const;
@@ -43,10 +43,13 @@ for (const colorScheme of ['light', 'dark'] as const) {
           colorScheme === 'dark',
         );
 
+        // Page hydratée : un seul jeu d'en-têtes, donc un seul sélecteur de langue.
+        await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
         const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
         expect(results.violations).toEqual([]);
         expect(results.passes.length).toBeGreaterThan(0);
 
+        await expect(page.locator('a[hreflang]')).toHaveCount(1);
         await page.locator(`a[hreflang="${other.locale}"]`).click();
         await expect(page).toHaveURL(other.path);
         await expect(page.locator('html')).toHaveAttribute('lang', other.locale);

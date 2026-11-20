@@ -47,7 +47,8 @@ la couche `data/`), les sections du handoff à lire (`apps/web/design/handoff-v6
   le composant affiche. Pas d'écouteur global sans retrait (`onBeforeUnmount`), pas de `v-html`.
 - Accessibilité (WCAG 2.2 AA, SPEC § 10) : vrais `button`, `a`, `input` + `label`, jamais de clic
   sur un `div` ; nom accessible pour chaque contrôle et icône non décorative, `aria-hidden` sinon ;
-  focus visible (contour 2 px accent, décalage 2 px) ; cibles de 44 px sur mobile et tablette ;
+  focus visible (contour 2 px accent, décalage 2 px) ; cibles de 44 px sur mobile et tablette, sauf
+  les puces de techno (D17 : hauteur de la maquette, au moins 24 × 24 px par `--target-min`, 2.5.8) ;
   contrastes ≥ 4,5:1 dans les deux thèmes et en contraste renforcé ; `prefers-reduced-motion` et
   réglage « réduire les animations » respectés ; tailles en `rem` ; `lang` sur un texte dans une
   autre langue ; zones qui défilent atteignables au clavier.

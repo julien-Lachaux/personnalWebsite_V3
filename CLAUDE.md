@@ -108,7 +108,8 @@ visuelle ; exclu de Prettier et d'ESLint).
 apps/web/
   nuxt.config.ts          modules, i18n, prérendu, runtimeConfig (fichier partagé)
   app/
-    app.vue               lang, hreflang, canonical (useLocaleHead) ; fichier partagé
+    app.vue               lang, hreflang, canonical (useLocaleHead), lien d'évitement,
+                          usePreferencesSync() une seule fois ; fichier partagé
     architecture.spec.ts  règles d'import des couches, vérifiées par le code
     domain/               logique pure : AUCUN import de vue, nuxt, #imports, #app, ni des
                           composants, composables ou données ; testée sans Nuxt (projet unit)
@@ -116,13 +117,18 @@ apps/web/
                           (docs/04) ; n'importe aucun composant ni aucune page
     components/base/      éléments de base (lot F1, puis partagés)
     components/<section>/ un dossier par section : profile, experience, recommendations, ai, shell
+    components/shell/AppShell.vue   coquille de la page : en-têtes selon le mode, <main id="contenu">,
+                          onglets et glissement, un slot par section (partagé, lead)
+    components/home/      HomePage : CV lu au build (useCv), mapCv, sections dans AppShell (partagé)
     composables/          pont entre domain et composants (état, URL, préférences) ;
-                          sous-dossier par section importé explicitement
-    pages/                index, accessibilite, 404 (fichiers partagés)
+                          sous-dossier par section importé explicitement ; use-cv.ts (partagé) :
+                          seul lien entre data/ et useAsyncData
+    pages/                index, accessibilite (provisoire jusqu'à F7), 404 (fichiers partagés)
     assets/css/           fonts.css (@font-face), tokens.css (tokens du handoff, thèmes, interface
                           des préférences), control-tokens.css (tokens ajoutés par décision :
                           bordure des contrôles D12, cible minimale D17), base.css (reset, focus,
-                          réglages) ; fichiers partagés
+                          réglages), motion.css (@keyframes partagés : glissement des onglets) ;
+                          fichiers partagés
   i18n/locales/<langue>/  libellés d'interface, fr/ et en/ : common.json (partagé) et un fichier
                           par section (shell, profile, experience, recommendations, ai) qui ne
                           porte que son espace de clés ; mêmes clés dans les deux langues
@@ -169,18 +175,30 @@ apps/web/
 - **Configuration et données personnelles** : valeurs publiques en `NUXT_PUBLIC_*`, figées au build,
   modèle `apps/web/.env.example` (à copier en `apps/web/.env`, jamais commité). L'adresse du bouton
   « Lancer l'entretien » est `NUXT_PUBLIC_CONTACT_EMAIL` (`useRuntimeConfig().public.contactEmail`) :
-  jamais de vraie adresse dans le dépôt (code, tests, fixtures), placeholder `contact@example.org`.
-  Liens externes en `rel="noopener noreferrer"`.
+  jamais de vraie adresse dans le dépôt (code, tests, fixtures), placeholder `contact@example.org` ;
+  vide ou invalide, la génération échoue (`AppShell`). Source du contenu en configuration privée
+  (absente des pages) : `NUXT_CV_SOURCE` (`api` par défaut, ou `fixtures`) et `NUXT_API_BASE_URL`
+  (sans `/api/v1`) ; une API injoignable fait échouer `nuxt generate` avec sa cause, jamais de repli
+  sur les fixtures. Liens externes en `rel="noopener noreferrer"`.
+- **Thème sans flash (D5)** : script en ligne en tête (`app/domain/theme-script.ts`, posé par
+  `nuxt.config.ts`) qui pose les attributs de `<html>` avant le premier affichage avec la table
+  unique de `app/domain/root-attributes.ts` (partagée avec `usePreferencesSync`). Toute modification
+  du script change son empreinte `THEME_SCRIPT_SHA256` (vérifiée par un test) : à reporter dans la
+  CSP (F9).
 - **Tests** : deux projets Vitest dans `apps/web/vitest.config.ts`, `unit` (`app/domain/`,
   `app/data/`, `app/architecture.spec.ts`, environnement Node) et `nuxt` (tout autre
   `app/**/*.spec.ts` : composants, composables, pages, montés par `mountSuspended` de
-  `@nuxt/test-utils`) ; `*.spec.ts` à côté du code. Couverture 100 % sur `apps/web/app` (`.ts` et
+  `@nuxt/test-utils`, application de test sur les fixtures avec l'adresse placeholder ; un test qui
+  veut une autre configuration la pose par `useRuntimeConfig()`) ; `*.spec.ts` à côté du code.
+  Couverture 100 % sur `apps/web/app` (`.ts` et
   `.vue`), mêmes règles que le back, dans `pnpm test:coverage`. Mutation Stryker sur `app/domain/` et
   `app/data/` (seuil 100). Parcours Playwright `test/**/*.e2e.ts` contre le site généré : un projet
   par taille d'écran des maquettes (390, 834, 1024, 1280, 1440, 1920, 3440), schémas clair et
   sombre, fr et en ; ils ne comptent pas dans la couverture (D3). Navigateurs dans le service
   docker `playwright` (image officielle épinglée par digest, même version que `@playwright/test`),
-  le lanceur et le serveur statique (`sirv`) sur l'hôte.
+  le lanceur et le serveur statique (`sirv`) sur l'hôte ; `test:e2e` génère le site sur les
+  fixtures (`pnpm --filter @siteperso/web generate:fixtures` : `NUXT_CV_SOURCE=fixtures`, adresse
+  placeholder).
 - Après un changement de `nuxt.config.ts` (module, i18n), relancer
   `pnpm --filter @siteperso/web exec nuxt prepare` (fait aussi par `pnpm install`, `dev` et
   `generate`) pour régénérer `.nuxt/` (types et tsconfig lus par le lint et le typecheck).

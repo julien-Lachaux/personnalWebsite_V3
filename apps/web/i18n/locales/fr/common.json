@@ -1,15 +1,15 @@
 {
-  "home": {
-    "title": "Développeur full-stack : site en construction",
-    "heading": "Site en construction",
-    "intro": "La nouvelle version du site arrive bientôt.",
-    "otherLanguage": "Read in English"
-  },
   "common": {
     "close": "Fermer",
     "opensInNewTab": "s'ouvre dans un nouvel onglet",
     "expand": "Agrandir {name}",
     "collapse": "Réduire {name}",
-    "showDetails": "Voir le détail : {name}"
+    "showDetails": "Voir le détail : {name}",
+    "skipToContent": "Aller au contenu"
+  },
+  "declaration": {
+    "title": "Déclaration d’accessibilité",
+    "pending": "La déclaration d’accessibilité sera publiée après l’audit du site.",
+    "back": "Retour à l’accueil"
   }
 }

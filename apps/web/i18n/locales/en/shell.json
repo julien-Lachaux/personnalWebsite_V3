@@ -15,10 +15,6 @@
       "cv": "CV PDF",
       "subject": "Getting in touch from your website"
     },
-    "language": {
-      "fr": "Français",
-      "en": "English"
-    },
     "theme": {
       "toLight": "Dark theme, switch to light theme",
       "toDark": "Light theme, switch to dark theme"
@@ -62,6 +58,12 @@
       "declaration": "Accessibility statement",
       "status": "Settings are saved on this device. RGAA 4.1 conformance: {pending}.",
       "pending": "[to be completed after the audit]"
+    },
+    "headings": {
+      "profile": "Profile",
+      "experience": "Experience",
+      "recommendations": "Recommendations",
+      "ai": "AI"
     }
   }
 }

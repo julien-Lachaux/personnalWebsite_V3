@@ -1,15 +1,15 @@
 {
-  "home": {
-    "title": "Full-stack developer: website under construction",
-    "heading": "Website under construction",
-    "intro": "The new version of the website is coming soon.",
-    "otherLanguage": "Lire en français"
-  },
   "common": {
     "close": "Close",
     "opensInNewTab": "opens in a new tab",
     "expand": "Expand {name}",
     "collapse": "Collapse {name}",
-    "showDetails": "Show details: {name}"
+    "showDetails": "Show details: {name}",
+    "skipToContent": "Skip to content"
+  },
+  "declaration": {
+    "title": "Accessibility statement",
+    "pending": "The accessibility statement will be published after the site audit.",
+    "back": "Back to the home page"
   }
 }
