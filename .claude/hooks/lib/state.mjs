@@ -318,6 +318,16 @@ function showAt(top, commit, rel) {
   }
 }
 
+/** Empreinte sha256 d'un fichier à un commit (ou null s'il n'y existe pas). */
+function hashAt(top, commit, rel) {
+  if (!commit) return null;
+  try {
+    return sha256(git(top, ['show', `${commit}:${rel}`], { encoding: 'buffer' }));
+  } catch {
+    return null;
+  }
+}
+
 /** Vrai si la modification de `rel` depuis `base` est commitée avec une ligne Justification-test. */
 export function committedWithJustification(top, base, rel) {
   if (!base) return false;
@@ -358,9 +368,19 @@ export function verifySnapshot(root, snapshot, { role, key }) {
   }
   for (const rel of current) {
     const kind = classify(rel);
-    if ((kind === 'config' || kind === 'guard') && !(rel in oracles) && !allowed(rel, 'config')) {
-      violations.push({ rel, problem: 'configuration de test ou garde-fou créé' });
-    }
+    if ((kind !== 'config' && kind !== 'guard') || rel in oracles) continue;
+    // BF-10 : absent des oracles de l'instantané ne veut pas dire créé. La politique a pu s'élargir
+    // depuis (hooks lancés du checkout principal, mis à jour par une fusion) : un fichier qui a le
+    // contenu qu'il avait à l'instantané (commit `head`, ou fichier non suivi relevé) est inchangé.
+    const now = hashFile(join(top, rel));
+    const atHead = hashAt(top, head, rel);
+    if (now !== null && (now === atHead || now === untracked[rel])) continue;
+    if (allowed(rel, 'config')) continue;
+    const existed = atHead !== null || rel in untracked;
+    violations.push({
+      rel,
+      problem: existed ? 'oracle modifié' : 'configuration de test ou garde-fou créé',
+    });
   }
 
   // Marqueurs ajoutés dans les fichiers changés depuis l'instantané (commités ou non).

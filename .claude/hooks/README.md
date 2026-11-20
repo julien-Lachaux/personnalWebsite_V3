@@ -31,6 +31,19 @@ Marqueurs de Playwright, repérés après `test` ou `test.describe` : `fixme` et
 `qa-front` (tests et comptes rendus, comme `qa`), `revue-a11y` (`docs/revues/`, comme les autres
 revues). Tests : `tests/front-oracles.test.mjs` et `scripts/ci/tests/front-integrity.test.sh`.
 
+## Vérification de fin de tâche (instantanés)
+
+L'instantané d'un dépôt relève, pour une clé (agent ou session), le commit `head`, l'empreinte de
+chaque oracle et celle de chaque fichier non suivi. En fin de tâche (`verify`, `lib/state.mjs`) :
+
+- un oracle de l'instantané dont l'empreinte a changé est « modifié » ou « supprimé », sauf
+  autorisation ou commit justifié depuis `head` ;
+- une configuration ou un garde-fou absent des oracles de l'instantané n'est « créé » ou « modifié »
+  que si son contenu diffère de celui qu'il avait à l'instantané (fichier au commit `head`, ou
+  fichier non suivi relevé). La politique a pu s'élargir entre-temps (les hooks tournent depuis le
+  checkout principal, mis à jour par une fusion) : un fichier devenu oracle mais inchangé n'est pas
+  une violation (BF-10, `tests/snapshot-policy-widening.test.mjs`).
+
 ## Exception contrôlée (correcteur, qa, qa-front, lead-architecte, dev-devops)
 
 Seule la session principale crée une autorisation (le hook refuse aux sous-agents l'exécution des
