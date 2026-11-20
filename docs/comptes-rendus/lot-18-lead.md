@@ -3,8 +3,9 @@
 Date : 20-21 nov. 2026. Branche `lot/18-suites-lot-14` (depuis `develop` à `ec5a30c`), worktree
 `.claude/worktrees/lot-18-suites`, isolation `siteperso-v3-lot18` (ports 5782 à 5785). Tickets
 L18-01 et L18-02 (`docs/backlog.md`, 7 septies bis). Autorisation « config » `b058c66e`
-(`.claude/hooks/**`, `.claude/agents/**`). Aucun test existant modifié, rien poussé, aucun worktree
-géré.
+(`.claude/hooks/**`, `.claude/agents/**`). Un seul test existant est modifié : il est complété, sans
+rien retirer, sur décision de l'orchestrateur (section « Reprise » ci-dessous). Rien poussé, aucun
+worktree géré.
 
 ## Commits
 
@@ -14,7 +15,10 @@ géré.
 | `99362f5` | L18-02 | création d'une branche suivie refusée aux agents ; tests `branch-tracking.test.mjs` |
 | `bb48adc` | les deux | README des garde-fous |
 | `6ce107d` | les deux | CLAUDE.md, « Flux git et interdictions » |
-| (ce CR)   |        | compte rendu |
+| `9402a9d` |        | compte rendu, première version |
+| `85692e4` | L18-02 | puce « créer » dans les quatorze fichiers d'agent |
+| `3861749` | L18-02 | test existant `agents-git-section.test.mjs` : clé `créer` dans `PROBES` |
+| (ce CR)   |        | compte rendu, reprise |
 
 Les commits qui touchent `.claude/hooks/` portent `Justification-test: L18-0x …`.
 
@@ -46,7 +50,7 @@ est `main : git config --get core.hooksPath`, refusé avec « changer core.hooks
 pre-commit ». Les autres sont `--remove-section core` permis et `--comment --get remote.origin.url …`
 permis. Sur le code du lot, 6 sur 6.
 
-## L18-02 : création d'une branche suivie (fait, sauf la puce des agents)
+## L18-02 : création d’une branche suivie (fait)
 
 ### Comportement réel de git, mesuré dans des dépôts jetables
 
@@ -141,14 +145,15 @@ sur 24 : les quatorze rôles, le hook dev-api, la configuration du dépôt et l'
 
 | Critère | Commande | Résultat |
 | --- | --- | --- |
-| Tests des garde-fous | `pnpm hooks:test` | 798 tests, 798 verts (768 sur `develop`, + 6 L18-01, + 24 L18-02) |
-| Tests du script d'intégrité | `pnpm integrity:test` | 19, 3, 13, 8, 95, 13, 13, 12, 8, 9 réussis, 0 échec |
-| Intégrité depuis la base | `pnpm integrity develop` | « Intégrité des tests : OK » |
+| Tests des garde-fous | `pnpm hooks:test` | 798 tests, 798 verts (768 sur `develop`, + 6 L18-01, + 24 L18-02) ; après la reprise : 798 sur 798, L14-14 compris |
+| Tests du script d'intégrité | `pnpm integrity:test` | 19, 3, 13, 8, 95, 13, 13, 12, 8, 9 réussis, 0 échec (avant et après la reprise) |
+| Intégrité depuis la base | `pnpm integrity develop` | « Intégrité des tests : OK » (après la reprise aussi) |
 | Avant/après L18-01 | `pnpm hooks:test` avec le nouveau fichier, code de `develop` | 4 échecs, puis 0 |
 | Avant/après L18-02 | clone jetable sur `e4c060a` + nouveau fichier, `pnpm hooks:test` | 17 échecs, puis 0 |
+| Avant/après concordance | clone jetable sur `99362f5` : puce seule, puis puce + `créer` ; puis le worktree à `3861749` | 1 échec, puis 0 ; 798 sur 798 |
 | Comportement de git | scripts du dossier de session, git 2.30.2 et 2.43.0 | tableau ci-dessus |
-| Formatage | `pnpm format` | aucun fichier modifié |
-| `pnpm check` final | `TURBO_FORCE=true pnpm check` | **non fait, en attente**, voir le point ouvert 1 |
+| Formatage | `pnpm format`, `prettier --check` des fichiers de la reprise | aucun fichier modifié |
+| `pnpm check` final | `TURBO_FORCE=true pnpm check` | non lancé : l'orchestrateur le lance lui-même après accord de la session front |
 
 ## Décisions
 
@@ -176,32 +181,21 @@ sur 24 : les quatorze rôles, le hook dev-api, la configuration du dépôt et l'
 6. **Motif faible.** Le refus de suivi ne remplace pas un refus déjà posé, plus précis (écriture de
    `main`, `-u` de L14-17). Les messages des tests existants restent donc inchangés.
 
-## Non fait : puce de la section « Git et garde-fous » (sortie honorable)
+## Reprise : puce « créer » et test de concordance (fait)
 
-Je n'ai pas ajouté la puce demandée : le test de concordance existant (`agents-git-section.test.mjs`,
-sur `develop`) l'interdit sans être modifié. Son test « chaque refus déclaré a ses commandes de
-contrôle, et réciproquement » compare le premier mot de chaque puce aux clés de `PROBES`, à
-l'égalité exacte :
-- une puce nouvelle ajoute une clé ;
-- une puce qui reprend un premier mot existant le duplique.
+Première livraison : sortie honorable. Le test existant `agents-git-section.test.mjs` (sur
+`develop`) empêchait d'ajouter la puce. Son test « chaque refus déclaré a ses commandes de contrôle,
+et réciproquement » compare le premier mot de chaque puce aux clés de `PROBES`, à l'égalité exacte.
+Une puce nouvelle échoue donc tant que `PROBES` n'est pas complété.
 
-Dans les deux cas le test échoue tant que `PROBES` n'est pas modifié. Un nouveau fichier de test ne
-peut pas lever cette assertion.
+Décision de l'orchestrateur : ma première option est appliquée. Le ticket L18-02, validé par Julien,
+prévoit la mise à jour de la section et du test de concordance. `.claude/hooks/tests/` relève du
+scope `config` de l'autorisation `b058c66e`.
 
-Démonstration, dans un clone jetable à `99362f5`, avec la puce ajoutée aux quatorze fichiers et
-`pnpm hooks:test` : 798 tests, 1 échec.
-
-```
-✖ chaque refus déclaré a ses commandes de contrôle, et réciproquement
-  + actual - expected
-    [ 'contourner', +'créer', 'définir', 'fusionner', 'lancer', 'pousser', 'publier', … ]
-```
-
-Avec en plus la clé `créer` dans `PROBES` du même clone : 798 sur 798, y compris L14-14 : section
-identique, aucun terme interne, refus effectifs pour les quatorze rôles. Proposition prête à
-appliquer, sous une autorisation « tests » pour `agents-git-section.test.mjs` :
-
-- dans les quatorze `.claude/agents/*.md`, après la puce « définir » :
+- **`85692e4`** : la puce est ajoutée à l'identique dans les quatorze `.claude/agents/*.md`, après
+  « définir la branche suivie ». Elle ne dit rien des détections. Le premier essai, un `sed` sur
+  `.claude/agents/*.md`, a été refusé : un motif shell couvre un oracle. J'ai fait les quatorze
+  éditions avec l'outil Edit.
 
   ```
   - créer une branche qui suit une autre branche (`git branch --track`, `checkout -b` ou `switch -c`
@@ -209,65 +203,77 @@ appliquer, sous une autorisation « tests » pour `agents-git-section.test.mjs` 
     session principale ; `--no-track` reste permis ;
   ```
 
-- dans `PROBES`, avant `utiliser` (dépôt du test sans remote, d'où des formes refusées sans
-  branche distante) :
+- **`3861749`** : commit dédié au test, avec `Justification-test: L18-02 …`. Il ajoute la clé
+  `créer` à `PROBES`, sans rien retirer : les autres clés, les assertions, `makeRepo` et
+  `INTERNALS` sont inchangés. Le dépôt du test n'a pas de remote, d'où des formes qui sont refusées
+  sans branche distante.
 
-  ```js
-  créer: [
-    bash('git branch --track lot/y develop'),
-    bash('git checkout -b lot/y --track develop'),
-    bash('git switch -c lot/y --track develop'),
-    bash('git -c branch.autoSetupMerge=always branch lot/y develop'),
-    bash('git fetch --set-upstream origin develop'),
-  ],
+  ```diff
+     définir: [ … ],
+  +  créer: [
+  +    bash('git branch --track lot/y develop'),
+  +    bash('git checkout -b lot/y --track develop'),
+  +    bash('git switch -c lot/y --track develop'),
+  +    bash('git -c branch.autoSetupMerge=always branch lot/y develop'),
+  +    bash('git fetch --set-upstream origin develop'),
+  +  ],
+     utiliser: [bash('git stash')],
   ```
 
-Alternative sans toucher au test : élargir la puce « définir » existante, par exemple « définir la
-branche suivie d'une branche ou créer une branche qui suit une autre branche (`git branch -u`,
-`--set-upstream-to`, `--track`, `checkout -b` ou `switch -c` depuis une branche distante) : … ». Un
-nouveau fichier contrôlerait alors ces formes. Ce n'est pas « une puce » comme demandé : à trancher
-par l'orchestrateur.
+Avant et après :
+- **Avant (puce seule)** : dans un clone jetable à `99362f5`, la puce ajoutée et `pnpm hooks:test`
+  donnent 798 tests et 1 échec. `actual` y vaut `[ 'contourner', 'créer', 'définir', … ]`, alors
+  que `expected` n'a pas `créer`. C'est aussi l'état de la branche entre `85692e4` et `3861749`.
+- **Après (puce et `créer`)** : 798 sur 798, dans le clone puis dans le worktree à `3861749`.
+  L14-14 passe en entier : section identique et dernière dans les quatorze fichiers, aucun terme
+  interne, refus effectifs pour les quatorze rôles.
+- Ce que le test vérifie ne s'affaiblit pas : il porte une puce et cinq contrôles de plus.
 
 ## Points ouverts
 
-1. **`pnpm check` final non lancé.** Je l'ai démarré (`pnpm db:down`, puis
-   `TURBO_FORCE=true pnpm check`) avant de recevoir la consigne de coordination de la charge
-   machine. Je l'ai arrêté pendant `hooks:test`, avant turbo et les conteneurs. L'échec
-   « Promise resolution is still pending » de `branch-tracking.test.mjs` dans ce journal vient de
-   cette interruption. Je n'ai pas d'outil pour écrire à la session principale, donc je n'ai pas pu
-   demander le « vas-y ».
-   - À lancer sur feu vert, dans le worktree : `pnpm db:down`, `TURBO_FORCE=true pnpm check`,
-     `pnpm db:down`.
+1. **`pnpm check` final.** L'orchestrateur le lance lui-même après accord de la session front.
+   - Ma tentative : je l'avais démarré avant la consigne de coordination, puis arrêté pendant
+     `hooks:test`, avant turbo et les conteneurs.
+   - L'échec « Promise resolution is still pending » de son journal vient de cette interruption.
    - Aucun processus ni conteneur du lot ne reste.
-   - Le code applicatif n'est pas touché : seuls `.claude/hooks/`, `CLAUDE.md` et ce compte rendu
-     changent.
-2. **Section des agents** : voir « Non fait » ci-dessus.
-3. **Écart L14-06 lu dans le code, non mesuré.** `checkout` et `switch` ne lisent le nom créé que par
-   `valueOf(['-b', …])`, en mot séparé. `git checkout -qb main`, `-bmain`, `switch -cmain` et
-   `--cr main` ne passent donc pas par `writesRef` (création de `main`). Le parseur `creationWords`
-   du lot les lit : on pourrait le brancher sur `writesRef`. Je ne l'ai pas fait : hors ticket, et je
-   n'ai pas tenté la commande pour le vérifier.
-4. **Écart lu dans le code, non mesuré.** `core.hooksPath` passé par l'environnement
-   (`GIT_CONFIG_PARAMETERS="'core.hooksPath=…'"`, `GIT_CONFIG_COUNT/KEY/VALUE`) n'est pas lu.
-   Seul `-c` l'est (`configValue`). Même famille que `-c core.hooksPath=` : on pourrait refuser à
-   tous une variable `GIT_CONFIG*` qui nomme `core.hooksPath`, ou toute variable illisible.
-5. **Limites connues de L18-02.**
-   - `checkout.guess` et `worktree.guessRemote` : `checkout.guess` n'est lu que dans `-c`. Sa valeur
-     dans un fichier n'est pas lue, ce qui est plus strict.
+   - Le code applicatif n'est pas touché : seuls `.claude/hooks/`, `.claude/agents/`, `CLAUDE.md`
+     et ce compte rendu changent.
+2. **Proposition pour Julien : la création de `main` par options collées.** Écart lu dans le code,
+   non mesuré.
+   - Ce que fait le code : `checkout` et `switch` ne lisent le nom créé que par
+     `valueOf(['-b', …])`, en mot séparé. `git checkout -qb main`, `git checkout -bmain`,
+     `git switch -cmain` et `git switch --cr main` ne passent donc pas par `writesRef`. La règle
+     L14-06 (aucune session n'écrit `main`) ne les refuse pas.
+   - Proposition : brancher le parseur `creationWords` du lot sur `writesRef` dans `checkout`,
+     `switch` et `worktree add`, avec des tests de refus de ces formes pour toutes les sessions.
+   - Je ne l'ai pas fait : hors ticket, et je n'ai pas tenté la commande pour le vérifier.
+3. **Proposition pour Julien : `core.hooksPath` par l'environnement.** Écart lu dans le code, non
+   mesuré.
+   - Ce que fait le code : `core.hooksPath` passé par l'environnement n'est pas lu, ni par
+     `GIT_CONFIG_PARAMETERS="'core.hooksPath=…'"` ni par `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_n` et
+     `GIT_CONFIG_VALUE_n` (git ≥ 2.31). Seul `-c core.hooksPath=` l'est (`configValue`). Une telle
+     variable devant `git commit` désactiverait le hook pre-commit.
+   - Proposition : refuser à toutes les sessions une variable `GIT_CONFIG*` qui nomme
+     `core.hooksPath`, ou dont la valeur est illisible. Même règle que `-c core.hooksPath=`, avec
+     tests.
+4. **Limites connues de L18-02.**
+   - `checkout.guess` n'est lu que dans `-c`. Sa valeur dans un fichier n'est pas lue, ce qui est
+     plus strict.
    - Un point de départ créé plus haut dans la même commande compte comme « inconnu » : refusé en
      `always` ou `inherit`, permis en `true`, sauf s'il a l'allure d'une distante.
    - `HEAD` est lu dans le dépôt, pas suivi à travers un `checkout` de la même commande.
    - Les abréviations de `--copy` ne sont pas lues.
    - Les noms de remote qui contiennent `/` ne sont pas gérés.
    - Une analyse de création de branche lance jusqu'à cinq lectures git.
-6. **Hooks de cette session = code de `develop`.** Jusqu'à la fusion, L18-01 n'est pas effectif pour
+5. **Hooks de cette session = code de `develop`.** Jusqu'à la fusion, L18-01 n'est pas effectif pour
    les sessions en cours. Ma lecture `git config --get core.hooksPath`, faite dans un clone du
    dossier de session pour une vérification en direct, a été refusée avec l'ancien motif. C'est le
    faux positif corrigé. Je ne l'ai pas retentée.
-7. **Refus rencontrés et respectés.**
+6. **Refus rencontrés et respectés.**
    - Un script `sh` du dossier de session contenait le texte `git stash push`, lu comme un push
      caché : j'ai retiré ce cas.
    - Un script écrit et lancé par la même commande : je l'ai écrit d'abord, lancé ensuite.
    - `node --test` sur un fichier des garde-fous : remplacé par `pnpm hooks:test`.
    - Une édition de `lib/shell.mjs` par `python3` : remplacée par l'outil Edit.
-   - La lecture `git config --get core.hooksPath` du point 6.
+   - La lecture `git config --get core.hooksPath` du point 5.
+   - Le `sed` sur `.claude/agents/*.md` de la reprise : remplacé par quatorze Edit.
