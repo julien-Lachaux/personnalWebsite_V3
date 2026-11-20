@@ -14,8 +14,9 @@
 #   4. un fichier de code suivi contient l'un de ces marqueurs ou commentaires (tout l'arbre) ;
 #   5. une directive « Stryker disable » (commentaire qui retire des mutants du score) est ajoutée
 #      dans un fichier JS/TS sans qu'un commit qui le touche porte une ligne Justification-test ;
-#      à la ligne (L14-02), le commit qui ajoute la directive porte lui-même cette ligne, et chaque
-#      équivalent déclaré qu'elle cite désigne la ligne et le mutateur qu'elle retire du score ;
+#      à la ligne (L14-02), le commit qui ajoute la directive porte lui-même cette ligne, qui cite
+#      l'identifiant de chaque équivalent de la directive, et chaque équivalent déclaré qu'elle cite
+#      désigne la ligne et le mutateur (obligatoire) qu'elle retire du score ;
 #   6. une directive « Stryker disable » d'un fichier JS/TS suivi (tout l'arbre) ne cite pas
 #      l'identifiant (<PAQUET>-EQ-<n>) d'un mutant équivalent déclaré dans un stryker.equivalents.json.
 #
@@ -176,9 +177,10 @@ while IFS=$'\t' read -r file number line; do
 done <<<"$added"
 
 # 5 bis. L14-02 : le contrôle passe du fichier à la ligne. Chaque directive ajoutée dans un fichier
-#    suivi vient d'un commit (git blame) qui porte lui-même une ligne Justification-test : une
-#    directive glissée dans un fichier qu'un autre commit justifié touche déjà est refusée, comme une
-#    directive pas encore commitée. Une ligne que blame attribue à un commit de la base n'est pas
+#    suivi vient d'un commit (git blame) qui porte lui-même une ligne Justification-test, et cette
+#    ligne cite chaque identifiant d'équivalent de la directive : une directive glissée dans un
+#    fichier qu'un autre commit justifié touche déjà est refusée, comme une directive pas encore
+#    commitée. Une ligne que blame attribue à un commit de la base n'est pas
 #    ajoutée par la branche (contenu déplacé). Puis chaque équivalent déclaré qu'elle cite désigne la
 #    ligne et le mutateur qu'elle retire du score (scripts/ci/stryker-directives.mjs).
 while IFS=$'\t' read -r file number; do
@@ -192,8 +194,19 @@ while IFS=$'\t' read -r file number; do
     fail "directive Stryker disable non commitée : ${file}:${number} (le commit qui l'ajoute porte une Justification-test)"
   elif ! git merge-base --is-ancestor "$sha" "$merge_base"; then
     message="$(git log -1 --format='%B' "$sha")"
-    grep -Eq "$JUSTIFICATION_RE" <<<"$message" ||
+    if ! grep -Eq "$JUSTIFICATION_RE" <<<"$message"; then
       fail "directive Stryker disable ajoutée par un commit sans Justification-test (${sha:0:12}) : ${file}:${number}"
+    else
+      # Décision de Julien du 20 nov. 2026 : les lignes Justification-test de ce commit citent
+      # chaque identifiant d'équivalent de la directive (mot entier : API-EQ-1 n'est pas API-EQ-10).
+      justification="$(grep -E "$JUSTIFICATION_RE" <<<"$message")"
+      text="${blame##*$'\n'$'\t'}"
+      while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        grep -Eq "(^|[^A-Za-z0-9-])${id}([^0-9]|$)" <<<"$justification" ||
+          fail "directive Stryker disable dont la Justification-test ne cite pas ${id} (${sha:0:12}) : ${file}:${number}"
+      done < <(grep -oE "$EQUIVALENT_ID_RE" <<<"$text" | sort -u || true)
+    fi
   fi
 done <<<"$directives"
 if [ -n "$directives" ]; then
