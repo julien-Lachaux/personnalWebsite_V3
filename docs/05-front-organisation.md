@@ -73,7 +73,7 @@ F0 fondations ──┬── F1 design system ──┐
 [back : BF contrats] ──── F4 données ──┴─────────────────┘                                                      F9 déploiement ┘
 ```
 
-Bloquants back : **F4 attend le lot contrats du brief back-001** ; F9 attend le brief back-002
+Bloquants back : **F4 attend le lot contrats du brief back-001** ; F9 attend le brief back-005
 (service du front dans la pile). F0 à F3 ne dépendent pas du back.
 
 ### F0 Fondations front (lead-architecte, Opus)
@@ -136,7 +136,7 @@ Bloquants back : **F4 attend le lot contrats du brief back-001** ; F9 attend le 
   (oracles des garde-fous depuis F0), la comparaison et sa tolérance sont posées en F8.
 - F8-04 Tests en échec attendu pour chaque défaut trouvé.
 
-### F9 Déploiement (dev-devops, après le brief back-002)
+### F9 Déploiement (dev-devops, après le brief back-005)
 - F9-01 Build statique dans l'image, service par Caddy, CSP stricte (empreinte du script de thème), HSTS, en-têtes.
 - F9-02 Pile locale complète front + API + Caddy, e2e Playwright contre elle, job CI.
 - F9-03 (décidé le 20 nov.) CSP : empreinte du script de thème (`THEME_SCRIPT_SHA256`, F3a), empreintes des scripts en ligne de Nuxt (`importmap`, `window.__NUXT__`) recalculées à chaque génération, `<style>` en ligne ; Caddy : vraie redirection 301 de `/fr` et `/fr/*` vers le chemin sans préfixe (aujourd'hui une page `meta refresh`).
