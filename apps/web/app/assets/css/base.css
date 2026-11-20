@@ -1,0 +1,162 @@
+/*
+ * Base du front (tickets F1-01, F1-06) : reset minimal, page, focus visible, lien d'évitement,
+ * masquage visuel et réglages d'accessibilité qui agissent sur les éléments. Fichier partagé,
+ * réservé au lead-architecte. Les attributs de la racine lus ici sont décrits en tête de
+ * tokens.css (interface préférences → CSS).
+ */
+
+/* Reset minimal. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Taille racine : 100 % de la taille choisie dans le navigateur, multipliée par le réglage
+     « taille du texte » (`data-text-size`). Jamais de `zoom` ni de taille en px. */
+  font-size: calc(100% * var(--text-scale));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: var(--font-weight-regular);
+  line-height: 1.5;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  overflow-wrap: break-word;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Liens : accent, survol en couleur du texte (maquettes). Le soulignement du navigateur est gardé
+   par défaut (un lien dans un texte se distingue autrement que par la couleur, WCAG 1.4.1) ; un
+   composant qui le retire le justifie par sa forme (bouton, onglet). */
+a {
+  color: var(--accent);
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  color: var(--text);
+}
+
+/* Focus visible (SPEC § 10.2) : contour 2 px accent, décalé de 2 px, au clavier seulement. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Lien d'évitement « Aller au contenu » (SPEC § 10.2) : hors de l'écran, visible au focus. À poser
+   en premier élément focalisable de la page, vers l'identifiant du contenu principal. */
+.skip-link,
+.skip-link:hover {
+  position: absolute;
+  z-index: 200;
+  top: 0.75rem;
+  inset-inline-start: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-control);
+  background-color: var(--accent);
+  color: var(--on);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+  transform: translateY(calc(-100% - 1.5rem));
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+/* Masquage visuel : retiré de l'écran, gardé pour les lecteurs d'écran (titres de section masqués,
+   régions `aria-live`). */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Espacement du texte (`data-spacing="augmente"`, WCAG 1.4.12, SPEC § 10.1), sur chaque élément :
+   un espacement en em se calcule sur la taille de l'élément lui-même. */
+:root[data-spacing='augmente'],
+:root[data-spacing='augmente'] *,
+:root[data-spacing='augmente'] *::before,
+:root[data-spacing='augmente'] *::after {
+  line-height: 1.5 !important;
+  letter-spacing: 0.12em !important;
+  word-spacing: 0.16em !important;
+}
+
+/* Souligner les liens (`data-links="soulignes"`), y compris ceux qui ont la forme d'un bouton. */
+:root[data-links='soulignes'] a {
+  text-decoration-line: underline !important;
+}
+
+/* Mouvement réduit (F1-06) : les durées `--dur-*` valent déjà 0,01 ms (tokens.css) ; ce filet
+   coupe aussi toute transition ou animation qui n'utiliserait pas ces variables. */
+:root[data-motion='reduit'],
+:root[data-motion='reduit'] *,
+:root[data-motion='reduit'] *::before,
+:root[data-motion='reduit'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='normal']),
+  :root:not([data-motion='normal']) *,
+  :root:not([data-motion='normal']) *::before,
+  :root:not([data-motion='normal']) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
