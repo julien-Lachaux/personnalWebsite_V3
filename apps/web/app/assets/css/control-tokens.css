@@ -13,11 +13,16 @@
  *   sombre (posé ou système)    #66798a (3,2 à 3,9:1 sur bg, card, top, bar, field)
  *   sombre, contraste renforcé  var(--line) (#a9bcc7, déjà plus fort)
  *   clair, et renforcé          var(--line) (#14262b, #000000 : 10:1 et plus)
+ *
+ * `--target-min` : taille minimale d'une cible de pointeur plus petite que les 44 px tactiles
+ * (WCAG 2.2, 2.5.8 : 24 × 24 px CSS), en px car le critère ne suit pas la taille du texte. Les puces
+ * de techno gardent la hauteur de la maquette sur mobile et tablette (décision D17).
  */
 
 :root {
   --line-control: var(--line);
   --border-control: var(--border-width) solid var(--line-control);
+  --target-min: 24px;
 }
 
 :root[data-theme='sombre'] {
