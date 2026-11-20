@@ -19,6 +19,21 @@ fusion `--no-ff` dans `develop` par la session front.
 | D7 | Captures de référence | Le handoff entre dans le dépôt sous `apps/web/design/handoff-v6/` (sans les `.dc.html` si on veut alléger) : les tests de régression visuelle et la recette depuis un clone en ont besoin. |
 | D8 | Statistiques | Aucune pour l'instant. |
 
+### Décisions du 20 novembre 2026 (recettes F0, F1, F2)
+
+| # | Sujet | Décision |
+|---|---|---|
+| D9 | Profil en mosaïque 2 colonnes | Pleine hauteur (maquette portable, SPEC § 3.3) ; hauteur de contenu en 3 colonnes. |
+| D10 | Poussée des tuiles | La poussée « par le haut » de la maquette complète la SPEC § 4.2 (gauche, droite, bas, haut). |
+| D11 | « Réinitialiser » les préférences | Supprime le réglage enregistré : le site suit de nouveau le système (stockage avec suppression). |
+| D12 | Bordures des contrôles en thème sombre | Bordure dédiée `#66798A` (≥ 3:1) pour les contrôles soumis à WCAG 1.4.11 (champs, interrupteurs, puces, cadres) ; le `line` décoratif du handoff reste inchangé. |
+| D13 | Cache Turborepo partagé entre worktrees | Corrigé dans un mini-lot du lead (F1 bis) ; d'ici là les recettes tournent avec `TURBO_FORCE=true`. |
+| D14 | Mutation des composants | Non pour l'instant : la mutation reste sur `domain/` et `data/`. |
+| D15 | `/fr` | Redirige vers `/` (F3). |
+| D16 | Défauts du script d'intégrité (noms accentués, motif `includes`) | Brief à la session back (`docs/briefs/back-002-integrite.md`). |
+| D17 | Puces de techno sur mobile et tablette | 28 px de haut comme la maquette (WCAG 2.2 AA demande 24 px) au lieu de 44 px. |
+| D18 | Nom accessible des fenêtres | Nom explicite (« Me contacter »…), le nom de fichier (`contact.sh`) reste le titre visible (F3). |
+
 ## Structure d'`apps/web`
 
 ```
