@@ -29,6 +29,7 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
 | 12 | Test par mutation, phase 2 : la règle | qa Sonnet, lead-architecte Opus, chef-de-projet Sonnet | 5ee5690 | 133 + 389 unitaires, 552 e2e, mutation 100 % / 40,87 % |
 | 13 | Git flow : `develop`, push de la session principale | lead-architecte Opus, chef-de-projet Sonnet | 802360b | 115 tests hooks, 133 + 391 unitaires, 552 e2e, 100 % |
 | 13 bis | Durcissement des refus de push et de l'analyseur | lead-architecte Opus, chef-de-projet Sonnet | fb31042 | 527 tests hooks, 133 + 391 unitaires, 552 e2e, 100 % |
+| 15 | Brief back-001 du front (BF-1 à BF-7) | dev-sql Sonnet, dev-api Sonnet, chef-de-projet Sonnet | baa259d | 220 + 430 unitaires, 705 e2e, 100 %, mutation 100 % / 42,03 % |
 
 ## Lot 0 : fondations
 
@@ -269,6 +270,25 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
   en clair.
 - **Décisions de Julien du même jour** : étiquette locale et déplacement local de `develop` restent
   permis ; toute écriture de la branche locale `main` sera refusée (lot 14, L14-06).
+
+## Lot 15 : brief back-001 de la session front
+
+- **Livré** (BF-1 à BF-7, un commit par ticket) : profil restructuré selon le design v6 (neuf champs
+  `not null` et non vides, `headline`, `bio`, `availability` supprimés), `shownInStack` sur les
+  compétences d'une expérience, `mainStackOrder` sur les compétences, lien des recommandations LinkedIn
+  (lien social), ressources `/recommendations` et `/ai-overview` avec leurs clés dans `/cv`, contrat
+  OpenAPI à 15 chemins. Migrations 0011 à 0016, docs/01 et README des contrats à jour.
+- **Organisation** : trois étapes sur une seule branche (ajouts SQL, puis contrat et API par ticket, puis
+  état final du profil), l'ordre « contrat d'abord, fusionné seul » du brief étant impossible avec le
+  pre-commit. Première application de la portée « tests » des dev-* sous brief validé : 27 fichiers de
+  test existants modifiés, chacun sous `Justification-test: BF-n`, aucune assertion affaiblie.
+- **Mutation** : contrats 100 %, API 42,03 % (seuil 40, référence `develop` 40,77 %). Le 46,37 % mesuré
+  en fin d'étape 2 n'est pas reproductible (35 timeouts comptés comme tués selon la charge) ; mesure
+  rejouée 42,89 %.
+- **Recette** : acceptée ; 36 scénarios de réserve joués contre l'API, aucun échec de l'API.
+- **Écarts au brief** : BF-4 `published = true` (décision de Julien du 19 nov.), `cvPath` restreint à un
+  chemin relatif au site, `mainStackOrder` aussi dans les compétences imbriquées de `/projects`, slugs des
+  recommandations, libellés EN à relire (`docs/traductions-a-relire.md`).
 
 ## Transverse
 
