@@ -55,3 +55,22 @@ Voir le tableau en fin de fichier (`pnpm check` deux fois, `pnpm integrity devel
 | idem, passe 2 (base recréée) | code 0 |
 | `pnpm integrity develop` | OK |
 | `pnpm db:down`, conteneurs arrêtés | fait |
+
+## F3a-D21 : sélecteur de langue « FR | EN » (remplace D19)
+
+Autorisation 38507e7b. Test d'abord : sur l'état de D19, `LanguageSwitch.spec.ts` et
+`LanguageSwitch-d19.spec.ts` échouent (6 échecs sur 8) :
+`expected 'FRPasser en anglais' to be 'EN'`, `expected 'FRPasser en anglais' to be 'FR | EN'`,
+`Unable to get [aria-current="true"]` (nom « Switch to French » ≠ texte visible « EN »),
+séparateur absent. Après le correctif : 758 unitaires verts, 448 parcours verts.
+
+| Fichier | Avant | Après |
+|---|---|---|
+| `LanguageSwitch.vue` | un lien affichant la langue courante, nom « Passer en anglais » | `FR \| EN` : langue courante en `span aria-current="true"` avec `lang` de la page, autre langue en lien (texte = nom, sans `aria-label`, `lang` et `hreflang` de la cible), séparateur `aria-hidden`, cible 44 px sous 1024 px (classe `shell-icon-button`) |
+| `shell.json` fr/en | clés `language.switchTo.*` | retirées (plus utilisées) |
+| `LanguageSwitch.spec.ts` | codes et noms de D19, test 2.5.3 absent | `FR\|EN`, `aria-current`, nom = texte visible (rétablit l'esprit du test 2.5.3 supprimé), pas d'`aria-label`, séparateur caché |
+| `LanguageSwitch-d19.spec.ts` | contrat D19 | contrat D21 par page (un seul lien, courant en texte) ; nom de fichier conservé |
+| `index.spec.ts` | texte du lien « Passer en anglais » | « EN » / « FR » |
+| `shell.e2e.ts` | un lien nommé « Passer en anglais », `aria-hidden` = « FR » | `.language-switch` « FR \| EN », courant sans lien avec `lang`, nom exact = texte, pas d'`aria-label`, taille 44 px (onglets) ou 24 px, focus au clavier 2 px, clic vers la langue |
+
+`app.spec.ts` n'avait pas à changer. Point ouvert 5 du lead (2.5.3) : résolu.
