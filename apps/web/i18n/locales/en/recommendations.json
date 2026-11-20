@@ -2,6 +2,8 @@
   "recommendations": {
     "provisional": {
       "count": "no recommendation | {n} recommendation | {n} recommendations"
-    }
+    },
+    "seeOnLinkedIn": "See on LinkedIn",
+    "empty": "No recommendation published yet."
   }
 }

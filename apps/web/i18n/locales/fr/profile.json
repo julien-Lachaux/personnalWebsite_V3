@@ -1,3 +1,14 @@
 {
-  "profile": {}
+  "profile": {
+    "situation": {
+      "now": "en ce moment",
+      "seeking": "ce que je recherche",
+      "format": "format",
+      "location": "lieu",
+      "availability": "disponibilité"
+    },
+    "social": {
+      "label": "Réseaux"
+    }
+  }
 }

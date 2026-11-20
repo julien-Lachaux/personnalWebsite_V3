@@ -1,3 +1,5 @@
 {
-  "ai": {}
+  "ai": {
+    "tagsLabel": "Mots-clés"
+  }
 }
