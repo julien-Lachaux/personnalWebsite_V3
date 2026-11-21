@@ -283,6 +283,19 @@ Décisions de Julien du 21 nov. 2026 : flux par pull requests vers `develop`, re
 (`.github/workflows/revue-pr.yml`) et `develop` protégée. Les hooks des agents refusent `gh api` en écriture :
 c'est Julien qui pose ces réglages, une fois.
 
+### Dependabot désactivé
+
+Décision de Julien du 21 nov. 2026 : les mises à jour de versions passent par nos lots (règle « versions
+toujours récentes »), `.github/dependabot.yml` est supprimé et `pnpm audit --prod --audit-level=high` du job
+`Qualité` reste le filet pour les vulnérabilités. Ce que Julien fait dans GitHub (les agents n'ont pas le droit de
+supprimer une branche distante) :
+
+- _Settings > Advanced Security_ (ou _Code security_) : désactiver « Dependabot security updates » (sinon GitHub
+  ouvre encore des PR de correctif sans fichier de configuration) et, s'il le souhaite, garder « Dependabot alerts »
+  (alertes seules, sans PR) ; ne pas activer « Dependabot version updates ».
+- Fermer les PR Dependabot ouvertes, puis supprimer lui-même les branches distantes `dependabot/…`
+  (_Code > Branches_, onglet « All branches », corbeille ; ou `git push origin --delete <branche>` depuis son poste).
+
 ### Secret de la revue automatisée
 
 Secret de dépôt `ANTHROPIC_API_KEY` : clé d'API Anthropic (facturée à l'usage), à créer dans la console Anthropic
@@ -305,6 +318,7 @@ dans une commande ni dans le dépôt). Sans ce secret, le contrôle « Revue PR 
   - `Pile locale complète (Caddy, API, PostgreSQL) et scénarios de production`
   - `Revue PR (Claude)`
 - La mutation (`Test par mutation (contrats|API|front)`) n'est PAS requise : elle reste informative.
+- Une PR issue d'un fork ou en brouillon ne saute pas « Revue PR (Claude) » (un job sauté compte comme réussi) : le job échoue avec un message clair, sans lancer l'action ni utiliser le secret.
 - Push forcé et suppression de `develop` interdits.
 
 ### Forme 1 : ruleset par `gh api` (recommandée)

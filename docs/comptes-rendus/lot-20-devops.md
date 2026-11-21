@@ -18,7 +18,7 @@
 ### L20-05 : revue automatisée des PR
 
 - `.github/workflows/revue-pr.yml`, job `Revue PR (Claude)` : `pull_request` vers `develop` (opened, synchronize,
-  reopened, ready_for_review), ni `pull_request_target`, ni forks (`if` sur le dépôt de tête, plus `allow_fork_prs: 'false'`),
+  reopened, ready_for_review), ni `pull_request_target`, ni forks (garde `review-guard.sh` qui ÉCHOUE, plus `allow_fork_prs: 'false'`),
   ni brouillons. `permissions: {}` au niveau du workflow, puis `contents: read` et `pull-requests: write` au job.
   Délai 20 min, concurrence par PR avec annulation.
 - Action : `anthropics/claude-code-action` v1.0.286 (stable, publiée le 20 nov. 2026), SHA de commit
@@ -90,3 +90,15 @@
 - Pose du secret `ANTHROPIC_API_KEY` et du ruleset.
 - Dépôt public : la revue d'une PR de fork est volontairement désactivée ; une contribution externe se relit à la main.
 - (traité) Les consignes de revue sont lues sur la branche cible : second checkout de `base.sha` dans `consignes-base/` (agent et CLAUDE.md seuls), le prompt s y réfère ; une PR ne peut plus affaiblir ses propres consignes. Prérequis : `.claude/agents/revue-pr.md` doit exister sur `develop`.
+
+## Suite de la recette (R1 à R6, décisions de Julien)
+
+- Dependabot : `.github/dependabot.yml` supprimé, commentaire de `docker/api.Dockerfile` corrigé, marche à suivre pour
+  Julien (désactiver les « security updates », fermer les PR, supprimer les branches `dependabot/…`) dans
+  `docs/deploiement.md`. Reste `.claude/agents/dev-devops.md` (ligne 22) qui cite le fichier : hors de mon périmètre.
+- Fork ou brouillon : le job « Revue PR (Claude) » ne saute plus, sa garde `scripts/ci/review-guard.sh` échoue avec un
+  message clair avant l'action et le secret ; test `scripts/ci/tests/review-guard.test.sh` (7 cas). La garde est lue dans la
+  PR (le workflow l'est de toute façon) ; un fork n'a pas le secret.
+- Contexte : `fetch-depth: 0`, `Bash(git show:*)` permis (avec `git log` et `git diff`), prompt mis à jour, plus aucune
+  mention du dépôt (pas de `-R`, `--repo`).
+- Alignement de `revue-pr.md` et docs/03 : Claude publie sa revue par `gh pr comment`, le verdict est lu par l'étape finale.
