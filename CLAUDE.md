@@ -414,8 +414,7 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   `gh pr merge --merge release/<version>` (mêmes refus que pour `develop` : `--squash`,
   `--rebase`, `--admin`, `--delete-branch`, `--auto`). Les hooks ne peuvent pas vérifier l'accord :
   c'est une règle de l'orchestrateur ; ils permettent ces commandes à la session principale seule,
-  jamais aux agents (patch `docs/comptes-rendus/lot-22-lead-release.patch` en attente : deux tests
-  existants refusent encore le push et la fusion d'une release, point ouvert du lot 22). À la
+  jamais aux agents (`tests/release-flow.test.mjs` des hooks). À la
   fusion d'une release dans `main`, l'étiquette de version et le changelog seront produits par la
   CI (lot 23, au backlog).
 - Réservé à Julien : le push direct de `main` (correctif urgent, sans pull request, hors de nos

@@ -1453,8 +1453,14 @@ Tickets :
   principale (push de `release/<majeur>.<mineur>.<correctif>`, `gh pr create --base main --head
   release/<version>`, `gh pr merge --merge release/<version>`), refus maintenus (`--squash`,
   `--rebase`, `--admin`, `--delete-branch`, `--auto`, agents), nouveaux tests, rejeu L14-07 vert.
-  Deux tests existants exigent le refus du push et de la fusion d'une release : sortie honorable,
-  patch prêt (`docs/comptes-rendus/lot-22-lead-release.patch`, compte rendu `lot-22-lead.md`).
+  Accord explicite de Julien donné le 21 nov. 2026 : patch appliqué (`9f99811`). Deux tests
+  existants exigeaient le refus du push et de la fusion d'une release (`git-push.test.mjs:118`,
+  `pr-flow.test.mjs:154`) ; leur mise à jour reste à faire (compte rendu `lot-22-lead.md`).
+- **À trancher plus tard** (laissés en l'état par décision du 21 nov. 2026) :
+  - remontée d'une release dans `develop` (`gh pr create --base develop --head release/…`),
+    aujourd'hui refusée par les hooks ;
+  - `gh pr edit <pull request> --base develop` sur une pull request de release, aujourd'hui permis
+    (la base ne peut que revenir vers `develop`, jamais passer à `main`).
 - **L22-03** (lead-architecte, portée `config`) : `passThroughEnv: ["TEST_MAX_WORKERS"]` sur
   `@siteperso/web#test` (constat de la session front).
 - **L22-04** (lead-architecte, portée `config`) : `dev-devops.md` ne cite plus
