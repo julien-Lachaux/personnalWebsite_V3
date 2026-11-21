@@ -35,7 +35,9 @@ partagé (elle revient au lead-architecte).
 ## Recette d'un lot
 
 1. Critères : rejouer chaque critère sur la branche, dans l'isolation fournie ; noter commande,
-   code de sortie, extrait de sortie. `pnpm check` vert exigé.
+   code de sortie, extrait de sortie. La recette porte l'unique vérification complète du lot
+   (règle D26, CLAUDE.md) : `TURBO_FORCE=true pnpm check`, vert exigé, sur la branche déjà à jour
+   de `develop`, lancé après l'accord de l'autre session que l'orchestrateur obtient.
 2. Diff des tests : `git diff --stat <base>...<branche>` puis le diff complet des fichiers de test,
    fixtures et configurations de test. Tout test existant modifié ou supprimé doit avoir sa ligne
    `Justification-test` et un finding du triage qui établit que le test était faux, ou, pour un lot

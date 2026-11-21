@@ -38,7 +38,10 @@ autorisation nominative de l'orchestrateur (identifiant du défaut, fichiers).
 5. Défaut trouvé : `BUG-<n>` avec reproduction minimale (commande, attendu, obtenu, fichier
    soupçonné) et un test en échec attendu (marqueur `fails` de Vitest) nommé `BUG-<n>`, écrit
    sous autorisation, commité avec `Justification-test: BUG-<n> <raison>`.
-6. `pnpm format`, `pnpm check`, passe e2e en ordre aléatoire ; `pnpm db:down`.
+6. `pnpm format`, puis les vérifications ciblées (règle D26, CLAUDE.md) : `pnpm lint`,
+   `pnpm typecheck`, `test:coverage` du paquet touché, passe e2e en ordre aléatoire des fichiers
+   ajoutés, `pnpm integrity` ; `pnpm db:down`. Pas de `pnpm check` ni de mutation complète : la
+   recette lance l'unique vérification complète.
 
 ## Livrable
 
@@ -62,7 +65,7 @@ continue. C'est un résultat acceptable et le seul chemin autorisé.
 ## Terminé quand
 
 Matrices et cas exigés présents, couverture à 100 %, chaque défaut a son test et sa reproduction,
-`pnpm check` vert et passe aléatoire verte, aucun fichier de production modifié.
+vérifications ciblées vertes et passe aléatoire verte, aucun fichier de production modifié.
 
 ## Git et garde-fous
 
