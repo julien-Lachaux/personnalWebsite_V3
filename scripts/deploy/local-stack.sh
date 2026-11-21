@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pile locale complète : docker/compose.prod.yml + docker/Caddyfile + image de l'API, sans rien dupliquer.
+# Pile locale complète : docker/compose.prod.yml + docker/Caddyfile + images de l'API et du front, sans rien dupliquer.
 # Seules les variables de docker/.env.local (copie ignorée par git de docker/.env.local.example) changent.
 #
 # Usage : local-stack.sh up | logs [service…] | ps | down [--volumes]
@@ -7,7 +7,7 @@
 # Variables d'environnement reconnues :
 #   STACK_ENV_FILE      fichier d'environnement (défaut docker/.env.local, créé depuis le modèle s'il manque)
 #   DRY_RUN=1           affiche les commandes docker qui modifient l'état au lieu de les exécuter
-#   STACK_WAIT_SECONDS  délai d'attente de /api/v1/health via Caddy (défaut 180)
+#   STACK_WAIT_SECONDS  délai d'attente de /api/v1/health puis de la page d'accueil via Caddy (défaut 180)
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -41,6 +41,9 @@ init_compose() {
   fi
   COMPOSE+=(-f "${COMPOSE_FILE}" --env-file "${ENV_FILE}")
 }
+
+# Fonctions attendues par site.sh (publication du front, partagée avec le déploiement).
+compose() { "${COMPOSE[@]}" "$@"; }
 
 run() {
   if [ "${DRY_RUN}" = "1" ]; then
@@ -99,6 +102,25 @@ wait_for_health() {
   log "pile prête : ${url} (certificat interne : curl -k)"
 }
 
+# shellcheck source=scripts/deploy/site.sh
+. "$(dirname "${BASH_SOURCE[0]}")/site.sh"
+
+# Le front est généré contre l'API (donc après sa santé) puis servi par Caddy : la page d'accueil répond 200.
+wait_for_front() {
+  local port url deadline
+  port="$(env_value HTTPS_PORT)"
+  url="https://localhost:${port:-8443}/"
+  deadline=$((SECONDS + WAIT_SECONDS))
+  until curl -sk --max-time 3 -o /dev/null -f "${url}"; do
+    if [ "${SECONDS}" -ge "${deadline}" ]; then
+      "${COMPOSE[@]}" ps --all >&2 || true
+      die "le front ne répond pas après ${WAIT_SECONDS} s (voir : pnpm stack:logs)"
+    fi
+    sleep 2
+  done
+  log "front prêt : ${url}"
+}
+
 command="${1:-}"
 if [ "$#" -gt 0 ]; then
   shift
@@ -130,6 +152,10 @@ up)
     log "(dry-run) attendrait /api/v1/health via Caddy"
   else
     wait_for_health
+  fi
+  publish_site
+  if [ "${DRY_RUN}" != "1" ]; then
+    wait_for_front
   fi
   ;;
 logs) "${COMPOSE[@]}" logs --follow --tail 100 "$@" ;;
