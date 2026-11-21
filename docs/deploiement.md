@@ -298,10 +298,15 @@ supprimer une branche distante) :
 
 ### Secret de la revue automatisée
 
-Secret de dépôt `ANTHROPIC_API_KEY` : clé d'API Anthropic (facturée à l'usage), à créer dans la console Anthropic
-(Workspace dédié, limite de dépense basse) puis à poser dans GitHub : _Settings > Secrets and variables >
-Actions > New repository secret_, ou `gh secret set ANTHROPIC_API_KEY` (la valeur est demandée au clavier, jamais
-dans une commande ni dans le dépôt). Sans ce secret, le contrôle « Revue PR (Claude) » échoue.
+Secret de dépôt `CLAUDE_CODE_OAUTH_TOKEN` : jeton Claude Code de l'abonnement Max de Julien (entrée
+`claude_code_oauth_token` de l'action). La clé d'API Anthropic n'est plus utilisée. Marche à suivre :
+
+1. Dans son terminal, connecté à son compte Max : `claude setup-token`. Le jeton s'affiche une seule fois.
+2. `gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo julien-Lachaux/personnalWebsite_V3` (la valeur est demandée au
+   clavier), ou _Settings > Secrets and variables > Actions > New repository secret_.
+
+Le jeton ne passe jamais dans une commande, un fichier ni une conversation. La revue consomme les limites de
+l'abonnement Max, partagées avec son usage interactif. Sans ce secret, le contrôle « Revue PR (Claude) » échoue.
 
 ### Règles à poser
 

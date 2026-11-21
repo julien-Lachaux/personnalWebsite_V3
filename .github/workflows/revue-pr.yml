@@ -65,14 +65,14 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
       # claude-code-action v1.0.286 (publiée le 20 nov. 2026). Entrées : prompt, claude_args,
-      # anthropic_api_key, github_token, allow_fork_prs ; sortie : execution_file.
+      # claude_code_oauth_token, github_token, allow_fork_prs ; sortie : execution_file.
       - name: Revue par Claude Code
         id: revue
         uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
         with:
-          # Clé d'API (secret du dépôt ANTHROPIC_API_KEY), facturée à l'usage : choix documenté par
-          # l'action pour l'automatisation de CI, sans lier la CI à un abonnement personnel.
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Jeton OAuth de l'abonnement Claude Code de Julien (secret du dépôt CLAUDE_CODE_OAUTH_TOKEN,
+          # créé par `claude setup-token`) : la revue consomme les limites de l'abonnement.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           # Défense en plus du `if` du job : l'action ignore elle-même les PR de forks.
           allow_fork_prs: 'false'
