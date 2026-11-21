@@ -280,8 +280,20 @@ rester sur le poste après `stack:down` ; `docker image rm siteperso-api:prod` l
 ## Protection de develop
 
 Décisions de Julien du 21 nov. 2026 : flux par pull requests vers `develop`, revue automatisée de chaque PR
-(`.github/workflows/revue-pr.yml`) et `develop` protégée. Les hooks des agents refusent `gh api` en écriture :
-c'est Julien qui pose ces réglages, une fois.
+(job `Revue PR (Claude)` de `.github/workflows/ci.yml`, depuis le lot 22) et `develop` protégée. Les hooks des
+agents refusent `gh api` en écriture : c'est Julien qui pose ces réglages, une fois.
+
+### Déclencheurs de la CI (lot 22)
+
+Décision de Julien du 21 nov. 2026 : « on ne lance jamais deux fois les tests sur un même lot ». `ci.yml` tourne sur
+`pull_request` (vers `develop` et vers `main`), sur `push` de `main` seulement (hotfix poussés directement : CI
+informative après coup) et sur `workflow_dispatch` (amorçage de la mutation). Plus aucun push de `develop`, `lot/**`,
+`release/**`, `hotfix/**` ni d'étiquette ne la lance. Les jobs requis tournent en parallèle ; le premier qui échoue
+annule tout le run (`gh run cancel`, dernière étape `if: failure()` de chaque job requis, permission `actions: write`
+limitée à ces jobs) : un job qui lance cette annulation peut s'afficher « annulé » plutôt qu'« échoué », la fusion
+reste bloquée dans les deux cas. La revue Claude (`needs:` sur tous les jobs requis, même workflow, pas de
+`workflow_run`) ne démarre qu'une fois la CI verte. La mutation est complète avec seuils sur les PR vers `main`,
+incrémentale et informative ailleurs.
 
 ### Dependabot désactivé
 
@@ -313,11 +325,18 @@ l'abonnement Max, partagées avec son usage interactif. Sans ce secret, le contr
 - Pull request obligatoire pour modifier `develop` (pas de push direct), sans approbation humaine exigée
   (0 approbation : l'auteur ne peut pas approuver sa propre PR, la « revue requise » est le contrôle
   automatisé ci-dessous).
-- Contrôles requis (noms exacts des jobs, à l'identique de `ci.yml` et `revue-pr.yml`) :
+- Contrôles requis (noms exacts des jobs, à l'identique de `ci.yml`, quinze contrôles depuis le lot 22) :
   - `Qualité (format, lint, typecheck, build, tests)`
   - `Garde-fous (intégrité des tests, hooks des agents)`
   - `Tests e2e et couverture 100 % (PostgreSQL 16)`
-  - `Front (lint, typecheck, couverture 100 %, Playwright + axe sur 7 tailles d'écran)`
+  - `Front (lint, typecheck, couverture 100 %)`
+  - `Front parcours Playwright + axe (mobile-390)`
+  - `Front parcours Playwright + axe (tablette-834)`
+  - `Front parcours Playwright + axe (portable-1024)`
+  - `Front parcours Playwright + axe (desktop-1280)`
+  - `Front parcours Playwright + axe (grand-1440)`
+  - `Front parcours Playwright + axe (fullhd-1920)`
+  - `Front parcours Playwright + axe (ultra-3440)`
   - `Analyse statique (actionlint des workflows, shellcheck des scripts)`
   - `Image Docker de l'API (build sans push)`
   - `Pile locale complète (Caddy, API, PostgreSQL) et scénarios de production`
@@ -361,7 +380,14 @@ gh api --method POST repos/julien-Lachaux/personnalWebsite_V3/rulesets --input -
           { "context": "Qualité (format, lint, typecheck, build, tests)" },
           { "context": "Garde-fous (intégrité des tests, hooks des agents)" },
           { "context": "Tests e2e et couverture 100 % (PostgreSQL 16)" },
-          { "context": "Front (lint, typecheck, couverture 100 %, Playwright + axe sur 7 tailles d'écran)" },
+          { "context": "Front (lint, typecheck, couverture 100 %)" },
+          { "context": "Front parcours Playwright + axe (mobile-390)" },
+          { "context": "Front parcours Playwright + axe (tablette-834)" },
+          { "context": "Front parcours Playwright + axe (portable-1024)" },
+          { "context": "Front parcours Playwright + axe (desktop-1280)" },
+          { "context": "Front parcours Playwright + axe (grand-1440)" },
+          { "context": "Front parcours Playwright + axe (fullhd-1920)" },
+          { "context": "Front parcours Playwright + axe (ultra-3440)" },
           { "context": "Analyse statique (actionlint des workflows, shellcheck des scripts)" },
           { "context": "Image Docker de l'API (build sans push)" },
           { "context": "Pile locale complète (Caddy, API, PostgreSQL) et scénarios de production" },
@@ -384,7 +410,7 @@ offre les mêmes réglages (`required_pull_request_reviews`, `required_status_ch
 _Settings > Rules > Rulesets > New ruleset > New branch ruleset_ : nom « Protection de develop », _Enforcement
 status_ Active, _Bypass list_ vide, _Target branches_ > _Add target_ > _Include by pattern_ `develop`. Cocher
 _Restrict deletions_, _Block force pushes_, _Require a pull request before merging_ (0 approbation requise),
-_Require status checks to pass_ (ajouter les huit noms ci-dessus ; un nom n'est proposé qu'après avoir tourné au
+_Require status checks to pass_ (ajouter les quinze noms ci-dessus ; un nom n'est proposé qu'après avoir tourné au
 moins une fois sur une PR), laisser _Require branches to be up to date_ décoché. _Create_.
 
 ### Décisions de Julien (21 nov. 2026)
@@ -392,7 +418,7 @@ moins une fois sur une PR), laisser _Require branches to be up to date_ décoch�
 - La règle s'applique aussi aux administrateurs : `bypass_actors` vide (ou `enforce_admins: true`). La session
   principale fusionne par `gh pr merge --merge`, sans `--admin` ; en cas d'urgence, Julien désactive
   temporairement le ruleset.
-- Huit contrôles requis : les sept jobs de `ci.yml` hors mutation, dont les e2e de l'API, et `Revue PR (Claude)`.
+- Quinze contrôles requis (lot 22) : les jobs de `ci.yml` hors mutation (dont les e2e de l'API, le job front de qualité et les sept parcours Playwright, un par taille d'écran) et `Revue PR (Claude)`.
 - « Revue requise » = le contrôle `Revue PR (Claude)`, sans approbation humaine (un compte ne peut pas approuver
   sa propre PR).
 
@@ -403,3 +429,7 @@ Le job `mutation` est une matrice par paquet (L20-04), chaque paquet avec son ca
 n'est écrit qu'à la fin d'un run complet : le premier run (cache vide) l'amorce, sans pousser de commit
 supplémentaire grâce à _Actions > CI > Run workflow_ (`workflow_dispatch`) sur `develop`. Voir
 `docs/comptes-rendus/lot-20-devops.md` pour ce que ce premier run doit montrer.
+
+Lot 22 : le run complet avec seuils ne dépend plus des étiquettes `v*` mais des pull requests vers `main`
+(`MUTATION_FULL` dans `ci.yml`) ; vers `develop` il reste incrémental. Aucun push sur `develop` n'alimente plus le
+cache d'incrément : l'amorçage se fait par `workflow_dispatch` sur `develop`, puis les PR le restaurent depuis leur base.
