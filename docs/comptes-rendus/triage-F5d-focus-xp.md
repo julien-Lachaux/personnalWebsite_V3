@@ -44,3 +44,31 @@ Aucun événement `scroll` relevé entre le focus du champ et le clic sur « Tou
 - Vérification : `pnpm --filter @siteperso/web exec playwright test test/experience.e2e.ts
   --project=desktop-1280 --repeat-each=20 --workers=2`, unitaires du composant.
 - Ne pas ajouter `retries` en CI sans décision de Julien (affaiblit l'oracle).
+
+# Triage F5D-2 : axe `color-contrast` intermittent, mesure pendant le fondu d'onglet
+
+Rapport de l'agent triage, consigné par l'orchestrateur.
+
+- Test : `apps/web/test/shell.e2e.ts:115-134` (« axe, palette clair », onglets IA et Recos), projets
+  `mobile-390` et `tablette-834` ; CI des PR #5 (run 44935098658), #6 (run 44935103714, 4 sur 4) et de
+  develop 9f66ac8 (run 44935045976).
+- Gravité : mineure (aucun défaut visible), bloquante pour la CI. **Classe B** (test faux) : le test
+  mesure un état transitoire ; le produit est conforme (classe A écartée).
+- Preuve : les couleurs signalées n'existent pas dans le dépôt, ce sont des tokens mélangés au fond
+  `--bg` clair (`#e6ebe5`) pendant l'animation `slide-in-*` d'`AppShell.vue` (340 ms, `from { opacity: 0 }`) :
+  `#6c60bd` = `--violet` `#5546b5` à ~84 % (4,29:1 ; au repos 5,93:1), `#246faf` = `--li` `#0a5ea8`
+  à ~88 % (4,38:1 ; au repos 5,47:1). Animations suspendues à t ms après le clic, axe `color-contrast`
+  seul : violations de 20 à 100 ms (opacité < ~0,9), aucune à partir de 150 ms ; contenu opaque à
+  340 ms. En local sans gel : 80/80 (`--repeat-each=10`), y compris CPU ×4 ; l'exécuteur CI à 2
+  cœurs lance axe dans la fenêtre 100–130 ms. Sonde et journaux : scratchpad, préfixe `triage-axe-`.
+- Cause : `axe()` (l. 76) est appelé après `toHaveCount(1)` du h2, sans attendre la fin des
+  animations.
+- Correction (correcteur, `Justification-test: F5D-2`) : dans la fonction `axe()` de
+  `shell.e2e.ts`, attendre de façon déterministe que `document.getAnimations()` ne contienne plus
+  d'animation `running` avant l'analyse (pas de délai fixe, aucune règle axe désactivée) ; passer en
+  revue les autres parcours qui lancent axe ou mesurent un style après une transition
+  (`experience.e2e.ts`, `controls.e2e.ts`, `design-system.e2e.ts`).
+- Vérification : `pnpm --filter @siteperso/web exec playwright test test/shell.e2e.ts
+  --project=mobile-390 --project=tablette-834 --workers=2 --repeat-each=10` (0 échec), puis la sonde
+  avec gel des animations ou CPU bridé.
+- Lien avec F5D-1 : même famille plausible (mesure pendant une animation), non démontré.
