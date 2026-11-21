@@ -298,6 +298,15 @@ parcours du front), et un `apps/api/.env` dont `DATABASE_URL` pointe sur son `PO
 `docker compose`, `apps/api/vitest.config.ts` et `apps/web/playwright.config.ts` lisent ce `.env`
 racine. `pnpm db:down` n'arrête alors que ses conteneurs. La session front prend la plage 58xx.
 
+Charge machine (lot 19, L19-03) : `TEST_MAX_WORKERS` (entier positif ou pourcentage des cœurs, ex.
+`4` ou `50%`) borne le nombre de processus Vitest de l'API, unitaires et e2e ensemble (Vitest refuse
+deux bornes différentes dans un même groupe), dans `test`, `test:e2e` et `test:coverage`. Elle se met
+dans le `.env` racine du worktree (lu par `apps/api/vitest.config.ts`) ou dans l'environnement de la
+commande (`TEST_MAX_WORKERS=4 pnpm test:e2e`), qui l'emporte ; Turborepo la transmet sans l'ajouter
+à la clé de cache (`passThroughEnv` de `turbo.json`). Sans valeur, rien ne change, en CI comprise :
+cœurs moins un (défaut de Vitest). Ignorée sous Stryker ; `--maxWorkers=<n>` en ligne de commande
+l'emporte. Une valeur invalide arrête Vitest avec un message. Le front ne la lit pas encore.
+
 Cache Turborepo (lot F1 bis, D13) : chaque worktree a le sien, `.turbo/cache` à sa racine
 (`cacheDir` explicite de `turbo.json`) ; sans lui, Turborepo 2.x partage le cache du checkout
 principal entre tous les worktrees et rejoue le journal d'un autre worktree (ses chemins à
