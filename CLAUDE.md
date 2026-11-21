@@ -128,8 +128,9 @@ apps/web/
     assets/css/           fonts.css (@font-face), tokens.css (tokens du handoff, thèmes, interface
                           des préférences), control-tokens.css (tokens ajoutés par décision :
                           bordure des contrôles D12, cible minimale D17), base.css (reset, focus,
-                          réglages), motion.css (@keyframes partagés : glissement des onglets) ;
-                          fichiers partagés
+                          réglages), motion.css (@keyframes partagés : glissement des onglets ;
+                          durées hors handoff --dur-slide, --dur-egg-line, --dur-egg-bar, réduites
+                          avec les autres) ; fichiers partagés
   i18n/locales/<langue>/  libellés d'interface, fr/ et en/ : common.json (partagé) et un fichier
                           par section (shell, profile, experience, recommendations, ai) qui ne
                           porte que son espace de clés ; mêmes clés dans les deux langues

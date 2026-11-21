@@ -12,9 +12,17 @@
 //   d'accessibilité sinon. Avant le montage (page générée, largeur inconnue), les deux sont rendus et
 //   la CSS n'affiche que celui de la largeur (`display: none` les retire aussi de l'arbre
 //   d'accessibilité).
-// - Titres : `h1` (`heading`) en tête du contenu, visible sur le bureau et dans l'onglet Profil, masqué
-//   visuellement dans les autres onglets ; un `h2` par section, masqué visuellement sur mobile et
-//   tablette (SPEC § 3.1). Le lien d'évitement (app.vue) vise `#contenu`.
+// - Titres : `h1` (`heading`) en tête du contenu, toujours masqué visuellement (`.visually-hidden`,
+//   lot F5c) : le grand titre visible est celui de la section Profil (`ProfileTitle`, sans balise de
+//   titre), la page n'a qu'un `h1`. La classe `--other-tab` marque l'onglet courant hors Profil (état
+//   seulement, sans style). Un `h2` par section, masqué visuellement sur mobile et tablette
+//   (SPEC § 3.1). Le lien d'évitement (app.vue) vise `#contenu`.
+// - Section à défilement propre (`scrollers`, lot F5c) : une section qui fournit sa zone qui défile
+//   (Expérience : la liste sous le filtre) remplit `<main>` pendant son onglet ; `<main>` ne défile plus
+//   et perd ses marges (la section gère les siennes), la barre d'actions et la flèche lisent sa zone.
+//   Sur le bureau, en attendant la mosaïque (F6), elle prend la hauteur de la fenêtre sous la barre du
+//   haut : la liste défile, le filtre reste fixe.
+// - Onglets IA et Recos : 28 px au-dessus du contenu, 20 px pour le Profil (maquette mobile).
 // - « Lancer l'entretien » est un `mailto:` vers `NUXT_PUBLIC_CONTACT_EMAIL` : sans adresse valide, la
 //   coquille lève une erreur, et la génération statique échoue (`nitro.prerender.failOnError`).
 import { computed, nextTick, ref } from 'vue';
@@ -31,14 +39,25 @@ import MobileHeader from './MobileHeader.vue';
 import ScrollHint from './ScrollHint.vue';
 import TopBar from './TopBar.vue';
 
-defineProps<{
-  /** Texte du `h1` de la page. */
-  heading: string;
-  /** Lien du CV PDF. */
-  cvPath: string;
-  /** Page de la déclaration d'accessibilité (adresse localisée). */
-  declarationUrl: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    /** Texte du `h1` de la page. */
+    heading: string;
+    /** Lien du CV PDF. */
+    cvPath: string;
+    /** Page de la déclaration d'accessibilité (adresse localisée). */
+    declarationUrl: string;
+    /**
+     * Zone qui défile des sections qui ont la leur (clé présente : section à défilement propre ;
+     * `null` tant que la section n'est pas montée).
+     */
+    scrollers?: Partial<Record<SectionId, HTMLElement | null>>;
+  }>(),
+  { scrollers: () => ({}) },
+);
+
+/** Onglets qui laissent 28 px au-dessus du contenu (maquette mobile), au lieu de 20. */
+const ROOMY_TABS: readonly SectionId[] = ['recommendations', 'ai'];
 
 defineSlots<{
   profile(props: Record<string, never>): unknown;
@@ -66,8 +85,16 @@ const slide = ref<'right' | 'left' | null>(null);
 
 const main = ref<HTMLElement | null>(null);
 const sections = ref<Partial<Record<SectionId, HTMLElement>>>({});
-/** Zone qui défile : `<main>` en mode `tabs`, aucune en mosaïque (la page défile). */
-const scroller = computed(() => (mode.value === 'tabs' ? main.value : null));
+/** L'onglet courant a sa propre zone qui défile : `<main>` ne défile pas. */
+const selfScrolling = computed(() => tab.value in props.scrollers);
+/**
+ * Zone qui défile : en mode `tabs`, celle de la section courante si elle en a une, sinon `<main>` ;
+ * aucune en mosaïque (la page défile).
+ */
+const scroller = computed(() => {
+  if (mode.value !== 'tabs') return null;
+  return selfScrolling.value ? (props.scrollers[tab.value] ?? null) : main.value;
+});
 const { hidden } = useActionBar(scroller, tab);
 const { more, scrollDown } = useScrollHint(scroller);
 
@@ -91,6 +118,7 @@ function sectionClass(id: SectionId): Record<string, boolean> {
   const current = id === tab.value;
   return {
     'app-shell__section--current': current,
+    'app-shell__section--self-scrolling': id in props.scrollers,
     [`app-shell__section--from-${slide.value ?? 'none'}`]: current && slide.value !== null,
   };
 }
@@ -115,9 +143,18 @@ function sectionClass(id: SectionId): Record<string, boolean> {
     />
 
     <div class="app-shell__body">
-      <main id="contenu" ref="main" class="app-shell__main" :tabindex="mode === 'tabs' ? 0 : -1">
+      <main
+        id="contenu"
+        ref="main"
+        class="app-shell__main"
+        :class="{
+          'app-shell__main--self-scrolling': selfScrolling,
+          'app-shell__main--roomy': ROOMY_TABS.includes(tab),
+        }"
+        :tabindex="mode === 'tabs' && !selfScrolling ? 0 : -1"
+      >
         <h1
-          class="app-shell__heading"
+          class="app-shell__heading visually-hidden"
           :class="{ 'app-shell__heading--other-tab': tab !== 'profile' }"
         >
           {{ heading }}
@@ -185,14 +222,6 @@ function sectionClass(id: SectionId): Record<string, boolean> {
   min-height: 0;
 }
 
-.app-shell__heading {
-  margin: 0 0 1rem;
-  font-size: var(--font-size-h1-mobile);
-  font-weight: var(--font-weight-bold);
-  line-height: 1.04;
-  letter-spacing: -0.02em;
-}
-
 .app-shell__section:focus {
   /* Cible du focus de la barre du haut (programmatique) : pas de contour hors du clavier. */
   outline: none;
@@ -220,6 +249,27 @@ function sectionClass(id: SectionId): Record<string, boolean> {
     padding: 1.25rem var(--mobile-gutter) 2rem;
   }
 
+  .app-shell__main--roomy {
+    padding-top: 1.75rem;
+  }
+
+  /* Section à défilement propre : elle remplit <main>, qui ne défile pas et n'a pas de marge (la zone
+     fixe de la section est à bord perdu, comme la maquette). */
+  .app-shell__main--self-scrolling {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .app-shell__main--self-scrolling .app-shell__sections,
+  .app-shell__section--self-scrolling.app-shell__section--current {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
   /* Une section à la fois : l'onglet courant (avant le montage, par la classe ; après, par `hidden`). */
   .app-shell__section:not(.app-shell__section--current) {
     display: none;
@@ -233,8 +283,7 @@ function sectionClass(id: SectionId): Record<string, boolean> {
     animation: slide-in-left var(--dur-slide) var(--ease-slide) both;
   }
 
-  /* Titres masqués visuellement (gardés pour les lecteurs d'écran), comme `.visually-hidden`. */
-  .app-shell__heading--other-tab,
+  /* Titres de section masqués visuellement (gardés pour les lecteurs d'écran), comme `.visually-hidden`. */
   .app-shell__section-heading {
     position: absolute;
     width: 1px;
@@ -254,8 +303,8 @@ function sectionClass(id: SectionId): Record<string, boolean> {
     padding-inline: max(2rem, (100% - 40rem) / 2);
   }
 
-  .app-shell__heading {
-    font-size: var(--font-size-h1-tablet);
+  .app-shell__main--self-scrolling {
+    padding: 0;
   }
 }
 
@@ -272,10 +321,6 @@ function sectionClass(id: SectionId): Record<string, boolean> {
     padding: 0.75rem;
   }
 
-  .app-shell__heading {
-    font-size: var(--font-size-h1-portable);
-  }
-
   .app-shell__sections {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -289,18 +334,22 @@ function sectionClass(id: SectionId): Record<string, boolean> {
     background-color: var(--card);
   }
 
+  /* En attendant la mosaïque (F6) : hauteur de la fenêtre sous la barre du haut et les marges de
+     <main>, pour que seule la zone propre de la section défile. */
+  .app-shell__section--self-scrolling {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - var(--desktop-header) - 1.5rem);
+    min-height: 0;
+  }
+
   .app-shell__section-heading {
+    flex-shrink: 0;
     margin: 0 0 0.75rem;
     font-family: var(--font-mono);
     font-size: var(--font-size-meta);
     font-weight: var(--font-weight-bold);
     color: var(--violet);
-  }
-}
-
-@media (min-width: 1200px) {
-  .app-shell__heading {
-    font-size: var(--font-size-h1-desktop);
   }
 }
 </style>

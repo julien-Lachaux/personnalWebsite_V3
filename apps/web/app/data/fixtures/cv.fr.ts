@@ -994,7 +994,7 @@ export const cvFr: Cv = {
       dateStart: '2015-05-01',
       dateEnd: '2015-11-01',
       jobTitle: 'Mentor en développement web',
-      location: 'À distance',
+      location: null,
       summary:
         "Mentorat d'étudiants en développement web, avec cours individuels en visioconférence.",
       achievements: [],

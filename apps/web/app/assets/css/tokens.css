@@ -56,6 +56,9 @@
   --font-size-h1-portable: 2.5rem; /* 40 px */
   --font-size-h1-mobile: 2.875rem; /* 46 px */
   --font-size-h1-tablet: 3.75rem; /* 60 px */
+  /* Ajout du lot F5c, hors design-tokens.json : titre d'une tuile du bureau (titre de l'IA, 22 px des
+     maquettes desktop). */
+  --font-size-h3-tile: 1.375rem; /* 22 px */
 
   /* Facteur de la taille racine (réglage « taille du texte », SPEC § 10.1), lu par base.css. */
   --text-scale: 1;

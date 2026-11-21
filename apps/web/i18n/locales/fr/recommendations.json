@@ -1,8 +1,5 @@
 {
   "recommendations": {
-    "provisional": {
-      "count": "aucune recommandation | {n} recommandation | {n} recommandations"
-    },
     "seeOnLinkedIn": "Voir sur LinkedIn",
     "empty": "Aucune recommandation publiée pour le moment."
   }

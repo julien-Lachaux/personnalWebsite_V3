@@ -11,9 +11,6 @@
       "cdi": "Permanent",
       "freelance": "Freelance"
     },
-    "provisional": {
-      "count": "no experience | {n} experience | {n} experiences"
-    },
     "filter": {
       "label": "filter by tech",
       "searchLabel": "Filter experiences",
