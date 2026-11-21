@@ -1231,8 +1231,92 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   `pnpm check` et dans un job CI, lancé par Docker avec une image épinglée par digest, comme actionlint
   (L14-08). Les avertissements existants sont corrigés, ou justifiés ligne par ligne par une directive
   `# shellcheck disable=SCxxxx` commentée.
-- **Ordre** : le lot 14 touche les hooks et la CI, fichiers que `docs/05-front-organisation.md` laisse
-  à la session front pendant son lot F0 ; il passe donc **après la fusion de F0**, et après le lot 15.
+- **L14-04** (correcteur, en phase 3 du test par mutation) : garde `response !== null` dans `detailOf`
+  (`problem-details.ts`), avec son test ; aujourd'hui `'message' in null` lèverait une TypeError dans le
+  filtre global, cas inatteignable par les clients mais défaut latent.
+- **L14-11** (lead-architecte, portée `config`), décidé par Julien le 20 nov. 2026 (recette du lot 16,
+  point ouvert 2) : un marqueur interdit suivi de plusieurs méthodes de l'API de test (un saut, puis
+  `concurrent`, puis `each`, par exemple) est reconnu par les hooks (`MARKER_RE`) comme par le script
+  d'intégrité (`FORBIDDEN_RE`, `FAILS_RE`). Tests à côté des tests existants des hooks et du script ;
+  comparaison de l'ancien et du nouveau sur toutes les formes, comme au lot 16 : aucune forme refusée
+  aujourd'hui ne devient acceptée.
+- **L14-12** (lead-architecte, portée `config`), même décision (point ouvert 3) : un fichier qui devient
+  test ou oracle en cours de session (élargissement de la politique) est protégé dès ce moment par
+  `checkFileTool` : le modifier exige une autorisation, comme un test existant, au lieu d'être rattrapé
+  seulement au commit par la CI.
+- **L14-13** (lead-architecte, portée `config`), même décision (point ouvert 1) : les hooks refusent aux
+  agents spécialisés `git worktree prune` et `git worktree remove --force` (`-f`), qui font disparaître
+  sans violation l'instantané d'un worktree (BF-11), et par cohérence tout `git worktree remove` ou
+  `move` : un agent ne gère pas les worktrees, l'orchestrateur les lui fournit. La session principale
+  garde ces commandes (ménage après fusion ; le `.env` non suivi d'un worktree impose la force).
+- **L14-14** (lead-architecte), décidé par Julien le 20 nov. 2026 (« cadrer les agents
+  correctement ») : chaque fichier `.claude/agents/*.md` reçoit une même section courte « Git et
+  garde-fous » : ce que l'agent fait (commits atomiques sur la branche et dans le worktree fournis, hook
+  pre-commit jamais contourné, compte rendu), ce qui lui est refusé (push, fusion, écriture de `main`,
+  étiquette, `git stash` nu, `--no-verify`, gestion des worktrees, scripts de garde-fous et
+  autorisations) et la conduite face à un refus (ne pas reformuler la commande pour passer : sortie
+  honorable, consignée au compte rendu). La section énonce les règles sans décrire le fonctionnement des
+  détections (rien d'exploitable dans des fichiers destinés à devenir publics). Un test des hooks
+  vérifie que les quatorze fichiers portent la section, à l'identique, et qu'elle concorde avec les
+  refus effectifs des hooks.
+- **L14-15** (dev-api pour `apps/api/test/support/`, autorisation `tests` ; lead-architecte pour
+  `apps/api/vitest.config.ts`, autorisation `config`), décidé par Julien le 20 nov. 2026, **prioritaire** :
+  e2e de l'API plus rapides sans toucher aux oracles. Mesure du 20 nov. sur 71ff6b5 : 280 s, dont environ
+  156 s pour 184 tests qui partent d'une base recréée (schéma vidé, 16 migrations, seeds : environ 1 s,
+  83 appels dont 13 en `beforeEach`), et fichiers en série (`fileParallelism: false`, une seule base).
+  1) base modèle migrée et seedée une fois par run (`globalSetup`), chaque remise à zéro la recopie au
+  lieu de tout rejouer ; les tests des seeds et des migrations rejouent toujours les vrais fichiers ;
+  2) une base par processus Vitest, puis fichiers en parallèle. Aucun fichier `*.e2e-spec.ts` modifié ;
+  un test prouve qu'une base recopiée est identique à une base migrée et seedée (schéma et données) ;
+  mêmes tests, mêmes résultats, couverture inchangée ; durées avant et après au compte rendu. Prépare la
+  phase 3 de la mutation (une base par processus Stryker).
+- **L14-16** (lead-architecte, portée `config`), même décision, **prioritaire** : `pnpm check` exécute
+  une seule fois les unitaires et les e2e de l'API : `test:coverage` les rejoue déjà tous, en une passe
+  fusionnée ; les parcours Playwright du front, hors couverture, restent lancés. Côté orchestrateur :
+  pas de nouveau `pnpm check` avant le push quand l'arbre fusionné (`git rev-parse <commit>^{tree}`)
+  est identique à celui que la recette a vérifié sans cache.
+- **Décisions de Julien du 20 nov. 2026 sur les écarts de la branche des garde-fous**
+  (`docs/comptes-rendus/lot-14-hooks-lead.md`) :
+  - L14-06, commit sur `main` : le correcteur passe sur `develop` le dépôt temporaire du test
+    « accepte les commandes ordinaires » (`guard.test.mjs`), qui le créait sur `main`, puis le
+    lead-architecte ajoute le refus du commit quand HEAD est `main` ;
+  - L14-02, citation de l'identifiant : le correcteur met à jour les deux tests qui acceptaient une
+    justification sans l'identifiant de l'équivalent (`stryker-disable.test.mjs`,
+    `stryker-disable.test.sh`), puis le lead-architecte exige l'identifiant cité et le mutateur déclaré ;
+  - limites acceptées : la suppression du dossier d'un worktree efface son instantané sans
+    violation (les commits restent contrôlés par `pnpm integrity`, en CI et en recette) ; pas de règles
+    `permissions.deny` dans `.claude/settings.json` en doublon des hooks.
+- **L14-17** (lead-architecte, portée `config`), décidé par Julien le 20 nov. 2026 : `git branch -u` et
+  `--set-upstream-to`, qui écrivent `branch.*.remote` hors de la règle des destinations de push du lot
+  13 bis, sont refusés aux agents spécialisés.
+- **Ordre** : le lot 14 touche les hooks et la CI, que `docs/05-front-organisation.md` laissait à la
+  session front pendant F0. F0, F1 bis (qui a touché `turbo.json`) et le lot 15 sont fusionnés le
+  20 nov. 2026 : le lot est **débloqué**. Décision de Julien du 20 nov. : optimisations d'abord, travail
+  en parallèle. Branche `lot/14-garde-fous-ci` : a) dev-api, L14-15 (support des e2e) ; b)
+  lead-architecte, L14-15 (configuration), L14-16, L14-09 (script `check`, pre-commit) ; c) dev-devops,
+  L14-03, 08, 10 (CI, actionlint, shellcheck ; touchent aussi le script `check`, donc après b). En
+  parallèle, branche `lot/14-hooks` : lead-architecte, L14-01, 02, 06, 07, 11, 12, 13, 14 (hooks, script
+  d'intégrité, fichiers d'agents), sans fichier commun avec l'autre branche. Recette du chef de projet
+  sur les deux branches. L14-04 reste en phase 3 de la mutation, L14-05 après le front.
+- **Recette du 20 nov. 2026** (`docs/comptes-rendus/lot-14-recette.md`, acceptée avec réserves) ;
+  décisions de Julien du même jour :
+  - seuil de mutation de l'API à **41** et non 42 (marge de 0,03 point trop mince selon la charge de
+    l'exécuteur), à relever après le premier run complet sur une étiquette `v*` ;
+  - la section « Git et garde-fous » des fichiers d'agents garde les gestes refusés nommés (`HUSKY=0`,
+    `core.hooksPath`) ;
+  - `pnpm check` à 369 s après F3a : chemin critique dans le front (`web#lint`, parcours), à traiter
+    côté front (F11).
+
+## 7 septies bis. Lot 18 — Suites de la recette du lot 14 (décidé par Julien le 20 nov. 2026)
+
+- **L18-01** (lead-architecte, portée `config`) : la lecture `git config --get core.hooksPath` (et les
+  autres lectures `git config --get`) est permise, comme le dit `CLAUDE.md` ; l'écriture reste refusée.
+  Faux positif constaté en recette du lot 14.
+- **L18-02** (lead-architecte, portée `config`) : `git branch --track` et la création d'une branche qui
+  suit une branche distante (`git checkout -b|-B`, `git switch -c|-C`, `git branch` avec un point de
+  départ distant, réglage `branch.autoSetupMerge`) sont refusés aux agents spécialisés, comme
+  `git branch -u` (L14-17) ; la session principale les garde. Section « Git et garde-fous » et test de
+  concordance mis à jour.
 
 ## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
 
@@ -1245,9 +1329,6 @@ fusionné seul casserait l'API) ; la session front lit les contrats sur la branc
 lancement : droit des dev-* de modifier un test existant rendu obsolète par un brief validé ; données
 réelles ou fictives pour les recommandations (BF-4) dans un dépôt destiné à devenir public. Ports Docker
 du back en 57xx (la plage 58xx est celle de la session front).
-- **L14-04** (correcteur, en phase 3 du test par mutation) : garde `response !== null` dans `detailOf`
-  (`problem-details.ts`), avec son test ; aujourd'hui `'message' in null` lèverait une TypeError dans le
-  filtre global, cas inatteignable par les clients mais défaut latent.
 
 Décision connexe du même jour : l'**écart résiduel Caddy** (réponses `text/plain` produites par Caddy
 avant l'API : 400 URL mal encodée, 413 corps trop grand, 502 API injoignable) est **accepté** et reste
