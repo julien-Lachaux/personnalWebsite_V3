@@ -212,3 +212,56 @@ Deux listes fermées ; toute commande `gh` qui n'y figure pas est refusée à to
 - Prettier : `prettier --check` vert sur les fichiers touchés (hooks, agents, `CLAUDE.md`) et sur
   les fichiers des patchs ; le hook pre-commit (format, lint, typecheck, test) est passé à chaque
   commit (le premier sans cache, 2 min 33 s, les suivants en cache).
+
+## Application des sorties honorables (accord explicite de Julien, 21 nov. 2026)
+
+Julien a accepté les points ouverts 1 à 3 ; l'orchestrateur a demandé de les appliquer (autorisation
+`ba38d5d5` pour `.claude/hooks/**` et `.claude/agents/**`, tests des hooks compris ; autorisation
+`2c00bdfb` pour `.claude/settings.json`). Les points 1 à 3 ci-dessus sont donc **faits** ; les
+points 4 à 6 restent ouverts, le point 5 étant tranché au backlog (ci-dessous).
+
+| Commit | Ticket | Sujet |
+| ------ | ------ | ----- |
+| `7ed3da8` | L20-01 | push de `lot/<nom>` par la session principale : `lib/shell.mjs`, README, nouveau `push-lot.test.mjs` |
+| `b572f9d` | L20-01 | test existant `git-push.test.mjs` (Justification-test, rendu obsolète par la décision du 21 nov.) |
+| `aa8730a` | L20-02 | agent `.claude/agents/revue-pr.md` |
+| `e1a2ebe` | L20-02 | sept tests existants : décompte des rôles porté à 15 (Justification-test) |
+| `b8a8b02` | L20-01 | `.claude/settings.json` : `permissions.deny` limité aux variantes interdites de `gh pr merge` |
+| `a299809` | | backlog : décisions de Julien (sorties honorables acceptées ; « revue requise » = contrôle requis `Revue PR (Claude)`, sans approbation exigée) |
+| (ce CR) | | compte rendu |
+
+Entre `7ed3da8` et `b572f9d`, puis entre `aa8730a` et `e1a2ebe`, `pnpm hooks:test` aurait un
+échec (commits séparés demandés : code d'un côté, test existant de l'autre) ; il est vert à la tête.
+
+### Tests existants modifiés, avant et après
+
+`.claude/hooks/tests/git-push.test.mjs` (`b572f9d`) :
+
+- commentaire d'en-tête : avant « pousse, et uniquement develop vers origin » ; après « pousse, et
+  uniquement develop ou une branche lot/<nom> vers origin (flux par pull request depuis le 21 nov.
+  2026) » ;
+- formes permises (`ALLOWED`, refusées aux agents par la boucle existante) : avant quatre formes de
+  `develop` ; après les mêmes plus `'git push -u origin lot/13-git-flow'` ;
+- refus de la session principale, ligne 114 : avant
+  `['git push origin lot/13-git-flow', /branches de lot restent locales/]` ; après
+  `['git push origin lot/13-git-flow:lot/autre', /branche de lot se pousse sous son nom/]`.
+
+Sept tests qui comptent les rôles (`e1a2ebe`), seul le décompte et le mot « quatorze » changent :
+
+| Fichier | Avant | Après |
+| --- | --- | --- |
+| `agents-git-section.test.mjs` | `it('quatorze fichiers d’agent, un rôle chacun')`, `FILES.length, 14`, `Set(…).size, 14` ; titre « identique dans les quatorze » ; 3 commentaires « quatorze » | `quinze`, `15`, `15` ; « identique dans les quinze » ; « quinze » |
+| `branch-upstream.test.mjs` | `it('connaît les quatorze rôles d’agent')`, `ROLES.length, 14` ; 2 commentaires | `quinze`, `15` |
+| `branch-tracking.test.mjs` | idem, 1 commentaire | idem |
+| `worktree.test.mjs` | idem, 1 commentaire | idem |
+| `hookspath-env.test.mjs` | idem, 1 commentaire | idem |
+| `main-glued-options.test.mjs` | idem, 1 commentaire | idem |
+| `ordinary-commands.test.mjs` | `it('compte les 88 commandes et les quatorze rôles d’agent')`, `ROLES.length, 14` ; 1 commentaire | `quinze`, `15` |
+
+### Vérifications après application
+
+- `pnpm hooks:test` : 1013 sur 1013 (967 avant application).
+- `pnpm integrity:test` : 9 réussis, 0 échoué.
+- `pnpm integrity develop` : « Intégrité des tests : OK » (les deux commits de tests portent leur
+  ligne `Justification-test`).
+- Pre-commit vert à chaque commit ; arbre de travail propre.
