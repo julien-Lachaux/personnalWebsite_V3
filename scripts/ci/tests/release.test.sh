@@ -69,7 +69,7 @@ is 'section 4.0.0 : quatre rubriques' \
 is 'docs et test absents du changelog' "$(grep -c -e 'docs: note' -e 'couverture' CHANGELOG.md || true)" 0
 is 'la portée est citée en gras' "$(grep -c '^- \*\*web\*\* : nouvelle page' CHANGELOG.md)" 1
 is 'la section 3.0.0 reste dessous' "$(grep -c '^## \[' CHANGELOG.md)" 2
-is 'section 4.0.0 avant 3.0.0' "$(grep '^## \[' CHANGELOG.md | head -1 | cut -c1-9)" '## [4.0.0]'
+is 'section 4.0.0 avant 3.0.0' "$(grep '^## \[' CHANGELOG.md | head -1 | cut -c1-10)" '## [4.0.0]'
 rel prepare >/dev/null
 is 'prepare rejoué : pas de section en double' "$(grep -c '^## \[4.0.0\]' CHANGELOG.md)" 1
 git commit -q -am 'chore(release): 4.0.0'

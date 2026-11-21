@@ -62,3 +62,10 @@ Ajouter aux commandes : `pnpm release:next | release:prepare` (voir `docs/deploi
 `scripts/ci/release.mjs`, et sous Flux git : « l'étiquette vX.Y.Z et la release GitHub sont posées par
 `release.yml` à la fusion de `release/<X.Y.Z>` ; la version et `CHANGELOG.md` se préparent par
 `pnpm release:prepare` sur la branche de release ».
+
+## Correctif après la recette de l'orchestrateur
+
+`pnpm integrity:test` : un seul cas en échec, « section 4.0.0 avant 3.0.0 » (obtenu `## [4.0.0`, attendu
+`## [4.0.0]`). Cause : le test lui-même, `cut -c1-9` coupe `## [4.0.0] - …` avant le crochet fermant (10
+caractères). Le script écrit bien l'en-tête. Test nouveau de ce lot, corrigé en `cut -c1-10` sans changer
+l'attendu ni l'oracle.
