@@ -15,17 +15,20 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "passThroughEnv": ["TEST_MAX_WORKERS"]
     },
     "test:e2e": {
       "dependsOn": ["^build"],
       "cache": false,
-      "env": ["DATABASE_URL", "PORT", "HOST", "CORS_ORIGIN", "NODE_ENV"]
+      "env": ["DATABASE_URL", "PORT", "HOST", "CORS_ORIGIN", "NODE_ENV"],
+      "passThroughEnv": ["TEST_MAX_WORKERS"]
     },
     "test:coverage": {
       "dependsOn": ["^build"],
       "cache": false,
       "env": ["DATABASE_URL", "PORT", "HOST", "CORS_ORIGIN", "NODE_ENV"],
+      "passThroughEnv": ["TEST_MAX_WORKERS"],
       "outputs": ["coverage/**"]
     },
     "test:mutation": {
