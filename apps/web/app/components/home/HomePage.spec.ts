@@ -5,6 +5,7 @@ import { nextTick } from 'vue';
 import { clearNuxtData, useRuntimeConfig } from '#imports';
 
 import { cvFr } from '../../data/fixtures/cv.fr.js';
+import { cvEn } from '../../data/fixtures/cv.en.js';
 import { MOSAIC_QUERY } from '../../composables/shell/useShellMode.js';
 import HomePage from './HomePage.vue';
 
@@ -77,28 +78,43 @@ afterEach(() => {
 });
 
 describe('page d’accueil (fixtures)', () => {
-  it('en français : h1 du titre du profil, contenu provisoire de chaque section', async () => {
+  it('en français : un seul h1, accroches et contenu de la fixture dans chaque section', async () => {
     const wrapper = await mountPage('/');
 
+    expect(wrapper.findAll('h1')).toHaveLength(1);
     expect(wrapper.get('h1').text()).toBe('Développeur full-stack');
     const profile = wrapper.get('#section-profile');
     expect(profile.get('.senior-badge').text()).toBe('senior');
-    expect(profile.findAll('li').map((item) => item.text())).toEqual([
+    expect(profile.findAll('.profile__tagline').map((item) => item.text())).toEqual([
       'NestJS, Vue.js — données, ETL et analytics',
       'Développement assisté par IA et agentique',
     ]);
     expect(profile.text()).toContain('Depuis 2017, je conçois des API');
-    expect(wrapper.get('#section-experience p').text()).toBe('8 expériences');
-    expect(wrapper.get('#section-recommendations p').text()).toBe('3 recommandations');
-    expect(wrapper.get('#section-ai p').text()).toBe(cvFr.aiOverview?.title);
+    const experience = wrapper.get('#section-experience');
+    expect(experience.get('[role="search"]').attributes('aria-label')).toBe(
+      'Filtrer les expériences',
+    );
+    expect(experience.text()).toContain('filtrer par techno');
+    expect(experience.text()).toContain('OpenClassrooms');
+    expect(wrapper.get('#section-recommendations').text()).toContain('Voir sur LinkedIn');
+    expect(wrapper.get('#section-ai').text()).toContain(cvFr.aiOverview?.title);
   });
 
   it('en anglais : contenu de la fixture anglaise et libellés anglais', async () => {
     const wrapper = await mountPage('/en');
 
+    expect(wrapper.findAll('h1')).toHaveLength(1);
     expect(wrapper.get('h1').text()).toBe('Full-stack developer');
-    expect(wrapper.get('#section-experience p').text()).toBe('8 experiences');
-    expect(wrapper.get('#section-recommendations p').text()).toBe('3 recommendations');
+    expect(
+      wrapper
+        .get('#section-profile')
+        .findAll('.profile__tagline')
+        .map((item) => item.text()),
+    ).toEqual(['NestJS, Vue.js — data, ETL and analytics', 'AI-assisted and agentic development']);
+    const experience = wrapper.get('#section-experience');
+    expect(experience.get('[role="search"]').attributes('aria-label')).toBe('Filter experiences');
+    expect(experience.text()).toContain('filter by tech');
+    expect(wrapper.get('#section-ai').text()).toContain(cvEn.aiOverview?.title);
   });
 
   it('donne à la page le titre « prénom nom · titre du profil »', async () => {
