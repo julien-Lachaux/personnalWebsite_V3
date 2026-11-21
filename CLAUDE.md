@@ -336,8 +336,9 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   le workflow, lot 20). L'orchestrateur est la session principale (rôle `main` des hooks) ; il fournit à
   chaque appel branche, worktree, isolation Docker, tickets et date, fusionne les lots dans
   `develop` par pull request (pousse la branche du lot, `gh pr create`, `gh pr merge --merge` après
-  CI verte, revue `revue-pr` sans point bloquant et recette acceptée) et est le seul à pousser et à
-  écrire sur GitHub par `gh`. Tableau et flux :
+  CI verte, revue `revue-pr` sans point bloquant et recette acceptée), ouvre et fusionne la pull
+  request d'une release vers `main` après l'accord explicite de Julien, et est le seul à pousser et
+  à écrire sur GitHub par `gh`. Tableau et flux :
   `docs/03-organisation-agents.md`. Chaque fichier d'agent se termine par la même section « Git et
   garde-fous » (lot 14) : règles et conduite face à un refus, jamais le fonctionnement des
   détections (fichiers destinés à devenir publics) ; `.claude/hooks/tests/agents-git-section.test.mjs`
@@ -399,15 +400,28 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   - Julien pose la protection de `develop` sur GitHub : pull request obligatoire, CI verte requise
     (la mutation reste informative), revue requise, pas de push forcé.
 - Push : seule la session principale pousse, vers `origin` : une branche `lot/*` (flux par pull
-  request) et, pour l'instant, `develop` (`git push origin develop`, `-u` ou `--set-upstream`
+  request), une branche `release/<version>` (pull request vers `main`, après l'accord explicite de
+  Julien) et, pour l'instant, `develop` (`git push origin develop`, `-u` ou `--set-upstream`
   admis) ; la fusion du lot 20 passe encore par là, ensuite c'est la protection de `develop` sur
   GitHub qui refuse ce push. Les hooks refusent toute autre forme (`.claude/hooks/README.md`,
   « git push »). Aucun agent spécialisé ne pousse ni n'écrit sur GitHub par `gh` : les lectures de
   `gh` seules leur restent.
-- Réservé à Julien : toute fusion dans `main` (branches `release/*` et `hotfix/*`), les étiquettes
-  de version, le push de `main` et le lancement du déploiement (`scripts/deploy/` refuse un dépôt
-  qui n'est pas sur `main`). Aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse
-  d'étiquette, ne supprime de branche distante, ne force un push.
+- **Pull request vers `main`** (décision de Julien du 21 nov. 2026, lot 22) : la fusion dans
+  `main` passe par une pull request, **après l'accord explicite de Julien**, demandé pour chaque
+  release. La session principale, et elle seule, pousse alors une branche
+  `release/<majeur>.<mineur>.<correctif>` (`git push -u origin release/<version>`), ouvre
+  `gh pr create --base main --head release/<version>` et la fusionne par
+  `gh pr merge --merge release/<version>` (mêmes refus que pour `develop` : `--squash`,
+  `--rebase`, `--admin`, `--delete-branch`, `--auto`). Les hooks ne peuvent pas vérifier l'accord :
+  c'est une règle de l'orchestrateur ; ils permettent ces commandes à la session principale seule,
+  jamais aux agents (patch `docs/comptes-rendus/lot-22-lead-release.patch` en attente : deux tests
+  existants refusent encore le push et la fusion d'une release, point ouvert du lot 22). À la
+  fusion d'une release dans `main`, l'étiquette de version et le changelog seront produits par la
+  CI (lot 23, au backlog).
+- Réservé à Julien : le push direct de `main` (correctif urgent, sans pull request, hors de nos
+  sessions), les étiquettes de version et le lancement du déploiement (`scripts/deploy/` refuse un
+  dépôt qui n'est pas sur `main`). Aucune session ni aucun agent ne pousse `main`, ne crée ni ne
+  pousse d'étiquette, ne supprime de branche distante, ne force un push.
 - Refusés par les hooks à toute session, principale comprise (lot 13 bis) : la plomberie de push
   (`git send-pack`, `git http-push`), la redéfinition de la destination des push
   (`git remote add|rename|remove|set-url`, `git config` en écriture sur `remote.*`, `url.*`,

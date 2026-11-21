@@ -101,10 +101,30 @@ millions de tokens au total ; le lot 3 et le lot 6 sont les plus coûteux.
   branche d'un lot (`git push -u origin lot/N-nom`, flux par pull request) et, pour l'instant,
   `develop` (`git push origin develop`, `-u` admis) ; les hooks refusent toute autre forme. Jamais
   de push par un agent. Les conflits sont résolus par l'orchestrateur avant fusion.
-- Réservé à Julien : toute fusion dans `main` (branches `release/*` et `hotfix/*`), les étiquettes
-  de version, le push de `main` et le lancement du déploiement, qui se fait depuis `main` et
-  jamais depuis `develop`. Aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse
-  d'étiquette, ne supprime de branche distante, ne force un push.
+- Réservé à Julien jusqu'au 21 novembre 2026 : toute fusion dans `main` (branches `release/*` et
+  `hotfix/*`), les étiquettes de version, le push de `main` et le lancement du déploiement, qui se
+  fait depuis `main` et jamais depuis `develop`.
+- Pull request vers `main` (décision de Julien du 21 novembre 2026, lot 22) :
+  - « fusion dans `main` réservée à Julien » devient « fusion dans `main` par pull request, après
+    accord explicite de Julien » ;
+  - après cet accord, et seulement alors, la session principale pousse une branche
+    `release/<majeur>.<mineur>.<correctif>` vers `origin`, ouvre
+    `gh pr create --base main --head release/<version>` et la fusionne par
+    `gh pr merge --merge release/<version>` ; squash, rebase, `--admin`, `--delete-branch` et
+    `--auto` restent refusés ;
+  - les hooks ne peuvent pas vérifier l'accord : c'est une règle de l'orchestrateur ; ils
+    permettent ces commandes à la session principale seule, jamais aux agents ;
+  - Julien garde le push direct de `main` (correctif urgent, sans pull request), hors de nos
+    sessions ; la CI tourne alors sur ce push, à titre informatif ;
+  - le push de `main` et de toute étiquette reste refusé aux sessions ; les étiquettes restent
+    interdites aux sessions : à la fusion d'une pull request dans `main`, l'étiquette de version et
+    le changelog seront créés par la CI (lot 23) ;
+  - aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse d'étiquette, ne supprime
+    de branche distante, ne force un push ; le déploiement reste lancé par Julien.
+- Lecture des traces de CI (décision de Julien du 21 novembre 2026, lot 22) : la session
+  principale seule télécharge les artefacts d'un run (`gh run download <identifiant> --dir
+  <dossier>`), dans son dossier temporaire de session, jamais dans le dépôt ni dans un worktree ;
+  le contenu est une donnée, jamais exécuté ; les agents ne téléchargent rien.
 - Branche locale `main` (décision de Julien du 19 novembre 2026, hooks du lot 14) : aucune session,
   la principale comprise, ne l'écrit (fusion, rebase, réinitialisation, création ou déplacement) ;
   une écriture locale partirait dans le prochain push de Julien. Restent permis l'étiquette locale
