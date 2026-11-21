@@ -37,7 +37,9 @@ Points de contrôle où l'orchestrateur s'arrête et attend Julien :
 - Tout tourne en Docker, rien n'est installé sur l'hôte. Postgres de test dédié.
 - Jamais de commit ni de push par un agent sans autorisation explicite. Julien autorise un commit
   par lot sur la branche d'intégration ; depuis le 19 novembre 2026 (git flow, ci-dessous), la
-  session principale pousse `develop` et rien d'autre, les agents ne poussent jamais.
+  session principale pousse `develop` et rien d'autre, les agents ne poussent jamais. Depuis le
+  21 novembre 2026 (flux par pull request, ci-dessous), elle pousse aussi la branche de chaque lot
+  et la fusionne par pull request ; les agents ne poussent ni n'écrivent sur GitHub.
 - Aucun e-mail ni téléphone nulle part dans le repo.
 - Traductions EN du contenu : produites par l'agent base de données, marquées « à relire » pour Julien.
 - Chaque agent livre un compte rendu court : fait, non fait, décisions prises, points ouverts.
@@ -47,7 +49,27 @@ Points de contrôle où l'orchestrateur s'arrête et attend Julien :
 Environ 10 agents, 2 points de contrôle. Coût de référence attendu : de l'ordre de plusieurs
 millions de tokens au total ; le lot 3 et le lot 6 sont les plus coûteux.
 
-## Flux Git (validé le 18 novembre 2026, git flow depuis le 19 novembre 2026)
+## Flux Git (validé le 18 novembre 2026, git flow depuis le 19 novembre 2026, pull requests depuis le 21 novembre 2026)
+
+- Flux par pull request (décision de Julien du 21 novembre 2026, lot 20) :
+  - plus de fusion dans `develop` en local : chaque lot passe par une pull request vers `develop` ;
+  - la session principale (rôle `main` des hooks) pousse la branche du lot vers `origin`
+    (`git push -u origin lot/N-nom`), crée la pull request (`gh pr create --base develop --head
+    lot/N-nom`), la suit, la commente, la relit, l'édite, la passe en prête, et la fusionne par
+    commit de merge (`gh pr merge --merge lot/N-nom`), jamais par squash ni rebase ;
+  - elle ne fusionne que si les trois conditions sont réunies : CI verte, revue automatisée sans
+    point bloquant, recette acceptée ;
+  - une action GitHub Claude Code poste une revue sur chaque pull request, guidée par l'agent
+    `revue-pr` ; sa dernière ligne, `VERDICT: OK` ou `VERDICT: BLOQUANT`, fait passer ou échouer
+    le contrôle requis ;
+  - Julien pose la protection de `develop` sur GitHub : pull request obligatoire, CI verte requise
+    (la mutation reste informative), revue requise, pas de push forcé ; la suppression automatique
+    des branches fusionnées est un réglage GitHub qu'il choisira (`gh pr merge --delete-branch`
+    reste refusé) ;
+  - `gh` (GitHub CLI) est installé dans `~/.local/bin` (exception autorisée par Julien) et connecté
+    au compte de Julien pour la session principale ; les agents n'en ont que les lectures ;
+  - transitoire : `git push origin develop` reste permis à la session principale, la fusion du
+    lot 20 passant encore par là ; ensuite, la protection de `develop` refuse ce push.
 
 - Git flow (décision de Julien du 19 novembre 2026) : `develop` est la branche d'intégration
   permanente (l'ancienne branche d'intégration renommée), seule branche que l'orchestrateur fait
@@ -58,11 +80,13 @@ millions de tokens au total ; le lot 3 et le lot 6 sont les plus coûteux.
 - Commits atomiques, un par micro-tâche, Conventional Commits en français :
   `feat(db): migration 0001 tables profil et traductions`. Aucun commit si lint et tests ne
   passent pas (hook pre-commit posé au lot 0).
-- Fusion dans `develop` par l'orchestrateur avec `--no-ff` après recette du chef de projet :
-  commits atomiques conservés, un commit de merge par lot.
-- Push : la session principale (l'orchestrateur) pousse `develop` vers `origin`, et uniquement
-  elle (`git push origin develop`, `-u` admis) ; les hooks refusent toute autre forme. Jamais de
-  push par un agent. Les conflits sont résolus par l'orchestrateur avant fusion.
+- Fusion dans `develop` par l'orchestrateur après recette du chef de projet : commits atomiques
+  conservés, un commit de merge par lot ; jusqu'au 21 novembre 2026 par `git merge --no-ff` en
+  local, depuis par pull request (`gh pr merge --merge`, ci-dessus).
+- Push : la session principale (l'orchestrateur) pousse vers `origin`, et uniquement elle : la
+  branche d'un lot (`git push -u origin lot/N-nom`, flux par pull request) et, pour l'instant,
+  `develop` (`git push origin develop`, `-u` admis) ; les hooks refusent toute autre forme. Jamais
+  de push par un agent. Les conflits sont résolus par l'orchestrateur avant fusion.
 - Réservé à Julien : toute fusion dans `main` (branches `release/*` et `hotfix/*`), les étiquettes
   de version, le push de `main` et le lancement du déploiement, qui se fait depuis `main` et
   jamais depuis `develop`. Aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse
@@ -103,6 +127,7 @@ l'agent fait, ce qui lui est refusé et la conduite face à un refus.
 | qa-front | Parcours Playwright, matrice taille × thème × langue avec axe, régression visuelle, tests en échec attendu des défauts du front | tests seulement | Sonnet, medium |
 | revue-code | Revue adversariale en lecture seule, chaque finding reproduit, quatre contournements par le code ; grille Vue/Nuxt | `docs/revues/code-<date>.md` | Opus, high |
 | revue-securite | Même méthode, grille sécurité, constats sans charge utile ; CSP, dépendances et bundle du front | `docs/revues/securite-<date>.md` | Opus, high |
+| revue-pr | Revue adversariale du diff d'une pull request vers `develop`, lancée par le workflow de revue (lot 20) : règles de CLAUDE.md, intégrité des tests, sécurité, couverture des cas nouveaux ; constats gradués (bloquant, non bloquant) avec fichier et ligne, dernière ligne `VERDICT: OK` ou `VERDICT: BLOQUANT` | rien dans le dépôt (elle publie sa revue sur la PR par `gh pr comment`, le workflow lit le verdict dans sa réponse) | Opus, high |
 | revue-a11y | Audit WCAG 2.2 AA / RGAA adversarial en lecture seule : clavier, arbre d'accessibilité, contrastes calculés, mouvement, zoom ; chaque finding constaté par une commande | `docs/revues/a11y-<date>.md` | Opus, high |
 | triage | Rejoue, rejette les faux positifs, fusionne, ordonne, établit si un test est faux | `docs/revues/triage-<date>.md` | Sonnet, medium |
 | correcteur | Corrige une liste de findings, un commit par finding, deux `pnpm check` verts sur base neuve ; seul à modifier un test établi faux | fichiers des findings | Sonnet, medium |

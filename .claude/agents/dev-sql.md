@@ -75,15 +75,15 @@ traductions listées, conteneurs arrêtés.
 Ce que tu fais :
 
 - Tu travailles sur la branche et dans le worktree que l'orchestrateur te fournit, nulle part
-  ailleurs ; il fusionne les lots après recette.
+  ailleurs ; il fusionne les lots par pull request après recette.
 - Un commit atomique par micro-tâche, en Conventional Commits en français, terminé par la ligne
   `Co-Authored-By` demandée ; le hook pre-commit passe à chaque commit.
 - Tu termines par ton compte rendu : fait, non fait, décisions, points ouverts.
 
 Ce qui t'est refusé :
 
-- pousser vers un dépôt distant (`git push`, sous toute forme) : seule la session principale
-  pousse, et seulement `develop` ;
+- pousser vers un dépôt distant (`git push`, sous toute forme) ou écrire sur GitHub (`gh` hors
+  lecture) : seule la session principale pousse et ouvre, commente ou fusionne les pull requests ;
 - fusionner dans `main` ou écrire cette branche sous quelque forme que ce soit : `main` est
   réservée à Julien ;
 - publier une étiquette de version : les étiquettes sont réservées à Julien ;

@@ -6,7 +6,7 @@
 //   rôle de chaque famille de chemins d'écriture (sans limite, tests, documents de recette,
 //   revues) ; chemins rendus neutres : dépôt et dossiers temporaires du test ;
 // - les refus de push de la recette du lot 13 (recette-13.test.mjs, rejoués là pour dev-api) pour
-//   chacun des quatorze rôles d'agent, rôles lus dans le frontmatter de .claude/agents/*.md :
+//   chacun des quinze rôles d'agent, rôles lus dans le frontmatter de .claude/agents/*.md :
 //   l'analyse de la commande (lib/shell.mjs) pour toute la table, le hook complet pour ce qu'elle
 //   laisse au contrôle des cibles et pour les formes permises à la session principale.
 // Lancé par `pnpm hooks:test`.
@@ -372,9 +372,9 @@ const MAIN_PUSH = [
 ];
 
 describe('L14-07 : commandes ordinaires de l’orchestrateur (recette du lot 13 bis)', () => {
-  it('compte les 88 commandes et les quatorze rôles d’agent', () => {
+  it('compte les 88 commandes et les quinze rôles d’agent', () => {
     assert.equal(orchestrator().length, 88);
-    assert.equal(ROLES.length, 14, ROLES.join(', '));
+    assert.equal(ROLES.length, 15, ROLES.join(', '));
     for (const role of SAMPLE_ROLES) assert.ok(ROLES.includes(role), role);
   });
 

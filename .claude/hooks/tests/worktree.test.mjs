@@ -19,7 +19,7 @@ import { analyzeCommand } from '../lib/shell.mjs';
 const HOOKS = dirname(dirname(fileURLToPath(import.meta.url)));
 const GUARD = join(HOOKS, 'guard.mjs');
 const AGENTS = join(dirname(HOOKS), 'agents');
-/** Les quatorze rôles d'agent, lus dans le frontmatter de .claude/agents/*.md. */
+/** Les quinze rôles d'agent, lus dans le frontmatter de .claude/agents/*.md. */
 const ROLES = readdirSync(AGENTS)
   .filter((f) => f.endsWith('.md'))
   .map((f) => /^name:\s*(\S+)\s*$/m.exec(readFileSync(join(AGENTS, f), 'utf8'))[1]);
@@ -80,8 +80,8 @@ const REFUSED = [
 ];
 
 describe('L14-13 : git worktree remove, move et prune refusés aux agents', () => {
-  it('connaît les quatorze rôles d’agent', () => {
-    assert.equal(ROLES.length, 14, ROLES.join(', '));
+  it('connaît les quinze rôles d’agent', () => {
+    assert.equal(ROLES.length, 15, ROLES.join(', '));
     assert.ok(!ROLES.includes('main'));
   });
 
