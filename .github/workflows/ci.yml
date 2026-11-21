@@ -9,6 +9,8 @@ on:
     branches: [develop, main, 'release/**', 'hotfix/**', 'lot/**']
     tags: ['v*']
   pull_request:
+  # Relance manuelle (L20-04) : amorcer les incréments de Stryker sans pousser de commit.
+  workflow_dispatch:
 
 # Annule les runs obsolètes d'une même branche ou PR.
 concurrency:
@@ -208,13 +210,36 @@ jobs:
       - run: bash scripts/ci/static-analysis.sh shell
 
   mutation:
-    name: Test par mutation (Stryker, incrémental ou complet sur étiquette v*)
+    name: Test par mutation (${{ matrix.name }})
     runs-on: ubuntu-latest
-    # Hors de `pnpm check` (trop long pour chaque commit), job dédié et indépendant des autres.
-    # Durée attendue : 12 à 15 min ; mesurée en local (16 fils) à 2 min 30 pour les contrats et
-    # 9 min pour l'API. Stryker lance un processus par cœur : sur un exécuteur à 4 cœurs la durée
-    # peut tripler, d'où une marge large, à resserrer après les premiers passages.
-    timeout-minutes: 45
+    # Hors de `pnpm check` (trop long pour chaque commit), job dédié, indépendant des autres et
+    # INFORMATIF : il ne figure pas dans les contrôles requis de la protection de develop (L20-04).
+    # Une matrice par paquet : le job unique enchaînait les trois paquets et l'API (18 min sur 16 cœurs
+    # en local) dépassait les 45 min sur l'exécuteur à 4 cœurs. Stryker n'écrit son incrément qu'en FIN
+    # de run : un run interrompu par le délai n'enregistre rien et le suivant repart de zéro. D'où un
+    # délai propre à chaque paquet, large pour l'API, et un cache d'incrément par paquet. Le premier
+    # run complet de l'API (cache vide) l'amorce ; les suivants ne rejouent que les mutants touchés.
+    # Relance manuelle possible (workflow_dispatch) pour amorcer sans pousser de commit.
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: contrats
+            filter: '@siteperso/contracts'
+            cache: contracts
+            report: packages/contracts
+            timeout: 30
+          - name: API
+            filter: '@siteperso/api'
+            cache: api
+            report: apps/api
+            timeout: 150
+          - name: front
+            filter: '@siteperso/web'
+            cache: web
+            report: apps/web
+            timeout: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
@@ -228,45 +253,40 @@ jobs:
       # (ou, pour une PR, de la branche de base) et réenregistré après le run, même en échec. Un mutant
       # dont le code et les tests n'ont pas changé reprend son statut ; le score comparé à
       # `thresholds.break` reste celui du total, donc l'incrémental ne peut abaisser aucun seuil.
-      - name: Restaurer les incréments de Stryker
+      - name: Restaurer l'incrément de Stryker
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            packages/contracts/reports/stryker-incremental.json
-            apps/api/reports/stryker-incremental.json
-            apps/web/reports/stryker-incremental.json
-          key: stryker-incremental-${{ github.run_id }}
-          restore-keys: stryker-incremental-
-      # Contrats, API et front (app/domain, app/data ; turbo --concurrency=1) : chaque paquet échoue
-      # sous le `thresholds.break` de son stryker.config.mjs (score total, survivants déclarés et
-      # sans couverture compris).
+          path: ${{ matrix.report }}/reports/stryker-incremental.json
+          key: stryker-incremental-${{ matrix.cache }}-${{ github.run_id }}
+          restore-keys: stryker-incremental-${{ matrix.cache }}-
+      # Le paquet échoue sous le `thresholds.break` de son stryker.config.mjs (score total, survivants
+      # déclarés et sans couverture compris). Concurrence de Stryker : un processus par cœur de
+      # l'exécuteur moins un, pour laisser de l'air au processus principal (sinon des timeouts de
+      # mutants, comptés détectés, font varier le score).
       - name: Mutation incrémentale (hors étiquette)
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        run: pnpm exec turbo run test:mutation --concurrency=1 -- --incremental
+        run: |
+          workers=$(( $(nproc) > 1 ? $(nproc) - 1 : 1 ))
+          pnpm exec turbo run test:mutation --filter='${{ matrix.filter }}' -- --incremental --concurrency "$workers"
       # Étiquette de version : run complet, sans incrément, seuils de rupture compris.
       - name: Mutation complète (étiquette v*)
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        run: pnpm test:mutation
-      - name: Enregistrer les incréments de Stryker
+        run: |
+          workers=$(( $(nproc) > 1 ? $(nproc) - 1 : 1 ))
+          pnpm exec turbo run test:mutation --filter='${{ matrix.filter }}' -- --concurrency "$workers"
+      - name: Enregistrer l'incrément de Stryker
         if: ${{ always() && !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            packages/contracts/reports/stryker-incremental.json
-            apps/api/reports/stryker-incremental.json
-            apps/web/reports/stryker-incremental.json
-          key: stryker-incremental-${{ github.run_id }}
-      # Rapports HTML des trois paquets (mutants survivants, ignorés avec leur motif), même en échec ;
-      # `warn` : si un paquet passe sous son seuil, turbo s'arrête avant les rapports suivants.
+          path: ${{ matrix.report }}/reports/stryker-incremental.json
+          key: stryker-incremental-${{ matrix.cache }}-${{ github.run_id }}
+      # Rapport HTML du paquet (mutants survivants, ignorés avec leur motif), même en échec.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: mutation-html
-          path: |
-            packages/contracts/reports/mutation/mutation.html
-            apps/api/reports/mutation/mutation.html
-            apps/web/reports/mutation/mutation.html
+          name: mutation-html-${{ matrix.cache }}
+          path: ${{ matrix.report }}/reports/mutation/mutation.html
           if-no-files-found: warn
           retention-days: 14
 
