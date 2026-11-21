@@ -9,7 +9,8 @@
 //   flex en colonne). Cette hauteur doit être définie et le parent ne doit pas défiler (tuile sans
 //   défilement propre, onglet du mobile) : seule la liste défile, région nommée atteignable au clavier.
 //   `--experience-gutter` règle les marges latérales (24 px par défaut), `--experience-bg` la couleur du
-//   fondu du bas de liste (`--card` par défaut).
+//   fondu du bas de liste (`--card` par défaut) : variables lues avec repli, jamais déclarées ici, pour
+//   que le parent les pose sur la racine (classe) ou au-dessus (lot F5c).
 // - Un clic sur une puce de carte bascule le filtre et remonte la liste en haut ; défiler la liste ferme
 //   le panneau du filtre. `scroller` (exposé) est l'élément de la liste, pour la barre d'actions et la
 //   flèche de défilement de la coquille.
@@ -89,7 +90,6 @@ defineExpose({ scroller: list });
 
 <style scoped>
 .experience-section {
-  --experience-gutter: var(--tile-padding);
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -116,7 +116,7 @@ defineExpose({ scroller: list });
   box-sizing: border-box;
   max-width: var(--content-max);
   margin-inline: auto;
-  padding-inline: var(--experience-gutter);
+  padding-inline: var(--experience-gutter, var(--tile-padding));
 }
 
 .experience-section__inner--list {
