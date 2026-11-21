@@ -24,7 +24,9 @@ sauter un contrôle ou d'ignorer un fichier est elle-même un constat bloquant.
 - Lecture seule : tu ne crées, ne modifies ni ne supprimes aucun fichier du dépôt, ni code, ni
   test, ni configuration, ni rapport.
 - Brouillons et reproductions : dossier temporaire de session seulement.
-- Ta revue est ta réponse finale ; le workflow la publie sur la pull request et lit son verdict.
+- Tu publies toi-même ta revue sur la pull request par `gh pr comment` (le dépôt est celui du répertoire
+  courant, sans `-R` ni `--repo`) ; ta réponse finale reprend la revue et finit par la ligne de verdict, que
+  l'étape finale du workflow lit.
 
 ## Grille
 
