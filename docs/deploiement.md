@@ -276,3 +276,125 @@ en redémarrant l'API, qui remet le quota à zéro.
 L'image construite pour la pile s'appelle `siteperso-api:prod`, comme en production : `stack:up` la
 reconstruit à chaque lancement (le cache de couches la rend quasi instantanée si rien n'a changé). Elle peut
 rester sur le poste après `stack:down` ; `docker image rm siteperso-api:prod` la supprime.
+
+## Protection de develop
+
+Décisions de Julien du 21 nov. 2026 : flux par pull requests vers `develop`, revue automatisée de chaque PR
+(`.github/workflows/revue-pr.yml`) et `develop` protégée. Les hooks des agents refusent `gh api` en écriture :
+c'est Julien qui pose ces réglages, une fois.
+
+### Dependabot désactivé
+
+Décision de Julien du 21 nov. 2026 : les mises à jour de versions passent par nos lots (règle « versions
+toujours récentes »), `.github/dependabot.yml` est supprimé et `pnpm audit --prod --audit-level=high` du job
+`Qualité` reste le filet pour les vulnérabilités. Ce que Julien fait dans GitHub (les agents n'ont pas le droit de
+supprimer une branche distante) :
+
+- _Settings > Advanced Security_ (ou _Code security_) : désactiver « Dependabot security updates » (sinon GitHub
+  ouvre encore des PR de correctif sans fichier de configuration) et, s'il le souhaite, garder « Dependabot alerts »
+  (alertes seules, sans PR) ; ne pas activer « Dependabot version updates ».
+- Fermer les PR Dependabot ouvertes, puis supprimer lui-même les branches distantes `dependabot/…`
+  (_Code > Branches_, onglet « All branches », corbeille ; ou `git push origin --delete <branche>` depuis son poste).
+
+### Secret de la revue automatisée
+
+Secret de dépôt `ANTHROPIC_API_KEY` : clé d'API Anthropic (facturée à l'usage), à créer dans la console Anthropic
+(Workspace dédié, limite de dépense basse) puis à poser dans GitHub : _Settings > Secrets and variables >
+Actions > New repository secret_, ou `gh secret set ANTHROPIC_API_KEY` (la valeur est demandée au clavier, jamais
+dans une commande ni dans le dépôt). Sans ce secret, le contrôle « Revue PR (Claude) » échoue.
+
+### Règles à poser
+
+- Pull request obligatoire pour modifier `develop` (pas de push direct), sans approbation humaine exigée
+  (0 approbation : l'auteur ne peut pas approuver sa propre PR, la « revue requise » est le contrôle
+  automatisé ci-dessous).
+- Contrôles requis (noms exacts des jobs, à l'identique de `ci.yml` et `revue-pr.yml`) :
+  - `Qualité (format, lint, typecheck, build, tests)`
+  - `Garde-fous (intégrité des tests, hooks des agents)`
+  - `Tests e2e et couverture 100 % (PostgreSQL 16)`
+  - `Front (lint, typecheck, couverture 100 %, Playwright + axe sur 7 tailles d'écran)`
+  - `Analyse statique (actionlint des workflows, shellcheck des scripts)`
+  - `Image Docker de l'API (build sans push)`
+  - `Pile locale complète (Caddy, API, PostgreSQL) et scénarios de production`
+  - `Revue PR (Claude)`
+- La mutation (`Test par mutation (contrats|API|front)`) n'est PAS requise : elle reste informative.
+- Une PR issue d'un fork ou en brouillon ne saute pas « Revue PR (Claude) » (un job sauté compte comme réussi) : le job échoue avec un message clair, sans lancer l'action ni utiliser le secret.
+- Push forcé et suppression de `develop` interdits.
+
+### Forme 1 : ruleset par `gh api` (recommandée)
+
+`bypass_actors` est vide : la règle s'applique aussi aux administrateurs (voir la question plus bas). Pour que
+les administrateurs puissent la contourner, remplacer `[]` par
+`[{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}]` (rôle Admin).
+
+```sh
+gh api --method POST repos/julien-Lachaux/personnalWebsite_V3/rulesets --input - <<'JSON'
+{
+  "name": "Protection de develop",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["refs/heads/develop"], "exclude": [] } },
+  "bypass_actors": [],
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          { "context": "Qualité (format, lint, typecheck, build, tests)" },
+          { "context": "Garde-fous (intégrité des tests, hooks des agents)" },
+          { "context": "Tests e2e et couverture 100 % (PostgreSQL 16)" },
+          { "context": "Front (lint, typecheck, couverture 100 %, Playwright + axe sur 7 tailles d'écran)" },
+          { "context": "Analyse statique (actionlint des workflows, shellcheck des scripts)" },
+          { "context": "Image Docker de l'API (build sans push)" },
+          { "context": "Pile locale complète (Caddy, API, PostgreSQL) et scénarios de production" },
+          { "context": "Revue PR (Claude)" }
+        ]
+      }
+    }
+  ]
+}
+JSON
+```
+
+Variante : la protection de branche classique (`PUT repos/julien-Lachaux/personnalWebsite_V3/branches/develop/protection`)
+offre les mêmes réglages (`required_pull_request_reviews`, `required_status_checks.contexts`,
+`allow_force_pushes: false`, `allow_deletions: false`, `enforce_admins: true`), mais un ruleset se liste, se teste
+(`enforcement: evaluate`) et se modifie plus facilement.
+
+### Forme 2 : interface GitHub
+
+_Settings > Rules > Rulesets > New ruleset > New branch ruleset_ : nom « Protection de develop », _Enforcement
+status_ Active, _Bypass list_ vide, _Target branches_ > _Add target_ > _Include by pattern_ `develop`. Cocher
+_Restrict deletions_, _Block force pushes_, _Require a pull request before merging_ (0 approbation requise),
+_Require status checks to pass_ (ajouter les huit noms ci-dessus ; un nom n'est proposé qu'après avoir tourné au
+moins une fois sur une PR), laisser _Require branches to be up to date_ décoché. _Create_.
+
+### Décisions de Julien (21 nov. 2026)
+
+- La règle s'applique aussi aux administrateurs : `bypass_actors` vide (ou `enforce_admins: true`). La session
+  principale fusionne par `gh pr merge --merge`, sans `--admin` ; en cas d'urgence, Julien désactive
+  temporairement le ruleset.
+- Huit contrôles requis : les sept jobs de `ci.yml` hors mutation, dont les e2e de l'API, et `Revue PR (Claude)`.
+- « Revue requise » = le contrôle `Revue PR (Claude)`, sans approbation humaine (un compte ne peut pas approuver
+  sa propre PR).
+
+### Premier run du test par mutation (informatif)
+
+Le job `mutation` est une matrice par paquet (L20-04), chaque paquet avec son cache d'incrément
+`stryker-incremental-<paquet>-…` et son délai (contrats 30 min, front 30 min, API 150 min). L'incrément de l'API
+n'est écrit qu'à la fin d'un run complet : le premier run (cache vide) l'amorce, sans pousser de commit
+supplémentaire grâce à _Actions > CI > Run workflow_ (`workflow_dispatch`) sur `develop`. Voir
+`docs/comptes-rendus/lot-20-devops.md` pour ce que ce premier run doit montrer.

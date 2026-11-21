@@ -9,7 +9,7 @@
 // permis. Écrire branch.autoSetupMerge ou branch.autoSetupRebase est refusé à tous, comme les
 // autres clés de destination. Chaque forme refusée est d'abord rejouée par git dans un clone jetable
 // (elle écrit bien la branche suivie) ; chaque forme permise n'y écrit rien. Puis l'analyse de la
-// commande pour les quatorze rôles, et l'entrée JSON du hook PreToolUse pour dev-api et la session
+// commande pour les quinze rôles, et l'entrée JSON du hook PreToolUse pour dev-api et la session
 // principale. Lancé par `pnpm hooks:test`.
 
 import assert from 'node:assert/strict';
@@ -317,8 +317,8 @@ describe('L18-02 : comportement réel de git (clones jetables)', () => {
 });
 
 describe('L18-02 : création d’une branche suivie refusée aux agents', () => {
-  it('connaît les quatorze rôles d’agent', () => {
-    assert.equal(ROLES.length, 14, ROLES.join(', '));
+  it('connaît les quinze rôles d’agent', () => {
+    assert.equal(ROLES.length, 15, ROLES.join(', '));
     assert.ok(!ROLES.includes('main'));
   });
 

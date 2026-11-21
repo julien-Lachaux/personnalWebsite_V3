@@ -1,0 +1,330 @@
+diff --git a/.claude/hooks/README.md b/.claude/hooks/README.md
+index 6ab462f..30a5552 100644
+--- a/.claude/hooks/README.md
++++ b/.claude/hooks/README.md
+@@ -92,19 +92,23 @@ directive (mot entier, depuis le 20 nov. 2026), et chaque équivalent cité dés
+ la ligne et le mutateur (champ `mutator`, obligatoire depuis le 20 nov. 2026) que la directive
+ retire du score (`scripts/ci/stryker-directives.mjs`).
+ 
+-## git push (git flow, décision de Julien du 19 nov. 2026)
+-
+-Seule la session principale (rôle `main`, entrée sans `agent_type`) pousse, et sous une seule
+-forme : `git push origin develop`, `git push -u origin develop` ou
+-`git push --set-upstream origin develop` (refspec `develop:develop` admise), éventuellement
+-précédée de `-C <chemin>`, `--no-pager`, `-P` ou d'un `-c <clé>=<valeur>` sans effet sur la
++## git push (git flow, décision de Julien du 19 nov. 2026 ; flux par pull request, 21 nov. 2026)
++
++Seule la session principale (rôle `main`, entrée sans `agent_type`) pousse, et sous deux formes :
++`git push origin develop`, `git push -u origin develop` ou
++`git push --set-upstream origin develop` (refspec `develop:develop` admise) ; depuis L20-01, la
++branche d'un lot sous son nom, `git push [-u | --set-upstream] origin lot/<nom>` (refspec
++`lot/<nom>:lot/<nom>` admise, un seul niveau après `lot/`). `develop` reste permise pour
++l'instant : la fusion du lot 20 passe encore par là, la protection de `develop` sur GitHub refuse
++ce push ensuite. Chaque forme est éventuellement précédée de `-C <chemin>`, `--no-pager`, `-P` ou d'un `-c <clé>=<valeur>` sans effet sur la
+ destination (`color.*`, `advice.*`, `user.*`, `i18n.*`, `core.quotepath`). La forme peut se trouver
+ dans une liste ou un bloc (`{ … ; }`, `if … then … fi`, `cmd && git push origin develop`) : ce qui
+ compte est qu'elle soit lisible. `lib/shell.mjs` (`pushRefusal`) refuse tout le reste avec son motif :
+ 
+ - tout git push d'un agent, quelle que soit la forme ;
+ - autre remote qu'`origin` ; autre branche ou refspec (`main`, `master`, `HEAD`, `+…`, `:…`,
+-  `lot/*`, `release/*`, étiquette, `refs/tags/…`), plusieurs refspecs, refspec calculée (`$BR`) ;
++  `lot/<a>:lot/<b>`, `refs/heads/lot/…`, `release/*`, étiquette, `refs/tags/…`), plusieurs
++  refspecs, refspec calculée (`$BR`) ;
+ - refspec absente (`git push`, `git push origin`) : le résultat dépend de la configuration ;
+ - `--force`, `-f`, `--force-with-lease`, `--force-if-includes`, `--delete`, `-d`, `--prune`,
+   `--all`, `--branches`, `--mirror`, `--tags`, `--follow-tags`, `--push-option`, `-o`,
+@@ -193,7 +197,7 @@ arguments lus par `xargs` : refusés. Groupe et action s'écrivent en tête (`gh
+ une option inconnue placée avant l'action comme suivie d'une valeur, l'action réelle pourrait être
+ un autre mot. Le refus `permissions.deny` de `gh pr merge*` dans `.claude/settings.json` double
+ encore toute fusion (voir le compte rendu du lot 20). Tests : `tests/pr-flow.test.mjs` (session
+-principale et quinze rôles) et `tests/revue-pr-scope.test.mjs` (l'agent `revue-pr` n'écrit aucun
++principale et quinze rôles), `tests/push-lot.test.mjs` (push d'une branche de lot) et `tests/revue-pr-scope.test.mjs` (l'agent `revue-pr` n'écrit aucun
+ chemin du dépôt).
+ 
+ ## Branche locale main et worktrees (lot 14)
+diff --git a/.claude/hooks/lib/shell.mjs b/.claude/hooks/lib/shell.mjs
+index ba4b8b6..aba4cf3 100644
+--- a/.claude/hooks/lib/shell.mjs
++++ b/.claude/hooks/lib/shell.mjs
+@@ -2,7 +2,7 @@
+ // d'écriture (redirections, rm, mv, cp, tee, sed -i, perl -i, dd, git checkout/restore/rm/mv,
+ // find -delete…), les écritures opaques (interpréteurs avec code en ligne ou script, xargs, git
+ // apply, patch) et les commandes interdites (--no-verify, core.hooksPath…). git push n'est permis
+-// qu'à la session principale et sous une seule forme (git flow, décision de Julien du 19 nov. 2026) :
++// qu'à la session principale, vers origin et pour develop ou lot/<nom> seulement (git flow, L20-01) :
+ // voir pushRefusal. La plomberie de push, la redéfinition de la destination (git remote, git config)
+ // et les actions de gh qui étiquettent, publient ou suppriment sont refusées à tous ; gh n'écrit sur
+ // GitHub que pour le flux par pull request de la session principale (L20-01, voir analyzeGh).
+@@ -1192,7 +1192,7 @@ export function analyzeCommand(
+     if (PUSH_IN_CODE.test(text) && !(script !== null && isGuardScript(script, base))) {
+       deny(
+         `git push dans du code opaque (${what}) : la branche et le remote ne sont pas vérifiables ; ` +
+-          'seule la session principale pousse, par la commande git push origin develop écrite telle quelle',
++          'seule la session principale pousse, par une commande git push origin develop ou git push -u origin lot/<nom> écrite telle quelle',
+       );
+     }
+   };
+@@ -1447,7 +1447,7 @@ function analyzeSegment(seg, env) {
+       if (SED_EXEC.test(script) && PUSH_IN_CODE.test(script))
+         deny(
+           `git push dans un script ${cmd} (commande e) : seule la session principale pousse, par ` +
+-            'git push origin develop écrite telle quelle',
++            'git push origin develop ou git push -u origin lot/<nom> écrite telle quelle',
+         );
+       break;
+     }
+@@ -1781,16 +1781,25 @@ const GIT_COMMANDS = new Set(
+   ).split(' '),
+ );
+ 
+-// git push (git flow, décision de Julien du 19 nov. 2026). Seule forme permise, et seulement à la
+-// session principale (rôle « main », sans agent_type) :
++// git push (git flow, décision de Julien du 19 nov. 2026 ; flux par pull request, L20-01, décision du
++// 21 nov. 2026). Seules formes permises, et seulement à la session principale (rôle « main », sans
++// agent_type) :
+ //   git [-C <chemin>] [-c <clé>=<valeur>] push [-u | --set-upstream] origin develop[:develop]
+-// Tout le reste est refusé avec son motif : rôle d'agent, autre remote, autre branche ou refspec
+-// (main, HEAD, +…, :…, lot/*, étiquette), push forcé, suppression, plusieurs références, options
+-// transmises au serveur, refspec absente (git push nu dépend de la configuration). Fusionner dans
+-// main, créer ou pousser une étiquette, pousser main et déployer sont réservés à Julien.
++//   git [-C <chemin>] [-c <clé>=<valeur>] push [-u | --set-upstream] origin lot/<nom>[:lot/<nom>]
++// develop reste permise pour l'instant (fusion du lot 20) ; la protection de develop sur GitHub la
++// refuse ensuite. Tout le reste est refusé avec son motif : rôle d'agent, autre remote, autre
++// branche ou refspec (main, HEAD, +…, :…, lot/<a>:lot/<b>, étiquette), push forcé, suppression,
++// plusieurs références, options transmises au serveur, refspec absente (git push nu dépend de la
++// configuration). Fusionner dans main, créer ou pousser une étiquette, pousser main et déployer sont
++// réservés à Julien.
+ const PUSH_REMOTE = 'origin';
+ const PUSH_BRANCH = 'develop';
+ const PUSH_REFSPECS = new Set([PUSH_BRANCH, `${PUSH_BRANCH}:${PUSH_BRANCH}`]);
++/** Refspec d'une branche de lot poussée sous son nom : lot/<nom> ou lot/<nom>:lot/<nom>. */
++function lotRefspec(spec) {
++  const [src, dst, ...more] = spec.split(':');
++  return more.length === 0 && LOT_BRANCH.test(src) && (dst === undefined || dst === src);
++}
+ const PUSH_UPSTREAM = new Set(['-u', '--set-upstream']);
+ /** Options globales de git qui changent le dépôt, l'espace de noms ou la configuration du push. */
+ const PUSH_GLOBAL_DENIED = new Set([
+@@ -1806,7 +1815,7 @@ const PUSH_GLOBAL_ALLOWED = new Set(['-C', '-c', '--no-pager', '-P']);
+ const PUSH_CONFIG_KEYS = /^(remote|url|push|branch|alias)\./i;
+ /** Clés -c admises avec git push : sans effet sur la destination ni sur la connexion. */
+ const PUSH_CONFIG_ALLOWED = /^((color|advice|user|i18n)\.[^=]+|core\.quotepath)=/i;
+-const PUSH_FORM = `seule la forme git push origin ${PUSH_BRANCH} (avec -u ou --set-upstream au besoin) est permise`;
++const PUSH_FORM = `seules les formes git push origin ${PUSH_BRANCH} et git push origin lot/<nom> (avec -u ou --set-upstream au besoin) sont permises`;
+ 
+ /** Clés dont l'écriture redéfinit la destination d'un push (T3 du lot 13 bis). */
+ // L18-02 : branch.autoSetupMerge et branch.autoSetupRebase règlent le suivi des branches créées.
+@@ -1849,21 +1858,24 @@ function refspecRefusal(spec) {
+   if (refs.some((r) => /^HEAD\b/.test(r) || r === '@'))
+     return `${spec} : HEAD dépend de la branche courante ; ${PUSH_FORM}`;
+   if (refs.some((r) => /^(refs\/heads\/)?lot\//.test(r)))
+-    return `${spec} : les branches de lot restent locales, seule ${PUSH_BRANCH} se pousse`;
++    return `${spec} : une branche de lot se pousse sous son nom, en clair (git push -u origin lot/<nom>)`;
+   return `refspec ${spec} refusée : ${PUSH_FORM}`;
+ }
+ 
++/** Destinations permises d'un push de la session principale (messages). */
++const PUSH_TARGETS = `${PUSH_BRANCH} et les branches lot/* vers ${PUSH_REMOTE}`;
++
+ /** Motif du refus d'un git push, ou null s'il est permis. `globals` : options globales de git. */
+ function pushRefusal(rest, { role, globals, assignments, dashed }) {
+   if (dashed)
+     return (
+       `git-push appelé directement : écris git push ; seule la session principale pousse, et ` +
+-      `uniquement ${PUSH_BRANCH} vers ${PUSH_REMOTE}`
++      `uniquement ${PUSH_TARGETS}`
+     );
+   if (role !== 'main') {
+     return (
+       `git push est interdit aux agents (rôle ${role ?? 'inconnu'}) : seule la session principale ` +
+-      `pousse, et uniquement ${PUSH_BRANCH} vers ${PUSH_REMOTE}`
++      `pousse, et uniquement ${PUSH_TARGETS}`
+     );
+   }
+   for (const [opt, value] of globals) {
+@@ -1901,7 +1913,7 @@ function pushRefusal(rest, { role, globals, assignments, dashed }) {
+   if (specs.length > 1) return `plusieurs refspecs (${specs.map(shown).join(' ')}) : ${PUSH_FORM}`;
+   if (remote !== PUSH_REMOTE)
+     return `remote ${shown(remote)} refusé : seul ${PUSH_REMOTE} est permis`;
+-  if (!PUSH_REFSPECS.has(specs[0])) return refspecRefusal(shown(specs[0]));
++  if (!PUSH_REFSPECS.has(specs[0]) && !lotRefspec(specs[0])) return refspecRefusal(shown(specs[0]));
+   return null;
+ }
+ 
+diff --git a/.claude/hooks/tests/git-push.test.mjs b/.claude/hooks/tests/git-push.test.mjs
+index 916cf75..a7e98f9 100644
+--- a/.claude/hooks/tests/git-push.test.mjs
++++ b/.claude/hooks/tests/git-push.test.mjs
+@@ -1,5 +1,6 @@
+ // Règle de git push (git flow, décision de Julien du 19 nov. 2026) : seule la session principale
+-// (rôle « main », entrée sans agent_type) pousse, et uniquement develop vers origin. Chaque cas
++// (rôle « main », entrée sans agent_type) pousse, et uniquement develop ou une branche lot/<nom>
++// vers origin (flux par pull request depuis le 21 nov. 2026). Chaque cas
+ // rejoue l'entrée JSON du hook PreToolUse comme run.sh la transmet (stdin) ; rien n'est poussé, le
+ // hook ne fait qu'analyser la commande. Lancé par `pnpm hooks:test`.
+ 
+@@ -50,6 +51,8 @@ const ALLOWED = [
+   'git push -u origin develop',
+   'git push --set-upstream origin develop',
+   'git push origin develop:develop',
++  // L20-01 (flux par pull request, décision de Julien du 21 nov. 2026) : branche de lot sous son nom.
++  'git push -u origin lot/13-git-flow',
+ ];
+ 
+ describe('git push : formes permises à la session principale', () => {
+@@ -111,7 +114,7 @@ describe('git push : variantes refusées à la session principale', () => {
+     ['git push origin +develop', /refspec forcée/],
+     ['git push origin +develop:develop', /refspec forcée/],
+     ['git push origin :develop', /supprime une branche distante/],
+-    ['git push origin lot/13-git-flow', /branches de lot restent locales/],
++    ['git push origin lot/13-git-flow:lot/autre', /branche de lot se pousse sous son nom/],
+     ['git push origin release/1.0.0', /refspec release\/1\.0\.0 refusée/],
+     ['git push origin refs/tags/v1.0.0', /étiquettes de version sont réservées/],
+     ['git push origin tag v1.0.0', /étiquettes de version sont réservées/],
+diff --git a/.claude/hooks/tests/push-lot.test.mjs b/.claude/hooks/tests/push-lot.test.mjs
+new file mode 100644
+index 0000000..7416f88
+--- /dev/null
++++ b/.claude/hooks/tests/push-lot.test.mjs
+@@ -0,0 +1,141 @@
++// L20-01 (décision de Julien du 21 nov. 2026, flux par pull request) : la session principale pousse
++// la branche d'un lot vers origin pour en ouvrir la pull request, sous son nom et en clair
++// (git push [-u | --set-upstream] origin lot/<nom>[:lot/<nom>]). Push forcé, suppression d'une
++// branche distante, autre nom de destination, main, étiquettes : toujours refusés ; les agents ne
++// poussent jamais. Rejeu par l'analyse de la commande et par le hook complet (entrée JSON de
++// PreToolUse) ; rien n'est poussé. Lancé par `pnpm hooks:test`.
++
++import assert from 'node:assert/strict';
++import { execFileSync, spawnSync } from 'node:child_process';
++import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
++import { tmpdir } from 'node:os';
++import { dirname, join } from 'node:path';
++import { after, before, describe, it } from 'node:test';
++import { fileURLToPath } from 'node:url';
++
++import { analyzeCommand } from '../lib/shell.mjs';
++
++const HOOKS = dirname(dirname(fileURLToPath(import.meta.url)));
++const GUARD = join(HOOKS, 'guard.mjs');
++const AGENTS = join(dirname(HOOKS), 'agents');
++const ROLES = [
++  ...new Set([
++    ...readdirSync(AGENTS)
++      .filter((f) => f.endsWith('.md'))
++      .map((f) => /^name:\s*(\S+)\s*$/m.exec(readFileSync(join(AGENTS, f), 'utf8'))[1]),
++    'revue-pr',
++  ]),
++].sort();
++
++let repo;
++let project;
++
++before(() => {
++  repo = realpathSync(mkdtempSync(join(tmpdir(), 'garde-fous-push-lot-')));
++  project = realpathSync(mkdtempSync(join(tmpdir(), 'garde-fous-push-lot-projet-')));
++  execFileSync('git', ['init', '-q', '-b', 'develop'], { cwd: repo });
++});
++
++after(() => {
++  for (const dir of [repo, project]) rmSync(dir, { recursive: true, force: true });
++});
++
++const denyOf = (command, role) => analyzeCommand(command, repo, role).deny;
++
++function hook(command, role) {
++  const input = {
++    session_id: 's-push-lot',
++    cwd: repo,
++    hook_event_name: 'PreToolUse',
++    tool_name: 'Bash',
++    tool_input: { command, description: 'test' },
++  };
++  if (role !== 'main') {
++    input.agent_type = role;
++    input.agent_id = `id-${role}`;
++  }
++  const res = spawnSync(process.execPath, [GUARD, 'pre-tool-use'], {
++    input: JSON.stringify(input),
++    encoding: 'utf8',
++    env: { ...process.env, CLAUDE_PROJECT_DIR: project },
++  });
++  return { code: res.status, stderr: res.stderr };
++}
++
++const ALLOWED = [
++  'git push -u origin lot/20-flux-pr',
++  'git push --set-upstream origin lot/20-flux-pr',
++  'git push origin lot/20-flux-pr',
++  'git push origin lot/20-flux-pr:lot/20-flux-pr',
++  'git push -u origin lot/F6-sections',
++  'git push -u origin "lot/20-flux-pr"',
++  'git -C . push -u origin lot/20-flux-pr',
++  'cd . && git push -u origin lot/20-flux-pr',
++  'git push -u origin lot/20-flux-pr && gh pr create --base develop --head lot/20-flux-pr --title x --body y',
++];
++
++const REFUSED = [
++  ['git push --force origin lot/20-flux-pr', /push forcé/],
++  ['git push -f origin lot/20-flux-pr', /push forcé/],
++  ['git push --force-with-lease origin lot/20-flux-pr', /push forcé/],
++  ['git push origin +lot/20-flux-pr', /refspec forcée/],
++  ['git push origin :lot/20-flux-pr', /supprime une branche distante/],
++  ['git push --delete origin lot/20-flux-pr', /suppression d'une branche distante/],
++  ['git push origin lot/20-flux-pr:lot/autre', /sous son nom/],
++  ['git push origin lot/20-flux-pr:develop', /sous son nom/],
++  ['git push origin lot/20-flux-pr:main', /main est réservée à Julien/],
++  ['git push origin refs/heads/lot/20-flux-pr', /sous son nom/],
++  ['git push origin lot/a/b', /sous son nom/],
++  ['git push origin lot/', /sous son nom/],
++  ['git push origin lot/20-flux-pr develop', /plusieurs refspecs/],
++  ['git push upstream lot/20-flux-pr', /remote upstream refusé/],
++  ['git push origin lot/$NOM', /refusée|sous son nom/],
++  ['git push origin "$(git branch --show-current)"', /refusée|illisible/],
++  ['git push --tags origin lot/20-flux-pr', /étiquettes/],
++  ['git push -o ci.skip origin lot/20-flux-pr', /options transmises au serveur/],
++  ['git push --no-verify origin lot/20-flux-pr', /contourne le hook pre-push/],
++  ['bash -c "git push -u origin lot/20-flux-pr"', /code opaque/],
++];
++
++describe('L20-01 : push d’une branche de lot par la session principale', () => {
++  it('accepte la branche de lot sous son nom, -u et --set-upstream compris', () => {
++    for (const command of ALLOWED) assert.equal(denyOf(command, 'main'), null, command);
++  });
++
++  it('le hook complet laisse passer git push -u origin lot/<nom>', () => {
++    for (const command of [ALLOWED[0], ALLOWED[1], 'git push origin develop']) {
++      const r = hook(command, 'main');
++      assert.equal(r.code, 0, `${command} : ${r.stderr}`);
++    }
++  });
++
++  for (const [command, reason] of REFUSED) {
++    it(`refuse ${command}`, () => {
++      const deny = denyOf(command, 'main');
++      assert.notEqual(deny, null, command);
++      assert.match(deny, reason, `${command} : ${deny}`);
++    });
++  }
++});
++
++describe('L20-01 : push d’une branche de lot refusé aux agents', () => {
++  for (const role of ROLES) {
++    it(`refuse au rôle ${role}`, () => {
++      for (const command of [...ALLOWED, ...REFUSED.map(([c]) => c)]) {
++        const deny = denyOf(command, role);
++        assert.notEqual(deny, null, `${role} : ${command}`);
++      }
++      const deny = denyOf(ALLOWED[0], role);
++      assert.match(deny, /git push est interdit aux agents/);
++      assert.match(deny, new RegExp(`rôle ${role}`));
++    });
++  }
++
++  it('le hook complet refuse git push -u origin lot/<nom> aux agents', () => {
++    for (const role of ['revue-pr', 'dev-devops', 'lead-architecte']) {
++      const r = hook(ALLOWED[0], role);
++      assert.equal(r.code, 2, role);
++      assert.match(r.stderr, /git push est interdit aux agents/, role);
++    }
++  });
++});

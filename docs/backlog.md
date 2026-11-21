@@ -1350,6 +1350,73 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
     commandes) et dans les fichiers d'agents (« Méthode » et « Terminé quand » de `dev-api`,
     `dev-sql`, `dev-contrats`, `dev-devops`, `dev-front`, `correcteur`, `lead-architecte`, `qa`,
     `qa-front` ; recette du chef-de-projet), sans toucher la section commune « Git et garde-fous ».
+- Fusionné le 21 nov. 2026 (f408999), recette acceptée (`docs/comptes-rendus/lot-19-recette.md`), `pnpm check`
+  rejoué vert à charge calme (386 s) après un premier échec par saturation de la machine. Décisions de Julien
+  du même jour sur la recette :
+  - clés de configuration qui lancent une commande (`core.sshCommand`, `core.pager`, alias…) passées par
+    `GIT_CONFIG_*` ou `--config-env` : à analyser comme `-c`, dans un lot ultérieur (**L19-05**, à planifier) ;
+  - mot entièrement calculé en opérande de `checkout` ou `switch` : rien à faire (le refuser casserait
+    `git switch -c a $START`) ;
+  - la recette finale du chantier lance un seul `pnpm check` (D26), et non deux.
+  - À planifier aussi (**L19-06**) : la vérification de fin de tâche ne retrouve pas le commit justifié quand
+    l'historique de la branche a été réécrit après l'instantané (`git reset` : la tête de l'instantané
+    n'est plus ancêtre) ; constaté le 21 nov. sur `lot/20-ci`, levé par une autorisation de l'orchestrateur.
+
+## 7 septies quater. Lot 20 — Flux par pull request (décidé par Julien le 21 nov. 2026)
+
+Décisions de Julien du 21 nov. 2026 : plus de fusion dans `develop` en local, chaque lot passe par une
+pull request vers `develop`. La session principale pousse la branche du lot vers `origin`, crée la
+pull request (`gh pr create`) et la fusionne par commit de merge (`gh pr merge --merge`, jamais squash
+ni rebase), seulement quand la CI est verte, que la revue automatisée n'a aucun point bloquant et que
+la recette est acceptée. Une action GitHub Claude Code poste une revue sur chaque pull request, guidée
+par l'agent `revue-pr`. Julien pose la protection de `develop` (pull request obligatoire, CI verte
+requise, mutation informative, revue requise, pas de push forcé). `gh` est installé dans
+`~/.local/bin` (exception autorisée par Julien) et connecté au compte de Julien pour la session
+principale.
+
+- **L20-01** (lead-architecte, portée `config`) : hooks du flux par pull request.
+  - Session principale, permis : pousser une branche `lot/*` vers `origin` (`-u` ou `--set-upstream`
+    admis) ; `gh pr create`, `gh pr merge --merge` seulement, `gh pr comment`, `gh pr review`,
+    `gh pr edit`, `gh pr ready` ; les lectures de `gh` (`pr view`, `pr checks`, `pr diff`,
+    `run view`, `run list`…).
+  - Session principale, toujours refusé : `gh pr merge` avec `--squash`, `--rebase`, `--admin`
+    (contournement de la protection) ou `--delete-branch` (suppression d'une branche distante : la
+    suppression automatique après fusion est un réglage GitHub que Julien choisira) ; push forcé,
+    suppression d'une branche distante, push vers `main` ou vers une étiquette, et tout ce qui était
+    déjà refusé.
+  - `git push origin develop` reste permis à la session principale pour l'instant : la fusion du
+    lot 20 passe encore par là ; ensuite, c'est la protection de `develop` sur GitHub qui le refuse.
+  - Agents spécialisés : aucun push, aucune écriture par `gh` ; seules les lectures leur restent.
+  - Rejeu des commandes ordinaires (L14-07) toujours vert, avec un échantillon des nouvelles
+    commandes de l'orchestrateur ; tests de refus et d'acceptation pour la session principale et
+    les quinze rôles (`revue-pr` compris).
+- **L20-02** (lead-architecte, portée `config`) : agent `.claude/agents/revue-pr.md`, sur le modèle de
+  `revue-code.md`. Revue adversariale du diff d'une pull request vers `develop`, en lecture seule :
+  règles de `CLAUDE.md` (hexagonal, couches du front, contrat OpenAPI, i18n, accessibilité, données
+  personnelles avec l'exception D22), intégrité des tests (aucun test existant modifié sans
+  `Justification-test`, aucun marqueur, aucun oracle affaibli), sécurité (secrets, CSP, dépendances
+  épinglées), couverture des cas nouveaux. Chaque constat a une gravité (« bloquant » ou « non
+  bloquant »), un fichier et une ligne ; la revue finit par une ligne fixe `VERDICT: BLOQUANT` ou
+  `VERDICT: OK`, que le workflow lit pour faire échouer le contrôle requis. Interdits : modifier un
+  fichier, pousser, fusionner, approuver. Section commune « Git et garde-fous » à l'identique ; agent
+  ajouté au test de concordance des sections.
+- **L20-03** (lead-architecte) : documentation du flux par pull request : `CLAUDE.md` (« Flux git et
+  interdictions », lignes de l'orchestrateur, `gh` dans les installations permises sur l'hôte),
+  `docs/03-organisation-agents.md` (décision datée, flux, rôle `revue-pr`), section commune « Git et
+  garde-fous » des quatorze fichiers d'agent (l'orchestrateur fusionne par pull request), ce backlog.
+- **L20-04** (dev-devops, portée `config`) : mutation par paquet en CI (un job par paquet,
+  informatif, hors des contrôles requis de `develop`).
+- **L20-05** (dev-devops, portée `config`) : workflow de revue par l'action GitHub Claude Code guidée
+  par `revue-pr` (contrôle en échec sur `VERDICT: BLOQUANT`), et règles de protection de `develop`
+  décrites pour que Julien les pose.
+- **Décisions de Julien du 21 nov. 2026, après le compte rendu du lead-architecte** :
+  - les trois sorties honorables du lot sont acceptées et appliquées : push des branches `lot/*`
+    (test `git-push.test.mjs` mis à jour), agent `revue-pr` (décompte des rôles porté à 15 dans les
+    sept tests qui le vérifient), `permissions.deny` de `.claude/settings.json` limité aux variantes
+    interdites de `gh pr merge` ;
+  - « revue requise » sur `develop` = contrôle requis `Revue PR (Claude)` (le workflow de L20-05),
+    sans approbation exigée : GitHub refuse qu'un compte approuve sa propre pull request, et
+    `revue-pr` n'approuve pas.
 
 ## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
 

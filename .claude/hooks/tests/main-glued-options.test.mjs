@@ -7,7 +7,7 @@
 // <dossier> main`) quand main n'existe pas en local, et `worktree add --orphan ../main`.
 // Chaque forme refusée est d'abord rejouée par git dans un clone jetable dont la seule branche locale
 // est develop (amont : main et develop) : elle y écrit refs/heads/main ou place une HEAD sur main ;
-// chaque forme permise n'y écrit rien. Puis l'analyse de la commande pour les quatorze rôles et la
+// chaque forme permise n'y écrit rien. Puis l'analyse de la commande pour les quinze rôles et la
 // session principale, et l'entrée JSON du hook PreToolUse pour la session principale et dev-api.
 // Lancé par `pnpm hooks:test`.
 
@@ -276,8 +276,8 @@ describe('L19-01 : comportement réel de git (clones jetables)', () => {
 });
 
 describe('L19-01 : création ou écriture de main refusée à toutes les sessions', () => {
-  it('connaît les quatorze rôles d’agent', () => {
-    assert.equal(ROLES.length, 14, ROLES.join(', '));
+  it('connaît les quinze rôles d’agent', () => {
+    assert.equal(ROLES.length, 15, ROLES.join(', '));
     assert.ok(!ROLES.includes('main'));
   });
 

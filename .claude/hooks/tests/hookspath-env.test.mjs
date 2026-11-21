@@ -8,7 +8,7 @@
 // peut fixer core.hooksPath, et `--config-env core.hooksPath=<variable>` (git >= 2.32). Une valeur
 // illisible de ces variables, ou une clé `-c` illisible, est refusée. Chaque forme refusée est
 // d'abord rejouée par git dans un dépôt jetable dont la configuration locale fixe core.hooksPath
-// (comme husky) : git y lit une autre valeur. Puis l'analyse de la commande pour les quatorze rôles
+// (comme husky) : git y lit une autre valeur. Puis l'analyse de la commande pour les quinze rôles
 // et la session principale, et l'entrée JSON du hook PreToolUse pour la session principale et
 // dev-api. Lancé par `pnpm hooks:test`.
 
@@ -228,8 +228,8 @@ describe('L19-02 : comportement réel de git (dépôt jetable)', () => {
 });
 
 describe('L19-02 : core.hooksPath par l’environnement refusé à toutes les sessions', () => {
-  it('connaît les quatorze rôles d’agent', () => {
-    assert.equal(ROLES.length, 14, ROLES.join(', '));
+  it('connaît les quinze rôles d’agent', () => {
+    assert.equal(ROLES.length, 15, ROLES.join(', '));
   });
 
   const refused = [
