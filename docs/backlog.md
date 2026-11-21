@@ -1317,6 +1317,24 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   départ distant, réglage `branch.autoSetupMerge`) sont refusés aux agents spécialisés, comme
   `git branch -u` (L14-17) ; la session principale les garde. Section « Git et garde-fous » et test de
   concordance mis à jour.
+- Fusionné le 21 nov. 2026 (fef4db5), recette acceptée avec réserves (`docs/comptes-rendus/lot-18-recette.md`).
+  Décision de Julien du même jour : `CLAUDE.md` garde ses détails sur les garde-fous (des règles, pas des
+  mécanismes).
+
+## 7 septies ter. Lot 19 — Trous confirmés par la recette du lot 18, charge machine (décidé par Julien le 21 nov. 2026)
+
+- **L19-01** (lead-architecte, portée `config`) : la création ou l'écriture de la branche locale `main`
+  par options collées (`git checkout -qb main`, `-bmain`, `git switch -cmain`, `--cr main` et formes
+  voisines) est refusée à toutes les sessions, comme `checkout -b main` (L14-06), en réutilisant le
+  lecteur d'options du lot 18.
+- **L19-02** (lead-architecte, portée `config`) : `core.hooksPath` passé par l'environnement de git
+  (`GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT` avec `GIT_CONFIG_KEY_n` / `GIT_CONFIG_VALUE_n`) est
+  refusé à toutes les sessions, comme `-c core.hooksPath=` ; une valeur illisible est refusée.
+- **L19-03** (lead-architecte, portée `config`) : borne configurable du nombre de processus des e2e de
+  l'API (et des tâches Vitest lourdes), transmise par Turborepo (`env` ou `passThroughEnv` des tâches
+  concernées), lue dans le `.env` racine du worktree ; sans valeur, comportement actuel (cœurs moins
+  un), en CI compris. Constat du 20 nov. : deux `pnpm check` simultanés (back et front) donnent des
+  `HookTimeoutError` (charge 31 sur 16 cœurs).
 
 ## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
 
