@@ -26,3 +26,10 @@ ancêtre ne serait pas attendue.
 ## Vérifications
 lint 0, typecheck 0, `test:coverage` 994 tests, 100 % ; Playwright `experience`, `sections`, `shell`, `design-system`,
 `smoke` : 896/896 aux 7 tailles ; `pnpm integrity develop` : voir commit.
+
+## Complément (autorisation b5251c01) : fixtures OpenClassrooms
+`cv.fr.ts` l. 997 et `cv.en.ts` l. 992 : `location: null` (seed, BF-12) ; `map-cv.spec.ts` l. 196 : attendu
+`'À distance, WM[remote]'` → `'WM[remote]'` (le test garde son objet : mode de travail seul, désormais le cas réel).
+Avant : fixtures seules changées, échec `expected 'WM[remote]' to be 'À distance, WM[remote]'`. Après :
+`vitest run --project unit app/data` 8 fichiers, 106 tests verts (`cv-fixtures.spec.ts` inclus). Ni Playwright, ni
+mutation, ni couverture complète (contrainte machine, à la recette) ; `pnpm integrity develop` : voir ci-dessous.

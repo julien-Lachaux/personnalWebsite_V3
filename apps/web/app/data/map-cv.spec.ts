@@ -193,7 +193,7 @@ describe('mapExperiences', () => {
   it('le contrat none n’affiche rien ; un mode de travail seul reste', () => {
     const mentor = bySlug('openclassrooms-mentor');
 
-    expect(mentor.meta).toBe('À distance, WM[remote]');
+    expect(mentor.meta).toBe('WM[remote]');
     expect(mentor.prefix).toBe('@');
     expect(mentor.organisation).toBe('OpenClassrooms');
     expect(mentor.kind).toBe('mentoring');
