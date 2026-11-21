@@ -80,9 +80,8 @@ function delay(seconds: number): Record<string, string> {
 </template>
 
 <style scoped>
+/* Durées : tokens `--dur-egg-line` et `--dur-egg-bar` (motion.css), réduites avec les autres. */
 .egg {
-  --egg-line-duration: 350ms;
-  --egg-bar-duration: 1400ms;
   /* 1 : les délais de la maquette ; 0 : mouvement réduit, tout apparaît d'emblée. */
   --egg-delay-scale: 1;
 }
@@ -104,7 +103,7 @@ function delay(seconds: number): Record<string, string> {
 
 .egg__line {
   opacity: 0;
-  animation: egg-line var(--egg-line-duration) ease-out forwards;
+  animation: egg-line var(--dur-egg-line) ease-out forwards;
   animation-delay: calc(var(--line-delay) * var(--egg-delay-scale));
 }
 
@@ -140,7 +139,7 @@ function delay(seconds: number): Record<string, string> {
   width: 0;
   height: 100%;
   background-color: var(--neon);
-  animation: egg-bar var(--egg-bar-duration) linear forwards;
+  animation: egg-bar var(--dur-egg-bar) linear forwards;
   animation-delay: calc(var(--line-delay) * var(--egg-delay-scale));
 }
 
