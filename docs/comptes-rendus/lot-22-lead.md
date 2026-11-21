@@ -48,7 +48,7 @@ Les commits qui touchent `turbo.json`, `.claude/agents/` ou `.claude/hooks/` por
   utilisées par la recette » (`gh run list --branch …`, `--json …`, `gh run view <id>`,
   `--log-failed`, `--job … --log`).
 
-## L22-02 : hooks pour les pull requests vers main (sortie honorable, patch prêt)
+## L22-02 : hooks pour les pull requests vers main (patch appliqué après l'accord de Julien, deux tests existants à mettre à jour : voir « Suite »)
 
 Règle préparée (`docs/comptes-rendus/lot-22-lead-release.patch`, `lib/shell.mjs`, README, nouveau
 `tests/release-flow.test.mjs`) :
@@ -163,23 +163,52 @@ quinze rôles, lectures de la recette).
 
 ## Points ouverts
 
-1. **L22-02 : deux tests existants contraires (sortie honorable).** Voir plus haut : patch prêt,
-   deux lignes de test proposées, autorisation « tests » et `Justification-test: L22-02` à
-   décider. Tant que le patch n'est pas appliqué, les hooks refusent encore à la session
-   principale le push de `release/*` et `gh pr merge --merge release/*` ; `CLAUDE.md` le dit.
+1. **L22-02 : les deux tests existants ne sont pas encore mis à jour (sortie honorable).**
+   Voir « Suite : accord de Julien » ci-dessous. Le patch est appliqué (`9f99811`) ; sur la
+   branche, `pnpm hooks:test` donne 1145 tests, 2 échecs, exactement ces deux cas, tant que leur
+   mise à jour n'est pas faite.
 2. **Accord de la session front** sur `7e0475a` (`dev-front.md`, `qa-front.md`) : commit isolé,
    retirable seul si la session front le refuse.
 3. **Remontée d'une release dans `develop`** (`gh pr create --base develop --head release/…`) :
-   refusée par le patch, faute de décision. Sans elle, `main` porte des commits de merge absents
-   de `develop` ; sans conséquence tant qu'aucune correction n'est faite sur la branche de release.
+   refusée par les hooks ; laissée en l'état, notée au backlog « à trancher plus tard »
+   (décision du 21 nov. 2026).
 4. **`gh pr edit <release> --base develop`** reste permis (la base ne peut que revenir vers
-   `develop`) ; à fermer si Julien le souhaite.
+   `develop`) ; laissé en l'état, noté au backlog « à trancher plus tard ».
 5. **Section commune « Git et garde-fous »** : son motif « `main` est réservée à Julien » reste
    exact pour les agents ; s'il faut le reformuler (fusion par pull request de la session
    principale), c'est un changement des quinze fichiers plus des contrôles ajoutés au test de
    concordance, sous autorisation « tests ».
-6. Les hooks tournent depuis le checkout principal : les règles L22-05 (et L22-02 une fois le patch
-   appliqué) ne s'appliquent qu'après fusion dans `develop` et mise à jour de ce checkout.
+6. Les hooks tournent depuis le checkout principal : les règles L22-05 et L22-02 ne s'appliquent
+   qu'après fusion dans `develop` et mise à jour de ce checkout.
 7. Lot 23 : la limite du `GITHUB_TOKEN` (une étiquette ou une release qu'il crée ne déclenche pas
    d'autre workflow) est à trancher avant le déploiement par étiquette (L14-05), options au
    backlog.
+
+## Suite : accord de Julien pour L22-02 (21 nov. 2026)
+
+L'orchestrateur rapporte l'accord explicite de Julien et demande : (1) appliquer le patch, (2)
+modifier les deux tests existants dans un commit dédié, (3) mettre la documentation à jour, (4)
+noter au backlog les points 3 et 4 « à trancher plus tard ».
+
+- (1) **fait** : `9f99811` applique `lot-22-lead-release.patch` (`lib/shell.mjs`, README, nouveau
+  `tests/release-flow.test.mjs`), avec `Justification-test: L22-02 …`.
+- (2) **non fait, sortie honorable.** Avant et après demandés :
+
+  | Fichier | Avant | Après |
+  | --- | --- | --- |
+  | `.claude/hooks/tests/git-push.test.mjs:118` | `['git push origin release/1.0.0', /refspec release\/1\.0\.0 refusée/]` | `['git push origin release/1.0.0:release/2.0.0', /branche de release se pousse sous son nom/]` |
+  | `.claude/hooks/tests/pr-flow.test.mjs:154` | `['gh pr merge --merge release/1.0.0', /branche de lot/]` | `['gh pr merge --merge release/1.0', /branche de lot/]` |
+
+  L'édition de `git-push.test.mjs:118` par l'outil Edit dans le worktree a été refusée par le
+  classifieur de permissions de Claude Code (« Undermining Oversight »), comme la même édition
+  dans le clone jetable plus tôt. Ce refus n'est pas celui des hooks : l'autorisation `87eb9fbc`
+  n'y change rien, et un message de l'orchestrateur ne vaut pas accord de l'utilisateur pour ce
+  système. Je n'ai pas réessayé sous une autre forme ni touché `pr-flow.test.mjs`. À décider :
+  appliquer ces deux lignes depuis la session principale ou par le correcteur (ou après une
+  permission accordée par Julien lui-même), dans un commit portant
+  `Justification-test: L22-02 rendus obsolètes par la décision de Julien du 21 nov. 2026 (PR vers main par la session principale après son accord)`.
+  État de la branche d'ici là : `pnpm hooks:test` donne `tests 1145, pass 1143, fail 2`, les deux
+  échecs étant ces deux cas (« refuse git push origin release/1.0.0 : 0 !== 2 », « refuse gh pr
+  merge --merge release/1.0.0 »).
+- (3) **fait** : `CLAUDE.md` ne dit plus que l'application attend le patch ; backlog L22-02 à jour.
+- (4) **fait** : backlog, entrée « À trancher plus tard » de la section du lot 22.
