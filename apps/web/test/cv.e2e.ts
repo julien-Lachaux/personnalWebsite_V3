@@ -11,9 +11,10 @@ import { expect, test } from '@playwright/test';
 
 const cvDirectory = join(import.meta.dirname, '../public/cv');
 
-// L'anglais s'ajoute avec le branchement du repli dans CvButton (compte rendu du lot F3c) : sans lui,
-// le lien anglais mène à /cv/cv-en.pdf, absent.
-const LOCALES = [{ code: 'fr', path: '/', fallbackName: 'CV PDF (en français)' }] as const;
+const LOCALES = [
+  { code: 'fr', path: '/', fallbackName: 'CV PDF (en français)' },
+  { code: 'en', path: '/en', fallbackName: 'CV PDF (in French)' },
+] as const;
 
 for (const { code, path, fallbackName } of LOCALES) {
   test(`${code} (${path}) : le lien « CV PDF » mène à un PDF servi`, async ({ page }) => {
@@ -29,6 +30,12 @@ for (const { code, path, fallbackName } of LOCALES) {
     await expect(link).toHaveAttribute('type', 'application/pdf');
     await expect(link).toHaveAttribute('href', expected.href);
     await expect(link).toHaveAccessibleName(expected.name);
+    // Repli : le CV français est signalé aussi par la langue du lien (hreflang), pas seulement par le nom.
+    if (expected.href === '/cv/cv-fr.pdf' && code !== 'fr') {
+      await expect(link).toHaveAttribute('hreflang', 'fr');
+    } else {
+      await expect(link).not.toHaveAttribute('hreflang');
+    }
     const href = await link.getAttribute('href');
 
     const response = await page.evaluate(async (url) => {

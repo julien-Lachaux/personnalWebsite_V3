@@ -111,7 +111,10 @@ describe('page d’accueil (fixtures)', () => {
   it('relie le CV PDF de la langue et la déclaration d’accessibilité localisée', async () => {
     const wrapper = await mountPage('/en');
 
-    expect(wrapper.get('a[download]').attributes('href')).toBe('/cv/cv-en.pdf');
+    // Pas de cv-en.pdf (D22) : le lien mène au CV français, le dit dans son nom et par hreflang.
+    const cv = wrapper.get('a[download]');
+    expect(cv.attributes()).toMatchObject({ href: '/cv/cv-fr.pdf', hreflang: 'fr' });
+    expect(cv.text()).toContain('(in French)');
     expect(wrapper.get('.a11y-panel__link').attributes('href')).toBe('/en/accessibilite');
   });
 });
