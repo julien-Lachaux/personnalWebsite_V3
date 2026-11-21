@@ -1790,20 +1790,27 @@ const GIT_COMMANDS = new Set(
 // agent_type) :
 //   git [-C <chemin>] [-c <clé>=<valeur>] push [-u | --set-upstream] origin develop[:develop]
 //   git [-C <chemin>] [-c <clé>=<valeur>] push [-u | --set-upstream] origin lot/<nom>[:lot/<nom>]
+//   git [-C <chemin>] [-c <clé>=<valeur>] push [-u | --set-upstream] origin release/<x.y.z>[:release/<x.y.z>]
 // develop reste permise pour l'instant (fusion du lot 20) ; la protection de develop sur GitHub la
-// refuse ensuite. Tout le reste est refusé avec son motif : rôle d'agent, autre remote, autre
-// branche ou refspec (main, HEAD, +…, :…, lot/<a>:lot/<b>, étiquette), push forcé, suppression,
-// plusieurs références, options transmises au serveur, refspec absente (git push nu dépend de la
-// configuration). Fusionner dans main, créer ou pousser une étiquette, pousser main et déployer sont
-// réservés à Julien.
+// refuse ensuite. release/<majeur>.<mineur>.<correctif> (L22-02, décision de Julien du 21 nov. 2026)
+// porte la pull request vers main, ouverte et fusionnée par la session principale après l'accord
+// explicite de Julien (règle de l'orchestrateur, que le hook ne peut pas vérifier). Tout le reste
+// est refusé avec son motif : rôle d'agent, autre remote, autre branche ou refspec (main, HEAD, +…,
+// :…, lot/<a>:lot/<b>, release/<a>:release/<b>, étiquette), push forcé, suppression, plusieurs
+// références, options transmises au serveur, refspec absente (git push nu dépend de la
+// configuration). Pousser main, créer ou pousser une étiquette et déployer sont réservés à Julien.
 const PUSH_REMOTE = 'origin';
 const PUSH_BRANCH = 'develop';
 const PUSH_REFSPECS = new Set([PUSH_BRANCH, `${PUSH_BRANCH}:${PUSH_BRANCH}`]);
-/** Refspec d'une branche de lot poussée sous son nom : lot/<nom> ou lot/<nom>:lot/<nom>. */
-function lotRefspec(spec) {
+/** Refspec d'une branche poussée sous son nom (`<nom>` ou `<nom>:<nom>`), nom conforme à `re`. */
+function sameNameRefspec(spec, re) {
   const [src, dst, ...more] = spec.split(':');
-  return more.length === 0 && LOT_BRANCH.test(src) && (dst === undefined || dst === src);
+  return more.length === 0 && re.test(src) && (dst === undefined || dst === src);
 }
+/** Refspec d'une branche de lot poussée sous son nom : lot/<nom> ou lot/<nom>:lot/<nom>. */
+const lotRefspec = (spec) => sameNameRefspec(spec, LOT_BRANCH);
+/** Refspec d'une branche de release poussée sous son nom (L22-02). */
+const releaseRefspec = (spec) => sameNameRefspec(spec, RELEASE_BRANCH);
 const PUSH_UPSTREAM = new Set(['-u', '--set-upstream']);
 /** Options globales de git qui changent le dépôt, l'espace de noms ou la configuration du push. */
 const PUSH_GLOBAL_DENIED = new Set([
@@ -1819,7 +1826,7 @@ const PUSH_GLOBAL_ALLOWED = new Set(['-C', '-c', '--no-pager', '-P']);
 const PUSH_CONFIG_KEYS = /^(remote|url|push|branch|alias)\./i;
 /** Clés -c admises avec git push : sans effet sur la destination ni sur la connexion. */
 const PUSH_CONFIG_ALLOWED = /^((color|advice|user|i18n)\.[^=]+|core\.quotepath)=/i;
-const PUSH_FORM = `seules les formes git push origin ${PUSH_BRANCH} et git push origin lot/<nom> (avec -u ou --set-upstream au besoin) sont permises`;
+const PUSH_FORM = `seules les formes git push origin ${PUSH_BRANCH}, git push origin lot/<nom> et git push origin release/<majeur>.<mineur>.<correctif> (avec -u ou --set-upstream au besoin) sont permises`;
 
 /** Clés dont l'écriture redéfinit la destination d'un push (T3 du lot 13 bis). */
 // L18-02 : branch.autoSetupMerge et branch.autoSetupRebase règlent le suivi des branches créées.
@@ -1856,18 +1863,26 @@ function refspecRefusal(spec) {
     return `refspec « ${spec} » : supprime une branche distante, réservé à Julien`;
   const refs = spec.split(':');
   if (refs.some((r) => /^(refs\/heads\/)?(main|master)$/.test(r)))
-    return `${spec} : main est réservée à Julien (fusion des release/* et hotfix/*, push de main)`;
+    return (
+      `${spec} : main est réservée à Julien pour le push (correctif urgent) ; la session ` +
+      'principale y fusionne par une pull request release/<version>, après son accord explicite'
+    );
   if (refs.some((r) => r.startsWith('refs/tags/')))
     return `${spec} : les étiquettes de version sont réservées à Julien`;
   if (refs.some((r) => /^HEAD\b/.test(r) || r === '@'))
     return `${spec} : HEAD dépend de la branche courante ; ${PUSH_FORM}`;
   if (refs.some((r) => /^(refs\/heads\/)?lot\//.test(r)))
     return `${spec} : une branche de lot se pousse sous son nom, en clair (git push -u origin lot/<nom>)`;
+  if (refs.some((r) => /^(refs\/heads\/)?release\//.test(r)))
+    return (
+      `${spec} : une branche de release se pousse sous son nom, en clair ` +
+      '(git push -u origin release/<majeur>.<mineur>.<correctif>)'
+    );
   return `refspec ${spec} refusée : ${PUSH_FORM}`;
 }
 
 /** Destinations permises d'un push de la session principale (messages). */
-const PUSH_TARGETS = `${PUSH_BRANCH} et les branches lot/* vers ${PUSH_REMOTE}`;
+const PUSH_TARGETS = `${PUSH_BRANCH}, les branches lot/* et release/<version> vers ${PUSH_REMOTE}`;
 
 /** Motif du refus d'un git push, ou null s'il est permis. `globals` : options globales de git. */
 function pushRefusal(rest, { role, globals, assignments, dashed }) {
@@ -1917,7 +1932,8 @@ function pushRefusal(rest, { role, globals, assignments, dashed }) {
   if (specs.length > 1) return `plusieurs refspecs (${specs.map(shown).join(' ')}) : ${PUSH_FORM}`;
   if (remote !== PUSH_REMOTE)
     return `remote ${shown(remote)} refusé : seul ${PUSH_REMOTE} est permis`;
-  if (!PUSH_REFSPECS.has(specs[0]) && !lotRefspec(specs[0])) return refspecRefusal(shown(specs[0]));
+  if (!PUSH_REFSPECS.has(specs[0]) && !lotRefspec(specs[0]) && !releaseRefspec(specs[0]))
+    return refspecRefusal(shown(specs[0]));
   return null;
 }
 
@@ -3157,9 +3173,12 @@ function analyzeGit(
 // gh (GitHub CLI). Fusionner, étiqueter, publier, supprimer sont réservés à Julien (T5, lot 13 bis).
 // Flux par pull request (L20-01, décision de Julien du 21 nov. 2026) : la session principale ouvre
 // la pull request d'une branche de lot vers develop, la commente, la relit, l'édite, la passe en
-// prête et la fusionne par commit de merge (--merge seulement) ; les agents ne font que lire. Tout
-// le reste est refusé à tous : liste fermée de lectures (GH_READS) et d'écritures de la session
-// principale (GH_PR_WRITES), une commande gh qui n'y figure pas est refusée.
+// prête et la fusionne par commit de merge (--merge seulement) ; les agents ne font que lire.
+// Pull request vers main (L22-02, décision de Julien du 21 nov. 2026) : de release/<version> vers
+// main seulement, créée et fusionnée par la session principale après l'accord explicite de Julien
+// (règle de l'orchestrateur, que le hook ne peut pas vérifier). Tout le reste est refusé à tous :
+// liste fermée de lectures (GH_READS) et d'écritures de la session principale (GH_PR_WRITES), une
+// commande gh qui n'y figure pas est refusée.
 
 const GH_COMMANDS = new Set(
   (
@@ -3205,8 +3224,12 @@ const GH_READS = {
 };
 /** Branche de lot nommée en clair (git flow) : lot/<nom>, un seul niveau. */
 export const LOT_BRANCH = /^lot\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
-/** Branche d'intégration, seule base permise d'une pull request de la session principale. */
+/** Branche de release (git flow, L22-02) : release/<majeur>.<mineur>.<correctif>, sans zéro de tête. */
+export const RELEASE_BRANCH = /^release\/(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
+/** Branche d'intégration, base d'une pull request de lot. */
 const PR_BASE = 'develop';
+/** Branche de production, base d'une pull request de release (L22-02). */
+const RELEASE_BASE = 'main';
 /** Variables d'environnement de gh qui changent le dépôt ou l'hôte visés. */
 const GH_TARGET_ENV = new Set([
   'GH_REPO',
@@ -3287,7 +3310,7 @@ const GH_PR_DENIED = [
     '-r',
     'seule la fusion par commit de merge (--merge) est permise, jamais rebase',
   ],
-  ['merge', '--admin', null, 'contourne la protection de develop : réservé à Julien'],
+  ['merge', '--admin', null, 'contourne la protection de develop et de main : réservé à Julien'],
   [
     'merge',
     '--delete-branch',
@@ -3404,30 +3427,46 @@ function ghPrWriteRefusal(action, args, env, assignments, viaXargs) {
     return `gh pr ${action} : plusieurs pull requests (${positionals.join(' ')}), une seule à la fois`;
   const base = one('--base');
   if (base === null) return `gh pr ${action} : --base répété, illisible`;
-  if (base !== undefined && base !== PR_BASE)
+  if (base !== undefined && base !== PR_BASE && !(action === 'create' && base === RELEASE_BASE))
     return (
-      `gh pr ${action} --base ${shown(base)} : une pull request de la session principale vise ` +
-      `${PR_BASE}, jamais une autre branche (main est réservée à Julien)`
+      `gh pr ${action} --base ${shown(base)} : une pull request de lot vise ${PR_BASE}, jamais une ` +
+      `autre branche ; seule une pull request créée depuis release/<version> vise ${RELEASE_BASE}` +
+      (action === 'create' ? '' : ', et sa base ne se change pas')
     );
   if (action === 'create') {
     if (positionals.length > 0)
       return `gh pr create ${positionals.join(' ')} : argument non permis`;
     if (base === undefined)
-      return `gh pr create sans --base ${PR_BASE} : la base par défaut dépend du dépôt ; écris --base ${PR_BASE}`;
-    const head = one('--head');
-    if (typeof head !== 'string' || !LOT_BRANCH.test(head))
       return (
-        'gh pr create : --head lot/<nom> obligatoire, une seule fois et en clair (sans lui, gh ' +
-        'peut pousser la branche courante lui-même)'
+        `gh pr create sans --base ${PR_BASE} : la base par défaut dépend du dépôt ; écris --base ` +
+        `${PR_BASE} (branche de lot) ou --base ${RELEASE_BASE} (branche release/<version>)`
       );
+    const head = one('--head');
+    const pushNote =
+      'une seule fois et en clair (sans lui, gh peut pousser la branche courante lui-même)';
+    if (base === RELEASE_BASE) {
+      if (typeof head === 'string' && LOT_BRANCH.test(head))
+        return `gh pr create --base ${RELEASE_BASE} --head ${head} : une pull request de lot vise ${PR_BASE}`;
+      if (typeof head !== 'string' || !RELEASE_BRANCH.test(head))
+        return `gh pr create --base ${RELEASE_BASE} : --head release/<majeur>.<mineur>.<correctif> obligatoire, ${pushNote}`;
+    } else {
+      if (typeof head === 'string' && RELEASE_BRANCH.test(head))
+        return `gh pr create --base ${PR_BASE} --head ${head} : une pull request de release vise ${RELEASE_BASE}`;
+      if (typeof head !== 'string' || !LOT_BRANCH.test(head))
+        return `gh pr create : --head lot/<nom> obligatoire, ${pushNote}`;
+    }
   }
   if (action === 'merge') {
     if (!flags.has('--merge'))
       return 'gh pr merge sans --merge : seule la fusion par commit de merge est permise (gh pr merge --merge lot/<nom>)';
-    if (positionals.length !== 1 || !LOT_BRANCH.test(positionals[0]))
+    if (
+      positionals.length !== 1 ||
+      !(LOT_BRANCH.test(positionals[0]) || RELEASE_BRANCH.test(positionals[0]))
+    )
       return (
-        'gh pr merge : nomme la pull request par sa branche de lot (gh pr merge --merge lot/<nom>), ' +
-        'seule forme dont la base est vérifiée à la création'
+        'gh pr merge : nomme la pull request par sa branche de lot ou de release ' +
+        '(gh pr merge --merge lot/<nom> ou release/<majeur>.<mineur>.<correctif>), seule forme ' +
+        'dont la base est vérifiée à la création'
       );
   }
   return null;
