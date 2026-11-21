@@ -208,6 +208,9 @@ export const ROLE_WRITE_SCOPES = {
   'revue-securite': [...REVIEW_DOCS, ...ENV_FILES],
   'revue-a11y': [...REVIEW_DOCS, ...ENV_FILES],
   triage: [...REVIEW_DOCS, ...ENV_FILES],
+  // L20-02 : revue d'une pull request en lecture seule ; sa revue part par le workflow, rien dans le
+  // dépôt (le dossier temporaire de session reste libre).
+  'revue-pr': [],
   'chef-de-projet': [
     /^docs\/backlog\.md$/,
     /^docs\/comptes-rendus\//,
