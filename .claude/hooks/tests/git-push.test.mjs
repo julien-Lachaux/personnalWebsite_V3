@@ -115,7 +115,7 @@ describe('git push : variantes refusées à la session principale', () => {
     ['git push origin +develop:develop', /refspec forcée/],
     ['git push origin :develop', /supprime une branche distante/],
     ['git push origin lot/13-git-flow:lot/autre', /branche de lot se pousse sous son nom/],
-    ['git push origin release/1.0.0', /refspec release\/1\.0\.0 refusée/],
+    ['git push origin release/1.0.0:release/2.0.0', /branche de release se pousse sous son nom/],
     ['git push origin refs/tags/v1.0.0', /étiquettes de version sont réservées/],
     ['git push origin tag v1.0.0', /étiquettes de version sont réservées/],
     ['git push origin v1.0.0', /refspec v1\.0\.0 refusée/],
