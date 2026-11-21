@@ -298,6 +298,7 @@ dans une commande ni dans le dépôt). Sans ce secret, le contrôle « Revue PR 
 - Contrôles requis (noms exacts des jobs, à l'identique de `ci.yml` et `revue-pr.yml`) :
   - `Qualité (format, lint, typecheck, build, tests)`
   - `Garde-fous (intégrité des tests, hooks des agents)`
+  - `Tests e2e et couverture 100 % (PostgreSQL 16)`
   - `Front (lint, typecheck, couverture 100 %, Playwright + axe sur 7 tailles d'écran)`
   - `Analyse statique (actionlint des workflows, shellcheck des scripts)`
   - `Image Docker de l'API (build sans push)`
@@ -340,6 +341,7 @@ gh api --method POST repos/julien-Lachaux/personnalWebsite_V3/rulesets --input -
         "required_status_checks": [
           { "context": "Qualité (format, lint, typecheck, build, tests)" },
           { "context": "Garde-fous (intégrité des tests, hooks des agents)" },
+          { "context": "Tests e2e et couverture 100 % (PostgreSQL 16)" },
           { "context": "Front (lint, typecheck, couverture 100 %, Playwright + axe sur 7 tailles d'écran)" },
           { "context": "Analyse statique (actionlint des workflows, shellcheck des scripts)" },
           { "context": "Image Docker de l'API (build sans push)" },
@@ -363,15 +365,17 @@ offre les mêmes réglages (`required_pull_request_reviews`, `required_status_ch
 _Settings > Rules > Rulesets > New ruleset > New branch ruleset_ : nom « Protection de develop », _Enforcement
 status_ Active, _Bypass list_ vide, _Target branches_ > _Add target_ > _Include by pattern_ `develop`. Cocher
 _Restrict deletions_, _Block force pushes_, _Require a pull request before merging_ (0 approbation requise),
-_Require status checks to pass_ (ajouter les sept noms ci-dessus ; un nom n'est proposé qu'après avoir tourné au
+_Require status checks to pass_ (ajouter les huit noms ci-dessus ; un nom n'est proposé qu'après avoir tourné au
 moins une fois sur une PR), laisser _Require branches to be up to date_ décoché. _Create_.
 
-### Question pour Julien
+### Décisions de Julien (21 nov. 2026)
 
-La session principale fusionne par `gh pr merge --merge`, sans `--admin`. Faut-il que la règle s'applique aussi aux
-administrateurs ? Recommandation : oui (`bypass_actors` vide, ou `enforce_admins: true`), la session passe alors
-par la voie normale et la protection n'a pas d'exception silencieuse ; en cas d'urgence, Julien désactive
-temporairement le ruleset. Si la réponse est non, ajouter le rôle Admin à la liste de contournement.
+- La règle s'applique aussi aux administrateurs : `bypass_actors` vide (ou `enforce_admins: true`). La session
+  principale fusionne par `gh pr merge --merge`, sans `--admin` ; en cas d'urgence, Julien désactive
+  temporairement le ruleset.
+- Huit contrôles requis : les sept jobs de `ci.yml` hors mutation, dont les e2e de l'API, et `Revue PR (Claude)`.
+- « Revue requise » = le contrôle `Revue PR (Claude)`, sans approbation humaine (un compte ne peut pas approuver
+  sa propre PR).
 
 ### Premier run du test par mutation (informatif)
 

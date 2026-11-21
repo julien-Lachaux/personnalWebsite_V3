@@ -1350,6 +1350,17 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
     commandes) et dans les fichiers d'agents (« Méthode » et « Terminé quand » de `dev-api`,
     `dev-sql`, `dev-contrats`, `dev-devops`, `dev-front`, `correcteur`, `lead-architecte`, `qa`,
     `qa-front` ; recette du chef-de-projet), sans toucher la section commune « Git et garde-fous ».
+- Fusionné le 21 nov. 2026 (f408999), recette acceptée (`docs/comptes-rendus/lot-19-recette.md`), `pnpm check`
+  rejoué vert à charge calme (386 s) après un premier échec par saturation de la machine. Décisions de Julien
+  du même jour sur la recette :
+  - clés de configuration qui lancent une commande (`core.sshCommand`, `core.pager`, alias…) passées par
+    `GIT_CONFIG_*` ou `--config-env` : à analyser comme `-c`, dans un lot ultérieur (**L19-05**, à planifier) ;
+  - mot entièrement calculé en opérande de `checkout` ou `switch` : rien à faire (le refuser casserait
+    `git switch -c a $START`) ;
+  - la recette finale du chantier lance un seul `pnpm check` (D26), et non deux.
+  - À planifier aussi (**L19-06**) : la vérification de fin de tâche ne retrouve pas le commit justifié quand
+    l'historique de la branche a été réécrit après l'instantané (`git reset` : la tête de l'instantané
+    n'est plus ancêtre) ; constaté le 21 nov. sur `lot/20-ci`, levé par une autorisation de l'orchestrateur.
 
 ## 7 septies quater. Lot 20 — Flux par pull request (décidé par Julien le 21 nov. 2026)
 
