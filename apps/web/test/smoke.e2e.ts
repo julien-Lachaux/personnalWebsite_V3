@@ -49,8 +49,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
         expect(results.violations).toEqual([]);
         expect(results.passes.length).toBeGreaterThan(0);
 
-        await expect(page.locator('a[hreflang]')).toHaveCount(1);
-        await page.locator(`a[hreflang="${other.locale}"]`).click();
+        // Le sélecteur de langue seul : en anglais, le lien du CV porte aussi hreflang="fr" (D22).
+        const switcher = page.locator('.language-switch');
+        await expect(switcher.locator('a[hreflang]')).toHaveCount(1);
+        await switcher.locator(`a[hreflang="${other.locale}"]`).click();
         await expect(page).toHaveURL(other.path);
         await expect(page.locator('html')).toHaveAttribute('lang', other.locale);
       });

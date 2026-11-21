@@ -44,7 +44,7 @@ describe("page d'accueil", () => {
 
     expect(wrapper.findAll('h1')).toHaveLength(1);
     expect(wrapper.get('h1').text()).toBe('Développeur full-stack');
-    const links = wrapper.findAll('a[hreflang]');
+    const links = wrapper.findAll('.language-switch a[hreflang]');
     expect(links).toHaveLength(1);
     expect(links[0]?.attributes()).toMatchObject({ href: '/en', lang: 'en', hreflang: 'en' });
     expect(links[0]?.text()).toBe('EN');
@@ -55,7 +55,7 @@ describe("page d'accueil", () => {
 
     expect(wrapper.findAll('h1')).toHaveLength(1);
     expect(wrapper.get('h1').text()).toBe('Full-stack developer');
-    const links = wrapper.findAll('a[hreflang]');
+    const links = wrapper.findAll('.language-switch a[hreflang]');
     expect(links).toHaveLength(1);
     expect(links[0]?.attributes()).toMatchObject({ href: '/', lang: 'fr', hreflang: 'fr' });
     expect(links[0]?.text()).toBe('FR');

@@ -13,6 +13,7 @@
     "actions": {
       "interview": "Start the interview",
       "cv": "CV PDF",
+      "cvInFrench": "(in French)",
       "subject": "Getting in touch from your website"
     },
     "theme": {

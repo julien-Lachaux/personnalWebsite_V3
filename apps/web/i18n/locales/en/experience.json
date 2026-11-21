@@ -13,6 +13,73 @@
     },
     "provisional": {
       "count": "no experience | {n} experience | {n} experiences"
+    },
+    "filter": {
+      "label": "filter by tech",
+      "searchLabel": "Filter experiences",
+      "placeholderEmpty": "E.g. Kafka, Docker… ({n} techs)",
+      "placeholderMore": "Add a tech…",
+      "clear": "Clear",
+      "clearAll": "Clear all filters",
+      "removeChip": "Remove filter {name}",
+      "live": {
+        "all": "{n} experience shown | {n} experiences shown",
+        "results": "{n} experience with all the chosen techs | {n} experiences with all the chosen techs",
+        "empty": "No experience combines all these techs"
+      }
+    },
+    "suggestions": {
+      "label": "Tech suggestions",
+      "count": "{n} XP",
+      "noXp": "no detailed XP",
+      "add": "Add {name}, {n} XP",
+      "disabled": "{name}, {n} XP: unavailable with the current filters",
+      "unlinked": "{name}, no detailed XP",
+      "none": "No tech matches “{query}”.",
+      "showAll": "Show all techs"
+    },
+    "drawer": {
+      "mainStack": "main stack",
+      "showAll": "All techs ({n})",
+      "hideAll": "Hide the list",
+      "close": "Close",
+      "intro": "All my techs, by domain. The number is the count of experiences; dashed ones have no detailed experience.",
+      "unlinkedHint": "no detailed experience"
+    },
+    "tech": {
+      "available": "{name}, {n} experience | {name}, {n} experiences",
+      "disabled": "{name}, {n} experiences with the current filters"
+    },
+    "list": {
+      "label": "List of experiences"
+    },
+    "results": {
+      "withAll": "With all these techs · {n}",
+      "withOne": "With {tech} · {n}",
+      "others": "The other experiences · {n}",
+      "partial": "Partly: {techs}",
+      "empty": "No experience combines all these techs. Remove one, or look at the other experiences.",
+      "show": "Show the other experience | Show the {n} other experiences",
+      "hide": "Hide the other experience | Hide the {n} other experiences",
+      "showAll": "Show the experience | Show the {n} experiences",
+      "hideAll": "Hide the experience | Hide the {n} experiences"
+    },
+    "card": {
+      "detail": "Details: {title}",
+      "detailAt": "Details: {title} at {organisation}",
+      "filterBy": "Filter by {name}"
+    },
+    "easterEgg": {
+      "label": "Elbow grease",
+      "close": "Back to the CV",
+      "closeWindow": "Close",
+      "install": "npm install huile-de-coude",
+      "installed": "1 package added, 0 dependencies, in 21 months",
+      "muscles": "muscles",
+      "patience": "patience",
+      "tests": "tests in real conditions",
+      "build": "build real-estate-project",
+      "done": "Done. 0 vulnerabilities (except the back)."
     }
   }
 }

@@ -134,7 +134,8 @@ apps/web/
                           par section (shell, profile, experience, recommendations, ai) qui ne
                           porte que son espace de clés ; mêmes clés dans les deux langues
                           (app/i18n-messages.spec.ts)
-  public/                 fonts/<police>/ (woff2 + OFL.txt, D6), CV PDF, favicon
+  public/                 fonts/<police>/ (woff2 + OFL.txt, D6), cv/cv-<langue>.pdf (D22), favicon
+  scripts/clean-cv-pdf.sh nettoyage des métadonnées d'un CV PDF (qpdf en Docker)
   test/                   parcours Playwright (*.e2e.ts), support et fixtures de test
 ```
 
@@ -181,6 +182,12 @@ apps/web/
   (absente des pages) : `NUXT_CV_SOURCE` (`api` par défaut, ou `fixtures`) et `NUXT_API_BASE_URL`
   (sans `/api/v1`) ; une API injoignable fait échouer `nuxt generate` avec sa cause, jamais de repli
   sur les fixtures. Liens externes en `rel="noopener noreferrer"`.
+- **CV PDF (D22)** : seule exception à la règle des données personnelles, décidée par Julien :
+  `apps/web/public/cv/cv-fr.pdf` est son CV tel quel, e-mail et téléphone visibles compris ; ce n'est
+  pas une fuite et aucune revue ne le signale comme telle. Ses métadonnées sont nettoyées
+  (`bash apps/web/scripts/clean-cv-pdf.sh <source> <destination>`, vérifié par `app/cv-pdf.spec.ts`).
+  Un CV de langue absent de `public/cv/` (liste relevée au build, `runtimeConfig.public.cvFiles`)
+  est remplacé par le CV français, signalé sur le bouton (`app/domain/cv-link.ts`, `useCvLink`).
 - **Thème sans flash (D5)** : script en ligne en tête (`app/domain/theme-script.ts`, posé par
   `nuxt.config.ts`) qui pose les attributs de `<html>` avant le premier affichage avec la table
   unique de `app/domain/root-attributes.ts` (partagée avec `usePreferencesSync`). Toute modification
@@ -420,7 +427,9 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
 - JAMAIS de `git push` par un agent. Jamais de `--no-verify`, jamais de `git stash` nu, jamais de
   push forcé.
 - Aucun e-mail, téléphone ou donnée personnelle de Julien dans le dépôt (code, SQL, tests,
-  docs) : placeholders uniquement.
+  docs) : placeholders uniquement. Seule exception, décidée par Julien (D22) : son CV
+  `apps/web/public/cv/cv-fr.pdf`, versionné tel quel (e-mail et téléphone visibles), métadonnées
+  nettoyées ; l'exception ne couvre que ce fichier.
 - Traductions EN du contenu : produites par l'agent base de données (lot 1) dans les seeds et
   marquées « à relire » pour Julien. Chaque traduction produite est listée dans
   `docs/traductions-a-relire.md` (table, slug, champ, texte FR, texte EN proposé) ; Julien
