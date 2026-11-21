@@ -148,17 +148,53 @@ Refusé à tous les rôles, session principale comprise (lot 13 bis) :
   `declare -n` compris) et une clé `-c` ou `--config-env` calculée sont illisibles, donc refusées.
   `GIT_CONFIG_GLOBAL` et `GIT_CONFIG_SYSTEM` restent permis : ils passent après la configuration
   locale où husky pose la clé. Tests : `tests/hookspath-env.test.mjs` ;
-- `gh` pour ce qui fusionne, étiquette, publie ou supprime : `gh pr merge`,
+- `gh` pour ce qui étiquette, publie ou supprime :
   `gh release create|delete|delete-asset|edit|upload`,
   `gh repo delete|edit|rename|archive|unarchive|sync`, toute action `delete`, `gh alias set|import`, `gh api` avec une méthode autre que GET ou avec `-f`, `-F`,
   `--field`, `--raw-field`, `--input`, et une sous-commande gh inconnue (alias ou extension). Les
-  lectures (`gh pr view|list|checks`, `gh run view|list|watch`, `gh api` en GET) restent permises.
+  lectures restent permises ; les seules écritures sont celles du flux par pull request de la
+  session principale (ci-dessous).
 
 Fusionner dans `main` (branches `release/*`, `hotfix/*`), créer ou pousser une étiquette, pousser
 `main`, supprimer une branche distante et déployer sont réservés à Julien. Les refus de
 `permissions.deny` (`.claude/settings.json`) doublent les variantes dangereuses qui s'écrivent en
 préfixe (push forcé, plomberie, `git remote …`, `gh pr merge`, `gh release …`, `gh repo …`, édition
 de `.git/config` et `~/.gitconfig`) ; l'autorité reste ce hook.
+
+## gh et flux par pull request (L20-01, décision de Julien du 21 nov. 2026)
+
+`lib/shell.mjs` (`analyzeGh`) tient deux listes fermées ; une commande gh qui n'y figure pas est
+refusée à toutes les sessions (`gh issue create`, `gh pr close`, `gh pr checkout`, `gh run rerun`,
+`gh run download`, `gh workflow run`, `gh auth token`, `gh auth setup-git`, `gh secret set`,
+`gh config set`, `gh extension …`) :
+
+- lectures, permises à tous les rôles : `gh pr view|list|checks|diff|status`,
+  `gh issue view|list|status`, `gh run view|list|watch`, `gh workflow view|list`,
+  `gh release view|list`, `gh repo view|list`, `gh label|cache|secret|variable list`,
+  `gh ruleset view|list|check`, `gh search …`, `gh auth status`, `gh status`, `gh version`,
+  `gh help …`, `gh api` en GET sans champ, un groupe seul (`gh pr`, aide) ;
+- écritures, permises à la session principale seulement (un agent reçoit « interdit aux agents ») :
+  - `gh pr create` avec `--base develop` (obligatoire, aucune autre base) et `--head lot/<nom>`
+    (obligatoire : sans lui, gh peut pousser la branche courante lui-même) ;
+  - `gh pr merge --merge lot/<nom>` : `--merge` (ou `-m`) obligatoire, la pull request nommée par
+    sa branche de lot (ni numéro ni URL, dont la base n'est pas vérifiable sans réseau) ; refusés :
+    `--squash`, `-s`, `--rebase`, `-r` (commit de merge seulement), `--admin` (contournement de la
+    protection), `--delete-branch`, `-d` (suppression de la branche distante, réglage GitHub laissé
+    à Julien), `--auto` et `--disable-auto` (la session fusionne elle-même, après CI verte, revue
+    sans point bloquant et recette acceptée) ;
+  - `gh pr comment` (sans `--delete-last`), `gh pr review` (`--approve`, `--comment`,
+    `--request-changes`), `gh pr edit` (`--base` seulement vers `develop`), `gh pr ready`.
+
+Chaque écriture se lit sur une liste fermée d'options (voir `GH_PR_WRITES`) : option inconnue,
+groupée (`-md`) ou booléenne écrite avec une valeur (`--merge=false`), `-R`/`--repo` et les
+variables `GH_REPO`, `GH_HOST` (dépôt ou hôte visés), `--web`, `--editor`, `--attach`, `--recover`,
+les projets, plusieurs pull requests, une pull request ou une base illisible (`$BR`), des
+arguments lus par `xargs` : refusés. Groupe et action s'écrivent en tête (`gh pr merge …`) : gh lit
+une option inconnue placée avant l'action comme suivie d'une valeur, l'action réelle pourrait être
+un autre mot. Le refus `permissions.deny` de `gh pr merge*` dans `.claude/settings.json` double
+encore toute fusion (voir le compte rendu du lot 20). Tests : `tests/pr-flow.test.mjs` (session
+principale et quinze rôles) et `tests/revue-pr-scope.test.mjs` (l'agent `revue-pr` n'écrit aucun
+chemin du dépôt).
 
 ## Branche locale main et worktrees (lot 14)
 
