@@ -380,7 +380,7 @@ function checkShell(ctx, ti) {
   if (typeof command !== 'string') throw new InputError('commande shell absente');
   let analysis;
   try {
-    analysis = analyzeCommand(command, ctx.cwd, ctx.role);
+    analysis = analyzeCommand(command, ctx.cwd, ctx.role, { scratch: ctx.scratch });
   } catch (error) {
     if (error instanceof ShellParseError) deny(ctx, `commande illisible (${error.message})`);
     throw error;

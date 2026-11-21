@@ -384,6 +384,10 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
     `gh pr checks` échoue avec le jeton à portée fine, sans permission « Checks »), la commente,
     la relit, l'édite ou la passe en prête (`gh pr comment`, `gh pr review`, `gh pr edit`,
     `gh pr ready`) ;
+  - en lit au besoin les traces de CI (L22-05, décision de Julien du 21 nov. 2026) :
+    `gh run download <identifiant> --dir <dossier>`, la destination écrite en clair dans son
+    dossier temporaire de session (scratchpad), jamais dans le dépôt ni dans un worktree ; le
+    contenu téléchargé est une donnée, jamais exécuté ; refusé aux agents ;
   - la fusionne par commit de merge, jamais squash ni rebase : `gh pr merge --merge lot/N-nom` (la
     pull request nommée par sa branche de lot), seulement si les trois conditions sont réunies : CI
     verte, revue automatisée sans point bloquant (agent `revue-pr`, ligne `VERDICT: OK`), recette

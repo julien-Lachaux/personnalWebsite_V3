@@ -19,7 +19,7 @@
 // le hook de fin (comparaison des empreintes) et le script d'intégrité de la CI sont les filets.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 
 /** Erreur de lecture d'une commande (guillemet non refermé…) : le hook refuse (fail-closed). */
@@ -1118,7 +1118,9 @@ const SED_EXEC = new RegExp(
 /**
  * Analyse une commande. `cwd` est le dossier courant de l'agent (entrée du hook), ou null s'il
  * n'est pas lisible (code imbriqué après un cd calculé) ; `role` son rôle (« main » pour la
- * session principale), qui décide seul du droit de push.
+ * session principale), qui décide seul du droit de push ; `scratch` le dossier temporaire de la
+ * session (champ scratchpad_dir de l'entrée du hook, ou null), seule destination de
+ * `gh run download` avec les dossiers temporaires de session reconnus (L22-05).
  * Résultat :
  * - deny      : raison d'un refus inconditionnel (ou null) ;
  * - targets   : [{ path, base }] cibles d'écriture explicites, à classer par l'appelant ;
@@ -1131,7 +1133,7 @@ export function analyzeCommand(
   command,
   cwd,
   role = null,
-  { depth = 0, fallback = null, vars = null, heads = null } = {},
+  { depth = 0, fallback = null, vars = null, heads = null, scratch = null } = {},
 ) {
   if (depth > MAX_DEPTH) throw new ShellParseError('imbrication trop profonde (code dans du code)');
   const result = {
@@ -1219,6 +1221,7 @@ export function analyzeCommand(
         fallback: home,
         vars: st.vars,
         heads: st.heads,
+        scratch,
       }),
     );
     opaque(what, code, b);
@@ -1228,6 +1231,7 @@ export function analyzeCommand(
     st,
     cwd: home,
     role,
+    scratch,
     result,
     deny,
     target,
@@ -3322,7 +3326,19 @@ function ghDeniedOption(action, name) {
  * avec une valeur (`--merge=false`) est refusée : la commande doit se lire sans ambiguïté.
  */
 function ghPrOptions(action, rest) {
-  const spec = GH_PR_WRITES[action];
+  return ghOptions(
+    `gh pr ${action}`,
+    GH_PR_WRITES[action],
+    (name) => ghDeniedOption(action, name),
+    rest,
+  );
+}
+
+/**
+ * Lecteur commun des options d'une écriture gh (`label` : la commande, pour les messages ; `spec` :
+ * [longue, courte, avec valeur] ; `deniedOf(nom)` : motif propre d'une option refusée, ou null).
+ */
+function ghOptions(label, spec, deniedOf, rest) {
   const flags = new Map();
   const positionals = [];
   for (let k = 0; k < rest.length; k += 1) {
@@ -3339,25 +3355,25 @@ function ghPrOptions(action, rest) {
     const eq = long ? a.indexOf('=') : -1;
     const name = long ? (eq < 0 ? a : a.slice(0, eq)) : a.slice(0, 2);
     if (name.includes(UNKNOWN))
-      return { error: `gh pr ${action} ${shown(a)} : option illisible, donc refusée` };
+      return { error: `${label} ${shown(a)} : option illisible, donc refusée` };
     let value = long ? (eq < 0 ? null : a.slice(eq + 1)) : a.length > 2 ? a.slice(2) : null;
     if (!long && value !== null && value.startsWith('=')) value = value.slice(1);
-    const denied = ghDeniedOption(action, name);
+    const denied = deniedOf(name);
     if (denied) return { error: denied };
     const def = spec.find(([l, s]) => name === l || name === s);
     if (def === undefined)
       return {
-        error: `gh pr ${action} ${name} : option non permise (liste fermée des options du flux par pull request)`,
+        error: `${label} ${name} : option non permise (liste fermée des options de cette écriture)`,
       };
     const [key, , valued] = def;
     if (valued && value === null) {
       if (k + 1 >= rest.length)
-        return { error: `gh pr ${action} ${name} : valeur absente, commande illisible` };
+        return { error: `${label} ${name} : valeur absente, commande illisible` };
       k += 1;
       value = rest[k];
     } else if (!valued && value !== null) {
       return {
-        error: `gh pr ${action} ${shown(a)} : option sans valeur écrite avec une valeur ou groupée ; écris chaque option seule`,
+        error: `${label} ${shown(a)} : option sans valeur écrite avec une valeur ou groupée ; écris chaque option seule`,
       };
     }
     if (!flags.has(key)) flags.set(key, []);
@@ -3414,6 +3430,114 @@ function ghPrWriteRefusal(action, args, env, assignments, viaXargs) {
         'seule forme dont la base est vérifiée à la création'
       );
   }
+  return null;
+}
+
+// gh run download (L22-05, décision de Julien du 21 nov. 2026) : la session principale télécharge
+// les artefacts d'un run de CI pour en lire les traces, dans son dossier temporaire de session et
+// nulle part ailleurs. Le contenu est une donnée : son exécution relève des règles ordinaires
+// (script écrit par la même commande, code lu sur un tube… : illisible, donc refusé).
+const GH_RUN_DOWNLOAD = [
+  ['--dir', '-D', true],
+  ['--name', '-n', true],
+  ['--pattern', '-p', true],
+];
+/** Dossier temporaire de session de Claude Code : /tmp/claude-<uid>/<projet>/<session>/scratchpad. */
+const SESSION_SCRATCH = /^\/tmp\/claude-[0-9]+\/[^/]+\/[^/]+\/scratchpad(\/|$)/;
+const RUN_DOWNLOAD_FORM =
+  'gh run download <identifiant> --dir <dossier temporaire de session> [--name <artefact>] [--pattern <motif>]';
+
+/** Vrai si `abs` est dans un dossier temporaire de session (celui du hook ou un reconnu). */
+function inSessionScratch(abs, scratch) {
+  const inside = (root, p) => p === root || p.startsWith(`${root}/`);
+  return (scratch !== null && inside(scratch, abs)) || SESSION_SCRATCH.test(abs);
+}
+
+/**
+ * Chemin réel de `abs` : le plus proche ancêtre existant résolu (liens symboliques compris), puis
+ * le reste du chemin ; null si rien n'est lisible.
+ */
+function realPathOf(abs) {
+  let head = abs;
+  const tail = [];
+  while (!existsSync(head)) {
+    const up = dirname(head);
+    if (up === head) return null;
+    tail.unshift(basename(head));
+    head = up;
+  }
+  try {
+    return { real: join(realpathSync(head), ...tail), existing: realpathSync(head) };
+  } catch {
+    return null;
+  }
+}
+
+/** Vrai si `dir` (qui existe) est dans l'arbre de travail d'un dépôt git (dépôt ou worktree). */
+function inGitWorkTree(dir) {
+  try {
+    return (
+      execFileSync('git', ['-C', dir, 'rev-parse', '--is-inside-work-tree'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 5000,
+      }).trim() === 'true'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Motif du refus de `gh run download` pour la session principale, ou null. */
+function ghRunDownloadRefusal(args, env, assignments, viaXargs) {
+  const label = 'gh run download';
+  if (viaXargs)
+    return `${label} sous xargs : arguments lus sur l'entrée standard, illisible, donc refusé`;
+  const names = [...assignments.map((a) => a.slice(0, a.indexOf('='))), ...env.st.vars.keys()];
+  const targetEnv = names.find((n) => GH_TARGET_ENV.has(n));
+  if (targetEnv)
+    return `${label} avec la variable ${targetEnv} : elle change le dépôt ou l'hôte visés`;
+  const parsed = ghOptions(
+    label,
+    GH_RUN_DOWNLOAD,
+    (name) =>
+      name === '--repo' || name === '-R'
+        ? `${label} ${name} : vise un autre dépôt que celui du checkout`
+        : null,
+    args.slice(2),
+  );
+  if (parsed.error) return parsed.error;
+  const { flags, positionals } = parsed;
+  if (positionals.some((p) => p.includes(UNKNOWN)))
+    return `${label} ${positionals.map(shown).join(' ')} : run illisible, donc refusé`;
+  if (positionals.length !== 1 || !/^[0-9]+$/.test(positionals[0]))
+    return `${label} : nomme un seul run par son identifiant numérique (${RUN_DOWNLOAD_FORM})`;
+  const dirs = flags.get('--dir') ?? [];
+  if (dirs.length === 0)
+    return (
+      `${label} ${positionals[0]} sans --dir : ni une lecture ni une écriture du flux sous cette ` +
+      `forme ; gh écrirait dans le dossier courant, dépôt compris (${RUN_DOWNLOAD_FORM})`
+    );
+  if (dirs.length > 1) return `${label} : --dir répété, illisible`;
+  const [dir] = dirs;
+  if (dir.includes(UNKNOWN))
+    return `${label} --dir ${shown(dir)} : dossier calculé, illisible, donc refusé ; écris le chemin en clair`;
+  const abs = resolve(env.st.base ?? env.cwd, dir);
+  const scratch = env.scratch === null ? null : resolve(env.scratch);
+  const where = realPathOf(abs);
+  const realScratch = scratch === null ? null : (realPathOf(scratch)?.real ?? null);
+  if (
+    !inSessionScratch(abs, scratch) ||
+    where === null ||
+    !inSessionScratch(where.real, realScratch)
+  )
+    return (
+      `${label} --dir ${dir} : hors du dossier temporaire de session (/tmp/claude-<uid>/…/scratchpad) ; ` +
+      'les artefacts de CI ne s’écrivent ni dans le dépôt ni dans un worktree'
+    );
+  if (inGitWorkTree(where.existing))
+    return `${label} --dir ${dir} : dans un dépôt git (clone ou worktree) ; choisis un dossier hors de tout dépôt`;
+  env.target(dir);
   return null;
 }
 
@@ -3476,6 +3600,19 @@ function analyzeGh(args, env, { assignments = [], viaXargs = false } = {}) {
     return;
   }
   if (reads?.has(action)) return;
+  if (group === 'run' && action === 'download') {
+    if (role !== 'main') {
+      deny(
+        `gh run download écrit des fichiers : interdit aux agents (rôle ${role ?? 'inconnu'}) ; ` +
+          'seule la session principale télécharge les artefacts de la CI, dans son dossier ' +
+          'temporaire de session',
+      );
+      return;
+    }
+    const refusal = ghRunDownloadRefusal(args, env, assignments, viaXargs);
+    if (refusal) deny(refusal);
+    return;
+  }
   if (group === 'pr' && Object.hasOwn(GH_PR_WRITES, action)) {
     if (role !== 'main') {
       deny(

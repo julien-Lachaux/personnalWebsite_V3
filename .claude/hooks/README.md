@@ -169,7 +169,7 @@ de `.git/config` et `~/.gitconfig`) ; l'autorité reste ce hook.
 
 `lib/shell.mjs` (`analyzeGh`) tient deux listes fermées ; une commande gh qui n'y figure pas est
 refusée à toutes les sessions (`gh issue create`, `gh pr close`, `gh pr checkout`, `gh run rerun`,
-`gh run download`, `gh workflow run`, `gh auth token`, `gh auth setup-git`, `gh secret set`,
+`gh run cancel`, `gh workflow run`, `gh auth token`, `gh auth setup-git`, `gh secret set`,
 `gh config set`, `gh extension …`) :
 
 - lectures, permises à tous les rôles : `gh pr view|list|checks|diff|status`,
@@ -187,7 +187,16 @@ refusée à toutes les sessions (`gh issue create`, `gh pr close`, `gh pr checko
     à Julien), `--auto` et `--disable-auto` (la session fusionne elle-même, après CI verte, revue
     sans point bloquant et recette acceptée) ;
   - `gh pr comment` (sans `--delete-last`), `gh pr review` (`--approve`, `--comment`,
-    `--request-changes`), `gh pr edit` (`--base` seulement vers `develop`), `gh pr ready`.
+    `--request-changes`), `gh pr edit` (`--base` seulement vers `develop`), `gh pr ready` ;
+  - `gh run download <identifiant> --dir <dossier>` (L22-05, décision de Julien du 21 nov. 2026),
+    pour lire les traces de la CI : un seul run, nommé par son identifiant numérique ; `--dir`
+    (`-D`) obligatoire, une fois, en clair, dans le dossier temporaire de session (champ
+    `scratchpad_dir` de l'entrée du hook, ou forme `/tmp/claude-<uid>/<projet>/<session>/scratchpad`),
+    liens symboliques résolus, hors de tout dépôt git (clone ou worktree) ; options permises
+    `--name` (`-n`) et `--pattern` (`-p`). Refusés : sans `--dir` (gh écrirait dans le dossier
+    courant), `-R`/`--repo`, `GH_REPO`, `GH_HOST`, `xargs`, toute autre option. Le contenu
+    téléchargé est une donnée, jamais exécuté : le lancer dans la même commande est refusé (script
+    écrit par la même commande ou absent : illisible), et l'orchestrateur ne l'exécute pas ensuite.
 
 Chaque écriture se lit sur une liste fermée d'options (voir `GH_PR_WRITES`) : option inconnue,
 groupée (`-md`) ou booléenne écrite avec une valeur (`--merge=false`), `-R`/`--repo` et les
@@ -197,7 +206,8 @@ arguments lus par `xargs` : refusés. Groupe et action s'écrivent en tête (`gh
 une option inconnue placée avant l'action comme suivie d'une valeur, l'action réelle pourrait être
 un autre mot. Le refus `permissions.deny` de `gh pr merge*` dans `.claude/settings.json` double
 encore toute fusion (voir le compte rendu du lot 20). Tests : `tests/pr-flow.test.mjs` (session
-principale et quinze rôles), `tests/push-lot.test.mjs` (push d'une branche de lot) et `tests/revue-pr-scope.test.mjs` (l'agent `revue-pr` n'écrit aucun
+principale et quinze rôles), `tests/push-lot.test.mjs` (push d'une branche de lot), `tests/run-download.test.mjs` (téléchargement
+des artefacts de CI, lectures de la recette) et `tests/revue-pr-scope.test.mjs` (l'agent `revue-pr` n'écrit aucun
 chemin du dépôt).
 
 ## Branche locale main et worktrees (lot 14)
