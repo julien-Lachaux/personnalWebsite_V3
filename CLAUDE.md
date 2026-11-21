@@ -315,7 +315,7 @@ dans le `.env` racine du worktree (lu par `apps/api/vitest.config.ts`) ou dans l
 commande (`TEST_MAX_WORKERS=4 pnpm test:e2e`), qui l'emporte ; Turborepo la transmet sans l'ajouter
 à la clé de cache (`passThroughEnv` de `turbo.json`). Sans valeur, rien ne change, en CI comprise :
 cœurs moins un (défaut de Vitest). Ignorée sous Stryker ; `--maxWorkers=<n>` en ligne de commande
-l'emporte. Une valeur invalide arrête Vitest avec un message. Le front ne la lit pas encore.
+l'emporte. Une valeur invalide arrête Vitest avec un message. Le front la lit de la même façon (lot F6, `apps/web/vitest.config.ts`, projets `unit` et `nuxt` ; seule cette clé du `.env` racine) ; sous Turborepo, `@siteperso/web#test` ne la reçoit que par le `.env` racine (pas de `passThroughEnv` sur cette tâche).
 
 Cache Turborepo (lot F1 bis, D13) : chaque worktree a le sien, `.turbo/cache` à sa racine
 (`cacheDir` explicite de `turbo.json`) ; sans lui, Turborepo 2.x partage le cache du checkout
