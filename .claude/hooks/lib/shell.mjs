@@ -1274,6 +1274,7 @@ function analyzeSegment(seg, env) {
     const value = a.slice(a.indexOf('=') + 1);
     if (name === 'HUSKY' && (value === '0' || value.includes(UNKNOWN)))
       deny(`désactiver husky (${shown(a)}) est interdit`);
+    gitConfigEnv(env, name, value, true);
     if (CODE_FILE_ENV.has(name))
       deny(`variable ${name} : elle fait charger un code au démarrage ; illisible, donc refusée`);
     if (
@@ -1334,12 +1335,18 @@ function analyzeSegment(seg, env) {
     case 'declare':
     case 'typeset':
     case 'local':
-    case 'readonly':
+    case 'readonly': {
+      // declare -n R=<nom> : R désigne la variable <nom>, que R=… affecte ensuite (L19-02).
+      const nameref = args.some((a) => /^-[a-zA-Z]*n/.test(a));
       for (const a of args) {
-        if (ASSIGNMENT.test(a)) assignVar(env, a);
-        else if (/^GIT_/.test(a)) st.gitEnv.push(a);
+        if (ASSIGNMENT.test(a)) {
+          assignVar(env, a);
+          const target = a.slice(a.indexOf('=') + 1);
+          if (nameref) gitConfigEnv(env, target, UNKNOWN, false);
+        } else if (/^GIT_/.test(a)) st.gitEnv.push(a);
       }
       break;
+    }
     case 'unset':
     case 'read':
     case 'mapfile':
@@ -1348,8 +1355,22 @@ function analyzeSegment(seg, env) {
       for (const a of operands(
         args,
         new Set(['-d', '-n', '-N', '-p', '-t', '-u', '-C', '-c', '-O', '-s']),
-      ))
+      )) {
         st.vars.set(a, null);
+        // Valeur lue à l'exécution : une variable GIT_CONFIG_* ainsi affectée est illisible.
+        if (cmd !== 'unset') gitConfigEnv(env, a, UNKNOWN, false);
+      }
+      break;
+    case 'printf':
+      // printf -v <variable> : affectation calculée (L19-02).
+      for (let j = 0; j < args.length && args[j].startsWith('-'); j += 1) {
+        const a = args[j];
+        const name = a === '-v' ? args[(j += 1)] : /^-v./.test(a) ? a.slice(2) : undefined;
+        if (name !== undefined) {
+          st.vars.set(name, null);
+          gitConfigEnv(env, name, UNKNOWN, false);
+        }
+      }
       break;
     case 'alias':
       for (const a of args) {
@@ -1553,6 +1574,60 @@ function analyzeSegment(seg, env) {
   }
 }
 
+// ---------------------------------------------------------------------------------------------
+// core.hooksPath hors de git config (L19-02, décision de Julien du 21 nov. 2026). Comme
+// `git -c core.hooksPath=`, sont refusés à toutes les sessions : la clé passée par l'environnement
+// (GIT_CONFIG_PARAMETERS, que `-c` transmet aux sous-processus de git ; GIT_CONFIG_COUNT avec
+// GIT_CONFIG_KEY_<n> et GIT_CONFIG_VALUE_<n>, git >= 2.31) ou par `--config-env`, et un fichier
+// inclus depuis la ligne de commande ou l'environnement (`include.path`, `includeIf.*.path`), qui
+// peut la fixer. Ces sources passent avant la configuration locale où husky pose core.hooksPath ;
+// GIT_CONFIG_GLOBAL et GIT_CONFIG_SYSTEM passent après, ils restent permis. Une valeur illisible de
+// ces variables, ou une clé `-c` illisible, est refusée.
+
+/** Variables d'environnement par lesquelles git lit une configuration de ligne de commande. */
+const GIT_CONFIG_ENV = /^GIT_CONFIG_(PARAMETERS|COUNT|KEY_\w*|VALUE_\w*)$/;
+const INCLUDE_KEY = /^include(if)?\./i;
+
+/** Refus d'une clé de configuration passée à git hors de git config (-c, --config-env, variable). */
+function configKeyRefusal(key, what) {
+  if (key.includes(UNKNOWN))
+    return (
+      `${what} : clé de configuration illisible ; elle peut fixer core.hooksPath, ce qui ` +
+      'désactive le hook pre-commit : illisible, donc refusée — écris la clé en clair'
+    );
+  if (/^core\.hookspath$/i.test(key))
+    return `${what} : changer core.hooksPath désactive le hook pre-commit`;
+  if (INCLUDE_KEY.test(key))
+    return (
+      `${what} : un fichier inclus depuis la ligne de commande peut fixer core.hooksPath, ce qui ` +
+      'désactive le hook pre-commit, sans que son contenu se vérifie : interdit'
+    );
+  return null;
+}
+
+/** Affectation d'une variable GIT_CONFIG_* (`known` : valeur lisible en entier). */
+function gitConfigEnv(env, name, value, known) {
+  if (!GIT_CONFIG_ENV.test(name)) return;
+  if (!known || value.includes(UNKNOWN)) {
+    env.deny(
+      `variable ${name} illisible (${shown(value)}) : git en lit une configuration qui passe ` +
+        'avant la configuration locale (core.hooksPath compris) ; illisible, donc refusée — ' +
+        'écris la valeur en clair',
+    );
+    return;
+  }
+  const what = `variable ${name}`;
+  let refusal = null;
+  if (name.startsWith('GIT_CONFIG_KEY_')) refusal = configKeyRefusal(value, what);
+  else if (name === 'GIT_CONFIG_PARAMETERS') {
+    // Liste de 'clé=valeur' (ou 'clé'='valeur') entre apostrophes : une clé ne peut pas y être
+    // coupée sans y insérer un caractère, la recherche dans le texte suffit.
+    if (/core\.hookspath/i.test(value)) refusal = configKeyRefusal('core.hooksPath', what);
+    else if (/(^|[\s'])include(if)?\./i.test(value)) refusal = configKeyRefusal('include.', what);
+  }
+  if (refusal !== null) env.deny(refusal);
+}
+
 function assignVar(env, a) {
   const { st, deny, nested } = env;
   const k = a.indexOf('=');
@@ -1564,6 +1639,7 @@ function assignVar(env, a) {
   if (name === 'HUSKY' && (!known || value === '0'))
     deny(`désactiver husky (${shown(a)}) est interdit`);
   if (/^GIT_/.test(name)) st.gitEnv.push(a);
+  gitConfigEnv(env, name, value, known);
   if (CODE_FILE_ENV.has(name))
     deny(`variable ${name} : elle fait charger un code au démarrage ; illisible, donc refusée`);
   if (COMMAND_ENV.has(name) && value !== '') nested(`variable ${name}`, value);
@@ -2126,7 +2202,19 @@ function analyzeGit(
         ? null
         : resolve(gitBase, path);
   };
+  const configEnv = (spec) => {
+    const at = spec.lastIndexOf('=');
+    const refusal = configKeyRefusal(
+      at < 0 ? spec : spec.slice(0, at),
+      `git --config-env ${shown(spec)}`,
+    );
+    if (refusal !== null) deny(refusal);
+  };
   const configValue = (value) => {
+    const key = value.split('=')[0];
+    // L19-02 : clé illisible ou fichier inclus, qui peuvent fixer core.hooksPath.
+    const refusal = configKeyRefusal(key, `git -c ${shown(value)}`);
+    if (refusal !== null) deny(refusal);
     if (/^core\.hookspath=/i.test(value))
       deny('changer core.hooksPath désactive le hook pre-commit');
     if (/^alias\.[^=]*=.*\bpush\b/is.test(value))
@@ -2153,8 +2241,13 @@ function analyzeGit(
       configValue(a.slice(2));
       globals.push(['-c', a.slice(2)]);
     } else if (GIT_GLOBAL_VALUED.has(a)) {
+      // L19-02 : --config-env <clé>=<variable> fixe la clé comme -c.
+      if (a === '--config-env' && args[k + 1] !== undefined) configEnv(args[k + 1]);
       globals.push([a, args[k + 1]]);
       k += 1;
+    } else if (a.startsWith('--config-env=')) {
+      configEnv(a.slice(13));
+      globals.push([a, null]);
     } else if (!a.startsWith('-')) {
       break;
     } else {
