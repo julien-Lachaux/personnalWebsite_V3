@@ -1998,9 +1998,15 @@ function setBranch(st, base, branch) {
   if (base !== null) st.heads.set(repoKey(base), branch);
 }
 
-/** Nom de branche locale créée à partir d'une branche distante (checkout ou switch --track). */
+/**
+ * Nom de branche locale créée à partir d'une branche distante (checkout ou switch --track) : comme
+ * git, retire `refs/`, puis `remotes/`, puis le nom du remote (`-t remotes/origin/main` crée main).
+ */
 function trackedName(ref) {
-  return ref.replace(/^(refs\/remotes\/)?[^/]+\//, '');
+  return ref
+    .replace(/^refs\//, '')
+    .replace(/^remotes\//, '')
+    .replace(/^[^/]*\//, '');
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -2022,6 +2028,13 @@ function trackedName(ref) {
 // - la copie d'une branche suivie (git branch -c|-C : git copie sa configuration).
 // --no-track l'emporte quand il est le dernier des deux, comme pour git, et reste permis. Écrire
 // branch.autoSetupMerge ou branch.autoSetupRebase est une écriture de destination (DESTINATION_KEY).
+
+/** Options longues de git branch qui écrivent une branche nommée, [nom, abréviation minimale]. */
+const BRANCH_WRITE_OPTIONS = [
+  ['--delete', 4],
+  ['--move', 4],
+  ['--copy', 5],
+];
 
 const TRACK_MOTIF =
   'créer une branche qui suit une autre branche écrit branch.<branche>.remote, hors de la règle ' +
@@ -2069,6 +2082,9 @@ function trackOption(words, valued, shortValued) {
  * Branches créées et opérandes d'une commande qui crée une branche (checkout, switch, worktree
  * add) : `create` (options longues [nom, abréviation minimale]) et `shortCreate` (lettres) prennent
  * le nom créé, collé ou en mot suivant ; les valeurs de `valued` sont sautées ; s'arrête à « -- ».
+ * Dans un groupe d'options courtes, la lettre de création prend la suite du mot comme valeur, quels
+ * qu'en soient les caractères (`-qblot/x`, L19-01). Une option dont le nom est calculé (`-$X`,
+ * `--$X`) peut créer une branche : son nom compte comme illisible (UNKNOWN).
  */
 function creationWords(words, { create = [], shortCreate = [], valued = [] }) {
   const created = [];
@@ -2080,13 +2096,16 @@ function creationWords(words, { create = [], shortCreate = [], valued = [] }) {
       const value = a.includes('=') ? a.slice(a.indexOf('=') + 1) : words[(j += 1)];
       if (value !== undefined) created.push(value);
     } else if (valued.includes(a)) j += 1;
-    else if (/^-[a-zA-Z0-9]+$/.test(a)) {
-      const at = [...a.slice(1)].findIndex((c) => shortCreate.includes(c));
-      if (at >= 0) {
-        const value = a.slice(at + 2) || words[(j += 1)];
+    else if (a.startsWith('--')) {
+      if (a.split('=')[0].includes(UNKNOWN)) created.push(UNKNOWN);
+    } else if (a.startsWith('-') && a !== '-') {
+      let at = 1;
+      while (at < a.length && /[a-zA-Z0-9]/.test(a[at]) && !shortCreate.includes(a[at])) at += 1;
+      if (at < a.length && shortCreate.includes(a[at])) {
+        const value = a.slice(at + 1) || words[(j += 1)];
         if (value !== undefined) created.push(value);
-      }
-    } else if (!a.startsWith('-') || a === '-') ops.push(a);
+      } else if (a[at] === UNKNOWN) created.push(UNKNOWN);
+    } else ops.push(a);
   }
   return { created, ops };
 }
@@ -2597,8 +2616,12 @@ function analyzeGit(
         if (valued.has(a)) {
           flags.add(a);
           j += 1;
-        } else if (a.startsWith('--')) flags.add(a.split('=')[0]);
-        else if (/^-[a-zA-Z]+$/.test(a)) for (const c of a.slice(1)) flags.add(`-${c}`);
+        } else if (a.startsWith('--')) {
+          // L19-01 : --delete, --move et --copy abrégés (git branch --cop develop main écrit main).
+          const name = a.split('=')[0];
+          const full = BRANCH_WRITE_OPTIONS.find(([f, min]) => abbreviates(name, f, min));
+          flags.add(full ? full[0] : name);
+        } else if (/^-[a-zA-Z]+$/.test(a)) for (const c of a.slice(1)) flags.add(`-${c}`);
         else ops.push(a);
       }
       const has = (...names) => names.some((n) => flags.has(n));
@@ -2694,13 +2717,43 @@ function analyzeGit(
       break;
     }
     case 'switch': {
-      const created = valueOf(rest, ['-c', '-C', '--create', '--force-create', '--orphan']);
+      // L19-01 : nom créé lu à sa place (groupe d'options, valeur collée, options abrégées).
+      const creation = creationWords(rest, {
+        create: [
+          ['--create', 4],
+          ['--force-create', 8],
+          ['--orphan', 4],
+        ],
+        shortCreate: ['c', 'C'],
+        valued: ['--conflict'],
+      });
+      const created = creation.created;
       created.forEach((b) => writesRef(b, 'git switch -c'));
       const ops = operands(
         rest,
         new Set(['-c', '-C', '--create', '--force-create', '--orphan', '--conflict']),
       );
-      const track = rest.some((a) => a === '-t' || a === '--track' || a.startsWith('--track='));
+      const track =
+        rest.some((a) => a === '-t' || a === '--track' || a.startsWith('--track=')) ||
+        trackOption(
+          rest,
+          ['-c', '-C', '--create', '--force-create', '--orphan', '--conflict'],
+          ['c', 'C'],
+        ) === 'track';
+      // L19-01 : switch main sans main locale devine origin/main et crée la branche main.
+      const [guess] = creation.ops;
+      if (
+        created.length === 0 &&
+        !track &&
+        creation.ops.length === 1 &&
+        MAIN_REF.test(guess) &&
+        !rest.some(
+          (a) => a === '-d' || abbreviates(a, '--detach', 4) || abbreviates(a, '--no-guess', 6),
+        ) &&
+        commandConfig('checkout.guess')?.toLowerCase() !== 'false' &&
+        guessesRemote(guess)
+      )
+        writesRef(guess, 'git switch (branche distante devinée)');
       if (
         viaXargs &&
         (track || /(^| )(-[cC]|--create|--force-create|--orphan)( |$)/.test(rest.join(' ')))
@@ -2767,8 +2820,28 @@ function analyzeGit(
       }
       if (op !== 'add') break;
       const add = rest.slice(rest.indexOf('add') + 1);
-      const created = valueOf(add, ['-b', '-B']);
+      // L19-01 : -b|-B groupé ou collé ; sans -b, branche du nom du dossier (créée si elle n'existe
+      // pas en local, --orphan compris) ou branche distante devinée pour <dossier> <nom>.
+      const creation = creationWords(add, { shortCreate: ['b', 'B'], valued: ['--reason'] });
+      const created = creation.created;
       created.forEach((b) => writesRef(b, 'git worktree add -b'));
+      const [newPath, commitish] = creation.ops;
+      if (
+        created.length === 0 &&
+        newPath !== undefined &&
+        !add.some((a) => a === '-d' || abbreviates(a, '--detach', 4))
+      ) {
+        const name = basename(newPath);
+        const orphan = add.some((a) => abbreviates(a, '--orphan', 4));
+        const local = (b) =>
+          !repoIllegible() &&
+          gitOutput(gitBase, ['rev-parse', '--verify', '-q', `refs/heads/${b}`]) !== null;
+        if (commitish === undefined) {
+          if (orphan || name.includes(UNKNOWN) || (MAIN_REF.test(name) && !local(name)))
+            writesRef(name, 'git worktree add <dossier> (branche du nom du dossier)');
+        } else if (MAIN_REF.test(commitish) && !local(commitish) && guessesRemote(commitish))
+          writesRef(commitish, 'git worktree add <dossier> (branche distante devinée)');
+      }
       if (role !== 'main') worktreeTracking(add);
       const ops = operands(add, new Set(['-b', '-B', '--reason']));
       if (ops[0] === undefined || gitBase === null || ops[0].includes(UNKNOWN)) break;
@@ -2822,9 +2895,39 @@ function analyzeGit(
       break;
     case 'checkout': {
       const dash = rest.indexOf('--');
-      const created = valueOf(rest, ['-b', '-B', '--orphan']);
+      // L19-01 : nom créé lu à sa place (groupe d'options, valeur collée, --orphan abrégé).
+      const creation = creationWords(rest, {
+        create: [['--orphan', 4]],
+        shortCreate: ['b', 'B'],
+        valued: ['--conflict', '--pathspec-from-file'],
+      });
+      const created = creation.created;
       created.forEach((b) => writesRef(b, 'git checkout -b'));
-      const track = rest.some((a) => a === '-t' || a === '--track' || a.startsWith('--track='));
+      const track =
+        rest.some((a) => a === '-t' || a === '--track' || a.startsWith('--track=')) ||
+        trackOption(
+          rest,
+          ['-b', '-B', '--orphan', '--conflict', '--pathspec-from-file'],
+          ['b', 'B'],
+        ) === 'track';
+      const isPath = (p) =>
+        dash < 0 &&
+        (p === '.' || /[*?[]/.test(p) || (gitBase !== null && existsSync(resolve(gitBase, p))));
+      // L19-01 : checkout main sans main locale devine origin/main et crée la branche main.
+      const [guess] = creation.ops;
+      if (
+        created.length === 0 &&
+        !track &&
+        creation.ops.length === 1 &&
+        MAIN_REF.test(guess) &&
+        !isPath(guess) &&
+        !rest.some(
+          (a) => abbreviates(a, '--detach', 4) || abbreviates(a, '--no-guess', 6) || a === '-p',
+        ) &&
+        commandConfig('checkout.guess')?.toLowerCase() !== 'false' &&
+        guessesRemote(guess)
+      )
+        writesRef(guess, 'git checkout (branche distante devinée)');
       if (viaXargs && (track || /(^| )(-[bB]|--orphan)( |$)/.test(rest.join(' '))))
         deny(
           'xargs git checkout : branche créée lue sur l’entrée standard ; illisible, donc refusé',
@@ -2860,9 +2963,6 @@ function analyzeGit(
       const tracking = trackOption(rest, ['-b', '-B', ...valued], ['b', 'B']);
       const last = words.created[words.created.length - 1];
       const [ref] = words.ops;
-      const isPath = (p) =>
-        dash < 0 &&
-        (p === '.' || /[*?[]/.test(p) || (gitBase !== null && existsSync(resolve(gitBase, p))));
       if (tracking === 'track') trackDeny('git checkout --track', 'suivi demandé explicitement');
       else if (tracking === 'never' || rest.some((a) => abbreviates(a, '--orphan', 4))) break;
       else if (last !== undefined) {
