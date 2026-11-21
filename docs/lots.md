@@ -33,6 +33,7 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
 | 15 | Brief back-001 du front (BF-1 à BF-7) | dev-sql Sonnet, dev-api Sonnet, chef-de-projet Sonnet | baa259d | 220 + 430 unitaires, 705 e2e, 100 %, mutation 100 % / 42,03 % |
 | 16 | Briefs back-002 et back-003 : intégrité des tests, instantanés des hooks (BF-8 à BF-11) | lead-architecte Opus, chef-de-projet Sonnet | c382bae | 569 tests hooks (20 ajoutés), scripts d'intégrité verts, 100 % |
 | 17 | Brief back-004 : lieu nul de l'expérience OpenClassrooms (BF-12) | dev-sql Sonnet, chef-de-projet Sonnet | d5f2097 | 1 e2e ajouté (5 cas), 100 % |
+| 18 | Suites du lot 14 : lecture de `core.hooksPath`, branche suivie refusée aux agents (L18-01, 02) | lead-architecte Opus, chef-de-projet Sonnet | fef4db5 | 798 tests hooks, `pnpm check` vert sans cache (400 s), 100 % |
 
 ## Lot 0 : fondations
 
@@ -333,6 +334,16 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
 - **Suites** : lot 18 (lecture de `core.hooksPath`, suivi de branche distante refusé aux agents) ;
   vérifications au premier run CI (cache de l'incrément, déclencheur `v*`, images, parallélisme) ;
   chemin critique de `pnpm check` côté front (F11).
+
+## Lot 18 : suites de la recette du lot 14
+
+- **Livré** (fusion fef4db5, recette acceptée avec réserves, `docs/comptes-rendus/lot-18-recette.md`) :
+  lectures `git config --get` permises, `core.hooksPath` compris (écritures toujours refusées) ; création
+  d'une branche qui suit une branche distante refusée aux agents (`--track`, suivi automatique, branche
+  devinée, `fetch`/`pull --set-upstream`), écriture de `branch.autoSetup*` refusée à tous ; puce
+  correspondante dans la section des quatorze fichiers d'agents. 798 tests des hooks.
+- **Suites** : lot 19 (création de `main` par options collées, `core.hooksPath` par l'environnement,
+  borne du nombre de processus des e2e).
 
 ## Transverse
 
