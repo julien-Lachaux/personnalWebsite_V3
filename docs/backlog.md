@@ -1398,6 +1398,14 @@ principale.
 - **L20-05** (dev-devops, portée `config`) : workflow de revue par l'action GitHub Claude Code guidée
   par `revue-pr` (contrôle en échec sur `VERDICT: BLOQUANT`), et règles de protection de `develop`
   décrites pour que Julien les pose.
+- **Décisions de Julien du 21 nov. 2026, après le compte rendu du lead-architecte** :
+  - les trois sorties honorables du lot sont acceptées et appliquées : push des branches `lot/*`
+    (test `git-push.test.mjs` mis à jour), agent `revue-pr` (décompte des rôles porté à 15 dans les
+    sept tests qui le vérifient), `permissions.deny` de `.claude/settings.json` limité aux variantes
+    interdites de `gh pr merge` ;
+  - « revue requise » sur `develop` = contrôle requis `Revue PR (Claude)` (le workflow de L20-05),
+    sans approbation exigée : GitHub refuse qu'un compte approuve sa propre pull request, et
+    `revue-pr` n'approuve pas.
 
 ## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
 
