@@ -71,6 +71,20 @@ millions de tokens au total ; le lot 3 et le lot 6 sont les plus coûteux.
   - transitoire : `git push origin develop` reste permis à la session principale, la fusion du
     lot 20 passant encore par là ; ensuite, la protection de `develop` refuse ce push.
 
+- Un seul run par lot (décision de Julien du 21 novembre 2026, lot 22 ; règle D26 réécrite) :
+  - l'unique vérification complète d'un lot est la CI de sa pull request ; la recette du
+    chef-de-projet ne lance plus `TURBO_FORCE=true pnpm check` en local, elle garde ses
+    vérifications ciblées et lit les résultats de la CI par `gh run list --branch lot/N-nom` et
+    `gh run view <id>` (`gh pr checks` est refusé par GitHub au jeton à portée fine, qui ne peut
+    pas recevoir la permission « Checks ») ;
+  - plus de créneau machine à négocier entre les sessions pour les vérifications complètes ;
+    `pnpm check` reste disponible en local pour qui en a besoin ;
+  - la CI ne tourne que sur les pull requests, plus un push direct de `main` par Julien (correctif
+    urgent, CI informative) ; elle s'arrête au premier échec et la revue automatisée passe après
+    elle (`ci.yml`, dev-devops) ;
+  - ordre d'un lot : vérifications ciblées des agents, push de la branche et pull request, CI,
+    recette (qui lit la CI), revue `revue-pr`, fusion.
+
 - Git flow (décision de Julien du 19 novembre 2026) : `develop` est la branche d'intégration
   permanente (l'ancienne branche d'intégration renommée), seule branche que l'orchestrateur fait
   avancer ; `main` est la branche de production. `master` porte le commit initial des documents.
@@ -130,7 +144,7 @@ l'agent fait, ce qui lui est refusé et la conduite face à un refus.
 | revue-pr | Revue adversariale du diff d'une pull request vers `develop`, lancée par le workflow de revue (lot 20) : règles de CLAUDE.md, intégrité des tests, sécurité, couverture des cas nouveaux ; constats gradués (bloquant, non bloquant) avec fichier et ligne, dernière ligne `VERDICT: OK` ou `VERDICT: BLOQUANT` | rien dans le dépôt (elle publie sa revue sur la PR par `gh pr comment`, le workflow lit le verdict dans sa réponse) | Opus, high |
 | revue-a11y | Audit WCAG 2.2 AA / RGAA adversarial en lecture seule : clavier, arbre d'accessibilité, contrastes calculés, mouvement, zoom ; chaque finding constaté par une commande | `docs/revues/a11y-<date>.md` | Opus, high |
 | triage | Rejoue, rejette les faux positifs, fusionne, ordonne, établit si un test est faux | `docs/revues/triage-<date>.md` | Sonnet, medium |
-| correcteur | Corrige une liste de findings, un commit par finding, deux `pnpm check` verts sur base neuve ; seul à modifier un test établi faux | fichiers des findings | Sonnet, medium |
+| correcteur | Corrige une liste de findings, un commit par finding, vérifications ciblées vertes sur base neuve (règle D26 : la CI de la pull request est l'unique vérification complète) ; seul à modifier un test établi faux | fichiers des findings | Sonnet, medium |
 
 Contre le contournement des tests (décision de Julien, quatre couches) :
 

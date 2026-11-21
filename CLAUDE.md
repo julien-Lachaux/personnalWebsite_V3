@@ -274,7 +274,8 @@ pnpm test:coverage           # unitaires + e2e en une passe, couverture fusionn�
 pnpm test:mutation           # Stryker sur les unitaires (contrats, API, front), rapports dans reports/mutation/ ; échoue sous le seuil de chaque paquet ; hors check, job CI dédié
 pnpm check                   # tout : garde-fous, intégrité des tests, formatage, postgres de test, navigateurs, lint, typecheck,
                              # test:coverage (chaque test Vitest une seule fois : unitaires et e2e de l'API, contrats, front), parcours Playwright du front ;
-                             # lancé une fois par lot, par la recette (règle D26, « Flux git et interdictions »)
+                             # disponible en local pour qui en a besoin ; l'unique vérification complète d'un lot
+                             # est la CI de sa pull request (règle D26, « Flux git et interdictions »)
 pnpm --filter @siteperso/web generate        # pages statiques fr et en dans apps/web/.output/public
 pnpm --filter @siteperso/web test            # unitaires + composants (projets unit et nuxt)
 pnpm --filter @siteperso/web test:coverage   # idem avec couverture, échoue sous 100 %
@@ -299,8 +300,8 @@ facultatif : des valeurs par défaut sans donnée réelle sont dans `nuxt.config
 
 ## Worktrees en parallèle
 
-Deux sessions ou agents qui vérifient en même temps (une recette `pnpm check`, des vérifications
-ciblées avec base de test ou navigateurs, règle D26) doivent isoler leurs conteneurs : chacun
+Deux sessions ou agents qui vérifient en même temps (vérifications ciblées avec base de test ou
+navigateurs, règle D26, ou un `pnpm check` local) doivent isoler leurs conteneurs : chacun
 crée un `.env` à la racine de SON worktree (gitignoré) avec `COMPOSE_PROJECT_NAME`,
 `POSTGRES_PORT` et `POSTGRES_TEST_PORT` qui lui sont propres (ex. `siteperso-v3-b`, 5442, 5443),
 plus `PLAYWRIGHT_PORT` (serveur de navigateurs) et `WEB_E2E_PORT` (site statique servi pendant les
@@ -379,7 +380,8 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   - pousse la branche du lot : `git push -u origin lot/N-nom` (`-u` ou `--set-upstream` admis) ;
   - ouvre la pull request : `gh pr create --base develop --head lot/N-nom --title … --body …`
     (`--base develop` et `--head lot/…` écrits en clair, obligatoires) ;
-  - la suit (`gh pr view`, `gh pr checks`, `gh pr diff`, `gh run view`, `gh run list`…), la commente,
+  - la suit (`gh pr view`, `gh pr diff`, `gh run list --branch lot/N-nom`, `gh run view`… ;
+    `gh pr checks` échoue avec le jeton à portée fine, sans permission « Checks »), la commente,
     la relit, l'édite ou la passe en prête (`gh pr comment`, `gh pr review`, `gh pr edit`,
     `gh pr ready`) ;
   - la fusionne par commit de merge, jamais squash ni rebase : `gh pr merge --merge lot/N-nom` (la
@@ -437,17 +439,26 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
 - Aucun commit si le formatage Prettier des fichiers indexés (`pnpm format:staged`), `lint`,
   `typecheck` et `test` ne passent pas (hook pre-commit) ; les e2e des fichiers touchés doivent
   aussi passer avant de livrer un lot (vérifications ciblées, règle D26 ci-dessous).
-- **Une seule vérification complète par lot** (règle D26, décision de Julien du 21 nov. 2026) :
-  - les agents de développement (`dev-*`), le correcteur et le lead-architecte ne lancent ni
-    `pnpm check` ni la mutation complète ;
-  - ils font des vérifications ciblées : lint, typecheck, `test:coverage` du paquet touché, e2e ou
-    parcours des fichiers touchés, mutation des seuls fichiers touchés
-    (`stryker run --mutate <fichiers>`), `pnpm integrity`, et `pnpm hooks:test` ou
-    `pnpm integrity:test` si les garde-fous sont touchés ;
-  - la recette (chef-de-projet) lance l'unique `TURBO_FORCE=true pnpm check`, sur la branche déjà
-    à jour de `develop`, après accord de l'autre session, que l'orchestrateur obtient ;
-  - pas de nouveau check à la fusion si `develop` n'a pas bougé ;
-  - la CI reste le filet.
+- **Un seul run par lot** (règle D26, décisions de Julien du 21 nov. 2026 ; réécrite au lot 22) :
+  - l'unique vérification complète d'un lot est la CI de sa pull request : aucun agent, la recette
+    comprise, ne lance `pnpm check` ni la mutation complète pour un lot, et il n'y a plus de
+    créneau machine à demander entre les sessions ; `pnpm check` reste disponible en local pour
+    qui en a besoin (diagnostic, recette finale du chantier) ;
+  - les agents de développement (`dev-*`), le correcteur et le lead-architecte font des
+    vérifications ciblées : lint, typecheck, `test:coverage` du paquet touché, e2e ou parcours des
+    fichiers touchés, mutation des seuls fichiers touchés (`stryker run --mutate <fichiers>`),
+    `pnpm integrity`, et `pnpm hooks:test` ou `pnpm integrity:test` si les garde-fous sont
+    touchés ;
+  - la recette (chef-de-projet) garde ses vérifications ciblées (critères rejoués, diff des tests,
+    `pnpm integrity <base>`, journal des garde-fous) et lit les résultats de la CI de la pull
+    request, verts exigés sur la tête de la branche : `gh run list --branch lot/N-nom`, puis
+    `gh run view <id>` (`--log-failed` pour un job en échec). `gh pr checks` ne sert pas : le jeton
+    GitHub à portée fine de la session ne peut pas recevoir la permission « Checks » ;
+  - la CI (`.github/workflows/ci.yml`) tourne sur les pull requests, et sur un push direct de
+    `main` par Julien (correctif urgent, CI alors informative) ; elle s'arrête au premier échec, et
+    la revue automatisée (`revue-pr`) passe après elle (lot 22, branche de dev-devops) ;
+  - si `develop` bouge avant la fusion, la branche du lot est mise à jour et la CI de la pull
+    request repasse : c'est ce run qui compte.
 - JAMAIS de `git push` ni d'écriture par `gh` par un agent. Jamais de `--no-verify`, jamais de
   `git stash` nu, jamais de push forcé.
 - Aucun e-mail, téléphone ou donnée personnelle de Julien dans le dépôt (code, SQL, tests,
