@@ -1732,8 +1732,9 @@ const PUSH_CONFIG_ALLOWED = /^((color|advice|user|i18n)\.[^=]+|core\.quotepath)=
 const PUSH_FORM = `seule la forme git push origin ${PUSH_BRANCH} (avec -u ou --set-upstream au besoin) est permise`;
 
 /** Clés dont l'écriture redéfinit la destination d'un push (T3 du lot 13 bis). */
+// L18-02 : branch.autoSetupMerge et branch.autoSetupRebase règlent le suivi des branches créées.
 const DESTINATION_KEY =
-  /^(remote\..+|url\..+|push\..+|branch\..+\.(remote|pushremote)|include\..+|includeif\..+)$/i;
+  /^(remote\..+|url\..+|push\..+|branch\..+\.(remote|pushremote)|branch\.autosetup(merge|rebase)|include\..+|includeif\..+)$/i;
 const DESTINATION_SECTION = /^(remote|url|push|branch|include|includeif)(\.|$)/i;
 /** Clés dont la valeur est une commande lancée par git. */
 const COMMAND_CONFIG_KEY =
@@ -1845,43 +1846,78 @@ function gitAlias(base, sub, globals) {
   }
 }
 
-/** Écriture git config : clés et sections touchées, ou édition libre ; null pour une lecture. */
+/** Options de git config suivies d'une valeur (mot séparé) : cette valeur n'est pas une option. */
+const CONFIG_VALUED = new Set([
+  '-f',
+  '--file',
+  '--blob',
+  '--type',
+  '-t',
+  '--default',
+  '--comment',
+  '--value',
+]);
+/** Actions de lecture de l'ancienne syntaxe (mot exact). */
+const CONFIG_READS = new Set([
+  '--get',
+  '--get-all',
+  '--get-regexp',
+  '--get-urlmatch',
+  '--get-color',
+  '--get-colorbool',
+  '-l',
+  '--list',
+]);
+/** Actions d'écriture de l'ancienne syntaxe ; git accepte un préfixe sans ambiguïté (--unset-a). */
+const CONFIG_WRITES = [
+  '--add',
+  '--replace-all',
+  '--unset',
+  '--unset-all',
+  '--rename-section',
+  '--remove-section',
+  '--edit',
+];
+
+/**
+ * Écriture git config : clés et sections touchées, ou édition libre ; null pour une lecture
+ * (L18-01). Les options sont lues à leur place : la valeur d'une option (--comment --get) n'est
+ * pas prise pour une action. Une lecture se reconnaît à son action écrite en entier (--get…,
+ * --list, sous-commandes get et list) ou à l'absence de valeur (git config <clé>) ; un mot qui
+ * peut abréger une action d'écriture (--unset-a, --un) compte comme écriture.
+ */
 function gitConfigWrite(rest) {
-  const valued = new Set([
-    '-f',
-    '--file',
-    '--blob',
-    '--type',
-    '-t',
-    '--default',
-    '--comment',
-    '--value',
-  ]);
-  const ops = operands(rest, valued);
-  const has = (...flags) => rest.some((a) => flags.includes(a));
-  if (
-    has(
-      '--get',
-      '--get-all',
-      '--get-regexp',
-      '--get-urlmatch',
-      '--get-color',
-      '--get-colorbool',
-      '-l',
-      '--list',
-    )
-  )
+  const flags = [];
+  const ops = [];
+  for (let j = 0; j < rest.length; j += 1) {
+    const a = rest[j];
+    if (a === '--') {
+      ops.push(...rest.slice(j + 1));
+      break;
+    }
+    if (CONFIG_VALUED.has(a)) j += 1;
+    else if (a.startsWith('-') && a !== '-') flags.push(a.split('=')[0]);
+    else ops.push(a);
+  }
+  const writes = (...names) =>
+    flags.some((f) =>
+      names.some((n) => f === n || (f.startsWith('--') && f.length > 2 && n.startsWith(f))),
+    );
+  const written =
+    flags.includes('-e') ||
+    flags.some((f) => f.length > 2 && CONFIG_WRITES.some((n) => n.startsWith(f)));
+  if (!written && (flags.some((f) => CONFIG_READS.has(f)) || ['get', 'list'].includes(ops[0])))
     return null;
-  if (['get', 'list'].includes(ops[0])) return null;
-  if (has('--edit', '-e') || ops[0] === 'edit')
+  if (flags.includes('-e') || writes('--edit') || ops[0] === 'edit')
     return { edit: true, keys: [], sections: [], values: [] };
   if (['set', 'unset'].includes(ops[0]))
     return { keys: [ops[1] ?? ''], values: ops.slice(2), sections: [] };
   if (['rename-section', 'remove-section'].includes(ops[0]))
     return { keys: [], values: [], sections: ops.slice(1) };
-  if (has('--rename-section', '--remove-section')) return { keys: [], values: [], sections: ops };
-  if (has('--unset', '--unset-all')) return { keys: [ops[0] ?? ''], values: [], sections: [] };
-  if (ops.length >= 2 || has('--add', '--replace-all'))
+  if (writes('--rename-section', '--remove-section'))
+    return { keys: [ops[0] ?? ''], values: [], sections: ops };
+  if (writes('--unset', '--unset-all')) return { keys: [ops[0] ?? ''], values: [], sections: [] };
+  if (ops.length >= 2 || written)
     return { keys: [ops[0] ?? ''], values: ops.slice(1), sections: [] };
   return null;
 }
@@ -1965,6 +2001,94 @@ function setBranch(st, base, branch) {
 /** Nom de branche locale créée à partir d'une branche distante (checkout ou switch --track). */
 function trackedName(ref) {
   return ref.replace(/^(refs\/remotes\/)?[^/]+\//, '');
+}
+
+// ---------------------------------------------------------------------------------------------
+// Branche suivie (L14-17 et L18-02, décisions de Julien du 20 nov. 2026) : git écrit
+// branch.<branche>.remote et branch.<branche>.merge hors de la règle des destinations de push
+// (git config branch.*.remote, refusé à tous). Refusés aux agents spécialisés, la session
+// principale les garde :
+// - git branch -u et --set-upstream-to (L14-17), git fetch et git pull --set-upstream ;
+// - --track explicite (-t, --track=direct|inherit, abréviations, groupes d'options courtes) de
+//   git branch, checkout, switch et worktree add, quel que soit le point de départ ;
+// - la création d'une branche quand le suivi automatique s'applique : branch.autoSetupMerge, lu
+//   dans -c puis dans la configuration vue du dépôt (true, le défaut : point de départ distant ;
+//   always : toute branche ; inherit : branche qui a déjà un amont ; simple : distante de même nom ;
+//   valeur inconnue ou configuration illisible : refusé) ; git branch <nom> <départ>, -f compris,
+//   checkout -b|-B, switch -c|-C, worktree add -b|-B, sans point de départ = HEAD ;
+// - la branche distante devinée : checkout <nom> et switch <nom> sans --no-guess, worktree add
+//   <dossier> <nom>, et worktree add <dossier> avec --guess-remote ou worktree.guessRemote, quand le
+//   nom n'est pas une révision locale et qu'une branche distante le porte ;
+// - la copie d'une branche suivie (git branch -c|-C : git copie sa configuration).
+// --no-track l'emporte quand il est le dernier des deux, comme pour git, et reste permis. Écrire
+// branch.autoSetupMerge ou branch.autoSetupRebase est une écriture de destination (DESTINATION_KEY).
+
+const TRACK_MOTIF =
+  'créer une branche qui suit une autre branche écrit branch.<branche>.remote, hors de la règle ' +
+  'des destinations de push : interdit aux agents';
+
+/** Sortie d'une lecture git depuis `base` (sans fin de ligne), ou null si git échoue. */
+function gitOutput(base, args) {
+  try {
+    return execFileSync('git', ['-C', base, ...args], GIT_EXEC_OPTIONS).replace(/\n$/, '');
+  } catch {
+    return null;
+  }
+}
+
+/** `word` écrit l'option longue `full` en entier ou en abrégé (au moins `min` caractères). */
+function abbreviates(word, full, min) {
+  const name = word.split('=')[0];
+  return name === full || (name.length >= min && full.startsWith(name));
+}
+
+/**
+ * Mode de suivi écrit dans les options : 'track' (--track, -t, abréviation, groupe d'options
+ * courtes), 'never' (--no-track) ou null ; le dernier des deux l'emporte. Les valeurs des options
+ * de `valued` et ce qui suit une lettre de `shortValued` dans un groupe ne sont pas des options.
+ */
+function trackOption(words, valued, shortValued) {
+  let mode = null;
+  for (let j = 0; j < words.length; j += 1) {
+    const a = words[j];
+    if (a === '--') break;
+    if (valued.includes(a)) j += 1;
+    else if (abbreviates(a, '--track', 3)) mode = 'track';
+    else if (abbreviates(a, '--no-track', 6)) mode = 'never';
+    else if (/^-[a-zA-Z0-9]+$/.test(a)) {
+      for (const c of a.slice(1)) {
+        if (c === 't') mode = 'track';
+        if (c === 't' || shortValued.includes(c)) break;
+      }
+    }
+  }
+  return mode;
+}
+
+/**
+ * Branches créées et opérandes d'une commande qui crée une branche (checkout, switch, worktree
+ * add) : `create` (options longues [nom, abréviation minimale]) et `shortCreate` (lettres) prennent
+ * le nom créé, collé ou en mot suivant ; les valeurs de `valued` sont sautées ; s'arrête à « -- ».
+ */
+function creationWords(words, { create = [], shortCreate = [], valued = [] }) {
+  const created = [];
+  const ops = [];
+  for (let j = 0; j < words.length; j += 1) {
+    const a = words[j];
+    if (a === '--') break;
+    if (create.some(([full, min]) => abbreviates(a, full, min))) {
+      const value = a.includes('=') ? a.slice(a.indexOf('=') + 1) : words[(j += 1)];
+      if (value !== undefined) created.push(value);
+    } else if (valued.includes(a)) j += 1;
+    else if (/^-[a-zA-Z0-9]+$/.test(a)) {
+      const at = [...a.slice(1)].findIndex((c) => shortCreate.includes(c));
+      if (at >= 0) {
+        const value = a.slice(at + 2) || words[(j += 1)];
+        if (value !== undefined) created.push(value);
+      }
+    } else if (!a.startsWith('-') || a === '-') ops.push(a);
+  }
+  return { created, ops };
 }
 
 function analyzeGit(
@@ -2067,18 +2191,167 @@ function analyzeGit(
     else if (MAIN_REF.test(name.replace(/^\+/, ''))) deny(`${what} main : ${MAIN_MOTIF}`);
   };
   /** Écriture de la branche courante : refusée si c'est main ou si elle est illisible. */
+  /** Dépôt visé illisible : dossier calculé, --git-dir, --work-tree ou variable GIT_DIR… */
+  const repoIllegible = () =>
+    gitBase === null ||
+    globals.some(([o]) => /^--(git-dir|work-tree)(=|$)/.test(o)) ||
+    [...assignments, ...st.gitEnv].some((a) => /^GIT_(DIR|WORK_TREE|COMMON_DIR)=/.test(a));
   const onMain = (what) => {
-    const illegible =
-      gitBase === null ||
-      globals.some(([o]) => /^--(git-dir|work-tree)(=|$)/.test(o)) ||
-      [...assignments, ...st.gitEnv].some((a) => /^GIT_(DIR|WORK_TREE|COMMON_DIR)=/.test(a));
-    const branch = illegible ? UNKNOWN : currentBranch(st, gitBase);
+    const branch = repoIllegible() ? UNKNOWN : currentBranch(st, gitBase);
     if (branch.includes(UNKNOWN))
       deny(
         `${what} : branche courante illisible (dossier ou dépôt calculé, ou branche changée par ` +
           'la commande) ; la branche locale main ne s’écrit pas, illisible donc refusé',
       );
     else if (MAIN_REF.test(branch)) deny(`${what} sur la branche main : ${MAIN_MOTIF}`);
+  };
+  // L18-02 : branche suivie créée par un agent (voir TRACK_MOTIF). Le motif est « faible » : il ne
+  // remplace pas un motif déjà posé, plus précis (écriture de main).
+  const trackDeny = (what, how) =>
+    deny(`${what} : ${how} ; ${TRACK_MOTIF} (rôle ${role}) ; --no-track reste permis`, {
+      weak: true,
+    });
+  /** Configuration lisible par git -C gitBase : pas de dépôt calculé ni de variable GIT_CONFIG*. */
+  const configIllegible = () =>
+    repoIllegible() || [...assignments, ...st.gitEnv].some((a) => /^GIT_CONFIG/.test(a));
+  /** Dernière valeur de `key` donnée par -c (true sans « = »), sinon undefined. */
+  const commandConfig = (key) => {
+    let value;
+    for (const [opt, v] of globals) {
+      const m = opt === '-c' && /^([^=]+)(?:=(.*))?$/s.exec(v ?? '');
+      if (m && m[1].toLowerCase() === key.toLowerCase()) value = m[2] ?? 'true';
+    }
+    return value;
+  };
+  /** branch.autoSetupMerge de la commande : false, true, always, inherit, simple ou null (illisible). */
+  const autoSetupMerge = () => {
+    let value = commandConfig('branch.autoSetupMerge');
+    if (value === undefined) {
+      if (configIllegible()) return null;
+      value = gitOutput(gitBase, ['config', '--get', 'branch.autoSetupMerge']) ?? 'true';
+    }
+    const v = value.toLowerCase();
+    if (['true', 'yes', 'on', '1'].includes(v)) return 'true';
+    if (['false', 'no', 'off', '0', ''].includes(v)) return 'false';
+    return ['always', 'inherit', 'simple'].includes(v) ? v : null;
+  };
+  /** La branche locale `name` a un amont (branch.<name>.remote ou .merge). */
+  const hasUpstream = (name) =>
+    name.includes(UNKNOWN) ||
+    gitOutput(gitBase, ['config', '--get', `branch.${name}.remote`]) !== null ||
+    gitOutput(gitBase, ['config', '--get', `branch.${name}.merge`]) !== null;
+  /**
+   * Nature d'un point de départ : remote (branche distante), local, commit (pas une branche),
+   * unknown (absent du dépôt à l'analyse, peut-être créé plus loin dans la commande) ; null si
+   * illisible. Un nom absent qui commence par un remote du dépôt compte comme distant.
+   */
+  const startKind = (start) => {
+    if (start.includes(UNKNOWN) || repoIllegible()) return null;
+    const full = gitOutput(gitBase, ['rev-parse', '--verify', '-q', '--symbolic-full-name', start]);
+    if (full === null) {
+      const remotes = (gitOutput(gitBase, ['remote']) ?? '').split('\n').filter(Boolean);
+      if (
+        /^(refs\/)?remotes\//.test(start) ||
+        remotes.some((r) => start === r || start.startsWith(`${r}/`))
+      )
+        return { kind: 'remote', ref: start.replace(/^(refs\/)?remotes\//, '') };
+      return { kind: 'unknown', ref: start };
+    }
+    if (full.startsWith('refs/remotes/')) return { kind: 'remote', ref: full.slice(13) };
+    if (full.startsWith('refs/heads/')) return { kind: 'local', ref: full.slice(11) };
+    return { kind: 'commit', ref: full };
+  };
+  /** Le suivi automatique s'applique à la branche `created` partie de `start`. */
+  const autoTracks = (start, created) => {
+    const mode = autoSetupMerge();
+    if (mode === 'false') return false;
+    const point = startKind(start);
+    if (point?.kind === 'commit') return false;
+    if (point === null || mode === null) return true;
+    if (mode === 'true') return point.kind === 'remote';
+    if (mode === 'always') return true;
+    if (mode === 'inherit')
+      return point.kind === 'unknown' || (point.kind === 'local' && hasUpstream(point.ref));
+    return (
+      point.kind === 'remote' && (created.includes(UNKNOWN) || point.ref.endsWith(`/${created}`))
+    );
+  };
+  /** fetch et pull --set-upstream (et ses abréviations) d'un agent : amont de la branche courante. */
+  const setUpstream = () => {
+    if (role === 'main') return;
+    const end = rest.indexOf('--');
+    const options = end < 0 ? rest : rest.slice(0, end);
+    const word = options.find((a) => abbreviates(a, '--set-upstream', 5));
+    if (word !== undefined)
+      deny(
+        `git ${sub} ${shown(word)} : définir la branche suivie écrit branch.<branche>.remote, hors ` +
+          `de la règle des destinations de push : interdit aux agents (rôle ${role})`,
+      );
+  };
+  /** worktree add d'un agent : --track, suivi automatique de -b|-B, branche distante devinée. */
+  const worktreeTracking = (add) => {
+    const words = creationWords(add, { shortCreate: ['b', 'B'], valued: ['--reason'] });
+    const tracking = trackOption(add, ['-b', '-B', '--reason'], ['b', 'B']);
+    const last = words.created[words.created.length - 1];
+    const [path, commitish] = words.ops;
+    if (tracking === 'track') {
+      trackDeny('git worktree add --track', 'suivi demandé explicitement');
+      return;
+    }
+    if (
+      tracking === 'never' ||
+      path === undefined ||
+      add.some((a) => a === '-d' || abbreviates(a, '--detach', 4) || a === '--orphan')
+    )
+      return;
+    const what = `git worktree add ${shown(path)}`;
+    if (last !== undefined) {
+      if (autoTracks(commitish ?? 'HEAD', last))
+        trackDeny(
+          `${what} -b ${shown(last)}`,
+          'point de départ pour lequel le suivi automatique s’applique (branch.autoSetupMerge)',
+        );
+      return;
+    }
+    if (commitish !== undefined) {
+      if (guessesRemote(commitish))
+        trackDeny(`${what} ${shown(commitish)}`, 'branche distante devinée (-b <nom> --no-track)');
+      return;
+    }
+    // Sans point de départ : branche du nom du dossier, devinée avec --guess-remote ou
+    // worktree.guessRemote, sinon créée depuis HEAD si elle n'existe pas.
+    const name = basename(path);
+    if (!name.includes(UNKNOWN) && !repoIllegible()) {
+      if (gitOutput(gitBase, ['rev-parse', '--verify', '-q', `refs/heads/${name}`]) !== null)
+        return;
+    }
+    let guess = commandConfig('worktree.guessRemote');
+    if (guess === undefined)
+      guess = configIllegible()
+        ? 'true'
+        : (gitOutput(gitBase, ['config', '--type=bool', '--get', 'worktree.guessRemote']) ??
+          'false');
+    const guessing =
+      add.some((a) => abbreviates(a, '--guess-remote', 3)) ||
+      (!add.some((a) => abbreviates(a, '--no-guess-remote', 6)) &&
+        ['true', 'yes', 'on', '1'].includes(guess.toLowerCase()));
+    if (guessing && guessesRemote(name))
+      trackDeny(what, 'branche distante devinée (--guess-remote, worktree.guessRemote)');
+    else if (autoTracks('HEAD', name))
+      trackDeny(
+        what,
+        'branche créée depuis HEAD avec le suivi automatique (branch.autoSetupMerge)',
+      );
+  };
+  /** Branche distante devinée : `name` n'est pas une révision locale et une distante le porte. */
+  const guessesRemote = (name) => {
+    if (name.includes(UNKNOWN) || repoIllegible()) return true;
+    if (name === '-' || gitOutput(gitBase, ['rev-parse', '--verify', '-q', name]) !== null)
+      return false;
+    const refs = gitOutput(gitBase, ['for-each-ref', '--format=%(refname)', 'refs/remotes/']);
+    return (refs ?? '')
+      .split('\n')
+      .some((r) => r.startsWith('refs/remotes/') && r.split('/').slice(3).join('/') === name);
   };
   /** Refspecs de fetch et pull : une destination main (src:main) écrit la branche locale. */
   const fetchDestinations = (what) => {
@@ -2210,15 +2483,22 @@ function analyzeGit(
       break;
     }
     case 'config': {
-      if (rest.some((a) => /^core\.hookspath$/i.test(a)))
+      // L18-01 : une lecture (--get, get, --list, git config <clé>) est permise, core.hooksPath
+      // compris ; seules les écritures sont examinées.
+      const write = gitConfigWrite(rest);
+      if (write === null) break;
+      if (write.keys.some((key) => /^core\.hookspath$/i.test(key)))
         deny('changer core.hooksPath désactive le hook pre-commit');
+      if (write.sections.some((section) => /^core$/i.test(section)))
+        deny(
+          'retirer ou renommer la section core retire core.hooksPath, ce qui désactive le hook ' +
+            'pre-commit',
+        );
       if (
         rest.some((a) => /^alias\./i.test(a)) &&
         rest.some((a) => !/^alias\./i.test(a) && /\bpush\b/i.test(a))
       )
         deny('un alias qui lance git push contourne la règle de push');
-      const write = gitConfigWrite(rest);
-      if (write === null) break;
       if (write.edit) {
         deny(`git config --edit : édition libre de la configuration, qui ${DESTINATION_MOTIF}`);
         break;
@@ -2267,9 +2547,11 @@ function analyzeGit(
     case 'pull':
       fetchDestinations('git pull vers');
       onMain('git pull');
+      setUpstream();
       break;
     case 'fetch':
       fetchDestinations('git fetch vers');
+      setUpstream();
       break;
     case 'cherry-pick':
     case 'revert':
@@ -2289,6 +2571,7 @@ function analyzeGit(
       ]);
       const flags = new Set();
       const ops = [];
+      let upstream = false;
       for (let j = 0; j < rest.length; j += 1) {
         const a = rest[j];
         if (a === '--') {
@@ -2308,6 +2591,7 @@ function analyzeGit(
               `branch.<branche>.remote, hors de la règle des destinations de push : interdit aux ` +
               `agents (rôle ${role}) ; option illisible comprise, écris la commande en clair`,
           );
+          upstream = true;
           break;
         }
         if (valued.has(a)) {
@@ -2351,6 +2635,25 @@ function analyzeGit(
         written = [];
       else written = ops.slice(0, 1);
       written.forEach((b) => writesRef(b, 'git branch'));
+      // L18-02 : --track explicite, copie d'une branche suivie, suivi automatique à la création.
+      if (role === 'main' || upstream) break;
+      const creating = written.length > 0 && !has('-d', '-D', '--delete', '-m', '-M', '--move');
+      const track = trackOption(rest, [...valued], ['u']);
+      if (track === 'track') trackDeny('git branch --track', 'suivi demandé explicitement');
+      else if (has('-c', '-C', '--copy')) {
+        const source =
+          ops.length >= 2 ? ops[0] : repoIllegible() ? UNKNOWN : currentBranch(st, gitBase);
+        if (repoIllegible() || hasUpstream(source))
+          trackDeny(
+            'git branch --copy',
+            `copie de ${shown(source) || 'la branche courante'}, branche suivie : git copie sa ` +
+              'configuration (branch.<branche>.remote)',
+          );
+      } else if (creating && track !== 'never' && autoTracks(ops[1] ?? 'HEAD', ops[0]))
+        trackDeny(
+          `git branch ${shown(ops[0])} ${shown(ops[1] ?? 'HEAD')}`,
+          'point de départ pour lequel le suivi automatique s’applique (branch.autoSetupMerge)',
+        );
       break;
     }
     case 'update-ref': {
@@ -2409,6 +2712,42 @@ function analyzeGit(
       else if (control('-d', '--detach')) setBranch(st, gitBase, '');
       else if (viaXargs) setBranch(st, gitBase, UNKNOWN);
       else if (ops[0] !== undefined) setBranch(st, gitBase, ops[0] === '-' ? UNKNOWN : ops[0]);
+      // L18-02 : --track explicite, suivi automatique à la création, branche distante devinée.
+      if (role === 'main') break;
+      const words = creationWords(rest, {
+        create: [
+          ['--create', 4],
+          ['--force-create', 8],
+        ],
+        shortCreate: ['c', 'C'],
+        valued: ['--orphan', '--conflict'],
+      });
+      const tracking = trackOption(
+        rest,
+        ['-c', '-C', '--create', '--force-create', '--orphan', '--conflict'],
+        ['c', 'C'],
+      );
+      const last = words.created[words.created.length - 1];
+      if (tracking === 'track') trackDeny('git switch --track', 'suivi demandé explicitement');
+      else if (tracking === 'never' || rest.some((a) => abbreviates(a, '--orphan', 4))) break;
+      else if (last !== undefined) {
+        if (autoTracks(words.ops[0] ?? 'HEAD', last))
+          trackDeny(
+            `git switch -c ${shown(last)} ${shown(words.ops[0] ?? 'HEAD')}`,
+            'point de départ pour lequel le suivi automatique s’applique (branch.autoSetupMerge)',
+          );
+      } else if (
+        words.ops.length === 1 &&
+        !rest.some(
+          (a) => a === '-d' || abbreviates(a, '--detach', 4) || abbreviates(a, '--no-guess', 6),
+        ) &&
+        commandConfig('checkout.guess')?.toLowerCase() !== 'false' &&
+        guessesRemote(words.ops[0])
+      )
+        trackDeny(
+          `git switch ${shown(words.ops[0])}`,
+          'branche distante devinée (--no-guess, ou -c <nom> --no-track <départ>)',
+        );
       break;
     }
     case 'worktree': {
@@ -2430,6 +2769,7 @@ function analyzeGit(
       const add = rest.slice(rest.indexOf('add') + 1);
       const created = valueOf(add, ['-b', '-B']);
       created.forEach((b) => writesRef(b, 'git worktree add -b'));
+      if (role !== 'main') worktreeTracking(add);
       const ops = operands(add, new Set(['-b', '-B', '--reason']));
       if (ops[0] === undefined || gitBase === null || ops[0].includes(UNKNOWN)) break;
       const path = resolve(gitBase, ops[0]);
@@ -2513,6 +2853,37 @@ function analyzeGit(
       }
       if (rest.some((a) => a.startsWith('--pathspec-from-file')))
         opaque('git checkout', rest.join(' '), gitBase);
+      // L18-02 : --track explicite, suivi automatique à la création, branche distante devinée.
+      if (role === 'main') break;
+      const valued = ['--orphan', '--conflict', '--pathspec-from-file'];
+      const words = creationWords(rest, { shortCreate: ['b', 'B'], valued });
+      const tracking = trackOption(rest, ['-b', '-B', ...valued], ['b', 'B']);
+      const last = words.created[words.created.length - 1];
+      const [ref] = words.ops;
+      const isPath = (p) =>
+        dash < 0 &&
+        (p === '.' || /[*?[]/.test(p) || (gitBase !== null && existsSync(resolve(gitBase, p))));
+      if (tracking === 'track') trackDeny('git checkout --track', 'suivi demandé explicitement');
+      else if (tracking === 'never' || rest.some((a) => abbreviates(a, '--orphan', 4))) break;
+      else if (last !== undefined) {
+        if (autoTracks(ref ?? 'HEAD', last))
+          trackDeny(
+            `git checkout -b ${shown(last)} ${shown(ref ?? 'HEAD')}`,
+            'point de départ pour lequel le suivi automatique s’applique (branch.autoSetupMerge)',
+          );
+      } else if (
+        words.ops.length === 1 &&
+        !isPath(ref) &&
+        !rest.some(
+          (a) => abbreviates(a, '--detach', 4) || abbreviates(a, '--no-guess', 6) || a === '-p',
+        ) &&
+        commandConfig('checkout.guess')?.toLowerCase() !== 'false' &&
+        guessesRemote(ref)
+      )
+        trackDeny(
+          `git checkout ${shown(ref)}`,
+          'branche distante devinée (--no-guess, ou -b <nom> --no-track <départ>)',
+        );
       break;
     }
     case 'restore':

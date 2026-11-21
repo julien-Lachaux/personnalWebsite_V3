@@ -128,11 +128,16 @@ Refusé à tous les rôles, session principale comprise (lot 13 bis) :
   ainsi que `git svn dcommit` et `git p4 submit` qui publient vers un autre dépôt ;
 - la redéfinition de la destination : `git remote add|rename|remove|rm|set-url`, `git config` en
   écriture (quelle que soit la portée, `--global`, `--system`, `--local`, `--file`) sur `remote.*`,
-  `url.*`, `push.*`, `branch.*.remote`, `branch.*.pushRemote`, `include.*`, `includeIf.*`, ou sur
-  une section de ces familles, `git config --edit`, et l'écriture de la configuration git
-  (`.git/config`, `config.worktree`, `~/.gitconfig`, `~/.config/git/config`, `/etc/gitconfig`) par
-  Edit, Write, le shell ou un code opaque. Les lectures (`git config --get`, `git remote -v`)
-  restent permises ;
+  `url.*`, `push.*`, `branch.*.remote`, `branch.*.pushRemote`, `branch.autoSetupMerge`,
+  `branch.autoSetupRebase` (L18-02), `include.*`, `includeIf.*`, ou sur une section de ces
+  familles, `git config --edit`, et l'écriture de la configuration git (`.git/config`,
+  `config.worktree`, `~/.gitconfig`, `~/.config/git/config`, `/etc/gitconfig`) par Edit, Write, le
+  shell ou un code opaque. Les lectures restent permises, `core.hooksPath` compris (L18-01) :
+  `git config --get|--get-all|--get-regexp|--list`, `git config get|list`, `git config <clé>`
+  sans valeur, `git remote -v`. Une écriture se lit aux options à leur place (la valeur de
+  `--comment`, `--default` ou `--file` n'est pas une action) et un préfixe d'action d'écriture
+  (`--unset-a`) compte comme écriture ; écrire, retirer ou renommer `core.hooksPath` (ou la
+  section `core`) reste refusé. Tests : `tests/config-read.test.mjs` ;
 - `gh` pour ce qui fusionne, étiquette, publie ou supprime : `gh pr merge`,
   `gh release create|delete|delete-asset|edit|upload`,
   `gh repo delete|edit|rename|archive|unarchive|sync`, toute action `delete`, `gh alias set|import`, `gh api` avec une méthode autre que GET ou avec `-f`, `-F`,
@@ -180,6 +185,33 @@ des destinations de push ; ils sont refusés aux agents sous toutes les formes l
 ou collée, groupe d'options courtes, abréviation de l'option longue, `--set-upstream` retiré par
 git, alias, `-C`, code imbriqué, option illisible). La session principale garde
 `git push -u origin develop` et `git branch -u`. Tests : `tests/branch-upstream.test.mjs`.
+
+Création d'une branche suivie (L18-02, décision de Julien du 20 nov. 2026) : refusée aux agents
+dès que git écrirait `branch.<branche>.remote` ; la session principale garde ces commandes
+(dont `git worktree add -b lot/x <dossier> develop`). Refusés :
+
+- `--track` explicite de `git branch`, `checkout`, `switch` et `worktree add`, quel que soit le
+  point de départ (`-t`, `--track=direct|inherit`, abréviations `--tr…`, groupes `-ft`, `-tb`) ;
+- la création quand le suivi automatique s'applique, selon `branch.autoSetupMerge` lu dans `-c`
+  puis dans la configuration vue du dépôt : `true` (défaut) pour un point de départ distant
+  (`origin/develop`, `refs/remotes/…`, `origin`, `@{u}`, ou un nom absent qui commence par un
+  remote), `always` pour toute branche, `inherit` pour une branche qui a un amont, `simple` pour
+  une distante de même nom ; valeur inconnue, variable `GIT_CONFIG*` ou dépôt illisible : refusé.
+  Formes lues : `git branch <nom> [<départ>]` (`-f` compris), `checkout -b|-B` (collé `-ba`, groupe
+  `-qb`), `switch -c|-C|--create|--force-create` (abréviations), `worktree add -b|-B`, sans point
+  de départ = `HEAD` ;
+- la branche distante devinée : `checkout <nom>` et `switch <nom>` (sans `--no-guess` ni
+  `-c checkout.guess=false`), `worktree add <dossier> <nom>`, `worktree add <dossier>` avec
+  `--guess-remote` ou `worktree.guessRemote`, quand `<nom>` n'est pas une révision locale et
+  qu'une branche distante le porte ; dépôt illisible : refusé ;
+- la copie d'une branche suivie (`git branch -c|-C|--copy`, git copie sa configuration) ;
+- `git fetch` et `git pull` `--set-upstream` (et abréviations).
+
+`--no-track` (dernier des deux mots, comme pour git) reste permis, de même que la création depuis
+une branche locale, un commit (`origin/develop~0`) ou `--detach`/`--orphan`. Le motif ne remplace
+pas un refus plus précis déjà posé (écriture de `main`). Comportement de git vérifié dans des clones
+jetables (git 2.30.2 de l'hôte, 2.43.0 de l'image Playwright) ; le test rejoue chaque forme par git
+avant de la vérifier refusée. Tests : `tests/branch-tracking.test.mjs`.
 
 Worktrees (L14-13) : `git worktree remove` (forcé ou non), `move` et `prune` sont refusés aux agents,
 sous toutes les formes (alias, `-C`, code imbriqué, `xargs`) ; la session principale les garde.
