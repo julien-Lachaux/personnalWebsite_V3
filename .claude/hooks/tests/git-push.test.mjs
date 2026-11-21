@@ -1,5 +1,6 @@
 // Règle de git push (git flow, décision de Julien du 19 nov. 2026) : seule la session principale
-// (rôle « main », entrée sans agent_type) pousse, et uniquement develop vers origin. Chaque cas
+// (rôle « main », entrée sans agent_type) pousse, et uniquement develop ou une branche lot/<nom>
+// vers origin (flux par pull request depuis le 21 nov. 2026). Chaque cas
 // rejoue l'entrée JSON du hook PreToolUse comme run.sh la transmet (stdin) ; rien n'est poussé, le
 // hook ne fait qu'analyser la commande. Lancé par `pnpm hooks:test`.
 
@@ -50,6 +51,8 @@ const ALLOWED = [
   'git push -u origin develop',
   'git push --set-upstream origin develop',
   'git push origin develop:develop',
+  // L20-01 (flux par pull request, décision de Julien du 21 nov. 2026) : branche de lot sous son nom.
+  'git push -u origin lot/13-git-flow',
 ];
 
 describe('git push : formes permises à la session principale', () => {
@@ -111,7 +114,7 @@ describe('git push : variantes refusées à la session principale', () => {
     ['git push origin +develop', /refspec forcée/],
     ['git push origin +develop:develop', /refspec forcée/],
     ['git push origin :develop', /supprime une branche distante/],
-    ['git push origin lot/13-git-flow', /branches de lot restent locales/],
+    ['git push origin lot/13-git-flow:lot/autre', /branche de lot se pousse sous son nom/],
     ['git push origin release/1.0.0', /refspec release\/1\.0\.0 refusée/],
     ['git push origin refs/tags/v1.0.0', /étiquettes de version sont réservées/],
     ['git push origin tag v1.0.0', /étiquettes de version sont réservées/],
