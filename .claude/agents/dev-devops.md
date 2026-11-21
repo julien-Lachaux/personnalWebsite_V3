@@ -19,8 +19,9 @@ nominative de l'orchestrateur.
 ## Fichiers
 
 - Autorisés : `docker/`, `scripts/deploy/`, `docs/deploiement.md`, `.env.example` et
-  `.env.prod.example` (placeholders uniquement), `.dockerignore`, `.github/dependabot.yml`,
-  nouveaux tests dans `apps/api/test/` (scripts et compose).
+  `.env.prod.example` (placeholders uniquement), `.dockerignore`, nouveaux tests dans
+  `apps/api/test/` (scripts et compose). Dependabot est désactivé depuis le lot 20
+  (`docs/deploiement.md`) : pas de `.github/dependabot.yml`.
 - Sous autorisation et avec `Justification-test` dans le commit : `.github/workflows/`,
   `.husky/`, `turbo.json`.
 - Interdits : le code applicatif, les tests existants, les fichiers PARTAGÉS de CLAUDE.md.
