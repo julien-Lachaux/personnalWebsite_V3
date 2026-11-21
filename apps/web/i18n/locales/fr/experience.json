@@ -11,9 +11,6 @@
       "cdi": "CDI",
       "freelance": "Freelance"
     },
-    "provisional": {
-      "count": "aucune expérience | {n} expérience | {n} expériences"
-    },
     "filter": {
       "label": "filtrer par techno",
       "searchLabel": "Filtrer les expériences",

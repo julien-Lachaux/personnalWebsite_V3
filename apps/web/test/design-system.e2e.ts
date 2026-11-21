@@ -245,7 +245,7 @@ test.describe('réglages de lecture', () => {
     await open(page, '/');
     const spacing = async (): Promise<{ size: number; values: string[] }> =>
       page
-        .locator('main p')
+        .locator('main .profile__intro')
         .first()
         .evaluate((element) => {
           const style = getComputedStyle(element);
@@ -257,7 +257,7 @@ test.describe('réglages de lecture', () => {
     /** Interligne, lettres et mots rapportés à la taille du texte du paragraphe. */
     const ratios = async (): Promise<number[]> =>
       page
-        .locator('main p')
+        .locator('main .profile__intro')
         .first()
         .evaluate((element) => {
           const style = getComputedStyle(element);

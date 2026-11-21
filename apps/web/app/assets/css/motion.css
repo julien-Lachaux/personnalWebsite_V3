@@ -20,18 +20,30 @@
   }
 }
 
+/*
+ * Easter egg « Huile de coude » (SPEC § 8, lot F5c) : chaque ligne du terminal apparaît en
+ * `--dur-egg-line` (350 ms), la barre de progression se remplit en `--dur-egg-bar` (1,4 s), durées de
+ * la maquette v6. Sous mouvement réduit, elles valent 0,01 ms comme les autres (et la fenêtre met ses
+ * délais à zéro : toutes les lignes sont là d'emblée).
+ */
 :root {
   --dur-slide: 340ms;
   --ease-slide: cubic-bezier(0.22, 0.8, 0.25, 1);
+  --dur-egg-line: 350ms;
+  --dur-egg-bar: 1400ms;
 }
 
 /* Mouvement réduit : mêmes sélecteurs que les durées de tokens.css. */
 :root[data-motion='reduit'] {
   --dur-slide: 0.01ms;
+  --dur-egg-line: 0.01ms;
+  --dur-egg-bar: 0.01ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-motion='normal']) {
     --dur-slide: 0.01ms;
+    --dur-egg-line: 0.01ms;
+    --dur-egg-bar: 0.01ms;
   }
 }

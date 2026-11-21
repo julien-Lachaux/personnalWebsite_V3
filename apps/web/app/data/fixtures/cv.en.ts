@@ -989,7 +989,7 @@ export const cvEn: Cv = {
       dateStart: '2015-05-01',
       dateEnd: '2015-11-01',
       jobTitle: 'Web development mentor',
-      location: 'Remote',
+      location: null,
       summary: 'Mentoring web development students, with one-to-one video lessons.',
       achievements: [],
       stackLabel: 'PHP, JavaScript, HTML5, CSS',

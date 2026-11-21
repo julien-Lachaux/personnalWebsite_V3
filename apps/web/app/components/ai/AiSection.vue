@@ -111,7 +111,7 @@ const id = useId();
   }
 
   .ai__title {
-    font-size: 1.375rem;
+    font-size: var(--font-size-h3-tile);
     letter-spacing: -0.01em;
     line-height: 1.15;
   }
