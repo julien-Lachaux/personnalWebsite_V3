@@ -4,7 +4,8 @@
 // apply, patch) et les commandes interdites (--no-verify, core.hooksPath…). git push n'est permis
 // qu'à la session principale et sous une seule forme (git flow, décision de Julien du 19 nov. 2026) :
 // voir pushRefusal. La plomberie de push, la redéfinition de la destination (git remote, git config)
-// et les actions de gh qui fusionnent, étiquettent, publient ou suppriment sont refusées à tous.
+// et les actions de gh qui étiquettent, publient ou suppriment sont refusées à tous ; gh n'écrit sur
+// GitHub que pour le flux par pull request de la session principale (L20-01, voir analyzeGh).
 //
 // L'analyseur descend dans les constructions composées comme dans les listes : accolades, sous-shells,
 // if, for, while, until, case, !, fonctions, coproc, substitutions de commande (y compris entre
@@ -1561,7 +1562,7 @@ function analyzeSegment(seg, env) {
       analyzeGit(args, env, seg, { assignments, dashed, viaXargs });
       break;
     case 'gh':
-      analyzeGh(args, env);
+      analyzeGh(args, env, { assignments, viaXargs });
       break;
     case 'docker':
       if (args[0] === 'cp' && args.length >= 3) {
@@ -3137,7 +3138,12 @@ function analyzeGit(
 }
 
 // ---------------------------------------------------------------------------------------------
-// gh (GitHub CLI) : fusionner, étiqueter, publier, supprimer sont réservés à Julien (T5).
+// gh (GitHub CLI). Fusionner, étiqueter, publier, supprimer sont réservés à Julien (T5, lot 13 bis).
+// Flux par pull request (L20-01, décision de Julien du 21 nov. 2026) : la session principale ouvre
+// la pull request d'une branche de lot vers develop, la commente, la relit, l'édite, la passe en
+// prête et la fusionne par commit de merge (--merge seulement) ; les agents ne font que lire. Tout
+// le reste est refusé à tous : liste fermée de lectures (GH_READS) et d'écritures de la session
+// principale (GH_PR_WRITES), une commande gh qui n'y figure pas est refusée.
 
 const GH_COMMANDS = new Set(
   (
@@ -3158,14 +3164,249 @@ const GH_VALUED = new Set([
   '--template',
 ]);
 const GH_RESERVED = {
-  pr: new Set(['merge']),
   release: new Set(['create', 'delete', 'delete-asset', 'edit', 'upload']),
   repo: new Set(['delete', 'edit', 'rename', 'archive', 'unarchive', 'sync']),
   alias: new Set(['set', 'import']),
 };
+/** Lectures permises à toutes les sessions : actions de chaque groupe (null : toute action). */
+const GH_READS = {
+  pr: new Set(['view', 'list', 'ls', 'checks', 'diff', 'status']),
+  issue: new Set(['view', 'list', 'ls', 'status']),
+  run: new Set(['view', 'list', 'ls', 'watch']),
+  workflow: new Set(['view', 'list', 'ls']),
+  release: new Set(['view', 'list', 'ls']),
+  repo: new Set(['view', 'list', 'ls']),
+  label: new Set(['list', 'ls']),
+  cache: new Set(['list', 'ls']),
+  secret: new Set(['list', 'ls']),
+  variable: new Set(['list', 'ls']),
+  ruleset: new Set(['view', 'list', 'ls', 'check']),
+  search: new Set(['repos', 'issues', 'prs', 'code', 'commits']),
+  auth: new Set(['status']),
+  status: null,
+  version: null,
+  help: null,
+};
+/** Branche de lot nommée en clair (git flow) : lot/<nom>, un seul niveau. */
+export const LOT_BRANCH = /^lot\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+/** Branche d'intégration, seule base permise d'une pull request de la session principale. */
+const PR_BASE = 'develop';
+/** Variables d'environnement de gh qui changent le dépôt ou l'hôte visés. */
+const GH_TARGET_ENV = new Set([
+  'GH_REPO',
+  'GH_HOST',
+  'GH_ENTERPRISE_TOKEN',
+  'GITHUB_ENTERPRISE_TOKEN',
+]);
+// Options permises de chaque écriture de la session principale : [longue, courte, avec valeur].
+const GH_TEXT_OPTIONS = [
+  ['--title', '-t', true],
+  ['--body', '-b', true],
+  ['--body-file', '-F', true],
+];
+const GH_PR_WRITES = {
+  create: [
+    ...GH_TEXT_OPTIONS,
+    ['--base', '-B', true],
+    ['--head', '-H', true],
+    ['--draft', '-d', false],
+    ['--fill', '-f', false],
+    ['--fill-first', null, false],
+    ['--fill-verbose', null, false],
+    ['--label', '-l', true],
+    ['--assignee', '-a', true],
+    ['--reviewer', '-r', true],
+    ['--milestone', '-m', true],
+    ['--dry-run', null, false],
+    ['--no-maintainer-edit', null, false],
+    ['--template', '-T', true],
+  ],
+  merge: [
+    ['--merge', '-m', false],
+    ['--subject', '-t', true],
+    ['--body', '-b', true],
+    ['--body-file', '-F', true],
+    ['--match-head-commit', null, true],
+    ['--author-email', '-A', true],
+  ],
+  comment: [
+    ['--body', '-b', true],
+    ['--body-file', '-F', true],
+    ['--edit-last', null, false],
+    ['--create-if-none', null, false],
+  ],
+  review: [
+    ['--approve', '-a', false],
+    ['--comment', '-c', false],
+    ['--request-changes', '-r', false],
+    ['--body', '-b', true],
+    ['--body-file', '-F', true],
+  ],
+  edit: [
+    ...GH_TEXT_OPTIONS,
+    ['--base', '-B', true],
+    ['--add-label', null, true],
+    ['--remove-label', null, true],
+    ['--add-reviewer', null, true],
+    ['--remove-reviewer', null, true],
+    ['--add-assignee', null, true],
+    ['--remove-assignee', null, true],
+    ['--milestone', '-m', true],
+    ['--remove-milestone', null, false],
+  ],
+  ready: [['--undo', null, false]],
+};
+/** Options refusées avec un motif propre : [action ou '*', option longue, courte, motif]. */
+const GH_PR_DENIED = [
+  ['*', '--repo', '-R', 'vise un autre dépôt que celui du checkout'],
+  [
+    'merge',
+    '--squash',
+    '-s',
+    'seule la fusion par commit de merge (--merge) est permise, jamais squash',
+  ],
+  [
+    'merge',
+    '--rebase',
+    '-r',
+    'seule la fusion par commit de merge (--merge) est permise, jamais rebase',
+  ],
+  ['merge', '--admin', null, 'contourne la protection de develop : réservé à Julien'],
+  [
+    'merge',
+    '--delete-branch',
+    '-d',
+    'supprime la branche distante : réservé à Julien (réglage de suppression automatique de GitHub)',
+  ],
+  [
+    'merge',
+    '--auto',
+    null,
+    'fusion différée : la session principale fusionne elle-même, après CI verte, revue sans point bloquant et recette acceptée',
+  ],
+  ['merge', '--disable-auto', null, 'la fusion automatique ne sert pas : option refusée'],
+  ['comment', '--delete-last', null, 'supprime un commentaire : réservé à Julien'],
+  ['comment', '--yes', null, 'confirme une suppression : réservé à Julien'],
+  ['*', '--editor', '-e', 'ouvre un éditeur (commande lancée par gh) : écris le texte en option'],
+  ['*', '--web', '-w', 'passe par le navigateur, hors de toute vérification : écris la commande'],
+  ['*', '--attach', null, 'téléverse un fichier sur GitHub : refusé'],
+  ['*', '--recover', null, 'reprend une saisie illisible : écris la commande en entier'],
+  ['*', '--project', '-p', 'écrit dans un projet GitHub : refusé'],
+  ['*', '--add-project', null, 'écrit dans un projet GitHub : refusé'],
+  ['*', '--remove-project', null, 'écrit dans un projet GitHub : refusé'],
+];
 
-function analyzeGh(args, env) {
-  const { deny } = env;
+/** Motif propre d'une option refusée de `gh pr <action>`, ou null. */
+function ghDeniedOption(action, name) {
+  const hit = GH_PR_DENIED.find(
+    ([a, long, short]) => (a === '*' || a === action) && (name === long || name === short),
+  );
+  return hit ? `gh pr ${action} ${name} : ${hit[3]}` : null;
+}
+
+/**
+ * Lit les options de `gh pr <action>` (après l'action) selon la liste permise : options et valeurs,
+ * arguments, ou le motif d'un refus. Une option inconnue, groupée, ou une option sans valeur écrite
+ * avec une valeur (`--merge=false`) est refusée : la commande doit se lire sans ambiguïté.
+ */
+function ghPrOptions(action, rest) {
+  const spec = GH_PR_WRITES[action];
+  const flags = new Map();
+  const positionals = [];
+  for (let k = 0; k < rest.length; k += 1) {
+    const a = rest[k];
+    if (a === '--') {
+      positionals.push(...rest.slice(k + 1));
+      break;
+    }
+    if (!a.startsWith('-') || a === '-') {
+      positionals.push(a);
+      continue;
+    }
+    const long = a.startsWith('--');
+    const eq = long ? a.indexOf('=') : -1;
+    const name = long ? (eq < 0 ? a : a.slice(0, eq)) : a.slice(0, 2);
+    if (name.includes(UNKNOWN))
+      return { error: `gh pr ${action} ${shown(a)} : option illisible, donc refusée` };
+    let value = long ? (eq < 0 ? null : a.slice(eq + 1)) : a.length > 2 ? a.slice(2) : null;
+    if (!long && value !== null && value.startsWith('=')) value = value.slice(1);
+    const denied = ghDeniedOption(action, name);
+    if (denied) return { error: denied };
+    const def = spec.find(([l, s]) => name === l || name === s);
+    if (def === undefined)
+      return {
+        error: `gh pr ${action} ${name} : option non permise (liste fermée des options du flux par pull request)`,
+      };
+    const [key, , valued] = def;
+    if (valued && value === null) {
+      if (k + 1 >= rest.length)
+        return { error: `gh pr ${action} ${name} : valeur absente, commande illisible` };
+      k += 1;
+      value = rest[k];
+    } else if (!valued && value !== null) {
+      return {
+        error: `gh pr ${action} ${shown(a)} : option sans valeur écrite avec une valeur ou groupée ; écris chaque option seule`,
+      };
+    }
+    if (!flags.has(key)) flags.set(key, []);
+    flags.get(key).push(value);
+  }
+  return { flags, positionals };
+}
+
+/** Motif du refus d'une écriture `gh pr <action>` de la session principale, ou null. */
+function ghPrWriteRefusal(action, args, env, assignments, viaXargs) {
+  if (viaXargs)
+    return `gh pr ${action} sous xargs : arguments lus sur l'entrée standard, illisible, donc refusé`;
+  const names = [...assignments.map((a) => a.slice(0, a.indexOf('='))), ...env.st.vars.keys()];
+  const targetEnv = names.find((n) => GH_TARGET_ENV.has(n));
+  if (targetEnv)
+    return `gh pr ${action} avec la variable ${targetEnv} : elle change le dépôt ou l'hôte visés`;
+  const parsed = ghPrOptions(action, args.slice(2));
+  if (parsed.error) return parsed.error;
+  const { flags, positionals } = parsed;
+  const one = (key) => {
+    const values = flags.get(key) ?? [];
+    if (values.length > 1) return null;
+    return values[0];
+  };
+  if (positionals.some((p) => p.includes(UNKNOWN)))
+    return `gh pr ${action} ${positionals.map(shown).join(' ')} : pull request illisible, donc refusée`;
+  if (positionals.length > 1)
+    return `gh pr ${action} : plusieurs pull requests (${positionals.join(' ')}), une seule à la fois`;
+  const base = one('--base');
+  if (base === null) return `gh pr ${action} : --base répété, illisible`;
+  if (base !== undefined && base !== PR_BASE)
+    return (
+      `gh pr ${action} --base ${shown(base)} : une pull request de la session principale vise ` +
+      `${PR_BASE}, jamais une autre branche (main est réservée à Julien)`
+    );
+  if (action === 'create') {
+    if (positionals.length > 0)
+      return `gh pr create ${positionals.join(' ')} : argument non permis`;
+    if (base === undefined)
+      return `gh pr create sans --base ${PR_BASE} : la base par défaut dépend du dépôt ; écris --base ${PR_BASE}`;
+    const head = one('--head');
+    if (typeof head !== 'string' || !LOT_BRANCH.test(head))
+      return (
+        'gh pr create : --head lot/<nom> obligatoire, une seule fois et en clair (sans lui, gh ' +
+        'peut pousser la branche courante lui-même)'
+      );
+  }
+  if (action === 'merge') {
+    if (!flags.has('--merge'))
+      return 'gh pr merge sans --merge : seule la fusion par commit de merge est permise (gh pr merge --merge lot/<nom>)';
+    if (positionals.length !== 1 || !LOT_BRANCH.test(positionals[0]))
+      return (
+        'gh pr merge : nomme la pull request par sa branche de lot (gh pr merge --merge lot/<nom>), ' +
+        'seule forme dont la base est vérifiée à la création'
+      );
+  }
+  return null;
+}
+
+function analyzeGh(args, env, { assignments = [], viaXargs = false } = {}) {
+  const { deny, role } = env;
   const ops = operands(args, GH_VALUED);
   const [group, action] = ops;
   if (group === undefined) return;
@@ -3210,7 +3451,36 @@ function analyzeGh(args, env) {
       deny(
         'gh api avec -f, -F, --field, --raw-field ou --input écrit sur GitHub : réservé à Julien',
       );
+    return;
   }
+  // Groupe seul (gh pr) : aide de gh, sans effet.
+  if (action === undefined) return;
+  const reads = Object.hasOwn(GH_READS, group) ? GH_READS[group] : undefined;
+  if (reads === null) return;
+  // gh lit une option inconnue placée avant l'action comme suivie d'une valeur : l'action réelle
+  // pourrait alors être un autre mot que celui lu ici. Groupe et action s'écrivent en tête.
+  if (args[0] !== group || args[1] !== action) {
+    deny(`gh ${group} ${action} : écris gh ${group} ${action} en tête, les options ensuite`);
+    return;
+  }
+  if (reads?.has(action)) return;
+  if (group === 'pr' && Object.hasOwn(GH_PR_WRITES, action)) {
+    if (role !== 'main') {
+      deny(
+        `gh pr ${action} écrit sur GitHub : interdit aux agents (rôle ${role ?? 'inconnu'}) ; seule ` +
+          'la session principale ouvre, commente, relit et fusionne les pull requests, les agents ' +
+          'ne font que lire',
+      );
+      return;
+    }
+    const refusal = ghPrWriteRefusal(action, args, env, assignments, viaXargs);
+    if (refusal) deny(refusal);
+    return;
+  }
+  deny(
+    `gh ${group} ${action} : ni une lecture ni une écriture du flux par pull request ; refusé ` +
+      `(${role === 'main' ? 'session principale' : `rôle ${role ?? 'inconnu'}`})`,
+  );
 }
 
 /** Vrai si un code opaque contient une primitive d'écriture. */
