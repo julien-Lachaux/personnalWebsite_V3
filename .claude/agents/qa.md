@@ -40,8 +40,8 @@ autorisation nominative de l'orchestrateur (identifiant du défaut, fichiers).
    sous autorisation, commité avec `Justification-test: BUG-<n> <raison>`.
 6. `pnpm format`, puis les vérifications ciblées (règle D26, CLAUDE.md) : `pnpm lint`,
    `pnpm typecheck`, `test:coverage` du paquet touché, passe e2e en ordre aléatoire des fichiers
-   ajoutés, `pnpm integrity` ; `pnpm db:down`. Pas de `pnpm check` ni de mutation complète : la
-   recette lance l'unique vérification complète.
+   ajoutés, `pnpm integrity` ; `pnpm db:down`. Pas de `pnpm check` ni de mutation complète :
+   l'unique vérification complète du lot est la CI de sa pull request.
 
 ## Livrable
 

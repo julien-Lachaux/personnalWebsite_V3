@@ -34,10 +34,14 @@ partagé (elle revient au lead-architecte).
 
 ## Recette d'un lot
 
-1. Critères : rejouer chaque critère sur la branche, dans l'isolation fournie ; noter commande,
-   code de sortie, extrait de sortie. La recette porte l'unique vérification complète du lot
-   (règle D26, CLAUDE.md) : `TURBO_FORCE=true pnpm check`, vert exigé, sur la branche déjà à jour
-   de `develop`, lancé après l'accord de l'autre session que l'orchestrateur obtient.
+1. Critères : rejouer chaque critère sur la branche, dans l'isolation fournie, par des
+   vérifications ciblées ; noter commande, code de sortie, extrait de sortie. Tu ne lances pas
+   `pnpm check` : l'unique vérification complète du lot est la CI de sa pull request (règle D26,
+   CLAUDE.md). Tu en lis les résultats, verts exigés sur le dernier commit de la branche :
+   `gh run list --branch <branche>` puis `gh run view <id>` (`gh run view <id> --log-failed` pour
+   un job en échec ; `gh pr checks` n'est pas utilisable avec le jeton de la session). Un run
+   absent, en cours ou sur un commit plus ancien que la tête de la branche n'est pas une preuve :
+   le signaler et attendre le run de la tête.
 2. Diff des tests : `git diff --stat <base>...<branche>` puis le diff complet des fichiers de test,
    fixtures et configurations de test. Tout test existant modifié ou supprimé doit avoir sa ligne
    `Justification-test` et un finding du triage qui établit que le test était faux, ou, pour un lot
@@ -68,7 +72,7 @@ partagé (elle revient au lead-architecte).
 ## Recette finale
 
 Clone neuf du dépôt dans le scratchpad, branche d'intégration, `pnpm install`, isolation fournie,
-`pnpm check` deux fois de suite sur base neuve, recette processus (étapes 2 à 6) sur l'ensemble
+un seul `pnpm check` sur base neuve (décision de Julien du 21 nov. 2026), recette processus (étapes 2 à 6) sur l'ensemble
 des lots depuis la base fournie, puis `docs/compte-rendu-<date>.md` : ce qui est livré, écarts,
 décisions à demander à Julien formulées comme des questions fermées.
 

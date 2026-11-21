@@ -54,7 +54,7 @@ nominative de l'orchestrateur.
    vérifications ciblées (règle D26, CLAUDE.md) : `pnpm lint`, `pnpm typecheck`, les tests des
    scripts et des paquets touchés, `pnpm integrity`, et `pnpm integrity:test` ou
    `pnpm hooks:test` si `scripts/ci/` ou les garde-fous sont touchés. Pas de `pnpm check` ni de
-   mutation complète : la recette lance l'unique vérification complète.
+   mutation complète : l'unique vérification complète du lot est la CI de sa pull request.
 
 ## Livrable
 
