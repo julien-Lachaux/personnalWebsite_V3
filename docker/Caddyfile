@@ -48,18 +48,57 @@ http://{$SITE_DOMAIN:localhost} {
 		reverse_proxy api:3000
 	}
 
-	# Tant que le front n'existe pas : page statique minimale (aucune ressource externe).
+	# Front statique (BF-14) : /srv/web/current est le lien du volume du site, basculé atomiquement par
+	# web-generate.sh vers releases/<id>/ qui contient public/ (pages, _nuxt/, fonts/, cv/) et csp.caddy
+	# (CSP et empreintes de cette génération, relevées par csp-hashes.mjs). Le rechargement de Caddy
+	# (site.sh) relit csp.caddy après chaque publication. L'importation par motif n'échoue pas si aucune
+	# version n'est encore publiée (première installation) : le site répond alors 404 sans CSP.
+
+	# D15 : la langue par défaut n'a pas de préfixe ; `/fr` et `/fr/*` redirigent (301) vers le même
+	# chemin sans préfixe (doublure de la page `meta refresh` que Nuxt génère, en 200). Le premier
+	# caractère de la suite ne peut être ni `/` ni `\` : `/fr//hote` donnerait `//hote`, une
+	# redirection hors du site (ce chemin tombe alors sur la page 404).
+	@fr path_regexp fr ^/fr(?:/([^/\\].*)?)?$
+	handle @fr {
+		redir * /{re.fr.1} permanent
+	}
+
 	handle {
-		header Content-Security-Policy "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
-		header X-Frame-Options "SAMEORIGIN"
-		root * /srv/placeholder
+		import /srv/web/current/csp.*
+		header X-Frame-Options "DENY"
+		# Fichiers à empreinte de Nuxt : le nom change avec le contenu, jamais de revalidation. Polices
+		# (noms de version fixes, jamais modifiées sur place) : une semaine. Pages et PDF : revalidation
+		# (ETag) à chaque visite, la nouvelle version est servie dès sa publication.
+		@immutable path /_nuxt/*
+		@fonts path /fonts/*
+		@revalidate not path /_nuxt/* /fonts/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		header @fonts Cache-Control "public, max-age=604800"
+		header @revalidate Cache-Control "no-cache"
+
+		root * /srv/web/current/public
+		# `/en` sert en/index.html sans redirection vers `/en/`.
+		try_files {path} {path}/index.html
 		file_server
 	}
 
 	# Erreurs produites par Caddy (413 du plafond de corps, 502 si l'API est arrêtée…) : sans `Server`.
+	# Une route inconnue du front (404 du file_server) sert la vraie page 404 du front, avec son statut.
 	handle_errors {
 		header -Server
 		header X-Frame-Options "DENY"
-		respond "{err.status_code} {err.status_text}" {err.status_code}
+		@front404 expression {err.status_code} == 404
+		handle @front404 {
+			import /srv/web/current/csp.*
+			header Cache-Control "no-cache"
+			root * /srv/web/current/public
+			rewrite * /404.html
+			file_server {
+				status 404
+			}
+		}
+		handle {
+			respond "{err.status_code} {err.status_text}" {err.status_code}
+		}
 	}
 }

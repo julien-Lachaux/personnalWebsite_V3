@@ -1,0 +1,22 @@
+# Contexte de build de docker/web.Dockerfile : front, contrats et scripts de génération seulement.
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!apps/web/**
+!packages/contracts/**
+!scripts/deploy/web-generate.sh
+!scripts/deploy/csp-hashes.mjs
+apps/web/design
+apps/web/test
+apps/web/.nuxt
+apps/web/.output
+apps/web/.data
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/*.tsbuildinfo
+**/.turbo
+**/coverage
