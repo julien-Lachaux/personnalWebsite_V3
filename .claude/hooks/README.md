@@ -138,6 +138,16 @@ Refusé à tous les rôles, session principale comprise (lot 13 bis) :
   `--comment`, `--default` ou `--file` n'est pas une action) et un préfixe d'action d'écriture
   (`--unset-a`) compte comme écriture ; écrire, retirer ou renommer `core.hooksPath` (ou la
   section `core`) reste refusé. Tests : `tests/config-read.test.mjs` ;
+- `core.hooksPath` hors de `git config` (L19-02, décision de Julien du 21 nov. 2026), comme
+  `git -c core.hooksPath=` : `GIT_CONFIG_PARAMETERS` qui le nomme, `GIT_CONFIG_KEY_<n>` qui le vaut
+  (avec `GIT_CONFIG_COUNT`, git >= 2.31), en tête de commande, par `env`, `export`, `declare -x` ou
+  une affectation plus loin ; `--config-env core.hooksPath=<variable>` ; un fichier inclus depuis la
+  ligne de commande ou l'environnement (`-c include.path=`, `-c includeIf.*.path=`, les mêmes clés
+  par ces variables), qui peut le fixer. Une valeur calculée de `GIT_CONFIG_PARAMETERS`,
+  `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_<n>` ou `GIT_CONFIG_VALUE_<n>` (`+=`, `read`, `printf -v`,
+  `declare -n` compris) et une clé `-c` ou `--config-env` calculée sont illisibles, donc refusées.
+  `GIT_CONFIG_GLOBAL` et `GIT_CONFIG_SYSTEM` restent permis : ils passent après la configuration
+  locale où husky pose la clé. Tests : `tests/hookspath-env.test.mjs` ;
 - `gh` pour ce qui fusionne, étiquette, publie ou supprime : `gh pr merge`,
   `gh release create|delete|delete-asset|edit|upload`,
   `gh repo delete|edit|rename|archive|unarchive|sync`, toute action `delete`, `gh alias set|import`, `gh api` avec une méthode autre que GET ou avec `-f`, `-F`,
@@ -168,7 +178,17 @@ comprise, ne l'écrit, car une écriture locale partirait dans le prochain push 
   `reset` de `refs/heads/main` ; flux lu sur un tube ou calculé : illisible), `replay` qui écrit
   `main` (`--ref`, `--advance`, `--revert`) ou des branches déduites du parcours (`--onto` sans
   `--ref`, `--contained`), sauf `--ref-action=print`, et `rebase --update-refs` (branches du
-  parcours).
+  parcours) ;
+- les formes voisines de la création de `main` (L19-01, décision de Julien du 21 nov. 2026) :
+  options courtes groupées ou collées à leur valeur (`checkout -qb main`, `-bmain`,
+  `switch -cmain`, `worktree add -qbmain`), options longues abrégées (`switch --cr main`,
+  `--force-c`, `checkout --or main`, `branch --cop develop main`, `--mo`, `--de`), `--track` sans
+  nom groupé ou abrégé (`checkout -qt origin/main`, `--tr`, `-t remotes/origin/main`), branche
+  distante devinée quand `main` n'existe pas en local (`checkout main`, `switch main`,
+  `worktree add ../main`, `worktree add <dossier> main`) et `worktree add --orphan ../main`. Une
+  `main` locale existante reste un passage permis. Option ou valeur collée calculée (`-$X`,
+  `-qb"$NOM"`) et dossier calculé sans point de départ (`worktree add "$D"`) : illisibles, donc
+  refusés. Tests : `tests/main-glued-options.test.mjs`.
 
 La branche courante est lue dans le dépôt (`git symbolic-ref`) ou suivie dans la commande quand elle
 y change (`checkout`, `switch`, `worktree add`, `symbolic-ref HEAD`, `rebase <amont> <branche>`,

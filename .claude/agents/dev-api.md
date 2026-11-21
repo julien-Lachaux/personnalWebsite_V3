@@ -36,7 +36,10 @@ ressources (`<resource>`), tickets et critères, contrats déjà livrés, date d
 3. Tests : unitaires du cas d'usage et du contrôleur, e2e de chaque route dans les deux langues,
    repli, non publié, ordre, 400 et 404 en problem+json, conformité au contrat. Couverture 100 %
    par du code réellement exécuté et des assertions qui portent sur le résultat.
-4. `pnpm format`, `pnpm check` ; `pnpm db:down` en fin de lot.
+4. `pnpm format`, puis les vérifications ciblées (règle D26, CLAUDE.md) : `pnpm lint`,
+   `pnpm typecheck`, `pnpm --filter @siteperso/api test:coverage`, la mutation des seuls fichiers
+   touchés (`stryker run --mutate <fichiers>`), `pnpm integrity` ; `pnpm db:down` en fin de lot.
+   Pas de `pnpm check` ni de mutation complète : la recette lance l'unique vérification complète.
 
 ## Livrable
 
@@ -65,7 +68,8 @@ et sortie), puis continue le reste. C'est un résultat acceptable et le seul che
 ## Terminé quand
 
 Chaque route de la ressource répond selon le contrat dans les deux langues, la couverture reste à
-100 %, `pnpm check` est vert, aucun fichier hors des dossiers autorisés n'a changé.
+100 %, les vérifications ciblées sont vertes et citées au compte rendu, aucun fichier hors des
+dossiers autorisés n'a changé.
 
 ## Git et garde-fous
 

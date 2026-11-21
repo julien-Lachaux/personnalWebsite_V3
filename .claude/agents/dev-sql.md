@@ -35,7 +35,10 @@ critères, extrait de `docs/01` concerné, date du jour.
    champ, texte FR, texte EN proposé).
 5. Aligner le schéma Drizzle ; ajouter les tests qui prouvent la contrainte (e2e contre le
    PostgreSQL de test) et la convergence des seeds (deux rejeux, même contenu).
-6. `pnpm db:reset` puis `pnpm format` et `pnpm check` ; `pnpm db:down` en fin de lot.
+6. `pnpm db:reset` puis `pnpm format` et les vérifications ciblées (règle D26, CLAUDE.md) :
+   `pnpm lint`, `pnpm typecheck`, `pnpm --filter @siteperso/api test:coverage` (e2e des contraintes
+   et des seeds compris), `pnpm integrity` ; `pnpm db:down` en fin de lot. Pas de `pnpm check` ni
+   de mutation complète : la recette lance l'unique vérification complète.
 
 ## Livrable
 
@@ -64,7 +67,7 @@ et sortie), puis continue le reste. C'est un résultat acceptable et le seul che
 
 ## Terminé quand
 
-Critères prouvés, `pnpm db:reset` et `pnpm check` verts, seeds rejoués deux fois sans écart,
+Critères prouvés, `pnpm db:reset` et les vérifications ciblées verts, seeds rejoués deux fois sans écart,
 traductions listées, conteneurs arrêtés.
 
 ## Git et garde-fous

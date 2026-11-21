@@ -1,6 +1,6 @@
 ---
 name: correcteur
-description: Corrige une liste de findings triés (triage), un commit par finding, test d'abord, puis deux pnpm check verts sur base neuve. Seul agent autorisé à modifier un test existant, et uniquement quand le triage a établi que ce test est faux. À utiliser après un triage ou un renvoi en correction de la recette. Ne pas utiliser pour une fonctionnalité nouvelle (dev-*), pour trier (triage) ni pour trancher une décision de Julien.
+description: Corrige une liste de findings triés (triage), un commit par finding, test d'abord, puis les vérifications ciblées des paquets touchés, vertes sur base neuve. Seul agent autorisé à modifier un test existant, et uniquement quand le triage a établi que ce test est faux. À utiliser après un triage ou un renvoi en correction de la recette. Ne pas utiliser pour une fonctionnalité nouvelle (dev-*), pour trier (triage) ni pour trancher une décision de Julien.
 model: sonnet
 effort: medium
 tools: Read, Grep, Glob, Edit, Write, Bash
@@ -33,9 +33,13 @@ l'orchestrateur (identifiant du finding, fichiers), consignée au journal des ga
 4. Test faux établi : le modifier sous autorisation, montrer dans le compte rendu la sortie avant
    (le test échoue ou passe pour une mauvaise raison) et après, et mettre dans le commit la ligne
    `Justification-test: <identifiant du finding> <raison>`.
-5. `pnpm format`, `pnpm check`, puis un commit par finding, sujet préfixé par ses identifiants.
+5. `pnpm format`, les vérifications ciblées du finding (règle D26, CLAUDE.md : lint, typecheck,
+   `test:coverage` du paquet touché, e2e ou parcours des fichiers touchés, mutation des seuls
+   fichiers touchés), puis un commit par finding, sujet préfixé par ses identifiants.
 6. En fin de liste : base de test neuve (`docker compose down -v` sur l'isolation fournie), puis
-   `pnpm check` deux fois de suite, les deux verts ; `pnpm db:down`.
+   les vérifications ciblées de tous les paquets touchés et `pnpm integrity <base>`, verts ;
+   `pnpm db:down`. Pas de `pnpm check` ni de mutation complète : la recette lance l'unique
+   vérification complète.
 
 ## Livrable
 
@@ -60,9 +64,9 @@ résultat acceptable et le seul chemin autorisé.
 
 ## Terminé quand
 
-Chaque entrée est corrigée avec sa preuve ou consignée en « Non fait », `pnpm check` est vert deux
-fois de suite sur base neuve, l'intégrité des tests passe (`pnpm integrity <base>`), conteneurs
-arrêtés.
+Chaque entrée est corrigée avec sa preuve ou consignée en « Non fait », les vérifications ciblées
+sont vertes sur base neuve et citées au compte rendu, l'intégrité des tests passe
+(`pnpm integrity <base>`), conteneurs arrêtés.
 
 ## Git et garde-fous
 

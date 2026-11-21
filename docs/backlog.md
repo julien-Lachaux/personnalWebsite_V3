@@ -1335,6 +1335,21 @@ Quatre questions fermées remontées par la recette du lot 12, toutes tranchées
   concernées), lue dans le `.env` racine du worktree ; sans valeur, comportement actuel (cœurs moins
   un), en CI compris. Constat du 20 nov. : deux `pnpm check` simultanés (back et front) donnent des
   `HookTimeoutError` (charge 31 sur 16 cœurs).
+- **L19-04** (lead-architecte, portée `config`, ajouté par Julien le 21 nov. 2026) : **règle D26, une
+  seule vérification complète par lot.**
+  - Les agents de développement (`dev-*`), le correcteur et le lead-architecte ne lancent plus
+    `pnpm check` ni la mutation complète.
+  - Ils font des vérifications ciblées : lint, typecheck, `test:coverage` du paquet touché, e2e ou
+    parcours des fichiers touchés, mutation des seuls fichiers touchés, `pnpm integrity`, et
+    `pnpm hooks:test` ou `pnpm integrity:test` si les garde-fous sont touchés.
+  - La recette (chef-de-projet) lance l'unique `TURBO_FORCE=true pnpm check`, sur la branche déjà à
+    jour de `develop`, après accord de l'autre session, que l'orchestrateur obtient.
+  - Pas de nouveau check à la fusion si `develop` n'a pas bougé.
+  - La CI reste le filet.
+  - À reporter dans `CLAUDE.md` (phrase des e2e avant livraison, « Worktrees en parallèle »,
+    commandes) et dans les fichiers d'agents (« Méthode » et « Terminé quand » de `dev-api`,
+    `dev-sql`, `dev-contrats`, `dev-devops`, `dev-front`, `correcteur`, `lead-architecte`, `qa`,
+    `qa-front` ; recette du chef-de-projet), sans toucher la section commune « Git et garde-fous ».
 
 ## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
 

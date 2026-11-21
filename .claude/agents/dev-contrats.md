@@ -33,7 +33,11 @@ jour.
    Zod 4, pas de `.default()` dans un schéma de réponse, descriptions en français.
 3. Tests : chaque schéma accepte un exemple valide et refuse chaque cas invalide significatif ; le
    document généré reste valide (OpenAPI 3.2.0) et contient la route.
-4. `pnpm --filter @siteperso/contracts build`, `pnpm format`, `pnpm check`.
+4. `pnpm --filter @siteperso/contracts build`, `pnpm format`, puis les vérifications ciblées
+   (règle D26, CLAUDE.md) : `pnpm lint`, `pnpm typecheck`,
+   `pnpm --filter @siteperso/contracts test:coverage`, la mutation des seuls fichiers touchés
+   (`stryker run --mutate <fichiers>`), `pnpm integrity`. Pas de `pnpm check` ni de mutation
+   complète : la recette lance l'unique vérification complète.
 
 ## Livrable
 
@@ -60,8 +64,9 @@ puis continue le reste. C'est un résultat acceptable et le seul chemin autoris�
 
 ## Terminé quand
 
-Chaque champ est tracé jusqu'à sa colonne, la couverture des contrats reste à 100 %, `pnpm check`
-est vert, les demandes de changement partagé sont écrites.
+Chaque champ est tracé jusqu'à sa colonne, la couverture des contrats reste à 100 %, les
+vérifications ciblées sont vertes et citées au compte rendu, les demandes de changement partagé sont
+écrites.
 
 ## Git et garde-fous
 

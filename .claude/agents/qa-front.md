@@ -47,7 +47,10 @@ test existant, une autorisation nominative de l'orchestrateur (identifiant du d�
    attendu, obtenu, capture ou trace) et un test en échec attendu (marqueur `fails` de Playwright
    ou de Vitest) nommé `BUG-F<n>`, écrit sous autorisation, commité avec
    `Justification-test: BUG-F<n> <raison>`.
-6. `pnpm --filter @siteperso/web test:e2e`, `pnpm format`, `pnpm check` ; `pnpm db:down`.
+6. `pnpm format`, puis les vérifications ciblées (règle D26, CLAUDE.md) :
+   `pnpm --filter @siteperso/web lint typecheck test:coverage`, les parcours Playwright ajoutés ou
+   touchés, en passe répétée, `pnpm integrity` ; `pnpm db:down`. Pas de `pnpm check` ni de mutation
+   complète : la recette lance l'unique vérification complète.
 
 ## Livrable
 
@@ -72,7 +75,7 @@ référence à la spec) et continue. C'est un résultat acceptable et le seul ch
 ## Terminé quand
 
 Parcours et matrice exigés présents, axe ne signale rien hors défauts documentés, chaque défaut a
-son test et sa reproduction, `pnpm check` vert et passe répétée verte, aucun fichier de production
+son test et sa reproduction, vérifications ciblées vertes et passe répétée verte, aucun fichier de production
 modifié.
 
 ## Git et garde-fous
