@@ -92,19 +92,23 @@ directive (mot entier, depuis le 20 nov. 2026), et chaque équivalent cité dés
 la ligne et le mutateur (champ `mutator`, obligatoire depuis le 20 nov. 2026) que la directive
 retire du score (`scripts/ci/stryker-directives.mjs`).
 
-## git push (git flow, décision de Julien du 19 nov. 2026)
+## git push (git flow, décision de Julien du 19 nov. 2026 ; flux par pull request, 21 nov. 2026)
 
-Seule la session principale (rôle `main`, entrée sans `agent_type`) pousse, et sous une seule
-forme : `git push origin develop`, `git push -u origin develop` ou
-`git push --set-upstream origin develop` (refspec `develop:develop` admise), éventuellement
-précédée de `-C <chemin>`, `--no-pager`, `-P` ou d'un `-c <clé>=<valeur>` sans effet sur la
+Seule la session principale (rôle `main`, entrée sans `agent_type`) pousse, et sous deux formes :
+`git push origin develop`, `git push -u origin develop` ou
+`git push --set-upstream origin develop` (refspec `develop:develop` admise) ; depuis L20-01, la
+branche d'un lot sous son nom, `git push [-u | --set-upstream] origin lot/<nom>` (refspec
+`lot/<nom>:lot/<nom>` admise, un seul niveau après `lot/`). `develop` reste permise pour
+l'instant : la fusion du lot 20 passe encore par là, la protection de `develop` sur GitHub refuse
+ce push ensuite. Chaque forme est éventuellement précédée de `-C <chemin>`, `--no-pager`, `-P` ou d'un `-c <clé>=<valeur>` sans effet sur la
 destination (`color.*`, `advice.*`, `user.*`, `i18n.*`, `core.quotepath`). La forme peut se trouver
 dans une liste ou un bloc (`{ … ; }`, `if … then … fi`, `cmd && git push origin develop`) : ce qui
 compte est qu'elle soit lisible. `lib/shell.mjs` (`pushRefusal`) refuse tout le reste avec son motif :
 
 - tout git push d'un agent, quelle que soit la forme ;
 - autre remote qu'`origin` ; autre branche ou refspec (`main`, `master`, `HEAD`, `+…`, `:…`,
-  `lot/*`, `release/*`, étiquette, `refs/tags/…`), plusieurs refspecs, refspec calculée (`$BR`) ;
+  `lot/<a>:lot/<b>`, `refs/heads/lot/…`, `release/*`, étiquette, `refs/tags/…`), plusieurs
+  refspecs, refspec calculée (`$BR`) ;
 - refspec absente (`git push`, `git push origin`) : le résultat dépend de la configuration ;
 - `--force`, `-f`, `--force-with-lease`, `--force-if-includes`, `--delete`, `-d`, `--prune`,
   `--all`, `--branches`, `--mirror`, `--tags`, `--follow-tags`, `--push-option`, `-o`,
@@ -193,7 +197,7 @@ arguments lus par `xargs` : refusés. Groupe et action s'écrivent en tête (`gh
 une option inconnue placée avant l'action comme suivie d'une valeur, l'action réelle pourrait être
 un autre mot. Le refus `permissions.deny` de `gh pr merge*` dans `.claude/settings.json` double
 encore toute fusion (voir le compte rendu du lot 20). Tests : `tests/pr-flow.test.mjs` (session
-principale et quinze rôles) et `tests/revue-pr-scope.test.mjs` (l'agent `revue-pr` n'écrit aucun
+principale et quinze rôles), `tests/push-lot.test.mjs` (push d'une branche de lot) et `tests/revue-pr-scope.test.mjs` (l'agent `revue-pr` n'écrit aucun
 chemin du dépôt).
 
 ## Branche locale main et worktrees (lot 14)

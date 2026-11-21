@@ -2,7 +2,7 @@
 // d'écriture (redirections, rm, mv, cp, tee, sed -i, perl -i, dd, git checkout/restore/rm/mv,
 // find -delete…), les écritures opaques (interpréteurs avec code en ligne ou script, xargs, git
 // apply, patch) et les commandes interdites (--no-verify, core.hooksPath…). git push n'est permis
-// qu'à la session principale et sous une seule forme (git flow, décision de Julien du 19 nov. 2026) :
+// qu'à la session principale, vers origin et pour develop ou lot/<nom> seulement (git flow, L20-01) :
 // voir pushRefusal. La plomberie de push, la redéfinition de la destination (git remote, git config)
 // et les actions de gh qui étiquettent, publient ou suppriment sont refusées à tous ; gh n'écrit sur
 // GitHub que pour le flux par pull request de la session principale (L20-01, voir analyzeGh).
@@ -1192,7 +1192,7 @@ export function analyzeCommand(
     if (PUSH_IN_CODE.test(text) && !(script !== null && isGuardScript(script, base))) {
       deny(
         `git push dans du code opaque (${what}) : la branche et le remote ne sont pas vérifiables ; ` +
-          'seule la session principale pousse, par la commande git push origin develop écrite telle quelle',
+          'seule la session principale pousse, par une commande git push origin develop ou git push -u origin lot/<nom> écrite telle quelle',
       );
     }
   };
@@ -1447,7 +1447,7 @@ function analyzeSegment(seg, env) {
       if (SED_EXEC.test(script) && PUSH_IN_CODE.test(script))
         deny(
           `git push dans un script ${cmd} (commande e) : seule la session principale pousse, par ` +
-            'git push origin develop écrite telle quelle',
+            'git push origin develop ou git push -u origin lot/<nom> écrite telle quelle',
         );
       break;
     }
@@ -1781,16 +1781,25 @@ const GIT_COMMANDS = new Set(
   ).split(' '),
 );
 
-// git push (git flow, décision de Julien du 19 nov. 2026). Seule forme permise, et seulement à la
-// session principale (rôle « main », sans agent_type) :
+// git push (git flow, décision de Julien du 19 nov. 2026 ; flux par pull request, L20-01, décision du
+// 21 nov. 2026). Seules formes permises, et seulement à la session principale (rôle « main », sans
+// agent_type) :
 //   git [-C <chemin>] [-c <clé>=<valeur>] push [-u | --set-upstream] origin develop[:develop]
-// Tout le reste est refusé avec son motif : rôle d'agent, autre remote, autre branche ou refspec
-// (main, HEAD, +…, :…, lot/*, étiquette), push forcé, suppression, plusieurs références, options
-// transmises au serveur, refspec absente (git push nu dépend de la configuration). Fusionner dans
-// main, créer ou pousser une étiquette, pousser main et déployer sont réservés à Julien.
+//   git [-C <chemin>] [-c <clé>=<valeur>] push [-u | --set-upstream] origin lot/<nom>[:lot/<nom>]
+// develop reste permise pour l'instant (fusion du lot 20) ; la protection de develop sur GitHub la
+// refuse ensuite. Tout le reste est refusé avec son motif : rôle d'agent, autre remote, autre
+// branche ou refspec (main, HEAD, +…, :…, lot/<a>:lot/<b>, étiquette), push forcé, suppression,
+// plusieurs références, options transmises au serveur, refspec absente (git push nu dépend de la
+// configuration). Fusionner dans main, créer ou pousser une étiquette, pousser main et déployer sont
+// réservés à Julien.
 const PUSH_REMOTE = 'origin';
 const PUSH_BRANCH = 'develop';
 const PUSH_REFSPECS = new Set([PUSH_BRANCH, `${PUSH_BRANCH}:${PUSH_BRANCH}`]);
+/** Refspec d'une branche de lot poussée sous son nom : lot/<nom> ou lot/<nom>:lot/<nom>. */
+function lotRefspec(spec) {
+  const [src, dst, ...more] = spec.split(':');
+  return more.length === 0 && LOT_BRANCH.test(src) && (dst === undefined || dst === src);
+}
 const PUSH_UPSTREAM = new Set(['-u', '--set-upstream']);
 /** Options globales de git qui changent le dépôt, l'espace de noms ou la configuration du push. */
 const PUSH_GLOBAL_DENIED = new Set([
@@ -1806,7 +1815,7 @@ const PUSH_GLOBAL_ALLOWED = new Set(['-C', '-c', '--no-pager', '-P']);
 const PUSH_CONFIG_KEYS = /^(remote|url|push|branch|alias)\./i;
 /** Clés -c admises avec git push : sans effet sur la destination ni sur la connexion. */
 const PUSH_CONFIG_ALLOWED = /^((color|advice|user|i18n)\.[^=]+|core\.quotepath)=/i;
-const PUSH_FORM = `seule la forme git push origin ${PUSH_BRANCH} (avec -u ou --set-upstream au besoin) est permise`;
+const PUSH_FORM = `seules les formes git push origin ${PUSH_BRANCH} et git push origin lot/<nom> (avec -u ou --set-upstream au besoin) sont permises`;
 
 /** Clés dont l'écriture redéfinit la destination d'un push (T3 du lot 13 bis). */
 // L18-02 : branch.autoSetupMerge et branch.autoSetupRebase règlent le suivi des branches créées.
@@ -1849,21 +1858,24 @@ function refspecRefusal(spec) {
   if (refs.some((r) => /^HEAD\b/.test(r) || r === '@'))
     return `${spec} : HEAD dépend de la branche courante ; ${PUSH_FORM}`;
   if (refs.some((r) => /^(refs\/heads\/)?lot\//.test(r)))
-    return `${spec} : les branches de lot restent locales, seule ${PUSH_BRANCH} se pousse`;
+    return `${spec} : une branche de lot se pousse sous son nom, en clair (git push -u origin lot/<nom>)`;
   return `refspec ${spec} refusée : ${PUSH_FORM}`;
 }
+
+/** Destinations permises d'un push de la session principale (messages). */
+const PUSH_TARGETS = `${PUSH_BRANCH} et les branches lot/* vers ${PUSH_REMOTE}`;
 
 /** Motif du refus d'un git push, ou null s'il est permis. `globals` : options globales de git. */
 function pushRefusal(rest, { role, globals, assignments, dashed }) {
   if (dashed)
     return (
       `git-push appelé directement : écris git push ; seule la session principale pousse, et ` +
-      `uniquement ${PUSH_BRANCH} vers ${PUSH_REMOTE}`
+      `uniquement ${PUSH_TARGETS}`
     );
   if (role !== 'main') {
     return (
       `git push est interdit aux agents (rôle ${role ?? 'inconnu'}) : seule la session principale ` +
-      `pousse, et uniquement ${PUSH_BRANCH} vers ${PUSH_REMOTE}`
+      `pousse, et uniquement ${PUSH_TARGETS}`
     );
   }
   for (const [opt, value] of globals) {
@@ -1901,7 +1913,7 @@ function pushRefusal(rest, { role, globals, assignments, dashed }) {
   if (specs.length > 1) return `plusieurs refspecs (${specs.map(shown).join(' ')}) : ${PUSH_FORM}`;
   if (remote !== PUSH_REMOTE)
     return `remote ${shown(remote)} refusé : seul ${PUSH_REMOTE} est permis`;
-  if (!PUSH_REFSPECS.has(specs[0])) return refspecRefusal(shown(specs[0]));
+  if (!PUSH_REFSPECS.has(specs[0]) && !lotRefspec(specs[0])) return refspecRefusal(shown(specs[0]));
   return null;
 }
 
