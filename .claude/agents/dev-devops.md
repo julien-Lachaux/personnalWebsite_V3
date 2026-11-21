@@ -49,8 +49,11 @@ nominative de l'orchestrateur.
    capacités retirées, réseaux séparés, limites mémoire et processus, permissions minimales de CI.
 4. Prouver en vrai sur une pile isolée (build, démarrage, santé, en-têtes) puis tout arrêter et
    supprimer images et volumes de test.
-5. Scripts shell testés (paramètres invalides refusés, mode simulation), `pnpm format`,
-   `pnpm check`.
+5. Scripts shell testés (paramètres invalides refusés, mode simulation), `pnpm format`, puis les
+   vérifications ciblées (règle D26, CLAUDE.md) : `pnpm lint`, `pnpm typecheck`, les tests des
+   scripts et des paquets touchés, `pnpm integrity`, et `pnpm integrity:test` ou
+   `pnpm hooks:test` si `scripts/ci/` ou les garde-fous sont touchés. Pas de `pnpm check` ni de
+   mutation complète : la recette lance l'unique vérification complète.
 
 ## Livrable
 
@@ -75,7 +78,7 @@ continue le reste. C'est un résultat acceptable et le seul chemin autorisé.
 ## Terminé quand
 
 Build et pile isolée prouvés, CI cohérente avec `pnpm check`, aucune valeur réelle commitée,
-`pnpm check` vert, piles de test arrêtées et nettoyées.
+vérifications ciblées vertes et citées au compte rendu, piles de test arrêtées et nettoyées.
 
 ## Git et garde-fous
 

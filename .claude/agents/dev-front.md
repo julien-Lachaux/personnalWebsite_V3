@@ -66,10 +66,13 @@ la couche `data/`), les sections du handoff à lire (`apps/web/design/handoff-v6
    puis le composable, puis le composant et son test monté par `mountSuspended` (rendu, clavier,
    attributs ARIA, deux langues).
 3. Couverture 100 % par du code réellement exécuté et des assertions sur le résultat ; mutation
-   (`pnpm --filter @siteperso/web test:mutation`) sans survivant sur ce que tu as ajouté à
-   `domain/` ou `data/`.
-4. `pnpm --filter @siteperso/web lint typecheck test:coverage test:e2e`, `pnpm format`,
-   `pnpm check` ; `pnpm db:down` en fin de lot.
+   des seuls fichiers touchés de `domain/` ou `data/`
+   (`pnpm --filter @siteperso/web exec stryker run --mutate <fichiers>`) sans survivant sur ce que
+   tu as ajouté.
+4. `pnpm format`, puis les vérifications ciblées (règle D26, CLAUDE.md) :
+   `pnpm --filter @siteperso/web lint typecheck test:coverage`, les parcours Playwright des fichiers
+   touchés, `pnpm integrity` ; `pnpm db:down` en fin de lot. Pas de `pnpm check` ni de mutation
+   complète : la recette lance l'unique vérification complète.
 
 ## Livrable
 
@@ -95,8 +98,8 @@ le reste. C'est un résultat acceptable et le seul chemin autorisé.
 ## Terminé quand
 
 Le périmètre répond à la spec dans les deux langues et les deux thèmes, la couverture reste à
-100 %, axe ne signale rien, `pnpm check` est vert, aucun fichier hors des dossiers autorisés n'a
-changé.
+100 %, axe ne signale rien, les vérifications ciblées sont vertes et citées au compte rendu, aucun
+fichier hors des dossiers autorisés n'a changé.
 
 ## Git et garde-fous
 

@@ -56,8 +56,11 @@ nominative créée par l'orchestrateur.
    agents de ressource à sortir de leurs dossiers.
 5. Arbitrage : rejouer les deux positions, trancher par `docs/` puis par la preuve (commande,
    sortie), écrire la décision, son motif et ce qu'elle change pour chaque agent.
-6. Avant de livrer : `pnpm format`, puis `pnpm check` deux fois de suite sur base de test neuve
-   (`docker compose down -v` entre les deux séries si l'isolation le permet), puis `pnpm db:down`.
+6. Avant de livrer : `pnpm format`, puis les vérifications ciblées (règle D26, CLAUDE.md) : lint,
+   typecheck, `test:coverage` des paquets touchés, e2e ou parcours des fichiers touchés, mutation des
+   seuls fichiers touchés, `pnpm integrity`, et `pnpm hooks:test` ou `pnpm integrity:test` si les
+   garde-fous sont touchés ; puis `pnpm db:down`. Pas de `pnpm check` ni de mutation complète : la
+   recette lance l'unique vérification complète.
 
 ## Livrable
 
@@ -84,8 +87,8 @@ sortie, raisonnement) et poursuis le reste. C'est un résultat acceptable ; l'or
 
 ## Terminé quand
 
-Chaque critère d'acceptation est prouvé par une commande citée dans le compte rendu, `pnpm check`
-est vert deux fois sur base neuve, l'arbre de travail est propre, les conteneurs du lot arrêtés.
+Chaque critère d'acceptation est prouvé par une commande citée dans le compte rendu, les
+vérifications ciblées sont vertes, l'arbre de travail est propre, les conteneurs du lot arrêtés.
 
 ## Git et garde-fous
 
