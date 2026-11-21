@@ -31,7 +31,7 @@ docker-compose.yml        postgres (dev, :5432), postgres-test (:5433, tmpfs) et
                           surchargeables par un `.env` racine (worktrees en parallèle)
 docs/                     décisions validées ; ne pas reformater (exclu de Prettier)
 docs/comptes-rendus/      compte rendu de chaque agent (lot-N-role.md)
-.claude/agents/           les quatorze agents spécialisés (rôle, fichiers, méthode, interdits)
+.claude/agents/           les quinze agents spécialisés (rôle, fichiers, méthode, interdits)
 .claude/hooks/            garde-fous contre le contournement des tests (hooks de .claude/settings.json)
 scripts/ci/               check-tests-integrity.sh : intégrité des tests (CI et pnpm check)
 ```
@@ -278,7 +278,7 @@ apps/web/
 
 ## Commandes
 
-Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 10 (>= 10.34.5 : les versions 9.x sont visées par des avis de sécurité sans correctif). pnpm télécharge lui-même
+Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 10 (>= 10.34.5 : les versions 9.x sont visées par des avis de sécurité sans correctif), plus `gh` dans `~/.local/bin` pour la session principale (flux par pull request, décision de Julien du 21 nov. 2026). pnpm télécharge lui-même
 la version de Node fixée dans `.npmrc` (`use-node-version`, Node 26 = dernière ligne stable,
 docs/02) et l'utilise pour tous les scripts ; `engines.node` vaut `>=26 <27`.
 
@@ -357,13 +357,16 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
 
 - Les rôles sont des fichiers : `.claude/agents/<nom>.md` (lead-architecte, chef-de-projet,
   dev-sql, dev-contrats, dev-api, dev-devops, dev-front, qa, qa-front, revue-code,
-  revue-securite, revue-a11y, triage, correcteur). L'orchestrateur est la session principale (rôle `main` des hooks) ; il fournit à
+  revue-securite, revue-a11y, triage, correcteur, et revue-pr pour la revue de chaque pull request par
+  le workflow, lot 20). L'orchestrateur est la session principale (rôle `main` des hooks) ; il fournit à
   chaque appel branche, worktree, isolation Docker, tickets et date, fusionne les lots dans
-  `develop` et est le seul à pousser, uniquement `develop` vers `origin`. Tableau et flux :
+  `develop` par pull request (pousse la branche du lot, `gh pr create`, `gh pr merge --merge` après
+  CI verte, revue `revue-pr` sans point bloquant et recette acceptée) et est le seul à pousser et à
+  écrire sur GitHub par `gh`. Tableau et flux :
   `docs/03-organisation-agents.md`. Chaque fichier d'agent se termine par la même section « Git et
   garde-fous » (lot 14) : règles et conduite face à un refus, jamais le fonctionnement des
   détections (fichiers destinés à devenir publics) ; `.claude/hooks/tests/agents-git-section.test.mjs`
-  vérifie qu'elle est identique dans les quatorze fichiers et que ses refus sont effectifs.
+  vérifie qu'elle est identique dans tous les fichiers et que ses refus sont effectifs.
 - Un test se protège, il ne se négocie pas. Interdits à tout agent : modifier ou supprimer un test
   existant, ajouter un marqueur de saut ou de focus de Vitest ou de Playwright (dont `test.fixme`
   et `test.slow`) ou un commentaire d'ignore de couverture, désactiver une règle axe, régénérer une
@@ -397,10 +400,30 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
 
 - Git flow (décision de Julien du 19 nov. 2026). Branche d'intégration permanente : `develop` ;
   production : `main`. Une branche et un worktree par lot (`lot/N-nom`), créés depuis `develop`.
-  Fusion dans `develop` par l'orchestrateur en `--no-ff` après recette.
-- Push : seule la session principale pousse, et uniquement `develop` vers `origin`
-  (`git push origin develop`, `-u` ou `--set-upstream` admis). Les hooks refusent toute autre forme
-  (`.claude/hooks/README.md`, « git push »). Aucun agent spécialisé ne pousse.
+- **Flux par pull request** (décision de Julien du 21 nov. 2026, lot 20) : plus de fusion dans
+  `develop` en local, chaque lot passe par une pull request vers `develop`. La session principale :
+  - pousse la branche du lot : `git push -u origin lot/N-nom` (`-u` ou `--set-upstream` admis) ;
+  - ouvre la pull request : `gh pr create --base develop --head lot/N-nom --title … --body …`
+    (`--base develop` et `--head lot/…` écrits en clair, obligatoires) ;
+  - la suit (`gh pr view`, `gh pr checks`, `gh pr diff`, `gh run view`, `gh run list`…), la commente,
+    la relit, l'édite ou la passe en prête (`gh pr comment`, `gh pr review`, `gh pr edit`,
+    `gh pr ready`) ;
+  - la fusionne par commit de merge, jamais squash ni rebase : `gh pr merge --merge lot/N-nom` (la
+    pull request nommée par sa branche de lot), seulement si les trois conditions sont réunies : CI
+    verte, revue automatisée sans point bloquant (agent `revue-pr`, ligne `VERDICT: OK`), recette
+    acceptée ;
+  - reste refusé : `gh pr merge` avec `--squash`, `--rebase`, `--admin` (contournement de la
+    protection), `--delete-branch` (suppression d'une branche distante, réglage GitHub laissé à
+    Julien) ou `--auto`, comme toute autre écriture par `gh` (`gh issue …`, `gh run rerun`,
+    `gh workflow run`, `gh pr close`…) ;
+  - Julien pose la protection de `develop` sur GitHub : pull request obligatoire, CI verte requise
+    (la mutation reste informative), revue requise, pas de push forcé.
+- Push : seule la session principale pousse, vers `origin` : une branche `lot/*` (flux par pull
+  request) et, pour l'instant, `develop` (`git push origin develop`, `-u` ou `--set-upstream`
+  admis) ; la fusion du lot 20 passe encore par là, ensuite c'est la protection de `develop` sur
+  GitHub qui refuse ce push. Les hooks refusent toute autre forme (`.claude/hooks/README.md`,
+  « git push »). Aucun agent spécialisé ne pousse ni n'écrit sur GitHub par `gh` : les lectures de
+  `gh` seules leur restent.
 - Réservé à Julien : toute fusion dans `main` (branches `release/*` et `hotfix/*`), les étiquettes
   de version, le push de `main` et le lancement du déploiement (`scripts/deploy/` refuse un dépôt
   qui n'est pas sur `main`). Aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse
@@ -410,8 +433,8 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   (`git remote add|rename|remove|set-url`, `git config` en écriture sur `remote.*`, `url.*`,
   `push.*`, `branch.*.remote`, `branch.*.pushRemote`, `branch.autoSetupMerge`,
   `branch.autoSetupRebase`, `include*`, édition de `.git/config` ou de `~/.gitconfig`) et, avec
-  `gh`, tout ce qui fusionne, étiquette, publie ou supprime (`gh pr merge`,
-  `gh release create|delete|edit|upload`, `gh repo delete|edit|rename`, `gh api` hors GET). Les
+  `gh`, tout ce qui étiquette, publie ou supprime et toute fusion hors de `gh pr merge --merge`
+  (`gh release create|delete|edit|upload`, `gh repo delete|edit|rename`, `gh api` hors GET). Les
   lectures (`git config --get`, `core.hooksPath` compris depuis le lot 18, `git remote -v`,
   `gh pr view`, `gh run list`…) restent permises ; écrire ou retirer `core.hooksPath` reste refusé.
 - Branche locale `main` (lot 14, décision de Julien du 19 nov. 2026) : aucune session, principale
@@ -451,8 +474,8 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
     à jour de `develop`, après accord de l'autre session, que l'orchestrateur obtient ;
   - pas de nouveau check à la fusion si `develop` n'a pas bougé ;
   - la CI reste le filet.
-- JAMAIS de `git push` par un agent. Jamais de `--no-verify`, jamais de `git stash` nu, jamais de
-  push forcé.
+- JAMAIS de `git push` ni d'écriture par `gh` par un agent. Jamais de `--no-verify`, jamais de
+  `git stash` nu, jamais de push forcé.
 - Aucun e-mail, téléphone ou donnée personnelle de Julien dans le dépôt (code, SQL, tests,
   docs) : placeholders uniquement. Seule exception, décidée par Julien (D22) : son CV
   `apps/web/public/cv/cv-fr.pdf`, versionné tel quel (e-mail et téléphone visibles), métadonnées
@@ -461,8 +484,10 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   marquées « à relire » pour Julien. Chaque traduction produite est listée dans
   `docs/traductions-a-relire.md` (table, slug, champ, texte FR, texte EN proposé) ; Julien
   relit puis retire les lignes validées. Aucune traduction n'est considérée définitive avant.
-- Rien d'installé globalement sur l'hôte en dehors de Docker et pnpm : PostgreSQL uniquement
-  en Docker, Node téléchargé par pnpm. Pas de `npm i -g`, pas de `brew`/`apt` pour le projet.
+- Rien d'installé globalement sur l'hôte en dehors de Docker, pnpm et `gh` : PostgreSQL uniquement
+  en Docker, Node téléchargé par pnpm, `gh` (GitHub CLI) dans `~/.local/bin` pour la session
+  principale seulement (exception décidée par Julien le 21 nov. 2026, flux par pull request). Pas de
+  `npm i -g`, pas de `brew`/`apt` pour le projet.
 - Versions de paquets : stables actuelles vérifiées sur npm (`pnpm view <pkg> version`),
   épinglées exactement dans les `package.json`. Node : toujours la dernière ligne stable
   (https://nodejs.org/dist/index.json) ; en cas d'incompatibilité, on en discute avec Julien

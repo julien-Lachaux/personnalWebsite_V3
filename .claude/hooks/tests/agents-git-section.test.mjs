@@ -1,9 +1,9 @@
 // L14-14 (décision de Julien du 20 nov. 2026, « cadrer les agents correctement ») : chaque fichier
 // .claude/agents/*.md se termine par une même section « Git et garde-fous » (ce que l'agent fait, ce
-// qui lui est refusé, la conduite face à un refus). Ce test vérifie que les quatorze fichiers la
+// qui lui est refusé, la conduite face à un refus). Ce test vérifie que les quinze fichiers la
 // portent, à l'identique et en dernier ; qu'elle énonce des règles sans décrire le fonctionnement des
 // garde-fous (ces fichiers deviendront publics) ; et que chaque refus qu'elle déclare l'est
-// effectivement par les hooks, pour chacun des quatorze rôles. Une ligne ajoutée à la liste des refus
+// effectivement par les hooks, pour chacun des quinze rôles. Une ligne ajoutée à la liste des refus
 // sans commandes de contrôle ci-dessous fait échouer le test. Lancé par `pnpm hooks:test`.
 
 import assert from 'node:assert/strict';
@@ -128,7 +128,7 @@ const bash = (command, cwd = () => develop) => ({
 
 /**
  * Contrôle de chaque refus déclaré : premier mot de la puce, puis actions qui doivent être refusées
- * à chacun des quatorze rôles (dépôt sur develop, ou sur main pour l'écriture de main).
+ * à chacun des quinze rôles (dépôt sur develop, ou sur main pour l'écriture de main).
  */
 const PROBES = {
   pousser: [
@@ -204,12 +204,12 @@ const INTERNALS =
   /analys|instantané|empreinte|motif|expression régulière|regex|PreToolUse|SubagentStop|guard\.mjs|shell\.mjs|policy\.mjs|state\.mjs|audit\.log|détect|illisible|journal/i;
 
 describe('L14-14 : section « Git et garde-fous » des fichiers d’agent', () => {
-  it('quatorze fichiers d’agent, un rôle chacun', () => {
-    assert.equal(FILES.length, 14, FILES.join(', '));
-    assert.equal(new Set(FILES.map(roleOf)).size, 14);
+  it('quinze fichiers d’agent, un rôle chacun', () => {
+    assert.equal(FILES.length, 15, FILES.join(', '));
+    assert.equal(new Set(FILES.map(roleOf)).size, 15);
   });
 
-  it('chaque fichier se termine par la section, identique dans les quatorze', () => {
+  it('chaque fichier se termine par la section, identique dans les quinze', () => {
     const sections = FILES.map((f) => [f, sectionOf(TEXTS[f])]);
     for (const [f, section] of sections) {
       assert.ok(section !== null, `${f} : section absente`);

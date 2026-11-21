@@ -34,6 +34,7 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
 | 16 | Briefs back-002 et back-003 : intégrité des tests, instantanés des hooks (BF-8 à BF-11) | lead-architecte Opus, chef-de-projet Sonnet | c382bae | 569 tests hooks (20 ajoutés), scripts d'intégrité verts, 100 % |
 | 17 | Brief back-004 : lieu nul de l'expérience OpenClassrooms (BF-12) | dev-sql Sonnet, chef-de-projet Sonnet | d5f2097 | 1 e2e ajouté (5 cas), 100 % |
 | 18 | Suites du lot 14 : lecture de `core.hooksPath`, branche suivie refusée aux agents (L18-01, 02) | lead-architecte Opus, chef-de-projet Sonnet | fef4db5 | 798 tests hooks, `pnpm check` vert sans cache (400 s), 100 % |
+| 19 | Main par options collées, `core.hooksPath` par l'environnement, `TEST_MAX_WORKERS`, règle D26 (L19-01 à 04) | lead-architecte Opus, chef-de-projet Sonnet | f408999 | 842 tests hooks, `pnpm check` vert (386 s), 100 % |
 
 ## Lot 0 : fondations
 
@@ -344,6 +345,16 @@ après la revue de sécurité de pré-publication (`docs/revues/securite-pre-pub
   correspondante dans la section des quatorze fichiers d'agents. 798 tests des hooks.
 - **Suites** : lot 19 (création de `main` par options collées, `core.hooksPath` par l'environnement,
   borne du nombre de processus des e2e).
+
+## Lot 19 : trous confirmés par la recette du lot 18, charge machine, règle D26
+
+- **Livré** (fusion f408999, recette acceptée, `docs/comptes-rendus/lot-19-recette.md`) : création ou
+  écriture de `main` par options collées refusée à toutes les sessions ; `core.hooksPath` passé par
+  l'environnement de git refusé ; `TEST_MAX_WORKERS` borne le nombre de processus Vitest de l'API (sans
+  valeur, rien ne change, CI comprise) ; règle D26 (une seule vérification complète par lot, par la
+  recette) dans `CLAUDE.md` et les fichiers d'agents. 842 tests des hooks ; `pnpm check` rejoué vert à
+  charge calme.
+- **Suites** : L19-05 et L19-06 au backlog ; borne du front à porter par la session front.
 
 ## Transverse
 
