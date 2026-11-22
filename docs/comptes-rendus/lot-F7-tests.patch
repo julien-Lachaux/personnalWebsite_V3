@@ -1,0 +1,194 @@
+diff --git a/apps/web/app/composables/seo/useSeo.spec.ts b/apps/web/app/composables/seo/useSeo.spec.ts
+index d2f68d0..c23f66c 100644
+--- a/apps/web/app/composables/seo/useSeo.spec.ts
++++ b/apps/web/app/composables/seo/useSeo.spec.ts
+@@ -25,6 +25,8 @@ function meta(selector: string): string | null {
+   return document.head.querySelector(`meta[${selector}]`)?.getAttribute('content') ?? null;
+ }
+ 
++/* eslint-disable vue/one-component-per-file -- deux racines de test sans gabarit (fonctions de rendu). */
++
+ /** Racine qui pose les défauts, avec une page qui n'a qu'un titre (comme l'accueil). */
+ const TitleOnly = defineComponent({
+   setup() {
+diff --git a/apps/web/app/error.spec.ts b/apps/web/app/error.spec.ts
+index 6eb2bf2..379fa77 100644
+--- a/apps/web/app/error.spec.ts
++++ b/apps/web/app/error.spec.ts
+@@ -3,7 +3,7 @@ import type { VueWrapper } from '@vue/test-utils';
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+ import { nextTick } from 'vue';
+ import type { NuxtError } from '#app';
+-import { clearNuxtState } from '#imports';
++import { clearNuxtState, useNuxtApp } from '#imports';
+ 
+ import ErrorPage from './error.vue';
+ import { PREFERENCES_STATE_KEY } from './composables/shell/usePreferences.js';
+@@ -19,7 +19,10 @@ async function flushHead(): Promise<void> {
+   await new Promise((resolve) => setTimeout(resolve, 0));
+ }
+ 
+-beforeEach(() => {
++beforeEach(async () => {
++  // Chaque test part d'un premier chargement, en français : monter error.vue sur une autre adresse
++  // ne repasse pas la langue au français après un test sous /en.
++  await useNuxtApp().$i18n.setLocale('fr');
+   clearNuxtState(PREFERENCES_STATE_KEY);
+   localStorage.clear();
+   document.documentElement.removeAttribute('data-theme');
+@@ -98,7 +101,7 @@ describe('error.vue : page introuvable (404)', () => {
+     expect(first.text()).toBe('Aller au contenu');
+     expect(wrapper.findAll('header')).toHaveLength(1);
+     expect(wrapper.get('header .language-switch a').attributes('hreflang')).toBe('en');
+-    expect(wrapper.get('header button[aria-haspopup="dialog"]').exists()).toBe(true);
++    expect(wrapper.find('header button[aria-haspopup="dialog"]').exists()).toBe(true);
+   });
+ 
+   it('branche les préférences (attributs de <html> posés au montage)', async () => {
+diff --git a/apps/web/app/i18n-hardcoded.spec.ts b/apps/web/app/i18n-hardcoded.spec.ts
+index a6ba46f..eaaecdb 100644
+--- a/apps/web/app/i18n-hardcoded.spec.ts
++++ b/apps/web/app/i18n-hardcoded.spec.ts
+@@ -23,19 +23,25 @@ const NAMED_ATTRIBUTES = new Set([
+   'placeholder',
+ ]);
+ 
+-/** Textes admis dans un gabarit : codes de langue du sélecteur (D21), identiques en fr et en en. */
+-const INVARIANT = new Set(['FR', 'EN']);
++/**
++ * Textes admis dans un gabarit, identiques en fr et en en : codes de langue du sélecteur (D21), statut
++ * `[ok]` des lignes de terminal de l'easter egg.
++ */
++const INVARIANT = new Set(['FR', 'EN', '[ok]']);
+ 
+-// Types de nœuds de l'arbre du compilateur de Vue (@vue/compiler-core, NodeTypes).
++// Types de nœuds de l'arbre du compilateur de Vue (@vue/compiler-core, NodeTypes et ElementTypes).
+ const ELEMENT = 1;
+ const TEXT = 2;
+ const ATTRIBUTE = 6;
++/** Élément HTML natif (`tagType`), par opposition à un composant, dont `title` est une prop. */
++const NATIVE = 0;
+ 
+ interface TemplateNode {
+   type: number;
+   content?: string;
+   tag?: string;
+-  props?: Array<{ type: number; name: string; value?: { content: string } }>;
++  tagType?: number;
++  props?: { type: number; name: string; value?: { content: string } }[];
+   children?: TemplateNode[];
+ }
+ 
+@@ -44,7 +50,7 @@ function hardcodedTexts(node: TemplateNode): string[] {
+   const own: string[] = [];
+   if (node.type === TEXT && /\p{L}/u.test(node.content ?? ''))
+     own.push((node.content ?? '').trim());
+-  if (node.type === ELEMENT) {
++  if (node.type === ELEMENT && node.tagType === NATIVE) {
+     for (const prop of node.props ?? []) {
+       const value = prop.value?.content ?? '';
+       if (prop.type === ATTRIBUTE && NAMED_ATTRIBUTES.has(prop.name) && /\p{L}/u.test(value)) {
+@@ -73,7 +79,8 @@ describe('chaînes d’interface', () => {
+   it('repère un texte, un nom accessible ou un titre écrits en dur (témoin)', () => {
+     const template = templateOf(
+       '<template><div><p>Bonjour</p><button aria-label="Fermer" :title="t(\'x\')">×</button>' +
+-        '<img alt="Portrait"><span aria-hidden="true">&gt;_</span>{{ t("y") }}<input placeholder="Nom"></div></template>',
++        '<img alt="Portrait"><span aria-hidden="true">&gt;_</span>{{ t("y") }}<input placeholder="Nom">' +
++        '<BaseWindow title="fichier.sh" /></div></template>',
+     );
+     expect(hardcodedTexts(template)).toEqual([
+       'Bonjour',
+@@ -108,10 +115,10 @@ const SAME_IN_BOTH = new Map<string, string>([
+   ['shell.actions.cv', 'CV PDF'],
+ ]);
+ 
+-type Messages = { [key: string]: Messages | unknown };
++type Messages = Record<string, unknown>;
+ 
+-function leafValues(messages: Messages, prefix = ''): Array<[string, string]> {
+-  return Object.entries(messages).flatMap(([key, value]): Array<[string, string]> => {
++function leafValues(messages: Messages, prefix = ''): [string, string][] {
++  return Object.entries(messages).flatMap(([key, value]): [string, string][] => {
+     if (typeof value === 'string') return [[`${prefix}${key}`, value]];
+     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+       return leafValues(value as Messages, `${prefix}${key}.`);
+diff --git a/apps/web/app/plugins/localized-error-page.spec.ts b/apps/web/app/plugins/localized-error-page.spec.ts
+index 0389075..a7551af 100644
+--- a/apps/web/app/plugins/localized-error-page.spec.ts
++++ b/apps/web/app/plugins/localized-error-page.spec.ts
+@@ -27,7 +27,7 @@ describe('greffon localized-error-page', () => {
+   });
+ 
+   it('s’accroche à la fin du rendu (app:rendered) de chaque page', async () => {
+-    const hooks: Array<[string, (context: { ssrContext: RenderedPage }) => void]> = [];
++    const hooks: [string, (context: { ssrContext: RenderedPage }) => void][] = [];
+     const nuxtApp = {
+       hooks: {
+         hook: (name: string, callback: (context: { ssrContext: RenderedPage }) => void) =>
+diff --git a/apps/web/test/pages.e2e.ts b/apps/web/test/pages.e2e.ts
+index d5f7cde..7187163 100644
+--- a/apps/web/test/pages.e2e.ts
++++ b/apps/web/test/pages.e2e.ts
+@@ -21,7 +21,7 @@ const LOCALES_DIR = join(import.meta.dirname, '../i18n/locales');
+ /** Attend l'hydratation (application Vue montée sur #__nuxt). */
+ async function hydrated(page: Page): Promise<void> {
+   await page.waitForFunction(() => {
+-    const root = document.querySelector('#__nuxt') as (Element & { __vue_app__?: unknown }) | null;
++    const root = document.querySelector<Element & { __vue_app__?: unknown }>('#__nuxt');
+     return root?.__vue_app__ !== undefined;
+   });
+ }
+@@ -57,10 +57,12 @@ async function seo(page: Page) {
+       ogImage: meta('property="og:image"'),
+       canonical: document.head.querySelector('link[rel="canonical"]')?.getAttribute('href') ?? null,
+       alternates: Object.fromEntries(
+-        [...document.head.querySelectorAll('link[rel="alternate"][hreflang]')].map((link) => [
+-          link.getAttribute('hreflang'),
+-          link.getAttribute('href'),
+-        ]),
++        [...document.head.querySelectorAll('link[rel="alternate"][hreflang]')].map(
++          (link): [string, string | null] => [
++            link.getAttribute('hreflang') ?? '',
++            link.getAttribute('href'),
++          ],
++        ),
+       ),
+     };
+   });
+@@ -281,10 +283,12 @@ test('sitemap.xml liste chaque page en fr et en, avec les hreflang que chaque pa
+     return [...document.getElementsByTagName('url')].map((url) => ({
+       loc: url.getElementsByTagName('loc')[0]?.textContent ?? '',
+       alternates: Object.fromEntries(
+-        [...url.getElementsByTagNameNS('http://www.w3.org/1999/xhtml', 'link')].map((link) => [
+-          link.getAttribute('hreflang'),
+-          link.getAttribute('href'),
+-        ]),
++        [...url.getElementsByTagNameNS('http://www.w3.org/1999/xhtml', 'link')].map(
++          (link): [string, string | null] => [
++            link.getAttribute('hreflang') ?? '',
++            link.getAttribute('href'),
++          ],
++        ),
+       ),
+     }));
+   }, xml);
+@@ -307,7 +311,9 @@ test('sitemap.xml liste chaque page en fr et en, avec les hreflang que chaque pa
+ 
+ // Version anglaise : fragments des libellés français absents de tout libellé anglais (les morceaux
+ // entre paramètres `{…}`), cherchés comme mots entiers, en respectant la casse.
+-type Messages = { [key: string]: Messages | string | unknown[] };
++interface Messages {
++  [key: string]: Messages | string | unknown[];
++}
+ 
+ function leaves(messages: Messages): string[] {
+   return Object.values(messages).flatMap((value) =>
+@@ -370,7 +376,7 @@ for (const { path, file } of ENGLISH_PAGES) {
+       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+       for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+         const parent = node.parentElement;
+-        if (parent === null || parent.closest('script, style, noscript') !== null) continue;
++        if (parent?.closest('script, style, noscript') !== null) continue;
+         if (english(parent)) found.push(node.textContent ?? '');
+       }
+       for (const element of document.body.querySelectorAll(

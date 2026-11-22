@@ -50,7 +50,7 @@ test existant, une autorisation nominative de l'orchestrateur (identifiant du d�
 6. `pnpm format`, puis les vérifications ciblées (règle D26, CLAUDE.md) :
    `pnpm --filter @siteperso/web lint typecheck test:coverage`, les parcours Playwright ajoutés ou
    touchés, en passe répétée, `pnpm integrity` ; `pnpm db:down`. Pas de `pnpm check` ni de mutation
-   complète : la recette lance l'unique vérification complète.
+   complète : l'unique vérification complète du lot est la CI de sa pull request.
 
 ## Livrable
 

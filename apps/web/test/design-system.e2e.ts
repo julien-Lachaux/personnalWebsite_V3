@@ -131,6 +131,16 @@ test.describe('thèmes', () => {
         await open(page, path);
         await setRoot(page, { 'data-theme': theme, 'data-contrast': contrast });
 
+        // Le changement de thème déclenche des transitions de couleur : mesurer une fois posées (F5D-2).
+        await page.waitForFunction(() =>
+          document
+            .getAnimations()
+            .every(
+              (animation) =>
+                animation.playState !== 'running' ||
+                animation.effect?.getComputedTiming().endTime === Infinity,
+            ),
+        );
         const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
         expect(results.violations).toEqual([]);
         expect(results.passes.map((rule) => rule.id)).toContain('color-contrast');

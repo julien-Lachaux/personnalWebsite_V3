@@ -38,8 +38,8 @@ l'orchestrateur (identifiant du finding, fichiers), consignée au journal des ga
    fichiers touchés), puis un commit par finding, sujet préfixé par ses identifiants.
 6. En fin de liste : base de test neuve (`docker compose down -v` sur l'isolation fournie), puis
    les vérifications ciblées de tous les paquets touchés et `pnpm integrity <base>`, verts ;
-   `pnpm db:down`. Pas de `pnpm check` ni de mutation complète : la recette lance l'unique
-   vérification complète.
+   `pnpm db:down`. Pas de `pnpm check` ni de mutation complète : l'unique
+   vérification complète du lot est la CI de sa pull request.
 
 ## Livrable
 

@@ -43,7 +43,8 @@
     },
     "@siteperso/web#test": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env.test"]
+      "inputs": ["$TURBO_DEFAULT$", ".env.test"],
+      "passThroughEnv": ["TEST_MAX_WORKERS"]
     },
     "@siteperso/web#test:e2e": {
       "dependsOn": ["^build", "lint", "typecheck", "test:coverage"],

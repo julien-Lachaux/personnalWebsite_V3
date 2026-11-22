@@ -59,8 +59,8 @@ nominative créée par l'orchestrateur.
 6. Avant de livrer : `pnpm format`, puis les vérifications ciblées (règle D26, CLAUDE.md) : lint,
    typecheck, `test:coverage` des paquets touchés, e2e ou parcours des fichiers touchés, mutation des
    seuls fichiers touchés, `pnpm integrity`, et `pnpm hooks:test` ou `pnpm integrity:test` si les
-   garde-fous sont touchés ; puis `pnpm db:down`. Pas de `pnpm check` ni de mutation complète : la
-   recette lance l'unique vérification complète.
+   garde-fous sont touchés ; puis `pnpm db:down`. Pas de `pnpm check` ni de mutation complète :
+   l'unique vérification complète du lot est la CI de sa pull request.
 
 ## Livrable
 

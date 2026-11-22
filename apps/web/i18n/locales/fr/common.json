@@ -7,9 +7,65 @@
     "showDetails": "Voir le détail : {name}",
     "skipToContent": "Aller au contenu"
   },
+  "seo": {
+    "description": "Site et CV de Julien Lachaux, développeur full-stack : expériences, technologies, recommandations et place de l’IA dans son travail."
+  },
+  "annex": {
+    "home": "accueil"
+  },
   "declaration": {
     "title": "Déclaration d’accessibilité",
-    "pending": "La déclaration d’accessibilité sera publiée après l’audit du site.",
+    "description": "État de conformité du site aux règles d’accessibilité (WCAG 2.2 AA, RGAA), contenus non accessibles connus, contact et voies de recours.",
+    "pending": "Version provisoire : la déclaration définitive sera publiée après l’audit du site.",
+    "back": "Retour à l’accueil",
+    "intro": "Je m’engage à rendre ce site accessible à toutes et à tous, quels que soient le matériel, le logiciel et les capacités de chacun. Cette déclaration s’applique au site {site}.",
+    "status": {
+      "title": "État de conformité",
+      "text": "Ce site est {status} au RGAA : il n’a pas encore fait l’objet d’un audit de conformité. En l’absence de résultats d’audit en cours de validité, le RGAA demande de le déclarer non conforme ; aucun taux de conformité n’est donc publié.",
+      "value": "non conforme"
+    },
+    "standard": {
+      "title": "Référentiel visé",
+      "text": "Le site vise le niveau AA des WCAG 2.2 (règles pour l’accessibilité des contenus web) et le RGAA (référentiel général d’amélioration de l’accessibilité), dans sa version 4.1.2 ou dans la version en vigueur à la date de l’audit."
+    },
+    "technologies": {
+      "title": "Technologies utilisées",
+      "text": "Le site est réalisé en HTML5, CSS et JavaScript ; WAI-ARIA complète la sémantique des composants interactifs."
+    },
+    "tests": {
+      "title": "Environnement de test",
+      "text": "Pendant le développement, chaque page est vérifiée automatiquement avec axe-core (critères A et AA des WCAG 2.2) dans le navigateur Chromium, à sept largeurs d’écran de 390 à 3 440 pixels, dans les thèmes clair et sombre et en contraste renforcé, en français et en anglais. Les tests manuels, au clavier et avec des lecteurs d’écran, seront menés lors de l’audit."
+    },
+    "issues": {
+      "title": "Contenus non accessibles",
+      "none": "Aucun défaut d’accessibilité n’est recensé à ce jour. Cette liste sera établie par l’audit.",
+      "items": []
+    },
+    "contact": {
+      "title": "Retour d’information et contact",
+      "text": "Si vous n’arrivez pas à accéder à un contenu ou à une fonctionnalité de ce site, écrivez-moi : je vous indiquerai une alternative accessible ou vous transmettrai le contenu sous une autre forme.",
+      "link": "M’écrire par e-mail",
+      "subject": "Accessibilité du site"
+    },
+    "remedies": {
+      "title": "Voies de recours",
+      "text": "Si vous m’avez signalé un défaut d’accessibilité qui vous empêche d’accéder à un contenu ou à une fonctionnalité du site et que vous n’avez pas obtenu de réponse satisfaisante, vous pouvez saisir le Défenseur des droits :",
+      "message": "Écrire un message au Défenseur des droits",
+      "delegate": "Contacter le délégué du Défenseur des droits près de chez vous",
+      "post": "Envoyer un courrier par la poste (gratuit, ne pas mettre de timbre) :",
+      "address": "Défenseur des droits, Libre réponse 71120, 75342 Paris CEDEX 07"
+    },
+    "date": "Déclaration provisoire établie le 21 novembre 2026."
+  },
+  "notFound": {
+    "title": "Page introuvable",
+    "text": "L’adresse demandée ne correspond à aucune page de ce site. Elle a peut-être changé, ou contient une faute de frappe.",
+    "back": "Retour à l’accueil"
+  },
+  "error": {
+    "title": "Une erreur est survenue",
+    "text": "La page n’a pas pu s’afficher. Réessayez dans un instant, ou revenez à l’accueil.",
+    "status": "Code de l’erreur : {status}",
     "back": "Retour à l’accueil"
   }
 }

@@ -151,7 +151,7 @@ const MAIN_REFUSED = [
   ['gh pr merge --merge', /branche de lot/],
   ['gh pr merge --merge 12', /branche de lot/],
   ['gh pr merge --merge https://github.com/x/y/pull/12', /branche de lot/],
-  ['gh pr merge --merge release/1.0.0', /branche de lot/],
+  ['gh pr merge --merge release/1.0', /branche de lot/],
   ['gh pr merge --merge develop', /branche de lot/],
   ['gh pr merge --merge lot/a lot/b', /plusieurs pull requests/],
   ['gh pr merge --merge=true lot/20-flux-pr', /écris chaque option seule/],
