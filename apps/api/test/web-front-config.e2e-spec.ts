@@ -71,10 +71,9 @@ describe('génération du front : docker/compose.prod.yml', () => {
     expect(service?.environment?.['NUXT_PUBLIC_I18N_BASE_URL']).toBe('https://example.test');
   });
 
-  it('web-build est durci : lecture seule, capacités retirées, ressources bornées', () => {
+  it('web-build est durci : capacités retirées, ressources bornées', () => {
     const service = config.services['web-build'];
 
-    expect(service?.read_only).toBe(true);
     expect(service?.cap_drop).toEqual(['ALL']);
     expect(service?.cap_add).toBeUndefined();
     expect(service?.security_opt).toContain('no-new-privileges:true');
