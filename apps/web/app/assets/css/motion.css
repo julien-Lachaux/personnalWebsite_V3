@@ -25,12 +25,17 @@
  * `--dur-egg-line` (350 ms), la barre de progression se remplit en `--dur-egg-bar` (1,4 s), durées de
  * la maquette v6. Sous mouvement réduit, elles valent 0,01 ms comme les autres (et la fenêtre met ses
  * délais à zéro : toutes les lignes sont là d'emblée).
+ *
+ * Curseur de l'encart « IA » vide (lot F6b) : un cycle de clignotement en `--dur-cursor-blink` (1,1 s,
+ * placeholder D27, absent du handoff). Sous mouvement réduit, 0,01 ms comme les autres : le curseur
+ * reste affiché, fixe.
  */
 :root {
   --dur-slide: 340ms;
   --ease-slide: cubic-bezier(0.22, 0.8, 0.25, 1);
   --dur-egg-line: 350ms;
   --dur-egg-bar: 1400ms;
+  --dur-cursor-blink: 1100ms;
 }
 
 /* Mouvement réduit : mêmes sélecteurs que les durées de tokens.css. */
@@ -38,6 +43,7 @@
   --dur-slide: 0.01ms;
   --dur-egg-line: 0.01ms;
   --dur-egg-bar: 0.01ms;
+  --dur-cursor-blink: 0.01ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -45,5 +51,6 @@
     --dur-slide: 0.01ms;
     --dur-egg-line: 0.01ms;
     --dur-egg-bar: 0.01ms;
+    --dur-cursor-blink: 0.01ms;
   }
 }

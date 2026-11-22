@@ -100,7 +100,7 @@ const { t } = useI18n();
   margin-left: 0.25rem;
   background: var(--accent);
   vertical-align: text-bottom;
-  animation: ai-placeholder-blink 1.1s steps(1) infinite;
+  animation: ai-placeholder-blink var(--dur-cursor-blink) steps(1) infinite;
 }
 
 @keyframes ai-placeholder-blink {
