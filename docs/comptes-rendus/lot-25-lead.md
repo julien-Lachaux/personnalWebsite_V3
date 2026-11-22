@@ -15,8 +15,9 @@ Méthode commune : pour chaque ticket, le fichier de test est écrit d'abord et 
 | L25-03 | `b4e1f45` | `tests/resumed-agent.test.mjs`         | 6 refus verts, 5 acceptations en échec  | 0 échec  |
 | L25-04 | `3d3d1b5` | `tests/other-agent-authorized.test.mjs`| 9 refus verts, 3 acceptations en échec  | 0 échec  |
 | docs   | `3cc82f6` | README des hooks, CLAUDE.md, backlog   |                                         |          |
+| L25-05 | `6103f80` | `tests/run-rerun-refusals.test.mjs` (refus seulement) | refus verts (gh run rerun refusé à tous) | idem ; acceptation en attente, voir plus bas |
 
-`pnpm hooks:test` final : 1221 tests, 1221 réussis (1145 avant le lot). Les tests existants passent
+`pnpm hooks:test` final : 1239 tests, 1239 réussis (1145 avant le lot). Les tests existants passent
 tous sur le nouveau code (non-régression, dont les 88 commandes ordinaires de L14-07).
 
 ## L25-01 : clés qui lancent une commande par l'environnement de git (fait)
@@ -166,6 +167,52 @@ différent, écriture shell autorisée (contenu inconnu du hook), suppression, a
 autre dépôt, écriture antérieure à l'instantané, Edit au résultat inexact. Avant : 3 acceptations
 en échec (dont le cas du 21 nov. : Edit de dev-devops puis fin de tour de la session principale) ;
 après : 0.
+
+## L25-05 : `gh run rerun` pour la session principale (sortie honorable)
+
+Ticket ajouté le 22 nov. (autorisation `a6b064a4`) : `gh run rerun <identifiant numérique>`, avec
+`--failed` et `--job <identifiant numérique>`, permis à la session principale seule ; `-R`/`--repo`,
+`GH_REPO`, `GH_HOST`, `--debug`, toute autre option et toute forme calculée refusés.
+
+**Arrêt sur ce point** : deux tests existants exigent que la session principale soit refusée sur
+`gh run rerun` :
+
+- `.claude/hooks/tests/run-download.test.mjs:139` :
+  `['gh run rerun 123', /ni une lecture ni une écriture du flux/]` (liste `REFUSED`, session
+  principale) ;
+- `.claude/hooks/tests/pr-flow.test.mjs:201` :
+  `['gh run rerun 99', /ni une lecture ni une écriture du flux/]` (refus de la session principale).
+
+Démonstration : l'implémentation appliquée au worktree, `pnpm hooks:test` donne 1263 tests, 1261
+réussis, 2 échecs, exactement « refuse gh run rerun 123 » et « refuse gh run rerun 99 » ; tout le
+reste est vert (nouveaux tests, rejeu des commandes ordinaires, `pnpm integrity:test`).
+
+Ce qui est livré :
+
+- commit des tests de refus, `tests/run-rerun-refusals.test.mjs`, verts avant et après
+  l'ouverture : toute forme refusée aux quinze rôles (analyse, et hook complet pour dev-api et
+  revue-pr), formes hors de la forme permise refusées à la session principale ;
+- l'implémentation et le test d'acceptation, prêts mais non appliqués :
+  `docs/comptes-rendus/lot-25-lead-l25-05.patch` (`git apply --check` vérifié sur la branche).
+  Il ajoute `ghRunRerunRefusal` dans `lib/shell.mjs` (liste fermée `--failed`, `--job` ; motifs
+  autre dépôt, `GH_REPO`/`GH_HOST`, débogage, option non permise, identifiant numérique, illisible,
+  `xargs`, en tête ; agents : « interdit aux agents ») et `tests/run-rerun-main.test.mjs` (formes
+  permises à la session principale, motifs de chaque refus, motif des quinze rôles). `-j` n'est pas
+  admis : le ticket nomme `--job`.
+
+Changement nécessaire, à faire autoriser (portée « tests », correcteur ou orchestrateur, avec
+`Justification-test: L25-05`) :
+
+- `run-download.test.mjs:139` : remplacer le refus de la session principale par une forme encore
+  refusée, par exemple `['gh run rerun 123 --debug', /débogage/]` (la ligne `gh run cancel 123`
+  reste) ;
+- `pr-flow.test.mjs:201` : de même, `['gh run rerun 99 -R x/y', /autre dépôt/]`.
+
+Puis appliquer le patch (`git apply docs/comptes-rendus/lot-25-lead-l25-05.patch`), lancer
+`pnpm hooks:test`, et reporter la forme dans le README des hooks (liste des écritures de `gh` de
+la session principale) et dans `CLAUDE.md` (« Flux git et interdictions », retirer `gh run rerun`
+des refus cités et l'ajouter aux écritures de la session principale). Je n'ai pas modifié la
+documentation, qui décrit encore le comportement effectif (refus à tous).
 
 ## Vérifications (sans Docker)
 
