@@ -14,7 +14,11 @@
 // - `remote.<nom>.uploadpack|receivepack` et les options `--upload-pack`, `-u` (clone),
 //   `--exec` (archive) : commande lancée à la place de git-upload-pack, en local.
 // Chaque forme refusée est d'abord rejouée par git dans un dépôt jetable avec une commande témoin
-// (`touch <témoin>`) : git la lance (`mayFail` : versions de git qui ignorent la forme). Puis
+// (`touch <témoin>`) : git la lance quand sa version la connaît (`since` : première version qui
+// la lit, `before` : première version qui ne la lit plus, git 2.31 ayant cessé de retirer les
+// espaces autour d'une clé de `-c` ; `varies` : effet qui change selon la version sans borne
+// connue, jamais exigé ; mesuré sur 2.30.2, sur 2.43.0 de l'image Playwright du compose et par la
+// CI). Le refus par les hooks est exigé pour toutes les formes, quelle que soit la version. Puis
 // l'analyse avec une commande qui pousse (refusée à la session principale et aux quinze rôles) et
 // le hook complet avec une commande qui supprime un test existant (refusée à la session
 // principale et à dev-api). Lancé par `pnpm hooks:test`.
@@ -127,7 +131,11 @@ const LAUNCHED = [
   // GIT_CONFIG_PARAMETERS, ancienne forme 'clé=valeur' (git 2.30 et suivants)
   { t: `GIT_CONFIG_PARAMETERS="'diff.external=%CMD%'" git diff` },
   { t: `GIT_CONFIG_PARAMETERS="'user.name=x' 'diff.external=%CMD%'" git diff` },
-  { t: `GIT_CONFIG_PARAMETERS="' diff.external =%CMD%'" git diff` },
+  {
+    t: `GIT_CONFIG_PARAMETERS="' diff.external =%CMD%'" git diff`,
+    varies:
+      'lancé par git 2.30.2 et 2.43.0, pas par git 2.56.1 de l’exécuteur GitHub (run 45025051529)',
+  },
   { t: `GIT_CONFIG_PARAMETERS="'DIFF.EXTERNAL=%CMD%'" git diff` },
   { t: `export GIT_CONFIG_PARAMETERS="'diff.external=%CMD%'"; git diff` },
   { t: `env GIT_CONFIG_PARAMETERS="'core.fsmonitor=%CMD%'" git status` },
@@ -140,43 +148,43 @@ const LAUNCHED = [
   // l'alias de l'environnement l'emporte sur celui du dépôt (alias.st = status --short)
   { t: `GIT_CONFIG_PARAMETERS="'alias.st=!%CMD%'" git st` },
   // GIT_CONFIG_PARAMETERS, nouvelle forme 'clé'='valeur' (git >= 2.31)
-  { t: `GIT_CONFIG_PARAMETERS="'diff.external'='%CMD%'" git diff`, mayFail: 'git < 2.31' },
+  { t: `GIT_CONFIG_PARAMETERS="'diff.external'='%CMD%'" git diff`, since: '2.31' },
   // GIT_CONFIG_COUNT, GIT_CONFIG_KEY_<n>, GIT_CONFIG_VALUE_<n> (git >= 2.31)
   {
     t: `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=diff.external GIT_CONFIG_VALUE_0='%CMD%' git diff`,
-    mayFail: 'git < 2.31',
+    since: '2.31',
   },
   {
     t: `GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=x GIT_CONFIG_KEY_1=core.sshCommand GIT_CONFIG_VALUE_1='%CMD%;false' git ls-remote ${SSH_URL}`,
-    mayFail: 'git < 2.31',
+    since: '2.31',
   },
   {
     t: `export GIT_CONFIG_VALUE_0='%CMD%'; export GIT_CONFIG_KEY_0=diff.external GIT_CONFIG_COUNT=1; git diff`,
-    mayFail: 'git < 2.31',
+    since: '2.31',
   },
   {
     t: `GIT_CONFIG_KEY_0=core.fsmonitor; GIT_CONFIG_VALUE_0='%CMD%'; GIT_CONFIG_COUNT=1; export GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 GIT_CONFIG_COUNT; git status`,
-    mayFail: 'git < 2.31',
+    since: '2.31',
   },
   {
     t: `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.zz GIT_CONFIG_VALUE_0='!%CMD%' git zz`,
-    mayFail: 'git < 2.31',
+    since: '2.31',
   },
   {
     t: `${CREDENTIAL} GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0='!%CMD%' git credential fill`,
-    mayFail: 'git < 2.31',
+    since: '2.31',
   },
   // --config-env <clé>=<variable> (git >= 2.32), collé ou séparé
-  { t: `V='%CMD%' git --config-env=diff.external=V diff`, mayFail: 'git < 2.32' },
-  { t: `V='%CMD%' git --config-env diff.external=V diff`, mayFail: 'git < 2.32' },
-  { t: `export V='!%CMD%'; git --config-env=alias.zz=V zz`, mayFail: 'git < 2.32' },
+  { t: `V='%CMD%' git --config-env=diff.external=V diff`, since: '2.32' },
+  { t: `V='%CMD%' git --config-env diff.external=V diff`, since: '2.32' },
+  { t: `export V='!%CMD%'; git --config-env=alias.zz=V zz`, since: '2.32' },
   {
     t: `V='%CMD%;false' git --config-env=core.sshCommand=V ls-remote ${SSH_URL}`,
-    mayFail: 'git < 2.32',
+    since: '2.32',
   },
   // -c : clé entourée d'espaces (retirés par git 2.30), dernier alias de la commande
-  { t: `git -c ' diff.external=%CMD%' diff`, mayFail: 'git >= 2.31 refuse la clé' },
-  { t: `git -c 'diff.external =%CMD%' diff`, mayFail: 'git >= 2.31 refuse la clé' },
+  { t: `git -c ' diff.external=%CMD%' diff`, before: '2.31' },
+  { t: `git -c 'diff.external =%CMD%' diff`, before: '2.31' },
   { t: `git -c alias.zz=status -c 'alias.zz=!%CMD%' zz` },
   // commande lancée à la place de git-upload-pack, transport local
   { t: `git -c remote.o.url=. -c remote.o.uploadpack='%CMD%;git-upload-pack' ls-remote o` },
@@ -200,9 +208,9 @@ const EXT_ENABLED = [
   { t: EXT(`GIT_CONFIG_PARAMETERS="'protocol.ext.allow=always'" git`) },
   {
     t: EXT('GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=protocol.ext.allow GIT_CONFIG_VALUE_0=always git'),
-    mayFail: 'git < 2.31',
+    since: '2.31',
   },
-  { t: EXT('V=always; export V; git --config-env=protocol.ext.allow=V'), mayFail: 'git < 2.32' },
+  { t: EXT('V=always; export V; git --config-env=protocol.ext.allow=V'), since: '2.32' },
 ];
 /** Écriture persistante du même réglage par git config (rejouée puis retirée). */
 const EXT_CONFIG = [
@@ -256,6 +264,26 @@ const PERMITTED = [
 
 const fill = (t, cmd) => t.replaceAll('%CMD%', cmd).replaceAll('%SCRIPT%', extScript);
 
+/** Version de git qui rejoue les formes : [majeure, mineure]. */
+const GIT_VERSION = (() => {
+  const m = /(\d+)\.(\d+)/.exec(execFileSync('git', ['--version'], { encoding: 'utf8' }));
+  return [Number(m[1]), Number(m[2])];
+})();
+const atLeast = (version) => {
+  const [major, minor] = version.split('.').map(Number);
+  return GIT_VERSION[0] > major || (GIT_VERSION[0] === major && GIT_VERSION[1] >= minor);
+};
+/**
+ * La forme est effective pour cette version de git : `since` (première version qui la lit) et
+ * `before` (première version qui ne la lit plus) bornent son effet. Hors de ces bornes, git
+ * l'ignore ou la rejette ; `varies` : effet mesuré différent selon la version sans borne connue,
+ * jamais exigé. Le refus par les hooks reste exigé pour toutes les formes et toutes les versions.
+ */
+const effectiveHere = ({ since, before, varies }) =>
+  varies === undefined &&
+  (since === undefined || atLeast(since)) &&
+  (before === undefined || !atLeast(before));
+
 /** Vrai si git, rejouant le gabarit (bash), lance la commande témoin. */
 function launches(template) {
   rmSync(marker, { force: true });
@@ -269,12 +297,23 @@ function launches(template) {
 }
 
 describe('L25-01 : comportement réel de git (dépôt jetable, témoin)', () => {
-  it('chaque forme lance la commande quand git la connaît', () => {
-    for (const { t, mayFail } of [...LAUNCHED, ...EXT_ENABLED]) {
-      const launched = launches(t);
-      if (mayFail && !launched) continue;
-      assert.ok(launched, `${fill(t, '<témoin>')} : la commande témoin n'a pas été lancée`);
-    }
+  it('chaque forme lance la commande quand la version de git la connaît', () => {
+    // Toutes les formes sont rejouées avant l'assertion : un échec les nomme toutes.
+    const missed = [...LAUNCHED, ...EXT_ENABLED]
+      .filter((form) => effectiveHere(form) && !launches(form.t))
+      .map((form) => fill(form.t, '<témoin>'));
+    assert.deepEqual(
+      missed,
+      [],
+      `commande témoin non lancée par git ${GIT_VERSION.join('.')} :\n${missed.join('\n')}`,
+    );
+  });
+
+  it('chaque version de git exécute au moins les formes connues partout', () => {
+    const everywhere = [...LAUNCHED, ...EXT_ENABLED].filter(
+      (f) => !f.since && !f.before && !f.varies,
+    );
+    assert.ok(everywhere.length >= 20, `${everywhere.length} formes sans borne de version`);
   });
 
   it('git config qui permet ext:: lance la commande de l’URL', () => {
