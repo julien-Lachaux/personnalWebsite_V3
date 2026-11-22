@@ -165,3 +165,15 @@ Ce qui a pu être essayé sans Docker :
   hook refuse que je le modifie (« Aucune autorisation tests de l'orchestrateur pour dev-devops »). Il échouera
   donc en CI tant qu'il n'est pas corrigé : retirer la ligne `expect(service?.read_only).toBe(true);` du test
   « web-build est durci » (et « lecture seule » de son titre), avec `Justification-test: BF-13`.
+
+## Essai de la pile par l'orchestrateur et correction de `/fr//hote.test` (22 nov. 2026)
+
+- `stack:up` passe (65 s), 28 tests `local-stack` sur 30. Échec 1 : `/fr//hote.test` donnait 301 au lieu de 404 :
+  confirmé par la doc de Caddy (le matcher `path` « merges multiple slashes »), la garde sur le premier caractère
+  ne voyait jamais `//`. Correction : un matcher `@frraw vars_regexp frraw {http.request.orig_uri.path} ^/fr/[/\\]`
+  (chemin d'origine non nettoyé) lève `error 404` avant la redirection. Le matcher `@fr` reste inchangé.
+- Vérifié sur Caddy réel (image épinglée, `caddy validate` : « Valid configuration », puis une config de
+  même matchers sur un port local, conteneur supprimé) : `/fr` 301 `/`, `/fr/` 301 `/`, `/fr/a/b` 301 `/a/b`,
+  `/fr//hote.test` 404, `/fr/%5Chote` 404, `/frais` 200.
+- Échec 2 (parcours CSP : `eval` et code en ligne injectés à l'exécution par le JS de Nuxt) : cause côté front,
+  transmis à la session front. La CSP n'est pas assouplie (ni `unsafe-eval`, ni `unsafe-inline`).

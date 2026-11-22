@@ -58,6 +58,16 @@ http://{$SITE_DOMAIN:localhost} {
 	# chemin sans préfixe (doublure de la page `meta refresh` que Nuxt génère, en 200). Le premier
 	# caractère de la suite ne peut être ni `/` ni `\` : `/fr//hote` donnerait `//hote`, une
 	# redirection hors du site (ce chemin tombe alors sur la page 404).
+	#
+	# Le matcher `path` nettoie le chemin (docs Caddy : « multiple slashes are merged ») : `/fr//hote`
+	# y devient `/fr/hote` et la garde ci-dessous ne le voit plus (constaté : 301 au lieu de 404).
+	# Le chemin d'origine, non nettoyé, est lu par `vars_regexp` sur `{http.request.orig_uri.path}` :
+	# `/fr/` suivi de `/` ou `\` donne une erreur 404 (page 404 du front) avant la redirection.
+	@frraw vars_regexp frraw {http.request.orig_uri.path} ^/fr/[/\\]
+	handle @frraw {
+		error 404
+	}
+
 	@fr path_regexp fr ^/fr(?:/([^/\\].*)?)?$
 	handle @fr {
 		redir * /{re.fr.1} permanent
