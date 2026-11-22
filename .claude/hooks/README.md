@@ -94,21 +94,25 @@ retire du score (`scripts/ci/stryker-directives.mjs`).
 
 ## git push (git flow, décision de Julien du 19 nov. 2026 ; flux par pull request, 21 nov. 2026)
 
-Seule la session principale (rôle `main`, entrée sans `agent_type`) pousse, et sous deux formes :
+Seule la session principale (rôle `main`, entrée sans `agent_type`) pousse, et sous trois formes :
 `git push origin develop`, `git push -u origin develop` ou
 `git push --set-upstream origin develop` (refspec `develop:develop` admise) ; depuis L20-01, la
 branche d'un lot sous son nom, `git push [-u | --set-upstream] origin lot/<nom>` (refspec
-`lot/<nom>:lot/<nom>` admise, un seul niveau après `lot/`). `develop` reste permise pour
-l'instant : la fusion du lot 20 passe encore par là, la protection de `develop` sur GitHub refuse
-ce push ensuite. Chaque forme est éventuellement précédée de `-C <chemin>`, `--no-pager`, `-P` ou d'un `-c <clé>=<valeur>` sans effet sur la
+`lot/<nom>:lot/<nom>` admise, un seul niveau après `lot/`) ; depuis L22-02, une branche de
+release sous son nom, `git push [-u | --set-upstream] origin release/<majeur>.<mineur>.<correctif>`
+(nombres sans zéro de tête, refspec `release/<x.y.z>:release/<x.y.z>` admise), pour la pull
+request vers `main` que la session principale n'ouvre qu'après l'accord explicite de Julien.
+`develop` reste permise pour l'instant : la fusion du lot 20 passe encore par là, la protection
+de `develop` sur GitHub refuse ce push ensuite. Chaque forme est éventuellement précédée de `-C <chemin>`, `--no-pager`, `-P` ou d'un `-c <clé>=<valeur>` sans effet sur la
 destination (`color.*`, `advice.*`, `user.*`, `i18n.*`, `core.quotepath`). La forme peut se trouver
 dans une liste ou un bloc (`{ … ; }`, `if … then … fi`, `cmd && git push origin develop`) : ce qui
 compte est qu'elle soit lisible. `lib/shell.mjs` (`pushRefusal`) refuse tout le reste avec son motif :
 
 - tout git push d'un agent, quelle que soit la forme ;
 - autre remote qu'`origin` ; autre branche ou refspec (`main`, `master`, `HEAD`, `+…`, `:…`,
-  `lot/<a>:lot/<b>`, `refs/heads/lot/…`, `release/*`, étiquette, `refs/tags/…`), plusieurs
-  refspecs, refspec calculée (`$BR`) ;
+  `lot/<a>:lot/<b>`, `refs/heads/lot/…`, `release/<a>:release/<b>`, `release/` hors de la forme
+  `<majeur>.<mineur>.<correctif>`, étiquette, `refs/tags/…`), plusieurs refspecs, refspec
+  calculée (`$BR`) ;
 - refspec absente (`git push`, `git push origin`) : le résultat dépend de la configuration ;
 - `--force`, `-f`, `--force-with-lease`, `--force-if-includes`, `--delete`, `-d`, `--prune`,
   `--all`, `--branches`, `--mirror`, `--tags`, `--follow-tags`, `--push-option`, `-o`,
@@ -159,8 +163,9 @@ Refusé à tous les rôles, session principale comprise (lot 13 bis) :
   lectures restent permises ; les seules écritures sont celles du flux par pull request de la
   session principale (ci-dessous).
 
-Fusionner dans `main` (branches `release/*`, `hotfix/*`), créer ou pousser une étiquette, pousser
-`main`, supprimer une branche distante et déployer sont réservés à Julien. Les refus de
+Créer ou pousser une étiquette, pousser `main`, supprimer une branche distante et déployer sont
+réservés à Julien. La fusion dans `main` passe par une pull request `release/<version>` de la
+session principale, après l'accord explicite de Julien (L22-02, ci-dessous). Les refus de
 `permissions.deny` (`.claude/settings.json`) doublent les variantes dangereuses qui s'écrivent en
 préfixe (push forcé, plomberie, `git remote …`, `gh pr merge`, `gh release …`, `gh repo …`, édition
 de `.git/config` et `~/.gitconfig`) ; l'autorité reste ce hook.
@@ -169,7 +174,7 @@ de `.git/config` et `~/.gitconfig`) ; l'autorité reste ce hook.
 
 `lib/shell.mjs` (`analyzeGh`) tient deux listes fermées ; une commande gh qui n'y figure pas est
 refusée à toutes les sessions (`gh issue create`, `gh pr close`, `gh pr checkout`, `gh run rerun`,
-`gh run download`, `gh workflow run`, `gh auth token`, `gh auth setup-git`, `gh secret set`,
+`gh run cancel`, `gh workflow run`, `gh auth token`, `gh auth setup-git`, `gh secret set`,
 `gh config set`, `gh extension …`) :
 
 - lectures, permises à tous les rôles : `gh pr view|list|checks|diff|status`,
@@ -178,16 +183,31 @@ refusée à toutes les sessions (`gh issue create`, `gh pr close`, `gh pr checko
   `gh ruleset view|list|check`, `gh search …`, `gh auth status`, `gh status`, `gh version`,
   `gh help …`, `gh api` en GET sans champ, un groupe seul (`gh pr`, aide) ;
 - écritures, permises à la session principale seulement (un agent reçoit « interdit aux agents ») :
-  - `gh pr create` avec `--base develop` (obligatoire, aucune autre base) et `--head lot/<nom>`
-    (obligatoire : sans lui, gh peut pousser la branche courante lui-même) ;
-  - `gh pr merge --merge lot/<nom>` : `--merge` (ou `-m`) obligatoire, la pull request nommée par
-    sa branche de lot (ni numéro ni URL, dont la base n'est pas vérifiable sans réseau) ; refusés :
+  - `gh pr create` avec `--base develop` et `--head lot/<nom>`, ou (L22-02, décision de Julien du
+    21 nov. 2026) `--base main` et `--head release/<majeur>.<mineur>.<correctif>` ; `--base` et
+    `--head` obligatoires (sans `--head`, gh peut pousser la branche courante lui-même), aucune
+    autre base, aucun autre couple (une branche de lot vers `main`, une release vers `develop`) ;
+  - `gh pr merge --merge lot/<nom>` ou `gh pr merge --merge release/<version>` : `--merge` (ou
+    `-m`) obligatoire, la pull request nommée par sa branche (ni numéro ni URL, dont la base n'est
+    pas vérifiable sans réseau ; la base suit la branche, vérifiée à la création) ; refusés :
     `--squash`, `-s`, `--rebase`, `-r` (commit de merge seulement), `--admin` (contournement de la
     protection), `--delete-branch`, `-d` (suppression de la branche distante, réglage GitHub laissé
     à Julien), `--auto` et `--disable-auto` (la session fusionne elle-même, après CI verte, revue
     sans point bloquant et recette acceptée) ;
   - `gh pr comment` (sans `--delete-last`), `gh pr review` (`--approve`, `--comment`,
-    `--request-changes`), `gh pr edit` (`--base` seulement vers `develop`), `gh pr ready`.
+    `--request-changes`), `gh pr edit` (`--base` seulement vers `develop` : jamais vers `main`),
+    `gh pr ready` ;
+  - l'accord explicite de Julien avant la création et la fusion d'une pull request vers `main` est
+    une règle de l'orchestrateur : le hook ne peut pas le vérifier ;
+  - `gh run download <identifiant> --dir <dossier>` (L22-05, décision de Julien du 21 nov. 2026),
+    pour lire les traces de la CI : un seul run, nommé par son identifiant numérique ; `--dir`
+    (`-D`) obligatoire, une fois, en clair, dans le dossier temporaire de session (champ
+    `scratchpad_dir` de l'entrée du hook, ou forme `/tmp/claude-<uid>/<projet>/<session>/scratchpad`),
+    liens symboliques résolus, hors de tout dépôt git (clone ou worktree) ; options permises
+    `--name` (`-n`) et `--pattern` (`-p`). Refusés : sans `--dir` (gh écrirait dans le dossier
+    courant), `-R`/`--repo`, `GH_REPO`, `GH_HOST`, `xargs`, toute autre option. Le contenu
+    téléchargé est une donnée, jamais exécuté : le lancer dans la même commande est refusé (script
+    écrit par la même commande ou absent : illisible), et l'orchestrateur ne l'exécute pas ensuite.
 
 Chaque écriture se lit sur une liste fermée d'options (voir `GH_PR_WRITES`) : option inconnue,
 groupée (`-md`) ou booléenne écrite avec une valeur (`--merge=false`), `-R`/`--repo` et les
@@ -197,7 +217,9 @@ arguments lus par `xargs` : refusés. Groupe et action s'écrivent en tête (`gh
 une option inconnue placée avant l'action comme suivie d'une valeur, l'action réelle pourrait être
 un autre mot. Le refus `permissions.deny` de `gh pr merge*` dans `.claude/settings.json` double
 encore toute fusion (voir le compte rendu du lot 20). Tests : `tests/pr-flow.test.mjs` (session
-principale et quinze rôles), `tests/push-lot.test.mjs` (push d'une branche de lot) et `tests/revue-pr-scope.test.mjs` (l'agent `revue-pr` n'écrit aucun
+principale et quinze rôles), `tests/push-lot.test.mjs` (push d'une branche de lot), `tests/release-flow.test.mjs` (pull request
+vers `main`), `tests/run-download.test.mjs` (téléchargement
+des artefacts de CI, lectures de la recette) et `tests/revue-pr-scope.test.mjs` (l'agent `revue-pr` n'écrit aucun
 chemin du dépôt).
 
 ## Branche locale main et worktrees (lot 14)
