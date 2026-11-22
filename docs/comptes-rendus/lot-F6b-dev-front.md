@@ -54,3 +54,34 @@ textes de `ai.placeholder` dans les deux `ai.json` (le test `AiPlaceholder.spec.
 - Lint (zéro avertissement), typecheck et `pnpm integrity develop` : verts.
 - Vitest, projets unit et nuxt, `--maxWorkers=2`, couverture : 1045 tests verts, 100 % (instructions,
   branches, fonctions, lignes).
+
+## Correction F6b-D28 (22 nov. 2026)
+
+Décision de Julien : le placeholder de la section IA n'affiche que le mot « placeholder » (identique en
+fr et en), en attendant le vrai contenu. Le cadre terminal, le curseur (`--dur-cursor-blink`) et le picto
+décoratif (`aria-hidden`) restent.
+
+- `AiPlaceholder.vue` : une seule ligne `.ai-placeholder__line` (texte réel + curseur `aria-hidden`) ;
+  l'invite `$`, la commande, la réponse et l'indice sont retirés, avec leurs styles.
+- `i18n/locales/{fr,en}/ai.json` : `ai.placeholder.text` = « placeholder » ; `command`, `output`, `hint`
+  supprimés. `i18n-messages.spec.ts` ne compare que les clés : un libellé identique passe, aucune
+  exception à ajouter.
+- Tests (autorisation 3d751685, `Justification-test: F6b-D28`), avant -> après :
+  - `AiPlaceholder.spec.ts` : lignes attendues `['$ cat ia.md', 'ia.md : en cours d'écriture…', 'Le contenu
+    arrive…']` (fr) et `[…ai.md…]` (en) -> `['placeholder']` dans les deux langues. Éléments
+    `aria-hidden` : `span, span, svg` -> `span, svg` (l'invite n'existe plus) ; assertion sur
+    `.ai-placeholder__prompt` retirée. Non interactif, ni `p`/titre, ni rôle : inchangés.
+  - `HomePage-ai-placeholder.spec.ts` : `__command` « cat ia.md » / « cat ai.md » et textes « en cours
+    d'écriture » / « still being written » -> `.ai-placeholder__line` = « placeholder » (fr, en, onglet
+    mobile) ; titres des deux tests reformulés. Rendu quand `ai` est nul, absence de contenu IA : inchangés.
+  - `HomePage.spec.ts` : test renommé « sans section IA, la section n'a aucun paragraphe de contenu et
+    garde son titre » ; assertions inchangées.
+  - `axe-placeholder.spec.ts` : aucun changement nécessaire (ne lit aucun texte) ; il passe sur le
+    nouveau rendu.
+
+### Liste des libellés identiques (autorisation d520207c)
+
+`i18n-hardcoded.spec.ts` échouait (1099 verts sur 1100) : `ai.placeholder.text => "placeholder"` absent de
+`SAME_IN_BOTH`. Avant : échec, reçu = attendu + cette entrée. Après : l'entrée
+`['ai.placeholder.text', 'placeholder']` est ajoutée (mot décidé par Julien, D28), rien d'autre ;
+`test:coverage` : 115 fichiers, 1100 tests verts, 100 %.
