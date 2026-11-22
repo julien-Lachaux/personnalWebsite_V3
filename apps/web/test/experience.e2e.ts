@@ -122,7 +122,25 @@ async function openExperience(page: Page, code: LocaleCode, query = ''): Promise
   return section;
 }
 
+/**
+ * Attend la fin des animations et transitions finies (fondu d'onglet, panneaux) : axe mesure le
+ * contraste sur les couleurs rendues, donc fausses tant qu'un fondu est translucide (F5D-2).
+ * Les animations infinies (indice de défilement) ne s'arrêtent jamais : on les ignore.
+ */
+async function waitForSettledAnimations(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (animation) =>
+          animation.playState !== 'running' ||
+          animation.effect?.getComputedTiming().endTime === Infinity,
+      ),
+  );
+}
+
 async function axe(page: Page, label: string): Promise<void> {
+  await waitForSettledAnimations(page);
   const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
   expect(results.violations, label).toEqual([]);
   expect(
