@@ -400,6 +400,69 @@ export function newGrantId() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Écritures autorisées (L25-04) : empreinte exacte du contenu produit par un Edit, MultiEdit ou
+// Write qu'une autorisation a permis, relevée par le hook PreToolUse (une ligne JSON par écriture,
+// `state/authorized-writes.jsonl`). La fin de tâche d'une autre clé n'alerte pas pour un oracle
+// dont le contenu actuel est exactement celui-là.
+
+function authorizedWritesPath(root) {
+  return join(root, 'authorized-writes.jsonl');
+}
+
+/**
+ * Relève une écriture autorisée : { top, rel, sha256, key, role, grant, scope }. Jamais
+ * d'exception : sans relevé, la fin de tâche d'une autre clé alerte, comme avant L25-04.
+ */
+export function recordAuthorizedWrite(root, entry) {
+  try {
+    mkdirSync(root, { recursive: true });
+    appendFileSync(
+      authorizedWritesPath(root),
+      `${JSON.stringify({ ts: new Date().toISOString(), ...entry })}\n`,
+    );
+  } catch {
+    // L'écriture reste autorisée ; seule l'attribution à cet agent sera impossible.
+  }
+}
+
+/**
+ * Écriture autorisée d'une AUTRE clé que `key` qui a produit exactement le contenu `hash` de `rel`
+ * dans `top`, depuis `since` (création de l'instantané vérifié), pour la portée `scope`, sous une
+ * autorisation toujours connue, liée à cette clé et non révoquée ; ou null.
+ */
+export function authorizedWriteBy(root, { top, rel, hash, key, scope, since }) {
+  let lines;
+  try {
+    lines = readFileSync(authorizedWritesPath(root), 'utf8').split('\n');
+  } catch {
+    return null;
+  }
+  const grants = readAuthorizations(root);
+  const from = Date.parse(since);
+  for (const line of lines.reverse()) {
+    let w;
+    try {
+      w = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (
+      w === null ||
+      w.top !== top ||
+      w.rel !== rel ||
+      w.sha256 !== hash ||
+      w.key === key ||
+      w.scope !== scope ||
+      !(Date.parse(w.ts) >= from)
+    )
+      continue;
+    const grant = grants.find((g) => g.id === w.grant);
+    if (grant && !grant.revoked && grant.bound_to === w.key && grantCovers(grant, rel)) return w;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Vérification de fin de tâche
 
 /** Contenu d'un fichier à un commit (ou null s'il n'y existe pas). */
@@ -523,9 +586,31 @@ export function verifySnapshot(root, snapshot, { role, key }) {
     ];
   }
 
+  // L25-04 : contenu actuel exactement produit par l'écriture autorisée d'une autre clé depuis
+  // l'instantané (un fichier supprimé n'a pas de contenu : jamais couvert). L'attribution est
+  // journalisée ; la fin de tâche de l'agent autorisé reste vérifiée par sa propre autorisation.
+  const byOther = (rel, scope) => {
+    const now = hashFile(join(top, rel));
+    if (now === null) return false;
+    const w = authorizedWriteBy(root, { top, rel, hash: now, key, scope, since: snapshot.created });
+    if (w === null) return false;
+    audit(root, {
+      event: 'attributed',
+      role,
+      key,
+      rel,
+      top,
+      by: w.key,
+      by_role: w.role,
+      grant: w.grant,
+      scope,
+    });
+    return true;
+  };
   const allowed = (rel, scope) =>
     usedAuthorization(root, { role, key, scope, rel }) !== null ||
-    committedWithJustification(top, head, rel);
+    committedWithJustification(top, head, rel) ||
+    byOther(rel, scope);
 
   const current = new Set(listFiles(top));
   for (const [rel, before] of Object.entries(oracles)) {
