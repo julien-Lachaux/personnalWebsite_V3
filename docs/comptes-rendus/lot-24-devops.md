@@ -140,3 +140,28 @@ Ce qui a pu être essayé sans Docker :
 5. **Besoin côté front** : aucun. (Si la CSP du front évolue, p. ex. nouvelle source d'images, `buildPolicy` dans
    `scripts/deploy/csp-hashes.mjs` est l'unique endroit à ajuster, avec son test.)
 6. Dépôt : `docker/placeholder/` supprimé ; `.dockerignore` racine inchangé (l'API garde son contexte strict).
+
+## Essais réels sous Docker (22 nov. 2026, Docker 29.0.1 revenu)
+
+- `pnpm lint:workflows` et `pnpm lint:shell` : verts (lancés par l'orchestrateur).
+- `pnpm db:test:up` puis `vitest run --project e2e web-front-config prod-compose deploy-scripts local-stack-script
+  csp-hashes web-generate` : 6 fichiers, 53 tests réussis (la configuration compose du front est valide).
+- `pnpm stack:up`, essai 1 : build des deux images réussi, API migrée et saine, puis la génération échoue :
+  `EACCES: permission denied, mkdir '/repo/apps/web/node_modules/.cache/nuxt'` (un `tmpfs` est créé en root,
+  sans `uid`). Le script répond `nuxt generate a échoué : le site publié est inchangé` : l'échec de génération est
+  bien rattrapé. Correction essayée : `tmpfs` en `mode=1777`.
+- Essai 2 : Nuxt construit le client et le serveur (le mémoire de 2 Go suffit jusque-là), puis
+  `EROFS: read-only file system, rmdir '/repo/apps/web/.output'` : Nitro vide et recrée `.output`, ce qu'un
+  `tmpfs` monté dessus interdit. Correction : `web-build` n'est plus en lecture seule (sources de `apps/web`
+  possédées par `node` dans l'image, aucun `tmpfs` hors `/tmp`) ; il reste jetable, sans port, sur le réseau
+  interne, sans capacité.
+- Essai 3 (la correction) : **non lancé**. Le classificateur de permissions a refusé la commande
+  (« Destructive or Unwanted Actions ») ; je m'arrête, comme demandé (un essai, une correction, un second essai
+  au plus : deux essais étaient déjà faits). Nettoyage fait : `pnpm stack:down --volumes` et `pnpm db:down`, plus
+  aucun conteneur, volume ni réseau du lot.
+- **Non vérifiés** : syntaxe Caddy, `mv -T`, `style-src`, parcours de fumée, `local-stack-front` contre une vraie
+  pile, mémoire jusqu'au bout de `nuxt generate`.
+- **Blocage de test** : `web-front-config.e2e-spec.ts` (test du lot) attend `read_only: true` pour `web-build`. Le
+  hook refuse que je le modifie (« Aucune autorisation tests de l'orchestrateur pour dev-devops »). Il échouera
+  donc en CI tant qu'il n'est pas corrigé : retirer la ligne `expect(service?.read_only).toBe(true);` du test
+  « web-build est durci » (et « lecture seule » de son titre), avec `Justification-test: BF-13`.

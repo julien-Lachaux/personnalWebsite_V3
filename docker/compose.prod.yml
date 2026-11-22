@@ -165,17 +165,12 @@ services:
       - web_site:/site
     networks:
       - app
-    read_only: true
-    # Sorties de Nuxt, de Nitro et de Vite, caches et répertoire personnel : seuls endroits inscriptibles
-    # (les sources de l'image restent en lecture seule).
+    # Seul conteneur dont le système de fichiers n'est pas en lecture seule : Nitro vide et recrée
+    # `.output` (un `tmpfs` monté dessus fait échouer `rmdir` : EROFS) et Nuxt écrit `.nuxt` et ses caches.
+    # Constaté sous Docker (lot 24). Conteneur jetable (`run --rm`), sans port, sur le réseau interne
+    # `app`, utilisateur `node`, sans capacité : seul le volume du site survit.
     tmpfs:
       - /tmp
-      - /repo/apps/web/.nuxt
-      - /repo/apps/web/.output
-      - /repo/apps/web/node_modules/.cache
-      - /repo/apps/web/node_modules/.vite
-      - /repo/node_modules/.cache
-      - /home/node
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true

@@ -33,7 +33,9 @@ COPY --from=build /repo /repo
 COPY scripts/deploy/web-generate.sh scripts/deploy/csp-hashes.mjs /opt/deploy/
 # /site : volume du site. Créé et possédé par `node` ici pour que Docker initialise le volume avec ces
 # droits (le conteneur tourne sans privilège et en lecture seule, sauf ce volume et des tmpfs).
-RUN mkdir -p /site && chown node:node /site && chmod 755 /opt/deploy/web-generate.sh
+# `apps/web` appartient à `node` (Nuxt y écrit .nuxt, .output et ses caches).
+RUN mkdir -p /site && chown node:node /site && chown -R node:node /repo/apps/web \
+    && chmod 755 /opt/deploy/web-generate.sh
 USER node
 WORKDIR /repo/apps/web
 CMD ["/opt/deploy/web-generate.sh"]
