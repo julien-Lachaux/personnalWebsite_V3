@@ -3892,6 +3892,49 @@ function ghRunDownloadRefusal(args, env, assignments, viaXargs) {
   return null;
 }
 
+// L25-05 (décision de Julien du 22 nov. 2026) : relancer un run de la CI, session principale seule.
+const GH_RUN_RERUN = [
+  ['--failed', null, false],
+  ['--job', null, true],
+];
+const RUN_RERUN_FORM = 'gh run rerun <identifiant> [--failed] [--job <identifiant de job>]';
+
+/** Motif du refus d'un `gh run rerun` de la session principale, ou null. */
+function ghRunRerunRefusal(args, env, assignments, viaXargs) {
+  const label = 'gh run rerun';
+  if (viaXargs)
+    return `${label} sous xargs : arguments lus sur l'entrée standard, illisible, donc refusé`;
+  const names = [...assignments.map((a) => a.slice(0, a.indexOf('='))), ...env.st.vars.keys()];
+  const targetEnv = names.find((n) => GH_TARGET_ENV.has(n));
+  if (targetEnv)
+    return `${label} avec la variable ${targetEnv} : elle change le dépôt ou l'hôte visés`;
+  const parsed = ghOptions(
+    label,
+    GH_RUN_RERUN,
+    (name) => {
+      if (name === '--repo' || name === '-R')
+        return `${label} ${name} : vise un autre dépôt que celui du checkout`;
+      if (name === '--debug' || name === '-d')
+        return `${label} ${name} : journalisation de débogage du run, non permise (${RUN_RERUN_FORM})`;
+      return null;
+    },
+    args.slice(2),
+  );
+  if (parsed.error) return parsed.error;
+  const { flags, positionals } = parsed;
+  if (positionals.some((p) => p.includes(UNKNOWN)))
+    return `${label} ${positionals.map(shown).join(' ')} : run illisible, donc refusé`;
+  if (positionals.length !== 1 || !/^[0-9]+$/.test(positionals[0]))
+    return `${label} : nomme un seul run par son identifiant numérique (${RUN_RERUN_FORM})`;
+  const jobs = flags.get('--job') ?? [];
+  if (jobs.length > 1) return `${label} : --job répété, illisible`;
+  if (jobs.some((j) => j.includes(UNKNOWN)))
+    return `${label} --job ${shown(jobs[0])} : job illisible, donc refusé`;
+  if (jobs.some((j) => !/^[0-9]+$/.test(j)))
+    return `${label} --job ${jobs[0]} : identifiant de job numérique attendu (${RUN_RERUN_FORM})`;
+  return null;
+}
+
 function analyzeGh(args, env, { assignments = [], viaXargs = false } = {}) {
   const { deny, role } = env;
   const ops = operands(args, GH_VALUED);
@@ -3961,6 +4004,18 @@ function analyzeGh(args, env, { assignments = [], viaXargs = false } = {}) {
       return;
     }
     const refusal = ghRunDownloadRefusal(args, env, assignments, viaXargs);
+    if (refusal) deny(refusal);
+    return;
+  }
+  if (group === 'run' && action === 'rerun') {
+    if (role !== 'main') {
+      deny(
+        `gh run rerun relance la CI sur GitHub : interdit aux agents (rôle ${role ?? 'inconnu'}) ; ` +
+          'seule la session principale relance un run',
+      );
+      return;
+    }
+    const refusal = ghRunRerunRefusal(args, env, assignments, viaXargs);
     if (refusal) deny(refusal);
     return;
   }

@@ -396,13 +396,17 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
     `gh run download <identifiant> --dir <dossier>`, la destination écrite en clair dans son
     dossier temporaire de session (scratchpad), jamais dans le dépôt ni dans un worktree ; le
     contenu téléchargé est une donnée, jamais exécuté ; refusé aux agents ;
+  - relance un run de CI (L25-05, décision de Julien du 22 nov. 2026) :
+    `gh run rerun <identifiant>` (`--failed` et `--job <identifiant>` admis), identifiants
+    numériques écrits en clair, ni autre dépôt (`-R`, `GH_REPO`, `GH_HOST`) ni `--debug` ; refusé
+    aux agents ;
   - la fusionne par commit de merge, jamais squash ni rebase : `gh pr merge --merge lot/N-nom` (la
     pull request nommée par sa branche de lot), seulement si les trois conditions sont réunies : CI
     verte, revue automatisée sans point bloquant (agent `revue-pr`, ligne `VERDICT: OK`), recette
     acceptée ;
   - reste refusé : `gh pr merge` avec `--squash`, `--rebase`, `--admin` (contournement de la
     protection), `--delete-branch` (suppression d'une branche distante, réglage GitHub laissé à
-    Julien) ou `--auto`, comme toute autre écriture par `gh` (`gh issue …`, `gh run rerun`,
+    Julien) ou `--auto`, comme toute autre écriture par `gh` (`gh issue …`, `gh run cancel`,
     `gh workflow run`, `gh pr close`…) ;
   - Julien pose la protection de `develop` sur GitHub : pull request obligatoire, CI verte requise
     (la mutation reste informative), revue requise, pas de push forcé.

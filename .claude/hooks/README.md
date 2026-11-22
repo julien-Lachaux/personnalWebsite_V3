@@ -212,7 +212,7 @@ de `.git/config` et `~/.gitconfig`) ; l'autorité reste ce hook.
 ## gh et flux par pull request (L20-01, décision de Julien du 21 nov. 2026)
 
 `lib/shell.mjs` (`analyzeGh`) tient deux listes fermées ; une commande gh qui n'y figure pas est
-refusée à toutes les sessions (`gh issue create`, `gh pr close`, `gh pr checkout`, `gh run rerun`,
+refusée à toutes les sessions (`gh issue create`, `gh pr close`, `gh pr checkout`,
 `gh run cancel`, `gh workflow run`, `gh auth token`, `gh auth setup-git`, `gh secret set`,
 `gh config set`, `gh extension …`) :
 
@@ -238,6 +238,10 @@ refusée à toutes les sessions (`gh issue create`, `gh pr close`, `gh pr checko
     `gh pr ready` ;
   - l'accord explicite de Julien avant la création et la fusion d'une pull request vers `main` est
     une règle de l'orchestrateur : le hook ne peut pas le vérifier ;
+  - `gh run rerun <identifiant>` (L25-05, décision de Julien du 22 nov. 2026), pour relancer un run
+    de CI : identifiant numérique en clair, `--failed` et `--job <identifiant numérique>` admis ;
+    refusés : `-R`/`--repo`, `GH_REPO`, `GH_HOST`, `--debug`, toute autre option, toute forme
+    calculée, et tout agent (`tests/run-rerun-main.test.mjs`, `tests/run-rerun-refusals.test.mjs`) ;
   - `gh run download <identifiant> --dir <dossier>` (L22-05, décision de Julien du 21 nov. 2026),
     pour lire les traces de la CI : un seul run, nommé par son identifiant numérique ; `--dir`
     (`-D`) obligatoire, une fois, en clair, dans le dossier temporaire de session (champ
