@@ -110,7 +110,14 @@ apps/web/
   nuxt.config.ts          modules, i18n, prérendu, runtimeConfig (fichier partagé)
   app/
     app.vue               lang, hreflang, canonical (useLocaleHead), lien d'évitement,
-                          usePreferencesSync() une seule fois ; fichier partagé
+                          usePreferencesSync() une seule fois, useSiteSeo(), <NuxtLayout> ;
+                          fichier partagé
+    error.vue             page d'erreur (404 et autres statuts), rendue À LA PLACE d'app.vue : refait
+                          lang, lien d'évitement, préférences ; noindex, sans canonique (partagé)
+    layouts/annex.vue     en-tête des pages annexes (lien vers l'accueil, accessibilité, langue,
+                          thème) ; `routeRules` `appLayout: 'annex'` (nuxt.config.ts), et
+                          `<NuxtLayout name="annex">` dans error.vue
+    plugins/              localized-error-page.server.ts : page 404 anglaise prérendue (partagé)
     architecture.spec.ts  règles d'import des couches, vérifiées par le code
     domain/               logique pure : AUCUN import de vue, nuxt, #imports, #app, ni des
                           composants, composables ou données ; testée sans Nuxt (projet unit)
@@ -121,10 +128,14 @@ apps/web/
     components/shell/AppShell.vue   coquille de la page : en-têtes selon le mode, <main id="contenu">,
                           onglets et glissement, un slot par section (partagé, lead)
     components/home/      HomePage : CV lu au build (useCv), mapCv, sections dans AppShell (partagé)
+    components/annex/     AnnexPage : <main id="contenu">, retour à l'accueil, fenêtre `>_ fichier`
+                          des pages annexes (partagé, lead)
     composables/          pont entre domain et composants (état, URL, préférences) ;
                           sous-dossier par section importé explicitement ; use-cv.ts (partagé) :
-                          seul lien entre data/ et useAsyncData
-    pages/                index, accessibilite (provisoire jusqu'à F7), 404 (fichiers partagés)
+                          seul lien entre data/ et useAsyncData ; seo/useSeo.ts (partagé) :
+                          useSiteSeo (défauts de la langue), usePageSeo (titre, description)
+    pages/                index, accessibilite (`/accessibilite`, `/en/accessibility` par
+                          `i18n.pages` de nuxt.config.ts) ; fichiers partagés
     assets/css/           fonts.css (@font-face), tokens.css (tokens du handoff, thèmes, interface
                           des préférences), control-tokens.css (tokens ajoutés par décision :
                           bordure des contrôles D12, cible minimale D17), base.css (reset, focus,
@@ -148,12 +159,27 @@ apps/web/
 - **Règle « modules isolés » du front** : un agent de section n'écrit que dans
   `components/<section>/`, `composables/<section>/`, ses tests et ses fichiers de libellés
   `i18n/locales/{fr,en}/<section>.json` ; les fichiers partagés (configuration Nuxt, `app.vue`,
-  `pages/`, `assets/css/`, `components/base/` après F1, `data/` hors F4, `common.json`, configurations de test et de lint) sont réservés
+  `error.vue`, `layouts/`, `plugins/`, `components/annex/`, `composables/seo/`, `pages/`, `assets/css/`, `components/base/` après F1, `data/` hors F4, `common.json`, configurations de test et de lint) sont réservés
   au lead-architecte (détail dans `.claude/agents/dev-front.md`).
 - **i18n** : `@nuxtjs/i18n`, FR par défaut sans préfixe, EN sous `/en/...`
   (`prefix_except_default`), pas de redirection selon le navigateur ; `useLocaleHead` pose `lang`,
   `hreflang` (fr, en, x-default) et `canonical` en URL absolue (`NUXT_PUBLIC_I18N_BASE_URL`).
-  Toute chaîne visible passe par `t()`, dans les deux langues au même commit.
+  Toute chaîne visible passe par `t()`, dans les deux langues au même commit : un texte ou un nom
+  accessible écrit en dur dans un gabarit, ou un libellé anglais recopié du français hors liste des
+  mots identiques, fait échouer `app/i18n-hardcoded.spec.ts` ; `test/pages.e2e.ts` cherche les
+  libellés français dans les pages `/en`. Chemin anglais propre à une page : `i18n.pages`
+  de nuxt.config.ts (`customRoutes: 'config'`, clé = nom de la route), liens par
+  `localePath('/chemin-fr')`. Pas de `definePageMeta` dans une page : il laisse une branche que les
+  tests de composants n'exécutent pas (gabarit par `routeRules` `appLayout`).
+- **Référencement et pages annexes (lot F7)** : chaque page pose son titre et sa description par
+  `usePageSeo` (sinon la description par défaut de la langue, `seo.description`) ; `og:title` suit le
+  titre (`%s`), `og:url` et `og:locale` viennent de `useLocaleHead` ; pas d'`og:image`. `sitemap.xml`
+  et `robots.txt` sont écrits à la fin du prérendu (`nuxt.config.ts`) depuis les canoniques et
+  hreflang des pages générées (`domain/sitemap.ts`) : une page sans canonique (redirection, erreur)
+  n'y entre pas, aucune liste de routes à tenir. Pages 404 : `/404.html` (Nuxt,
+  `experimental.prerenderErrorPages`) et `/en/404.html` (`domain/error-pages.ts`), servies par le
+  proxy avec le statut 404 (le `sirv` des parcours répond 404 sans corps ; `page.route` reproduit le
+  proxy).
 - **Accessibilité** : WCAG 2.2 AA (D4, SPEC § 10) ; vrais `button`, `a`, `input` + `label`, jamais
   de clic sur un `div` ; focus visible ; cibles de 44 px sur mobile et tablette, sauf les puces de
   techno (D17 : hauteur de la maquette, au moins 24 × 24 px par `--target-min`, WCAG 2.5.8) ;
