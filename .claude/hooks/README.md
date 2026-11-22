@@ -59,6 +59,27 @@ chaque oracle et celle de chaque fichier non suivi. En fin de tâche (`verify`, 
   une autorisation « tests » dès ce moment, et la fin de tâche signale sa modification ou sa
   suppression sans autorisation ni commit justifié ; un test créé pendant la tâche reste libre
   (L14-12, `tests/test-widening.test.mjs`) ;
+- un test créé pendant la tâche reste libre après la reprise de la même clé (agent relancé par un
+  message, tour suivant de la session principale) : la fin de tâche réussie supprime l'instantané
+  mais reporte ces tests avec leur empreinte (`state/carry/`), et le prochain instantané de la même
+  clé et du même dépôt les laisse libres s'ils n'ont pas changé. Un test présent avant le premier
+  démarrage reste protégé, une autre clé ne profite pas du report, un test modifié par un autre
+  pendant la pause redevient protégé, une fin de tâche refusée garde son instantané (L25-03,
+  `tests/resumed-agent.test.mjs`) ;
+- historique réécrit depuis l'instantané (`git reset` puis de nouveaux commits, rebase : la tête de
+  l'instantané n'est plus ancêtre de HEAD) : le commit justifié est cherché parmi les commits de
+  HEAD non atteignables depuis la base commune (`git merge-base`), et l'oracle n'est accepté que si
+  son contenu, identique à HEAD et au disque, est exactement celui qu'un de ces commits justifiés
+  lui a donné (ou supprimé). Un commit non justifié postérieur, un commit justifié de l'historique
+  abandonné ou d'avant la base commune ne comptent pas ; sans base commune, refus (L25-02,
+  `tests/rewritten-history.test.mjs`) ;
+- un oracle dont le contenu actuel est exactement celui d'un Edit, MultiEdit ou Write qu'une
+  autorisation a permis à une autre clé depuis l'instantané (empreinte relevée par PreToolUse dans
+  `state/authorized-writes.jsonl`, autorisation de la même portée, liée à cette clé et non
+  révoquée) n'est pas signalé à la clé vérifiée ; l'attribution est journalisée (`attributed`).
+  Tout autre contenu reste signalé : modification ultérieure, écriture shell (contenu inconnu),
+  suppression, autorisation révoquée, autre dépôt, édition au résultat inexact (L25-04,
+  `tests/other-agent-authorized.test.mjs`) ;
 - l'instantané d'une racine disparue, ou d'un dossier qui n'est plus ce dépôt (plus de `.git`, ou
   `git rev-parse --show-toplevel` différent) et que git ne liste plus parmi les worktrees du
   projet, est ignoré et supprimé : worktree retiré dont un outil a recréé des fichiers (serveur
@@ -156,6 +177,24 @@ Refusé à tous les rôles, session principale comprise (lot 13 bis) :
   `declare -n` compris) et une clé `-c` ou `--config-env` calculée sont illisibles, donc refusées.
   `GIT_CONFIG_GLOBAL` et `GIT_CONFIG_SYSTEM` restent permis : ils passent après la configuration
   locale où husky pose la clé. Tests : `tests/hookspath-env.test.mjs` ;
+- les clés qui lancent une commande passées hors de `-c` (L25-01, L19-05, décision de Julien du
+  21 nov. 2026) : `GIT_CONFIG_PARAMETERS` (lu comme git : `'clé=valeur'`, `'clé'='valeur'`,
+  booléens), `GIT_CONFIG_KEY_<n>` avec `GIT_CONFIG_VALUE_<n>` (toutes les paires, sans tenir compte
+  de `GIT_CONFIG_COUNT`) et `--config-env <clé>=<variable>` donnent à git les mêmes entrées que
+  `-c` et passent par la même analyse : `core.sshCommand`, `core.pager`, `core.editor`,
+  `core.fsmonitor`, `diff.external`, `credential.helper`, filtres, `remote.<nom>.uploadpack`… sont
+  lus comme du code shell imbriqué (git push refusé, cible d'écriture vérifiée), un alias qui pousse
+  est refusé, un alias est analysé dès sa définition. Illisible donc refusé : variable de
+  `--config-env` absente de la commande ou calculée pour une telle clé, `GIT_CONFIG_KEY_<n>` sans
+  `GIT_CONFIG_VALUE_<n>` lisible, `GIT_CONFIG_PARAMETERS` que git rejette. Formes voisines fermées
+  au même lot : clé de `-c` entourée d'espaces (git 2.30 les retire : `git -c ' core.hooksPath=…'`
+  changeait le hook), plusieurs `-c alias.<nom>` et alias de l'environnement (tous les candidats
+  analysés, git lançant le dernier), `protocol.ext.allow` ou `protocol.allow` autre que `never`
+  (par `-c`, l'environnement, `--config-env` ou `git config`) et `GIT_ALLOW_PROTOCOL` qui cite
+  `ext` (le transport `ext::` lance la commande écrite dans l'URL), options `--upload-pack`
+  (abréviations comprises), `-u` de `clone` et `--exec` d'`archive` et de `fetch-pack` (commande
+  lancée en local pour un dépôt local). Tests : `tests/config-env-commands.test.mjs` (rejeu réel
+  par git, commande témoin) ;
 - `gh` pour ce qui étiquette, publie ou supprime :
   `gh release create|delete|delete-asset|edit|upload`,
   `gh repo delete|edit|rename|archive|unarchive|sync`, toute action `delete`, `gh alias set|import`, `gh api` avec une méthode autre que GET ou avec `-f`, `-F`,
@@ -173,7 +212,7 @@ de `.git/config` et `~/.gitconfig`) ; l'autorité reste ce hook.
 ## gh et flux par pull request (L20-01, décision de Julien du 21 nov. 2026)
 
 `lib/shell.mjs` (`analyzeGh`) tient deux listes fermées ; une commande gh qui n'y figure pas est
-refusée à toutes les sessions (`gh issue create`, `gh pr close`, `gh pr checkout`, `gh run rerun`,
+refusée à toutes les sessions (`gh issue create`, `gh pr close`, `gh pr checkout`,
 `gh run cancel`, `gh workflow run`, `gh auth token`, `gh auth setup-git`, `gh secret set`,
 `gh config set`, `gh extension …`) :
 
@@ -199,6 +238,10 @@ refusée à toutes les sessions (`gh issue create`, `gh pr close`, `gh pr checko
     `gh pr ready` ;
   - l'accord explicite de Julien avant la création et la fusion d'une pull request vers `main` est
     une règle de l'orchestrateur : le hook ne peut pas le vérifier ;
+  - `gh run rerun <identifiant>` (L25-05, décision de Julien du 22 nov. 2026), pour relancer un run
+    de CI : identifiant numérique en clair, `--failed` et `--job <identifiant numérique>` admis ;
+    refusés : `-R`/`--repo`, `GH_REPO`, `GH_HOST`, `--debug`, toute autre option, toute forme
+    calculée, et tout agent (`tests/run-rerun-main.test.mjs`, `tests/run-rerun-refusals.test.mjs`) ;
   - `gh run download <identifiant> --dir <dossier>` (L22-05, décision de Julien du 21 nov. 2026),
     pour lire les traces de la CI : un seul run, nommé par son identifiant numérique ; `--dir`
     (`-D`) obligatoire, une fois, en clair, dans le dossier temporaire de session (champ
@@ -354,7 +397,11 @@ Ce n'est pas un interpréteur : ce qu'un programme fait sans le nommer sur sa li
   où `X` contient un marqueur) : la cible est vérifiée, pas le contenu ;
 - un script exécuté est lu comme du code opaque (recherche de git push, de primitives d'écriture
   et de chemins d'oracles), pas analysé comme une commande ;
-- la commande `w` de sed est lue, pas les autres façons d'écrire d'un programme sed ou awk.
+- la commande `w` de sed est lue, pas les autres façons d'écrire d'un programme sed ou awk ;
+- une clé qui lance une commande déjà posée dans un fichier de configuration (dépôt, global,
+  système) avant la commande est lue par git sans paraître sur la ligne de commande ; un fichier
+  écrit par git lui-même à la demande de l'environnement (`GIT_TRACE*`, `trace2.*Target`) n'est pas
+  lu comme une cible d'écriture (point ouvert du lot 25).
 
 Le hook de fin (empreintes) et le script d'intégrité de la CI sont les filets. Les hooks ne sont pas
 un bac à sable : un agent déterminé peut écrire l'état local ; la CI ne dépend pas de cet état.

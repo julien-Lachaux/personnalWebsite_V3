@@ -187,28 +187,85 @@ export function readSnapshot(root, key, top) {
 }
 
 /**
+ * L25-03 : tests créés pendant la tâche d'une clé, reportés par sa fin de tâche réussie
+ * (`state/carry/<clé>/<dépôt>.json`) vers son prochain instantané du même dépôt (agent repris).
+ */
+function carryPath(root, key, top) {
+  return join(root, 'carry', safeKey(key), `${sha256(top).slice(0, 16)}.json`);
+}
+
+/**
  * Prend l'instantané des oracles d'un dépôt pour une clé, s'il n'existe pas encore (un instantané
  * n'est jamais écrasé : cela blanchirait une modification). Retourne l'instantané.
+ * L25-03 : les tests que la même clé a créés lors d'une tâche précédente (report de sa fin de
+ * tâche réussie) et qui n'ont pas changé depuis sont relevés dans `carried`, hors des oracles et
+ * des fichiers non suivis : ils restent des tests créés pendant la tâche. Le report est consommé.
  */
 export function ensureSnapshot(root, key, top) {
   const existing = readSnapshot(root, key, top);
   if (existing) return existing;
+  const carry = readJson(carryPath(root, key, top), null);
+  const carried = {};
+  if (carry && carry.key === key && carry.top === top && carry.tests) {
+    for (const [rel, hash] of Object.entries(carry.tests)) {
+      if (classify(rel) === 'test' && hash !== null && hashFile(join(top, rel)) === hash)
+        carried[rel] = hash;
+    }
+  }
   const files = listFiles(top);
   const oracles = {};
   for (const rel of files) {
-    if (isOracle(rel)) oracles[rel] = hashFile(join(top, rel));
+    if (isOracle(rel) && !(rel in carried)) oracles[rel] = hashFile(join(top, rel));
   }
   const untracked = {};
-  for (const rel of untrackedFiles(top)) untracked[rel] = hashFile(join(top, rel));
+  for (const rel of untrackedFiles(top)) {
+    if (!(rel in carried)) untracked[rel] = hashFile(join(top, rel));
+  }
   let head = null;
   try {
     head = git(top, ['rev-parse', 'HEAD']).trim();
   } catch {
     head = null;
   }
-  const snapshot = { key, top, head, created: new Date().toISOString(), oracles, untracked };
+  const snapshot = {
+    key,
+    top,
+    head,
+    created: new Date().toISOString(),
+    oracles,
+    untracked,
+    carried,
+  };
   writeJsonAtomic(snapshotPath(root, key, top), snapshot);
+  rmSync(carryPath(root, key, top), { force: true });
   return snapshot;
+}
+
+/**
+ * L25-03 : tests présents dans le dépôt qui n'existaient pas à l'instantané (créés pendant la
+ * tâche, ou reportés d'une tâche précédente de la même clé), avec leur empreinte.
+ */
+export function createdTests(snapshot) {
+  const created = {};
+  for (const rel of listFiles(snapshot.top)) {
+    if (classify(rel) !== 'test' || existedAtSnapshot(snapshot, rel)) continue;
+    const hash = hashFile(join(snapshot.top, rel));
+    if (hash !== null) created[rel] = hash;
+  }
+  return created;
+}
+
+/**
+ * L25-03 : en fin de tâche réussie, avant la suppression de l'instantané, reporte les tests créés
+ * pendant la tâche vers le prochain instantané de la même clé et du même dépôt (agent repris par
+ * un message, nouveau tour de la session principale). Seule cette clé en profite, et seulement
+ * pour un fichier resté identique.
+ */
+export function carryCreatedTests(root, key, snapshot) {
+  const tests = createdTests(snapshot);
+  const path = carryPath(root, key, snapshot.top);
+  if (Object.keys(tests).length === 0) rmSync(path, { force: true });
+  else writeJsonAtomic(path, { key, top: snapshot.top, ts: new Date().toISOString(), tests });
 }
 
 export function listSnapshots(root, key) {
@@ -343,6 +400,69 @@ export function newGrantId() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Écritures autorisées (L25-04) : empreinte exacte du contenu produit par un Edit, MultiEdit ou
+// Write qu'une autorisation a permis, relevée par le hook PreToolUse (une ligne JSON par écriture,
+// `state/authorized-writes.jsonl`). La fin de tâche d'une autre clé n'alerte pas pour un oracle
+// dont le contenu actuel est exactement celui-là.
+
+function authorizedWritesPath(root) {
+  return join(root, 'authorized-writes.jsonl');
+}
+
+/**
+ * Relève une écriture autorisée : { top, rel, sha256, key, role, grant, scope }. Jamais
+ * d'exception : sans relevé, la fin de tâche d'une autre clé alerte, comme avant L25-04.
+ */
+export function recordAuthorizedWrite(root, entry) {
+  try {
+    mkdirSync(root, { recursive: true });
+    appendFileSync(
+      authorizedWritesPath(root),
+      `${JSON.stringify({ ts: new Date().toISOString(), ...entry })}\n`,
+    );
+  } catch {
+    // L'écriture reste autorisée ; seule l'attribution à cet agent sera impossible.
+  }
+}
+
+/**
+ * Écriture autorisée d'une AUTRE clé que `key` qui a produit exactement le contenu `hash` de `rel`
+ * dans `top`, depuis `since` (création de l'instantané vérifié), pour la portée `scope`, sous une
+ * autorisation toujours connue, liée à cette clé et non révoquée ; ou null.
+ */
+export function authorizedWriteBy(root, { top, rel, hash, key, scope, since }) {
+  let lines;
+  try {
+    lines = readFileSync(authorizedWritesPath(root), 'utf8').split('\n');
+  } catch {
+    return null;
+  }
+  const grants = readAuthorizations(root);
+  const from = Date.parse(since);
+  for (const line of lines.reverse()) {
+    let w;
+    try {
+      w = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (
+      w === null ||
+      w.top !== top ||
+      w.rel !== rel ||
+      w.sha256 !== hash ||
+      w.key === key ||
+      w.scope !== scope ||
+      !(Date.parse(w.ts) >= from)
+    )
+      continue;
+    const grant = grants.find((g) => g.id === w.grant);
+    if (grant && !grant.revoked && grant.bound_to === w.key && grantCovers(grant, rel)) return w;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Vérification de fin de tâche
 
 /** Contenu d'un fichier à un commit (ou null s'il n'y existe pas). */
@@ -384,6 +504,8 @@ function filesAt(top, commit) {
  * nouveau test.
  */
 export function existedAtSnapshot(snapshot, rel) {
+  // L25-03 : test créé par la même clé lors d'une tâche précédente, inchangé depuis.
+  if (rel in (snapshot.carried ?? {})) return false;
   if (rel in snapshot.oracles || rel in (snapshot.untracked ?? {})) return true;
   if (!snapshot.head) return false;
   try {
@@ -394,19 +516,52 @@ export function existedAtSnapshot(snapshot, rel) {
   }
 }
 
-/** Vrai si la modification de `rel` depuis `base` est commitée avec une ligne Justification-test. */
+/**
+ * Vrai si la modification de `rel` depuis `base` (tête de l'instantané) est commitée avec une ligne
+ * Justification-test : contenu du disque identique à HEAD, et un commit de `base..HEAD` qui touche
+ * `rel` porte la ligne (même règle que scripts/ci/check-tests-integrity.sh). Si l'historique a été
+ * réécrit depuis l'instantané (`base` n'est plus ancêtre de HEAD), voir justifiedAfterRewrite.
+ */
 export function committedWithJustification(top, base, rel) {
   if (!base) return false;
-  try {
-    git(top, ['merge-base', '--is-ancestor', base, 'HEAD']);
-  } catch {
-    return false;
-  }
   const atHead = showAt(top, 'HEAD', rel);
   const onDisk = existsSync(join(top, rel)) ? readFileSync(join(top, rel), 'utf8') : null;
   if (atHead !== onDisk) return false;
+  try {
+    git(top, ['merge-base', '--is-ancestor', base, 'HEAD']);
+  } catch {
+    return justifiedAfterRewrite(top, base, rel);
+  }
   const messages = git(top, ['log', '--format=%B%x00', `${base}..HEAD`, '--', rel]);
   return JUSTIFICATION_RE.test(messages);
+}
+
+/**
+ * L25-02 (L19-06) : historique réécrit depuis l'instantané (`git reset` puis de nouveaux commits,
+ * rebase : `base` n'est plus ancêtre de HEAD). Les commits de HEAD non atteignables depuis la base
+ * commune (`git merge-base base HEAD`) sont ceux de la branche réécrite. Le fichier n'est accepté
+ * que si son contenu à HEAD (identique au disque, vérifié par l'appelant) est exactement celui
+ * qu'un de ces commits, portant une ligne Justification-test, lui a donné : un commit non justifié
+ * qui le change ensuite, un commit justifié de l'historique abandonné ou d'avant la base commune ne
+ * comptent pas. Un fichier supprimé est accepté si un de ces commits justifiés l'a supprimé. Sans
+ * base commune (historique sans lien, tête de l'instantané disparue) : refus.
+ */
+function justifiedAfterRewrite(top, base, rel) {
+  let fork;
+  let log;
+  try {
+    fork = git(top, ['merge-base', base, 'HEAD']).trim();
+    log = git(top, ['log', '--full-history', '--format=%H%x00%B%x00', `${fork}..HEAD`, '--', rel]);
+  } catch {
+    return false;
+  }
+  const target = hashAt(top, 'HEAD', rel);
+  const parts = log.split('\0');
+  for (let k = 0; k + 1 < parts.length; k += 2) {
+    if (JUSTIFICATION_RE.test(parts[k + 1]) && hashAt(top, parts[k].trim(), rel) === target)
+      return true;
+  }
+  return false;
 }
 
 /**
@@ -416,6 +571,7 @@ export function committedWithJustification(top, base, rel) {
  */
 export function verifySnapshot(root, snapshot, { role, key }) {
   const { top, head, oracles, untracked } = snapshot;
+  const carried = snapshot.carried ?? {};
   const violations = [];
   const status = snapshotRootStatus(root, snapshot);
   if (status === 'absent' || status === 'retired') return violations;
@@ -430,9 +586,31 @@ export function verifySnapshot(root, snapshot, { role, key }) {
     ];
   }
 
+  // L25-04 : contenu actuel exactement produit par l'écriture autorisée d'une autre clé depuis
+  // l'instantané (un fichier supprimé n'a pas de contenu : jamais couvert). L'attribution est
+  // journalisée ; la fin de tâche de l'agent autorisé reste vérifiée par sa propre autorisation.
+  const byOther = (rel, scope) => {
+    const now = hashFile(join(top, rel));
+    if (now === null) return false;
+    const w = authorizedWriteBy(root, { top, rel, hash: now, key, scope, since: snapshot.created });
+    if (w === null) return false;
+    audit(root, {
+      event: 'attributed',
+      role,
+      key,
+      rel,
+      top,
+      by: w.key,
+      by_role: w.role,
+      grant: w.grant,
+      scope,
+    });
+    return true;
+  };
   const allowed = (rel, scope) =>
     usedAuthorization(root, { role, key, scope, rel }) !== null ||
-    committedWithJustification(top, head, rel);
+    committedWithJustification(top, head, rel) ||
+    byOther(rel, scope);
 
   const current = new Set(listFiles(top));
   for (const [rel, before] of Object.entries(oracles)) {
@@ -452,7 +630,8 @@ export function verifySnapshot(root, snapshot, { role, key }) {
     const now = hashFile(join(top, rel));
     const atHead = hashAt(top, head, rel);
     if (now !== null && (now === atHead || now === untracked[rel])) continue;
-    const existed = atHead !== null || rel in untracked;
+    // L25-03 : un test reporté d'une tâche précédente de la même clé est un test créé.
+    const existed = (atHead !== null || rel in untracked) && !(rel in carried);
     if (kind === 'test') {
       // L14-12 : un test créé pendant la tâche est permis ; un fichier devenu test depuis
       // l'instantané, qui existait déjà, est un test existant.
@@ -467,7 +646,7 @@ export function verifySnapshot(root, snapshot, { role, key }) {
   }
   // L14-12 : un fichier devenu test depuis l'instantané et supprimé depuis.
   for (const rel of new Set([...filesAt(top, head), ...Object.keys(untracked ?? {})])) {
-    if (current.has(rel) || rel in oracles || classify(rel) !== 'test') continue;
+    if (current.has(rel) || rel in oracles || rel in carried || classify(rel) !== 'test') continue;
     if (!allowed(rel, 'tests')) violations.push({ rel, problem: 'oracle supprimé' });
   }
 
