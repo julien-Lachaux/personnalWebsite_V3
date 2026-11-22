@@ -6,8 +6,15 @@
 // - Mobile et tablette (< 1024 px, mode `tabs`) : `MobileHeader`, `<main>` qui défile (une section à la
 //   fois, glissement de 64 px à chaque changement d'onglet, sens selon l'ordre des onglets), flèche
 //   « faire défiler », `ActionBar` (masquée au défilement), `BottomNav`.
-// - Bureau (≥ 1024 px, mode `mosaic`) : `TopBar` et les quatre sections ensemble. La mosaïque (tuiles,
-//   agrandissement) viendra en F6 : en attendant, la barre du haut met le focus sur la section choisie.
+// - Bureau (≥ 1024 px, mode `mosaic`, lot F6) : `TopBar` et la mosaïque (`TileGrid`) ; la page ne défile
+//   pas, chaque tuile défile seule. Une tuile s'agrandit par son bouton ou par l'onglet de la barre du
+//   haut, la vue d'ensemble revient à la mosaïque (`active` = tuile agrandie). Focus : un onglet de la
+//   barre du haut le met sur le contenu de la tuile agrandie (`#section-<id>`, sans défilement) ; le
+//   bouton de la tuile le garde (il reste sur le bouton, agrandie comme réduite). Le contenu de chaque
+//   tuile est un `div#section-<id>` (cible du focus, `h2` masqué visuellement, puis le slot) : la tuile
+//   est déjà la région nommée.
+// - Avant le montage (page générée), les sections sont rendues en grille simple à partir de 1024 px ; la
+//   mosaïque les remplace au montage (et sans JavaScript, la page reste lisible et défile).
 // - Un seul jeu d'en-têtes dans le DOM une fois monté (`v-if`) : deux `banner` et deux panneaux
 //   d'accessibilité sinon. Avant le montage (page générée, largeur inconnue), les deux sont rendus et
 //   la CSS n'affiche que celui de la largeur (`display: none` les retire aussi de l'arbre
@@ -20,8 +27,7 @@
 // - Section à défilement propre (`scrollers`, lot F5c) : une section qui fournit sa zone qui défile
 //   (Expérience : la liste sous le filtre) remplit `<main>` pendant son onglet ; `<main>` ne défile plus
 //   et perd ses marges (la section gère les siennes), la barre d'actions et la flèche lisent sa zone.
-//   Sur le bureau, en attendant la mosaïque (F6), elle prend la hauteur de la fenêtre sous la barre du
-//   haut : la liste défile, le filtre reste fixe.
+//   Sur le bureau, elle remplit sa tuile (qui ne défile pas) : la liste défile, le filtre reste fixe.
 // - Onglets IA et Recos : 28 px au-dessus du contenu, 20 px pour le Profil (maquette mobile).
 // - « Lancer l'entretien » est un `mailto:` vers `NUXT_PUBLIC_CONTACT_EMAIL` : sans adresse valide, la
 //   coquille lève une erreur, et la génération statique échoue (`nitro.prerender.failOnError`).
@@ -37,6 +43,7 @@ import ActionBar from './ActionBar.vue';
 import BottomNav from './BottomNav.vue';
 import MobileHeader from './MobileHeader.vue';
 import ScrollHint from './ScrollHint.vue';
+import TileGrid from './TileGrid.vue';
 import TopBar from './TopBar.vue';
 
 const props = withDefaults(
@@ -111,7 +118,13 @@ function selectTab(id: SectionId): void {
 
 function selectSection(id: SectionId): void {
   active.value = id;
-  void nextTick(() => sections.value[id]?.focus());
+  // Sans défilement : la tuile bouge, ni <main> ni le corps de la tuile ne doivent glisser.
+  void nextTick(() => sections.value[id]?.focus({ preventScroll: true }));
+}
+
+/** Bouton d'une tuile : l'agrandit, ou revient à la mosaïque si elle l'est déjà ; le focus reste dessus. */
+function toggleTile(id: SectionId): void {
+  active.value = active.value === id ? null : id;
 }
 
 function sectionClass(id: SectionId): Record<string, boolean> {
@@ -159,7 +172,23 @@ function sectionClass(id: SectionId): Record<string, boolean> {
         >
           {{ heading }}
         </h1>
-        <div class="app-shell__sections">
+        <TileGrid v-if="mode === 'mosaic'" :expanded="active" @toggle="toggleTile">
+          <template v-for="id in SECTION_IDS" :key="id" #[id]>
+            <div
+              :id="`section-${id}`"
+              :ref="(element) => setSection(id, element)"
+              class="app-shell__section app-shell__section--tile"
+              :class="sectionClass(id)"
+              tabindex="-1"
+            >
+              <h2 :id="`titre-${id}`" class="visually-hidden">
+                {{ t(`shell.headings.${id}`) }}
+              </h2>
+              <slot :name="id" />
+            </div>
+          </template>
+        </TileGrid>
+        <div v-else class="app-shell__sections">
           <section
             v-for="id in SECTION_IDS"
             :id="`section-${id}`"
@@ -308,13 +337,14 @@ function sectionClass(id: SectionId): Record<string, boolean> {
   }
 }
 
-/* Bureau : barre du haut, sections ensemble dans la zone de 1440 px (mosaïque en F6). */
+/* Bureau, avant le montage (page générée, ou sans JavaScript) : sections en grille simple dans la zone
+   de 1440 px, la page défile. Le montage les remplace par la mosaïque. */
 @media (min-width: 1024px) {
   .app-shell__mobile {
     display: none;
   }
 
-  .app-shell__main {
+  .app-shell:not([data-mode]) .app-shell__main {
     width: 100%;
     max-width: var(--page-max);
     margin-inline: auto;
@@ -327,29 +357,47 @@ function sectionClass(id: SectionId): Record<string, boolean> {
     gap: 0.75rem;
   }
 
-  .app-shell__section {
+  .app-shell__sections .app-shell__section {
     padding: 1rem 1.25rem;
     border: var(--border-strong);
     border-radius: var(--radius-window);
     background-color: var(--card);
   }
 
-  /* En attendant la mosaïque (F6) : hauteur de la fenêtre sous la barre du haut et les marges de
-     <main>, pour que seule la zone propre de la section défile. */
-  .app-shell__section--self-scrolling {
-    display: flex;
-    flex-direction: column;
-    height: calc(100dvh - var(--desktop-header) - 1.5rem);
-    min-height: 0;
-  }
-
   .app-shell__section-heading {
-    flex-shrink: 0;
     margin: 0 0 0.75rem;
     font-family: var(--font-mono);
     font-size: var(--font-size-meta);
     font-weight: var(--font-weight-bold);
     color: var(--violet);
   }
+}
+
+/* Mosaïque (lot F6) : la coquille occupe la fenêtre ; sous la barre du haut (hauteur réelle, elle peut
+   passer à la ligne), <main> donne toute la place restante à la mosaïque, sans marge ni défilement. */
+.app-shell[data-mode='mosaic'] {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-shell[data-mode='mosaic'] .app-shell__main {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Contenu d'une tuile, cible du focus de la barre du haut : contour à l'intérieur (la tuile rogne). */
+.app-shell__section--tile:focus-visible {
+  outline-offset: -2px;
+}
+
+/* XP : la section remplit sa tuile, seule sa liste défile. */
+.app-shell__section--tile.app-shell__section--self-scrolling {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
 }
 </style>

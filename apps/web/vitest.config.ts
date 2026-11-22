@@ -10,6 +10,10 @@
 // commentaire d'ignore. Les parcours Playwright (`test/**/*.e2e.ts`) ne comptent pas (D3).
 //
 // Configuration protégée (oracle « config » des garde-fous, Justification-test exigée).
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { parseEnv } from 'node:util';
+
 import { defineVitestProject } from '@nuxt/test-utils/config';
 import { defineConfig } from 'vitest/config';
 
@@ -25,11 +29,39 @@ const unitInclude = [
 // Stryker dans ses processus), comme pour le projet e2e de l'API. Sans effet hors Stryker.
 const mutationRun = process.env['STRYKER_MUTATOR_WORKER'] !== undefined;
 
+// Borne du nombre de processus (lot F6, même règle que l'API, L19-03) : TEST_MAX_WORKERS, entier
+// positif ou pourcentage des cœurs (`4`, `50%`), lue dans l'environnement puis dans le `.env` racine
+// du worktree. Seule cette clé est lue dans ce fichier (`parseEnv`, sans charger le reste dans
+// `process.env` : ses autres variables ne regardent pas les tests du front). Sans valeur : `maxWorkers`
+// par défaut de Vitest, en CI compris ; posée sur chacun des deux projets, qui n'héritent pas des
+// options de la racine (même valeur pour les deux : Vitest refuse deux bornes dans un même groupe,
+// L14-15) ; ignorée sous Stryker ;
+// `--maxWorkers=<n>` en ligne de commande l'emporte. Une valeur invalide arrête Vitest.
+const rootEnv = resolve(import.meta.dirname, '../../.env');
+const rootEnvWorkers = existsSync(rootEnv)
+  ? parseEnv(readFileSync(rootEnv, 'utf8'))['TEST_MAX_WORKERS']
+  : undefined;
+const maxWorkersSetting = process.env['TEST_MAX_WORKERS'] ?? rootEnvWorkers ?? '';
+if (maxWorkersSetting !== '' && !/^([1-9]\d*|([1-9]\d?|100)%)$/.test(maxWorkersSetting)) {
+  throw new Error(
+    `TEST_MAX_WORKERS invalide (« ${maxWorkersSetting} ») : un entier positif ou un pourcentage de 1 à 100 %, ex. 4 ou 50%.`,
+  );
+}
+const maxWorkers =
+  maxWorkersSetting === '' || mutationRun
+    ? {}
+    : {
+        maxWorkers: maxWorkersSetting.endsWith('%')
+          ? maxWorkersSetting
+          : Number.parseInt(maxWorkersSetting, 10),
+      };
+
 export default defineConfig({
   test: {
     projects: [
       {
         test: {
+          ...maxWorkers,
           name: 'unit',
           include: unitInclude,
           environment: 'node',
@@ -40,6 +72,7 @@ export default defineConfig({
         : [
             await defineVitestProject({
               test: {
+                ...maxWorkers,
                 name: 'nuxt',
                 include: ['app/**/*.spec.ts'],
                 exclude: unitInclude,
