@@ -1,5 +1,10 @@
 {
   "ai": {
-    "tagsLabel": "Keywords"
+    "tagsLabel": "Keywords",
+    "placeholder": {
+      "command": "cat ai.md",
+      "output": "ai.md: still being written…",
+      "hint": "Content incoming. An assistant is helping me draft it, but I review everything."
+    }
   }
 }

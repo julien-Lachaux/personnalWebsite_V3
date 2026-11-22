@@ -1,5 +1,10 @@
 {
   "ai": {
-    "tagsLabel": "Mots-clés"
+    "tagsLabel": "Mots-clés",
+    "placeholder": {
+      "command": "cat ia.md",
+      "output": "ia.md : en cours d’écriture…",
+      "hint": "Le contenu arrive. Un assistant m’aide à le rédiger, mais je relis tout."
+    }
   }
 }
