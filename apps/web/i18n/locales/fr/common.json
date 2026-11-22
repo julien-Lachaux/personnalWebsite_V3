@@ -11,5 +11,16 @@
     "title": "Déclaration d’accessibilité",
     "pending": "La déclaration d’accessibilité sera publiée après l’audit du site.",
     "back": "Retour à l’accueil"
+  },
+  "error": {
+    "notFound": {
+      "title": "Page introuvable",
+      "message": "Cette adresse ne correspond à aucune page du site."
+    },
+    "generic": {
+      "title": "Erreur",
+      "message": "La page n’a pas pu s’afficher."
+    },
+    "back": "Retour à l’accueil"
   }
 }

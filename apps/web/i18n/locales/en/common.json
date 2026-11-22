@@ -11,5 +11,16 @@
     "title": "Accessibility statement",
     "pending": "The accessibility statement will be published after the site audit.",
     "back": "Back to the home page"
+  },
+  "error": {
+    "notFound": {
+      "title": "Page not found",
+      "message": "This address does not match any page of the site."
+    },
+    "generic": {
+      "title": "Error",
+      "message": "The page could not be displayed."
+    },
+    "back": "Back to the home page"
   }
 }

@@ -112,6 +112,12 @@ export default defineNuxtConfig({
     '/fr/**': { redirect: { to: '/**', statusCode: 301 } },
   },
 
+  // Page 404 rendue au build (lot F9a) : `404.html` contient la page d'erreur du site (app/error.vue)
+  // au lieu d'une coquille vide rendue dans le navigateur. Le serveur la sert pour toute adresse
+  // inconnue ; l'erreur est déjà dans la charge utile, le routeur ne la relève pas une seconde fois au
+  // démarrage (sinon `[NUXT_E1005]` en console, « erreur pendant l'initialisation »).
+  experimental: { prerenderErrorPages: true },
+
   nitro: {
     prerender: {
       routes: ['/', '/en', '/fr', '/fr/accessibilite'],
