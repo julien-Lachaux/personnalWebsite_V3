@@ -1496,6 +1496,30 @@ Tickets :
 
 Le brief `back-005` (service du front) devient le lot 24.
 
+## 7 septies octies. Lot 25 — Trous et faux positifs des garde-fous (décidé par Julien les 21 et 22 nov. 2026)
+
+Branche `lot/25-garde-fous`, partie de `lot/22-un-seul-run` (hooks les plus récents). Compte rendu :
+`docs/comptes-rendus/lot-25-lead.md`.
+
+- **L25-01** (L19-05, lead-architecte, portée `config`) : clés de configuration qui lancent une
+  commande passées par `GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n`/
+  `GIT_CONFIG_VALUE_n` ou `--config-env`, analysées et refusées comme `-c` (`core.sshCommand`,
+  `core.pager`, `core.editor`, `core.fsmonitor`, `diff.external`, alias, `credential.helper`,
+  filtres…). Formes voisines fermées au même lot : clé de `-c` entourée d'espaces (git 2.30 :
+  `git -c ' core.hooksPath=…'` désactivait le hook pre-commit), dernier `-c alias` et alias de
+  l'environnement, transport `ext::` (`protocol.ext.allow`, `protocol.allow`,
+  `GIT_ALLOW_PROTOCOL`), `remote.<nom>.uploadpack` et `--upload-pack`, `-u`, `--exec`.
+- **L25-02** (L19-06, lead-architecte, portée `config`) : commit justifié retrouvé après réécriture
+  de l'historique de la branche (tête de l'instantané non ancêtre de HEAD) : commits de HEAD non
+  atteignables depuis la base commune, contenu exactement donné par un commit justifié.
+- **L25-03** (lead-architecte, portée `config`) : faux positif signalé par la session front le
+  21 nov. : tests créés avant la pause d'un agent traités comme existants à sa reprise ; report des
+  tests créés vers le prochain instantané de la même clé.
+- **L25-04** (lead-architecte, portée `config`) : alerte de la session principale pour un fichier
+  modifié par un sous-agent sous sa propre autorisation, avant son commit ; attribution par
+  l'empreinte exacte de l'écriture autorisée (Edit, MultiEdit, Write), l'alerte restant pour tout
+  autre cas.
+
 ## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
 
 Demande : `docs/briefs/back-001-donnees-front.md` (tickets BF-1 à BF-7 : profil restructuré, liens
