@@ -210,8 +210,16 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         main.evaluate((element) => getComputedStyle(element).paddingTop);
 
       if (!tabsMode(page)) {
-        // Bureau : la marge de la zone de 1440 px, la même pour toutes les sections.
-        expect(await paddingTop()).toBe('12px');
+        // Bureau (mosaïque, F6) : <main> n'a plus de marge ; les 12 px sont l'écart entre tuiles de
+        // `computeLayout` : la première tuile est à 12 px du haut de la zone.
+        const offset = await page.evaluate(() => {
+          const zoneTop = document.querySelector('main#contenu')!.getBoundingClientRect().top;
+          const tileTop = document
+            .querySelector('[data-tile="profile"]')!
+            .getBoundingClientRect().top;
+          return tileTop - zoneTop;
+        });
+        expect(offset).toBe(12);
         return;
       }
       expect(await paddingTop()).toBe('20px');

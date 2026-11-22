@@ -20,6 +20,8 @@
     "hooks:test": "node --test \".claude/hooks/tests/*.test.mjs\"",
     "husky:test": "node --test \".husky/tests/*.test.mjs\"",
     "integrity": "bash scripts/ci/check-tests-integrity.sh",
+    "release:next": "node scripts/ci/release.mjs next",
+    "release:prepare": "node scripts/ci/release.mjs prepare",
     "integrity:test": "for t in scripts/ci/tests/*.test.sh; do bash \"$t\" || exit 1; done",
     "check": "pnpm hooks:test && pnpm husky:test && pnpm integrity:test && pnpm integrity && pnpm format:check && pnpm lint:workflows && pnpm lint:shell && pnpm db:test:up && pnpm e2e:browsers:up && turbo run lint typecheck test:coverage @siteperso/web#test:e2e",
     "format": "prettier --write .",
