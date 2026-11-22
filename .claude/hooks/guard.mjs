@@ -38,6 +38,7 @@ import {
 } from './lib/shell.mjs';
 import {
   audit,
+  carryCreatedTests,
   clearViolations,
   dropSnapshot,
   dropSnapshots,
@@ -492,6 +493,9 @@ function verify(ctx) {
     })),
   );
   if (violations.length === 0) {
+    // L25-03 : les tests créés pendant la tâche restent libres si la même clé reprend (agent
+    // relancé par un message, nouveau tour de la session principale).
+    for (const s of snapshots) carryCreatedTests(ctx.root, ctx.key, s);
     dropSnapshots(ctx.root, ctx.key);
     clearViolations(ctx.root, ctx.key);
     return 0;

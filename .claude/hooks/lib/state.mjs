@@ -187,28 +187,85 @@ export function readSnapshot(root, key, top) {
 }
 
 /**
+ * L25-03 : tests créés pendant la tâche d'une clé, reportés par sa fin de tâche réussie
+ * (`state/carry/<clé>/<dépôt>.json`) vers son prochain instantané du même dépôt (agent repris).
+ */
+function carryPath(root, key, top) {
+  return join(root, 'carry', safeKey(key), `${sha256(top).slice(0, 16)}.json`);
+}
+
+/**
  * Prend l'instantané des oracles d'un dépôt pour une clé, s'il n'existe pas encore (un instantané
  * n'est jamais écrasé : cela blanchirait une modification). Retourne l'instantané.
+ * L25-03 : les tests que la même clé a créés lors d'une tâche précédente (report de sa fin de
+ * tâche réussie) et qui n'ont pas changé depuis sont relevés dans `carried`, hors des oracles et
+ * des fichiers non suivis : ils restent des tests créés pendant la tâche. Le report est consommé.
  */
 export function ensureSnapshot(root, key, top) {
   const existing = readSnapshot(root, key, top);
   if (existing) return existing;
+  const carry = readJson(carryPath(root, key, top), null);
+  const carried = {};
+  if (carry && carry.key === key && carry.top === top && carry.tests) {
+    for (const [rel, hash] of Object.entries(carry.tests)) {
+      if (classify(rel) === 'test' && hash !== null && hashFile(join(top, rel)) === hash)
+        carried[rel] = hash;
+    }
+  }
   const files = listFiles(top);
   const oracles = {};
   for (const rel of files) {
-    if (isOracle(rel)) oracles[rel] = hashFile(join(top, rel));
+    if (isOracle(rel) && !(rel in carried)) oracles[rel] = hashFile(join(top, rel));
   }
   const untracked = {};
-  for (const rel of untrackedFiles(top)) untracked[rel] = hashFile(join(top, rel));
+  for (const rel of untrackedFiles(top)) {
+    if (!(rel in carried)) untracked[rel] = hashFile(join(top, rel));
+  }
   let head = null;
   try {
     head = git(top, ['rev-parse', 'HEAD']).trim();
   } catch {
     head = null;
   }
-  const snapshot = { key, top, head, created: new Date().toISOString(), oracles, untracked };
+  const snapshot = {
+    key,
+    top,
+    head,
+    created: new Date().toISOString(),
+    oracles,
+    untracked,
+    carried,
+  };
   writeJsonAtomic(snapshotPath(root, key, top), snapshot);
+  rmSync(carryPath(root, key, top), { force: true });
   return snapshot;
+}
+
+/**
+ * L25-03 : tests présents dans le dépôt qui n'existaient pas à l'instantané (créés pendant la
+ * tâche, ou reportés d'une tâche précédente de la même clé), avec leur empreinte.
+ */
+export function createdTests(snapshot) {
+  const created = {};
+  for (const rel of listFiles(snapshot.top)) {
+    if (classify(rel) !== 'test' || existedAtSnapshot(snapshot, rel)) continue;
+    const hash = hashFile(join(snapshot.top, rel));
+    if (hash !== null) created[rel] = hash;
+  }
+  return created;
+}
+
+/**
+ * L25-03 : en fin de tâche réussie, avant la suppression de l'instantané, reporte les tests créés
+ * pendant la tâche vers le prochain instantané de la même clé et du même dépôt (agent repris par
+ * un message, nouveau tour de la session principale). Seule cette clé en profite, et seulement
+ * pour un fichier resté identique.
+ */
+export function carryCreatedTests(root, key, snapshot) {
+  const tests = createdTests(snapshot);
+  const path = carryPath(root, key, snapshot.top);
+  if (Object.keys(tests).length === 0) rmSync(path, { force: true });
+  else writeJsonAtomic(path, { key, top: snapshot.top, ts: new Date().toISOString(), tests });
 }
 
 export function listSnapshots(root, key) {
@@ -384,6 +441,8 @@ function filesAt(top, commit) {
  * nouveau test.
  */
 export function existedAtSnapshot(snapshot, rel) {
+  // L25-03 : test créé par la même clé lors d'une tâche précédente, inchangé depuis.
+  if (rel in (snapshot.carried ?? {})) return false;
   if (rel in snapshot.oracles || rel in (snapshot.untracked ?? {})) return true;
   if (!snapshot.head) return false;
   try {
@@ -449,6 +508,7 @@ function justifiedAfterRewrite(top, base, rel) {
  */
 export function verifySnapshot(root, snapshot, { role, key }) {
   const { top, head, oracles, untracked } = snapshot;
+  const carried = snapshot.carried ?? {};
   const violations = [];
   const status = snapshotRootStatus(root, snapshot);
   if (status === 'absent' || status === 'retired') return violations;
@@ -485,7 +545,8 @@ export function verifySnapshot(root, snapshot, { role, key }) {
     const now = hashFile(join(top, rel));
     const atHead = hashAt(top, head, rel);
     if (now !== null && (now === atHead || now === untracked[rel])) continue;
-    const existed = atHead !== null || rel in untracked;
+    // L25-03 : un test reporté d'une tâche précédente de la même clé est un test créé.
+    const existed = (atHead !== null || rel in untracked) && !(rel in carried);
     if (kind === 'test') {
       // L14-12 : un test créé pendant la tâche est permis ; un fichier devenu test depuis
       // l'instantané, qui existait déjà, est un test existant.
@@ -500,7 +561,7 @@ export function verifySnapshot(root, snapshot, { role, key }) {
   }
   // L14-12 : un fichier devenu test depuis l'instantané et supprimé depuis.
   for (const rel of new Set([...filesAt(top, head), ...Object.keys(untracked ?? {})])) {
-    if (current.has(rel) || rel in oracles || classify(rel) !== 'test') continue;
+    if (current.has(rel) || rel in oracles || rel in carried || classify(rel) !== 'test') continue;
     if (!allowed(rel, 'tests')) violations.push({ rel, problem: 'oracle supprimé' });
   }
 
