@@ -238,8 +238,15 @@ documentation, qui décrit encore le comportement effectif (refus à tous).
 
 ## Points ouverts
 
-1. Rejouer `tests/config-env-commands.test.mjs` sur git ≥ 2.32 (image Playwright 2.43 ou CI) : les
-   formes `GIT_CONFIG_COUNT`, nouvelle forme et `--config-env` y sont `mayFail` sur l'hôte 2.30.
+1. Rejeu sous git récent : fait le 22 nov. après l'échec de la CI (run 45025051529, git 2.56.1 :
+   `GIT_CONFIG_PARAMETERS="' diff.external =…'"` n'y est plus lu). Dans l'image Playwright du compose
+   (git 2.43.0, `docker run --rm`, dépôt monté en lecture seule), `mesure.sh` montre `GIT_CONFIG_COUNT`,
+   la nouvelle forme et `--config-env` effectifs pour toutes les clés mesurées, la clé à espaces de
+   `-c` ignorée et celle de `GIT_CONFIG_PARAMETERS` encore lue. Le rejeu du test est désormais borné
+   par la version relevée (`since`, `before`, `varies` jamais exigé) et rejoue toutes les formes
+   avant d'échouer ; le refus par les hooks reste exigé partout. 41 / 41 sous 2.43.0, 1264 / 1264
+   sur l'hôte (2.30.2). Reste à voir sous 2.56.1 : la prochaine CI ; une autre forme qui n'y serait
+   plus effective serait nommée en entier par l'assertion.
 2. Fichiers écrits par git à la demande de l'environnement (`GIT_TRACE*=<chemin>`,
    `trace2.*Target`) : ce sont des écritures, pas des commandes ; non lus comme cibles. Proposition :
    les traiter comme une redirection (cible vérifiée). Décision de Julien.
