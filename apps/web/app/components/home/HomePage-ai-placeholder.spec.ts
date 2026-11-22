@@ -84,7 +84,7 @@ afterEach(() => {
 });
 
 describe('page d’accueil : placeholder de la section IA', () => {
-  it('bureau, sans section IA : la tuile IA affiche le placeholder en français, pas de contenu IA', async () => {
+  it('bureau, sans section IA : la tuile IA affiche le mot « placeholder », pas de contenu IA', async () => {
     width(true);
     apiWithoutAi();
     const wrapper = await mountPage('/');
@@ -92,21 +92,19 @@ describe('page d’accueil : placeholder de la section IA', () => {
     const section = wrapper.get('#section-ai');
     expect(section.get('h2').text()).toBe('IA');
     expect(section.findAll('.ai-placeholder')).toHaveLength(1);
-    expect(section.get('.ai-placeholder__command').text()).toBe('cat ia.md');
-    expect(section.text()).toContain('ia.md : en cours d’écriture…');
+    expect(section.get('.ai-placeholder__line').text()).toBe('placeholder');
     expect(section.find('.ai').exists()).toBe(false);
     expect(section.find('h3').exists()).toBe(false);
   });
 
-  it('bureau, sans section IA : le placeholder suit la langue sur la page anglaise', async () => {
+  it('bureau, sans section IA : le placeholder est le même mot sur la page anglaise', async () => {
     width(true);
     apiWithoutAi();
     const wrapper = await mountPage('/en');
 
     const section = wrapper.get('#section-ai');
     expect(section.get('h2').text()).toBe('AI');
-    expect(section.get('.ai-placeholder__command').text()).toBe('cat ai.md');
-    expect(section.text()).toContain('ai.md: still being written…');
+    expect(section.get('.ai-placeholder__line').text()).toBe('placeholder');
   });
 
   it('mobile et tablette, sans section IA : l’onglet IA n’est pas vide', async () => {
@@ -119,7 +117,7 @@ describe('page d’accueil : placeholder de la section IA', () => {
 
     const section = wrapper.get('#section-ai');
     expect(section.attributes('hidden')).toBeUndefined();
-    expect(section.get('.ai-placeholder__command').text()).toBe('cat ia.md');
+    expect(section.get('.ai-placeholder__line').text()).toBe('placeholder');
   });
 
   it('avec une section IA : le contenu normal, pas de placeholder', async () => {

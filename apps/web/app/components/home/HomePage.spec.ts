@@ -136,7 +136,7 @@ describe('page d’accueil (fixtures)', () => {
 });
 
 describe('page d’accueil (API)', () => {
-  it('lit l’API configurée ; sans section IA, rien n’est affiché dans la section', async () => {
+  it('lit l’API configurée ; sans section IA, la section n’a aucun paragraphe de contenu et garde son titre', async () => {
     registerEndpoint('http://api.page.test/api/v1/cv', {
       method: 'GET',
       handler: () => ({ ...cvFr, aiOverview: null }),

@@ -113,6 +113,7 @@ const SAME_IN_BOTH = new Map<string, string>([
   ['shell.nav.label', 'Sections'],
   ['shell.sections.experience', 'XP'],
   ['shell.actions.cv', 'CV PDF'],
+  ['ai.placeholder.text', 'placeholder'],
 ]);
 
 type Messages = Record<string, unknown>;
