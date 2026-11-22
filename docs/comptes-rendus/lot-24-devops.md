@@ -177,3 +177,15 @@ Ce qui a pu être essayé sans Docker :
   `/fr//hote.test` 404, `/fr/%5Chote` 404, `/frais` 200.
 - Échec 2 (parcours CSP : `eval` et code en ligne injectés à l'exécution par le JS de Nuxt) : cause côté front,
   transmis à la session front. La CSP n'est pas assouplie (ni `unsafe-eval`, ni `unsafe-inline`).
+
+## Mise à jour sur develop et 404 prérendue (22 nov. 2026)
+
+- `origin/develop` (lot 22, F5d, F7, F6) intégré dans la branche, sans conflit.
+- Caddy : routes inconnues sous `/en` ou `/en/*` servent `en/404.html`, les autres `404.html`, toujours en 404
+  (`@en404` lit le chemin d'origine car le chemin courant est déjà réécrit). Vérifié : `caddy validate` sur
+  l'image épinglée (« Valid configuration ») et un Caddy jetable avec un faux site : `/inconnu` FR404 404,
+  `/en/inconnu` EN404 404, `/enfant` FR404 404, `/` 200.
+- `csp-smoke.mjs` : routes `/route-inconnue` et `/en/route-inconnue` (avec `main#contenu`) ; seul le message de
+  console « Failed to load resource … 404 » est ignoré, et seulement pour elles. Tests : `csp-smoke.e2e-spec.ts`.
+- Vérifié : tests e2e ciblés (csp-smoke, web-front-config, local-stack-front sans pile, csp-hashes : 28 réussis),
+  `pnpm lint:shell` vert, `pnpm integrity develop` OK. Pile complète non relancée, comme demandé.

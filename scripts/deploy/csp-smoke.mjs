@@ -10,15 +10,23 @@
 // Codes de sortie : 0 aucune violation ; 1 violation ou page incorrecte ; 2 usage.
 import { createRequire } from 'node:module';
 
-// La page 404 du front est une coquille rendue côté client (200.html copié en 404.html) : le statut 404
-// vient de Caddy, et le navigateur l'affiche sans `<main id="contenu">` garanti.
-const PAGES = [
+// Les pages 404 du front (404.html, en/404.html) sont prérendues ; le statut 404 vient de Caddy. Pour une
+// route inconnue seulement, le message de console « Failed to load resource … 404 » est le document
+// lui-même : il est ignoré, toute autre erreur reste bloquante.
+const DOCUMENT_404 = /^Failed to load resource: the server responded with a status of 404\b/;
+export const PAGES = [
   { path: '/', status: 200, main: true },
   { path: '/en', status: 200, main: true },
   { path: '/accessibilite', status: 200, main: true },
   { path: '/en/accessibilite', status: 200, main: true },
-  { path: '/route-inconnue', status: 404, main: false },
+  { path: '/route-inconnue', status: 404, main: true, ignore: DOCUMENT_404 },
+  { path: '/en/route-inconnue', status: 404, main: true, ignore: DOCUMENT_404 },
 ];
+
+/** Messages de console retenus : ceux que la page n'a pas le droit d'ignorer. */
+export function blockingMessages(messages, ignore) {
+  return ignore === undefined ? messages : messages.filter((message) => !ignore.test(message));
+}
 
 /** Violations et erreurs relevées sur une page. */
 export function summarize(violations, consoleErrors, theme, hasMain) {
@@ -54,7 +62,7 @@ async function main(argv) {
   let failed = false;
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true });
-    for (const { path, status, main: expectMain } of PAGES) {
+    for (const { path, status, main: expectMain, ignore } of PAGES) {
       const page = await context.newPage();
       const consoleErrors = [];
       page.on('console', (message) => {
@@ -75,7 +83,12 @@ async function main(argv) {
       const violations = await page.evaluate(() => window.__cspViolations);
       const theme = await page.evaluate(() => document.documentElement.hasAttribute('data-theme'));
       const hasMain = (await page.locator('main#contenu').count()) === 1;
-      const problems = summarize(violations, consoleErrors, theme, hasMain || !expectMain);
+      const problems = summarize(
+        violations,
+        blockingMessages(consoleErrors, ignore),
+        theme,
+        hasMain || !expectMain,
+      );
       if (response === null || response.status() !== status) {
         problems.push(
           `statut ${response === null ? 'absent' : response.status()} au lieu de ${status}`,

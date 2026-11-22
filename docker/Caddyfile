@@ -102,7 +102,12 @@ http://{$SITE_DOMAIN:localhost} {
 			import /srv/web/current/csp.*
 			header Cache-Control "no-cache"
 			root * /srv/web/current/public
+			# Pages 404 prérendues : en anglais sous /en, en français ailleurs.
+			# La réécriture française d'abord, puis l'anglaise, décidée sur le chemin d'origine (le chemin
+			# courant est déjà réécrit).
+			@en404 vars_regexp en404 {http.request.orig_uri.path} ^/en(?:/|$)
 			rewrite * /404.html
+			rewrite @en404 /en/404.html
 			file_server {
 				status 404
 			}
