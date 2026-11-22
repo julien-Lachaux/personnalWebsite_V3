@@ -1522,10 +1522,10 @@ Branche `lot/25-garde-fous`, partie de `lot/22-un-seul-run` (hooks les plus réc
 - **L25-05** (lead-architecte, portée `config`, décidé par Julien le 22 nov. 2026) : `gh run rerun`
   permis à la session principale seule, identifiant de run numérique en clair, `--failed` et
   `--job <identifiant numérique>` admis ; `-R`/`--repo`, `GH_REPO`, `GH_HOST`, `--debug`, toute
-  autre option et toute forme calculée refusés ; jamais aux agents. **En attente** (sortie
-  honorable) : deux tests existants exigent le refus de `gh run rerun` à la session principale
-  (`run-download.test.mjs:139`, `pr-flow.test.mjs:201`) ; tests de refus livrés, implémentation et
-  test d'acceptation prêts dans `docs/comptes-rendus/lot-25-lead-l25-05.patch`.
+  autre option et toute forme calculée refusés ; jamais aux agents. **Fait le 22 nov. 2026** :
+  les deux tests existants qui exigeaient le refus (`run-download.test.mjs:139`,
+  `pr-flow.test.mjs:201`) vérifient désormais un cas toujours refusé (f82e224, sur accord explicite
+  de Julien, par la session principale) ; correctif appliqué (80fdaf5) ; 1263 tests des hooks verts.
 
 ## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
 
