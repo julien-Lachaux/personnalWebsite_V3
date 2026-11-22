@@ -39,7 +39,8 @@ ressources (`<resource>`), tickets et critères, contrats déjà livrés, date d
 4. `pnpm format`, puis les vérifications ciblées (règle D26, CLAUDE.md) : `pnpm lint`,
    `pnpm typecheck`, `pnpm --filter @siteperso/api test:coverage`, la mutation des seuls fichiers
    touchés (`stryker run --mutate <fichiers>`), `pnpm integrity` ; `pnpm db:down` en fin de lot.
-   Pas de `pnpm check` ni de mutation complète : la recette lance l'unique vérification complète.
+   Pas de `pnpm check` ni de mutation complète : l'unique vérification complète du lot est la CI
+   de sa pull request.
 
 ## Livrable
 

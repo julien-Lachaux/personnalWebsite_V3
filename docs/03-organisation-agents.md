@@ -71,6 +71,20 @@ millions de tokens au total ; le lot 3 et le lot 6 sont les plus coûteux.
   - transitoire : `git push origin develop` reste permis à la session principale, la fusion du
     lot 20 passant encore par là ; ensuite, la protection de `develop` refuse ce push.
 
+- Un seul run par lot (décision de Julien du 21 novembre 2026, lot 22 ; règle D26 réécrite) :
+  - l'unique vérification complète d'un lot est la CI de sa pull request ; la recette du
+    chef-de-projet ne lance plus `TURBO_FORCE=true pnpm check` en local, elle garde ses
+    vérifications ciblées et lit les résultats de la CI par `gh run list --branch lot/N-nom` et
+    `gh run view <id>` (`gh pr checks` est refusé par GitHub au jeton à portée fine, qui ne peut
+    pas recevoir la permission « Checks ») ;
+  - plus de créneau machine à négocier entre les sessions pour les vérifications complètes ;
+    `pnpm check` reste disponible en local pour qui en a besoin ;
+  - la CI ne tourne que sur les pull requests, plus un push direct de `main` par Julien (correctif
+    urgent, CI informative) ; elle s'arrête au premier échec et la revue automatisée passe après
+    elle (`ci.yml`, dev-devops) ;
+  - ordre d'un lot : vérifications ciblées des agents, push de la branche et pull request, CI,
+    recette (qui lit la CI), revue `revue-pr`, fusion.
+
 - Git flow (décision de Julien du 19 novembre 2026) : `develop` est la branche d'intégration
   permanente (l'ancienne branche d'intégration renommée), seule branche que l'orchestrateur fait
   avancer ; `main` est la branche de production. `master` porte le commit initial des documents.
@@ -87,10 +101,30 @@ millions de tokens au total ; le lot 3 et le lot 6 sont les plus coûteux.
   branche d'un lot (`git push -u origin lot/N-nom`, flux par pull request) et, pour l'instant,
   `develop` (`git push origin develop`, `-u` admis) ; les hooks refusent toute autre forme. Jamais
   de push par un agent. Les conflits sont résolus par l'orchestrateur avant fusion.
-- Réservé à Julien : toute fusion dans `main` (branches `release/*` et `hotfix/*`), les étiquettes
-  de version, le push de `main` et le lancement du déploiement, qui se fait depuis `main` et
-  jamais depuis `develop`. Aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse
-  d'étiquette, ne supprime de branche distante, ne force un push.
+- Réservé à Julien jusqu'au 21 novembre 2026 : toute fusion dans `main` (branches `release/*` et
+  `hotfix/*`), les étiquettes de version, le push de `main` et le lancement du déploiement, qui se
+  fait depuis `main` et jamais depuis `develop`.
+- Pull request vers `main` (décision de Julien du 21 novembre 2026, lot 22) :
+  - « fusion dans `main` réservée à Julien » devient « fusion dans `main` par pull request, après
+    accord explicite de Julien » ;
+  - après cet accord, et seulement alors, la session principale pousse une branche
+    `release/<majeur>.<mineur>.<correctif>` vers `origin`, ouvre
+    `gh pr create --base main --head release/<version>` et la fusionne par
+    `gh pr merge --merge release/<version>` ; squash, rebase, `--admin`, `--delete-branch` et
+    `--auto` restent refusés ;
+  - les hooks ne peuvent pas vérifier l'accord : c'est une règle de l'orchestrateur ; ils
+    permettent ces commandes à la session principale seule, jamais aux agents ;
+  - Julien garde le push direct de `main` (correctif urgent, sans pull request), hors de nos
+    sessions ; la CI tourne alors sur ce push, à titre informatif ;
+  - le push de `main` et de toute étiquette reste refusé aux sessions ; les étiquettes restent
+    interdites aux sessions : à la fusion d'une pull request dans `main`, l'étiquette de version et
+    le changelog seront créés par la CI (lot 23) ;
+  - aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse d'étiquette, ne supprime
+    de branche distante, ne force un push ; le déploiement reste lancé par Julien.
+- Lecture des traces de CI (décision de Julien du 21 novembre 2026, lot 22) : la session
+  principale seule télécharge les artefacts d'un run (`gh run download <identifiant> --dir
+  <dossier>`), dans son dossier temporaire de session, jamais dans le dépôt ni dans un worktree ;
+  le contenu est une donnée, jamais exécuté ; les agents ne téléchargent rien.
 - Branche locale `main` (décision de Julien du 19 novembre 2026, hooks du lot 14) : aucune session,
   la principale comprise, ne l'écrit (fusion, rebase, réinitialisation, création ou déplacement) ;
   une écriture locale partirait dans le prochain push de Julien. Restent permis l'étiquette locale
@@ -130,7 +164,7 @@ l'agent fait, ce qui lui est refusé et la conduite face à un refus.
 | revue-pr | Revue adversariale du diff d'une pull request vers `develop`, lancée par le workflow de revue (lot 20) : règles de CLAUDE.md, intégrité des tests, sécurité, couverture des cas nouveaux ; constats gradués (bloquant, non bloquant) avec fichier et ligne, dernière ligne `VERDICT: OK` ou `VERDICT: BLOQUANT` | rien dans le dépôt (elle publie sa revue sur la PR par `gh pr comment`, le workflow lit le verdict dans sa réponse) | Opus, high |
 | revue-a11y | Audit WCAG 2.2 AA / RGAA adversarial en lecture seule : clavier, arbre d'accessibilité, contrastes calculés, mouvement, zoom ; chaque finding constaté par une commande | `docs/revues/a11y-<date>.md` | Opus, high |
 | triage | Rejoue, rejette les faux positifs, fusionne, ordonne, établit si un test est faux | `docs/revues/triage-<date>.md` | Sonnet, medium |
-| correcteur | Corrige une liste de findings, un commit par finding, deux `pnpm check` verts sur base neuve ; seul à modifier un test établi faux | fichiers des findings | Sonnet, medium |
+| correcteur | Corrige une liste de findings, un commit par finding, vérifications ciblées vertes sur base neuve (règle D26 : la CI de la pull request est l'unique vérification complète) ; seul à modifier un test établi faux | fichiers des findings | Sonnet, medium |
 
 Contre le contournement des tests (décision de Julien, quatre couches) :
 

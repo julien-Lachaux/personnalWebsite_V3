@@ -37,7 +37,7 @@ jour.
    (règle D26, CLAUDE.md) : `pnpm lint`, `pnpm typecheck`,
    `pnpm --filter @siteperso/contracts test:coverage`, la mutation des seuls fichiers touchés
    (`stryker run --mutate <fichiers>`), `pnpm integrity`. Pas de `pnpm check` ni de mutation
-   complète : la recette lance l'unique vérification complète.
+   complète : l'unique vérification complète du lot est la CI de sa pull request.
 
 ## Livrable
 
