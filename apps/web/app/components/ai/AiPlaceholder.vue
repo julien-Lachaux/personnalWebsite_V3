@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // Placeholder de la section IA (lot F6b, D27) : affiché quand l'API ne sert pas de section IA
 // (`CvView.ai` nul), pour que la tuile (mosaïque) et l'onglet (mobile, tablette) ne soient jamais vides.
-// Esprit terminal du site : une commande puis une réponse un peu décalée, un curseur qui clignote.
+// D28 : pour l'instant, le seul mot « placeholder » (identique en fr et en) dans un cadre terminal avec un
+// curseur qui clignote, en attendant le vrai contenu.
 //
-// Accessibilité : texte réel (lu tel quel par les lecteurs d'écran), non interactif ; l'invite `$`, le
+// Accessibilité : texte réel (lu tel quel par les lecteurs d'écran), non interactif ; le
 // curseur et le picto sont décoratifs (`aria-hidden`). Le clignotement passe par `animation`, que les
 // filets de `base.css` (réglage « réduire les animations » et `prefers-reduced-motion`) ramènent à une
 // seule itération de 0,01 ms : le curseur reste alors affiché, fixe. Pas de `<p>` : le bloc est une
@@ -35,14 +36,7 @@ const { t } = useI18n();
     </svg>
     <div class="ai-placeholder__terminal">
       <div class="ai-placeholder__line">
-        <span class="ai-placeholder__prompt" aria-hidden="true">$</span>
-        {{ ' ' }}<span class="ai-placeholder__command">{{ t('ai.placeholder.command') }}</span>
-      </div>
-      <div class="ai-placeholder__line ai-placeholder__output">
-        {{ t('ai.placeholder.output') }}
-      </div>
-      <div class="ai-placeholder__line ai-placeholder__hint">
-        {{ t('ai.placeholder.hint') }}<span class="ai-placeholder__cursor" aria-hidden="true" />
+        {{ t('ai.placeholder.text') }}<span class="ai-placeholder__cursor" aria-hidden="true" />
       </div>
     </div>
   </div>
@@ -75,22 +69,8 @@ const { t } = useI18n();
   line-height: 1.6;
 }
 
-.ai-placeholder__prompt {
-  color: var(--accent);
-  font-weight: var(--font-weight-bold);
-}
-
-.ai-placeholder__command {
+.ai-placeholder__line {
   color: var(--text);
-  font-weight: var(--font-weight-bold);
-}
-
-.ai-placeholder__output {
-  color: var(--text);
-}
-
-.ai-placeholder__hint {
-  color: var(--muted);
 }
 
 .ai-placeholder__cursor {
