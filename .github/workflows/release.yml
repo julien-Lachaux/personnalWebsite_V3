@@ -1,0 +1,71 @@
+name: Release
+
+# Version et changelog automatiques (lot 23, décisions de Julien du 21 nov. 2026).
+#   - pull_request vers main : si la branche est release/<X.Y.Z>, contrôle que la branche, la version calculée
+#     d'après les Conventional Commits, le package.json et CHANGELOG.md concordent (scripts/ci/release.mjs) ;
+#   - push sur main : si la version du package.json n'est pas encore étiquetée et que CHANGELOG.md a sa
+#     section, pose l'étiquette vX.Y.Z et crée la release GitHub avec cette section. Un hotfix poussé
+#     directement sans toucher version ni changelog ne crée aucune étiquette.
+# Aucun robot n'écrit sur main ni sur la branche de release : la version et le changelog sont commités
+# par la session principale (pnpm release:prepare) et relus par Julien dans la pull request.
+#
+# Limite connue : une étiquette créée avec le GITHUB_TOKEN ne déclenche aucun autre workflow (règle de
+# GitHub contre les boucles). Un futur déploiement « sur étiquette » (L14-05) ne partirait donc pas de
+# celle-ci : voir docs/deploiement.md, « Version et changelog ».
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+# Permissions minimales : lecture seule par défaut, écriture du contenu (étiquette, release) donnée au seul
+# job qui étiquette.
+permissions:
+  contents: read
+
+jobs:
+  controle:
+    name: Contrôle de la release
+    # Seules les branches release/* sont contrôlées (un job ignoré compte comme réussi pour une protection).
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Branche, version calculée, package.json et CHANGELOG concordent
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: node scripts/ci/release.mjs check "$HEAD_REF"
+
+  etiquette:
+    name: Étiquette et release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    # Jamais deux étiquetages en même temps, jamais annulés en cours.
+    concurrency:
+      group: release-tag
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Version à étiqueter
+        id: version
+        run: echo "version=$(node scripts/ci/release.mjs should-tag)" >>"$GITHUB_OUTPUT"
+      - name: Étiquette vX.Y.Z et release GitHub
+        if: steps.version.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node scripts/ci/release.mjs notes "$VERSION" >"$RUNNER_TEMP/notes.md"
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md"

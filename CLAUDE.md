@@ -33,7 +33,8 @@ docs/                     décisions validées ; ne pas reformater (exclu de Pre
 docs/comptes-rendus/      compte rendu de chaque agent (lot-N-role.md)
 .claude/agents/           les quinze agents spécialisés (rôle, fichiers, méthode, interdits)
 .claude/hooks/            garde-fous contre le contournement des tests (hooks de .claude/settings.json)
-scripts/ci/               check-tests-integrity.sh : intégrité des tests (CI et pnpm check)
+scripts/ci/               check-tests-integrity.sh : intégrité des tests (CI et pnpm check) ;
+                          release.mjs : version et changelog (lot 23)
 ```
 
 ## Règles hexagonales
@@ -313,6 +314,8 @@ pnpm integrity [base]        # intégrité des tests depuis la base (défaut ori
 pnpm format                  # Prettier sur tout le dépôt (docs/ exclu)
 pnpm format:check            # vérification seule, tout le dépôt (dans pnpm check et en CI)
 pnpm format:staged           # vérification des seuls fichiers indexés, contenu de l'index (pre-commit)
+pnpm release:next            # prochaine version (semver d'après les Conventional Commits depuis la dernière étiquette v*)
+pnpm release:prepare --commit   # sur release/<X.Y.Z> : CHANGELOG.md et version du package.json, commit chore(release)
 pnpm db:down                 # arrête les conteneurs
 pnpm stack:up                # pile locale complète = prod (Caddy, API, PostgreSQL) : build, démarrage, attente de /health
 pnpm stack:ps | stack:logs   # état et journaux de la pile locale
@@ -440,9 +443,13 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   `gh pr merge --merge release/<version>` (mêmes refus que pour `develop` : `--squash`,
   `--rebase`, `--admin`, `--delete-branch`, `--auto`). Les hooks ne peuvent pas vérifier l'accord :
   c'est une règle de l'orchestrateur ; ils permettent ces commandes à la session principale seule,
-  jamais aux agents (`tests/release-flow.test.mjs` des hooks). À la
-  fusion d'une release dans `main`, l'étiquette de version et le changelog seront produits par la
-  CI (lot 23, au backlog).
+  jamais aux agents (`tests/release-flow.test.mjs` des hooks). Version et changelog (lot 23) : la
+  session principale crée `release/<X.Y.Z>` depuis `develop` (`pnpm release:next` donne la version,
+  semver d'après les Conventional Commits), puis `pnpm release:prepare --commit` met à jour
+  `CHANGELOG.md` et la version du `package.json` racine ; le contrôle « Contrôle de la release »
+  vérifie la concordance sur la PR ; à la fusion dans `main`, `release.yml` pose l'étiquette
+  `vX.Y.Z` et la release GitHub (aucune session ne crée d'étiquette ; procédure dans
+  `docs/deploiement.md`, section « Version et changelog »).
 - Réservé à Julien : le push direct de `main` (correctif urgent, sans pull request, hors de nos
   sessions), les étiquettes de version et le lancement du déploiement (`scripts/deploy/` refuse un
   dépôt qui n'est pas sur `main`). Aucune session ni aucun agent ne pousse `main`, ne crée ni ne
