@@ -394,19 +394,52 @@ export function existedAtSnapshot(snapshot, rel) {
   }
 }
 
-/** Vrai si la modification de `rel` depuis `base` est commitée avec une ligne Justification-test. */
+/**
+ * Vrai si la modification de `rel` depuis `base` (tête de l'instantané) est commitée avec une ligne
+ * Justification-test : contenu du disque identique à HEAD, et un commit de `base..HEAD` qui touche
+ * `rel` porte la ligne (même règle que scripts/ci/check-tests-integrity.sh). Si l'historique a été
+ * réécrit depuis l'instantané (`base` n'est plus ancêtre de HEAD), voir justifiedAfterRewrite.
+ */
 export function committedWithJustification(top, base, rel) {
   if (!base) return false;
-  try {
-    git(top, ['merge-base', '--is-ancestor', base, 'HEAD']);
-  } catch {
-    return false;
-  }
   const atHead = showAt(top, 'HEAD', rel);
   const onDisk = existsSync(join(top, rel)) ? readFileSync(join(top, rel), 'utf8') : null;
   if (atHead !== onDisk) return false;
+  try {
+    git(top, ['merge-base', '--is-ancestor', base, 'HEAD']);
+  } catch {
+    return justifiedAfterRewrite(top, base, rel);
+  }
   const messages = git(top, ['log', '--format=%B%x00', `${base}..HEAD`, '--', rel]);
   return JUSTIFICATION_RE.test(messages);
+}
+
+/**
+ * L25-02 (L19-06) : historique réécrit depuis l'instantané (`git reset` puis de nouveaux commits,
+ * rebase : `base` n'est plus ancêtre de HEAD). Les commits de HEAD non atteignables depuis la base
+ * commune (`git merge-base base HEAD`) sont ceux de la branche réécrite. Le fichier n'est accepté
+ * que si son contenu à HEAD (identique au disque, vérifié par l'appelant) est exactement celui
+ * qu'un de ces commits, portant une ligne Justification-test, lui a donné : un commit non justifié
+ * qui le change ensuite, un commit justifié de l'historique abandonné ou d'avant la base commune ne
+ * comptent pas. Un fichier supprimé est accepté si un de ces commits justifiés l'a supprimé. Sans
+ * base commune (historique sans lien, tête de l'instantané disparue) : refus.
+ */
+function justifiedAfterRewrite(top, base, rel) {
+  let fork;
+  let log;
+  try {
+    fork = git(top, ['merge-base', base, 'HEAD']).trim();
+    log = git(top, ['log', '--full-history', '--format=%H%x00%B%x00', `${fork}..HEAD`, '--', rel]);
+  } catch {
+    return false;
+  }
+  const target = hashAt(top, 'HEAD', rel);
+  const parts = log.split('\0');
+  for (let k = 0; k + 1 < parts.length; k += 2) {
+    if (JUSTIFICATION_RE.test(parts[k + 1]) && hashAt(top, parts[k].trim(), rel) === target)
+      return true;
+  }
+  return false;
 }
 
 /**
