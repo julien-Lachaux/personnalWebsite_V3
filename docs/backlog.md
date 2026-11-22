@@ -1418,6 +1418,84 @@ principale.
     sans approbation exigée : GitHub refuse qu'un compte approuve sa propre pull request, et
     `revue-pr` n'approuve pas.
 
+## 7 septies quinquies. Lot 22 — Un seul run par lot, pull request vers main (décidé par Julien le 21 nov. 2026)
+
+Décisions de Julien du 21 nov. 2026 :
+
+- **Un seul run par lot.** L'unique vérification complète d'un lot est la CI de sa pull request. La
+  recette (chef-de-projet) ne lance plus `TURBO_FORCE=true pnpm check` en local : elle garde ses
+  vérifications ciblées et lit les résultats de la CI par `gh run list --branch <branche>` et
+  `gh run view <id>` (`gh pr checks` est refusé par GitHub au jeton à portée fine, qui ne peut pas
+  recevoir la permission « Checks »). Fini les créneaux machine entre sessions pour les checks
+  complets ; `pnpm check` reste disponible en local pour qui en a besoin.
+- **CI** : uniquement sur les pull requests, plus un push direct de `main` par Julien (correctif
+  urgent, CI informative). Arrêt au premier échec et revue après la CI : dev-devops, dans
+  `ci.yml`, sur sa branche du lot.
+- **Pull request vers `main`** : « fusion dans `main` réservée à Julien » devient « fusion dans
+  `main` par pull request, après accord explicite de Julien ». Après cet accord, la session
+  principale pousse `release/<version>`, ouvre `gh pr create --base main --head release/<version>`
+  et la fusionne par `gh pr merge --merge release/<version>`. Les hooks ne peuvent pas vérifier
+  l'accord (règle de l'orchestrateur) ; ils permettent ces commandes à la session principale seule.
+  Julien garde le push direct de `main`, hors de nos sessions. Le push de `main` et de toute
+  étiquette reste refusé aux sessions.
+- **Traces de CI** : `gh run download` permis à la session principale seule, destination explicite
+  dans son dossier temporaire de session, contenu jamais exécuté (tranché par Julien le même jour,
+  L22-05).
+
+Tickets :
+
+- **L22-01** (lead-architecte, portée `config`) : règle D26 réécrite dans `CLAUDE.md` (règle,
+  commandes, « Worktrees en parallèle », suivi des pull requests), `docs/03`, recette du
+  chef-de-projet (lit la CI, plus de `pnpm check`) et rappel D26 des autres agents (`dev-front` et
+  `qa-front` dans un commit à part, accord de la session front) ; section commune « Git et
+  garde-fous » inchangée (aucune règle des agents ne change).
+- **L22-02** (lead-architecte, portée `config`) : hooks du flux de release pour la session
+  principale (push de `release/<majeur>.<mineur>.<correctif>`, `gh pr create --base main --head
+  release/<version>`, `gh pr merge --merge release/<version>`), refus maintenus (`--squash`,
+  `--rebase`, `--admin`, `--delete-branch`, `--auto`, agents), nouveaux tests, rejeu L14-07 vert.
+  Accord explicite de Julien donné le 21 nov. 2026 : patch appliqué (`9f99811`). Deux tests
+  existants exigeaient le refus du push et de la fusion d'une release (`git-push.test.mjs:118`,
+  `pr-flow.test.mjs:154`) ; leur mise à jour reste à faire (compte rendu `lot-22-lead.md`).
+- **À trancher plus tard** (laissés en l'état par décision du 21 nov. 2026) :
+  - remontée d'une release dans `develop` (`gh pr create --base develop --head release/…`),
+    aujourd'hui refusée par les hooks ;
+  - `gh pr edit <pull request> --base develop` sur une pull request de release, aujourd'hui permis
+    (la base ne peut que revenir vers `develop`, jamais passer à `main`).
+- **L22-03** (lead-architecte, portée `config`) : `passThroughEnv: ["TEST_MAX_WORKERS"]` sur
+  `@siteperso/web#test` (constat de la session front).
+- **L22-04** (lead-architecte, portée `config`) : `dev-devops.md` ne cite plus
+  `.github/dependabot.yml`, supprimé au lot 20.
+- **L22-05** (lead-architecte, portée `config`) : `gh run download <identifiant> --dir <dossier>`
+  permis à la session principale seule, `--dir` obligatoire, en clair, dans le dossier temporaire
+  de session (liens résolus, hors de tout dépôt git) ; refusé sans `--dir`, hors de ce dossier,
+  avec `-R`, `GH_REPO`, `GH_HOST`, `xargs`, et à tous les agents ; contenu téléchargé traité comme
+  une donnée, jamais exécuté.
+- Côté dev-devops (portée `config`, autre branche, identifiants donnés par l'orchestrateur) : CI
+  sur les seules pull requests et le push de `main`, arrêt au premier échec, revue `revue-pr`
+  après la CI.
+
+## 7 septies sexies. Lot 23 — Étiquette de version et changelog automatiques (à planifier)
+
+- **L23-01** (dev-devops, portée `config`) : à la fusion d'une pull request `release/<version>` dans
+  `main`, un workflow crée l'étiquette `v<version>` et la release GitHub avec son changelog. Version
+  en semver d'après les Conventional Commits depuis l'étiquette précédente (`feat` : mineure,
+  `fix` : correctif, `!` ou `BREAKING CHANGE` : majeure), vérifiée contre le nom de la branche de
+  release ; changelog groupé par type de commit. Aucune session ne crée d'étiquette : seule la CI.
+- Point technique à trancher avant : une étiquette (ou une release) créée avec le `GITHUB_TOKEN`
+  du workflow ne déclenche aucun autre workflow (« events triggered by the `GITHUB_TOKEN` will not
+  create a new workflow run », documentation de GitHub Actions, « Triggering a workflow » ; seuls
+  `workflow_dispatch` et `repository_dispatch` font exception). Le futur déploiement par étiquette
+  (**L14-05**, sur `push: tags`) ne partirait donc pas d'une étiquette créée ainsi. Options : le
+  même workflow enchaîne le déploiement (job suivant ou workflow réutilisable par
+  `workflow_call`) ; il déclenche le déploiement par `workflow_dispatch` ; ou l'étiquette est
+  créée avec un jeton d'application GitHub ou un jeton personnel à portée fine (secret géré par
+  Julien). À trancher par Julien au lancement du lot 23.
+- Rien à implémenter au lot 22.
+
+## 7 septies septies. Lot 24 — Brief back-005 (service du front)
+
+Le brief `back-005` (service du front) devient le lot 24.
+
 ## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
 
 Demande : `docs/briefs/back-001-donnees-front.md` (tickets BF-1 à BF-7 : profil restructuré, liens

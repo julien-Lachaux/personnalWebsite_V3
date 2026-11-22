@@ -3,7 +3,11 @@
 // Fichier partagé : réservé au lead-architecte (règle « modules isolés » du front, CLAUDE.md).
 
 import { readdirSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
+import { isLocalizedErrorPage, LOCALIZED_ERROR_PAGES } from './app/domain/error-pages';
+import { seoFiles, SITEMAP_FILE } from './app/domain/sitemap';
 import { themeScript } from './app/domain/theme-script';
 
 // Libellés d'interface : un fichier commun et un fichier par section et par langue
@@ -19,6 +23,10 @@ const filesOf = (language: string): string[] =>
 const cvFiles = readdirSync(new URL('./public/cv/', import.meta.url))
   .filter((name) => name.endsWith('.pdf'))
   .sort();
+
+// Plan du site et robots.txt (lot F7, F7-03) : HTML des pages prérendues, relevé au fil du prérendu ;
+// les deux fichiers en sont déduits à la fin (app/domain/sitemap.ts) et écrits à la racine du site.
+const prerenderedPages: string[] = [];
 
 const strictCompilerOptions = {
   // Mêmes exigences que tsconfig.base.json du back, en plus du `strict` de Nuxt.
@@ -37,6 +45,9 @@ export default defineNuxtConfig({
   // Aucune collecte (D8) et aucun appel réseau implicite au build.
   telemetry: false,
   devtools: { enabled: false },
+  // Page 404 de la langue par défaut rendue côté serveur au prérendu (`/404.html`), au lieu d'une coquille
+  // SPA vide ; celle des autres langues est prérendue en plus (`nitro`, plus bas). Lot F7, F7-01.
+  experimental: { prerenderErrorPages: [404] },
   // L'API de dev écoute sur 3000 et autorise l'origine http://localhost:3001 (CORS_ORIGIN).
   devServer: { port: 3001 },
 
@@ -101,6 +112,11 @@ export default defineNuxtConfig({
     detectBrowserLanguage: false,
     // URL absolue des liens hreflang et canonical : NUXT_PUBLIC_I18N_BASE_URL au build.
     baseUrl: 'http://localhost:3001',
+    // Chemins anglais propres à une page (lot F7) : clé = nom de la route de la page française.
+    customRoutes: 'config',
+    pages: {
+      accessibilite: { en: '/accessibility' },
+    },
   },
 
   // D15 : la langue par défaut n'a pas de préfixe ; `/fr` et `/fr/...` renvoient vers la même page
@@ -110,19 +126,42 @@ export default defineNuxtConfig({
   routeRules: {
     '/fr': { redirect: { to: '/', statusCode: 301 } },
     '/fr/**': { redirect: { to: '/**', statusCode: 301 } },
+    // Gabarit des pages annexes (en-tête du site, layouts/annex.vue), lot F7.
+    '/accessibilite': { appLayout: 'annex' },
+    '/en/accessibility': { appLayout: 'annex' },
   },
-
-  // Page 404 rendue au build (lot F9a) : `404.html` contient la page d'erreur du site (app/error.vue)
-  // au lieu d'une coquille vide rendue dans le navigateur. Le serveur la sert pour toute adresse
-  // inconnue ; l'erreur est déjà dans la charge utile, le routeur ne la relève pas une seconde fois au
-  // démarrage (sinon `[NUXT_E1005]` en console, « erreur pendant l'initialisation »).
-  experimental: { prerenderErrorPages: true },
 
   nitro: {
     prerender: {
-      routes: ['/', '/en', '/fr', '/fr/accessibilite'],
+      // Pages 404 des autres langues (`/en/404.html`) en plus de celles qu'atteint le robot (lot F7).
+      routes: ['/', '/en', '/fr', '/fr/accessibilite', ...LOCALIZED_ERROR_PAGES],
       crawlLinks: true,
       failOnError: true,
+    },
+    hooks: {
+      // Une page 404 d'une autre langue est rendue avec le statut 404 : le prérendu la garde (sans
+      // cela, `failOnError` arrête la génération) ; toute autre erreur reste une erreur.
+      'prerender:generate'(route) {
+        if (isLocalizedErrorPage(route.route) && route.error?.statusCode === 404)
+          delete route.error;
+      },
+      'prerender:route'(route) {
+        if (route.error === undefined && route.fileName?.endsWith('.html') && route.contents) {
+          prerenderedPages.push(route.contents);
+        }
+      },
+    },
+  },
+
+  hooks: {
+    // Fin du prérendu : `sitemap.xml` et `robots.txt` à la racine du site généré (lot F7, F7-03).
+    'nitro:init'(nitro) {
+      nitro.hooks.hook('prerender:done', async () => {
+        const { sitemap, robots } = seoFiles(prerenderedPages);
+        const publicDir = nitro.options.output.publicDir;
+        await writeFile(join(publicDir, SITEMAP_FILE), sitemap);
+        await writeFile(join(publicDir, 'robots.txt'), robots);
+      });
     },
   },
 

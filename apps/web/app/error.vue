@@ -1,75 +1,57 @@
 <script setup lang="ts">
-// Page d'erreur (route inconnue ou autre erreur) : PROVISOIRE (lot F9a), son contenu et sa mise en
-// page viennent avec le lot F7 (F7-01). Elle remplace la page d'erreur par défaut de Nuxt, qui
-// injecte à l'exécution un <script> et un <style> en ligne (`useHead` de `error-404.vue`) : sous la
-// CSP stricte du site (empreintes des seuls éléments en ligne du HTML généré), ils étaient bloqués.
-// Celle-ci n'injecte rien : ses styles sont dans la feuille du composant, comme toute page.
+// Page d'erreur (lot F7, F7-01) : Nuxt la rend À LA PLACE d'app.vue pour toute erreur, d'où les mêmes
+// devoirs de racine ici : `lang` de <html>, lien d'évitement en premier élément focalisable, préférences
+// branchées (`usePreferencesSync`). Elle s'affiche dans le gabarit des pages annexes (en-tête du site,
+// accessibilité, langue, thème) et dans la langue de l'adresse.
 //
-// Elle est rendue au build dans `404.html` (`experimental.prerenderErrorPages`, nuxt.config.ts), en
-// français (langue par défaut) ; le serveur la sert pour toute adresse inconnue, `/en/...` compris.
-// Le navigateur n'a alors que les libellés de la langue de l'adresse : l'hydratation reprend donc les
-// textes du rendu (gardés dans la charge utile par `useState`), puis la page passe à la langue de
-// l'adresse une fois montée. Sans cela, le texte calculé dans le navigateur ne correspondrait pas au
-// HTML et Vue signalerait une erreur d'hydratation.
-// Elle ne passe pas par `app.vue` (Nuxt l'affiche à sa place) : elle pose elle-même `lang`.
+// - 404 (adresse inconnue) : « Page introuvable ». Prérendue en `/404.html` (fr, par Nuxt,
+//   `experimental.prerenderErrorPages`) et `/en/404.html` (domain/error-pages.ts) ; le proxy les sert
+//   avec le statut 404 (docs/comptes-rendus/lot-F7-lead.md).
+// - Tout autre statut : « Une erreur est survenue », avec le code (500 quand l'erreur n'en porte pas) ;
+//   aucun message ni détail technique de l'erreur n'est affiché.
+// - `noindex` et ni canonique ni hreflang : une page d'erreur n'est pas une page du site (et n'entre
+//   pas dans le plan du site, domain/sitemap.ts).
 // Fichier partagé, réservé au lead-architecte.
-import { type NuxtError } from '#app';
+import { computed } from 'vue';
+import type { NuxtError } from '#app';
+
+import AnnexPage from './components/annex/AnnexPage.vue';
+import { usePreferencesSync } from './composables/shell/usePreferencesSync.js';
 
 const props = defineProps<{ error: NuxtError }>();
 
-const { t, locale } = useI18n();
-const localePath = useLocalePath();
+const { t } = useI18n();
+const head = useLocaleHead();
 
-interface ErrorTexts {
-  readonly lang: string;
-  readonly title: string;
-  readonly message: string;
-  readonly back: string;
-  readonly home: string;
-}
+usePreferencesSync();
 
-function texts(): ErrorTexts {
-  const kind = props.error.status === 404 ? 'notFound' : 'generic';
-  return {
-    lang: locale.value,
-    title: t(`error.${kind}.title`),
-    message: t(`error.${kind}.message`),
-    back: t('error.back'),
-    home: localePath('/'),
-  };
-}
+const notFound = computed(() => props.error.status === 404);
+/** Espace de libellés de la page : `notFound` ou `error`. */
+const labels = computed(() => (notFound.value ? 'notFound' : 'error'));
+const status = computed(() => props.error.status ?? 500);
 
-const rendered = useState('error-page-texts', texts);
-const mounted = ref(false);
-onMounted(() => {
-  mounted.value = true;
-});
-const shown = computed(() => (mounted.value ? texts() : rendered.value));
-
-useHead(() => ({ htmlAttrs: { lang: shown.value.lang }, title: shown.value.title }));
+useHead(() => ({
+  htmlAttrs: { lang: head.value.htmlAttrs.lang },
+  title: t(`${labels.value}.title`),
+  meta: [{ name: 'robots', content: 'noindex' }],
+}));
 </script>
 
 <template>
-  <main id="contenu" class="error-page" tabindex="-1">
-    <h1>{{ shown.title }}</h1>
-    <p>{{ shown.message }}</p>
-    <p>
-      <a :href="shown.home">{{ shown.back }}</a>
-    </p>
-  </main>
+  <a class="skip-link" href="#contenu">{{ t('common.skipToContent') }}</a>
+  <NuxtLayout name="annex">
+    <AnnexPage :file="notFound ? 'erreur-404.log' : 'erreur.log'" :back="t(`${labels}.back`)">
+      <h1>{{ t(`${labels}.title`) }}</h1>
+      <p>{{ t(`${labels}.text`) }}</p>
+      <p v-if="!notFound" class="error-page__status">{{ t('error.status', { status }) }}</p>
+    </AnnexPage>
+  </NuxtLayout>
 </template>
 
 <style scoped>
-.error-page {
-  max-width: var(--content-max);
-  margin-inline: auto;
-  padding: 3rem var(--mobile-gutter);
-}
-
-h1 {
-  margin-block: 0 1rem;
-  font-size: var(--font-size-h1-portable);
-  font-weight: var(--font-weight-bold);
-  line-height: 1.1;
+.error-page__status {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-small);
 }
 </style>

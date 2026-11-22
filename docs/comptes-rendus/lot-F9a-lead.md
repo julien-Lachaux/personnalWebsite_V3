@@ -88,3 +88,31 @@ Commit 85c6275. Contre-preuve : avec `fetch-cv.ts` et `nuxt.config.ts` de 9f66ac
    sans effet sur la CSP ; le retirer (option de préchargement de Nuxt/Vite) est une optimisation à part.
 3. `error.vue` est provisoire (contenu et mise en page en F7-01) ; la page d'erreur n'a pas le lien d'évitement
    (elle n'a pas de bloc répété).
+
+## Intégration de F7 (origin/develop 59c8ae3) : fusion en cours, deux blocages des garde-fous
+
+`git merge --no-ff --no-edit origin/develop`, puis `pnpm install --frozen-lockfile`. Résolu (indexé) : `error.vue`
+pris de F7 ; `nuxt.config.ts` et `common.json` (fr, en) repris de develop (mon `experimental` en double et mes
+libellés `error.*` retirés) ; CLAUDE.md : structure de F7 gardée, règle « CSP stricte » de F9a gardée ;
+`fetch-cv.ts` gardé.
+
+Vérification CSP de la 404 de F7 (sonde hors dépôt, serveur qui sert `en/404.html` sous `/en` comme le proxy le
+fera) : aucune violation, aucun élément injecté, ni `NUXT_E1005` ni erreur d'hydratation sur `/route-inconnue`,
+`/en/route-inconnue`, `/en/a/b`, ni sur `/`, `/en`, `/accessibilite`, `/en/accessibility`. Rien à corriger dans F7.
+
+Blocages (sortie honorable, rien contourné) :
+
+1. `apps/web/app/error.spec.ts` reste en conflit (add/add, marqueurs dans le fichier) :
+   `git checkout --theirs apps/web/app/error.spec.ts` refusé (« écriture shell sur un test existant … Aucune
+   autorisation « tests » »). But : prendre la version de develop telle quelle (mon `error.spec.ts` disparaît).
+   La fusion ne peut pas être commitée tant que ce fichier n'est pas résolu.
+2. `apps/web/test/csp.e2e.ts` (commit 85c6275) est rendu obsolète par F7 : parcours à 2 tailles, 4 échecs sur 18,
+   **aucune violation CSP** ; `/en/accessibilite` est devenu `/en/accessibility` (404 au lieu de 200), et mon
+   émulation du proxy sert `404.html` sous `/en` au lieu de `en/404.html` (d'où « Hydration completed but contains
+   mismatches »). Modification refusée par Edit (« modification d'un test existant »). Changement exact attendu :
+   dans `documentFor`, `return { status: 404, file: join(publicDir, pathname === '/en' ||
+   pathname.startsWith('/en/') ? 'en/404.html' : '404.html') }` ; dans `pages`, `/en/accessibilite` →
+   `/en/accessibility`. Sinon inchangé.
+
+Non fait en conséquence : commit de fusion, lint, typecheck, `test:coverage`, `pages.e2e.ts`, `pnpm integrity develop`
+sur l'état fusionné. Avec une autorisation « tests » pour ces deux fichiers, il reste à résoudre, commiter et vérifier.

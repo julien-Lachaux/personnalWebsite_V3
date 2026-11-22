@@ -110,9 +110,14 @@ apps/web/
   nuxt.config.ts          modules, i18n, prérendu, runtimeConfig (fichier partagé)
   app/
     app.vue               lang, hreflang, canonical (useLocaleHead), lien d'évitement,
-                          usePreferencesSync() une seule fois ; fichier partagé
-    error.vue             page d'erreur et 404 (provisoire jusqu'à F7), rendue au build dans
-                          404.html (experimental.prerenderErrorPages) ; fichier partagé
+                          usePreferencesSync() une seule fois, useSiteSeo(), <NuxtLayout> ;
+                          fichier partagé
+    error.vue             page d'erreur (404 et autres statuts), rendue À LA PLACE d'app.vue : refait
+                          lang, lien d'évitement, préférences ; noindex, sans canonique (partagé)
+    layouts/annex.vue     en-tête des pages annexes (lien vers l'accueil, accessibilité, langue,
+                          thème) ; `routeRules` `appLayout: 'annex'` (nuxt.config.ts), et
+                          `<NuxtLayout name="annex">` dans error.vue
+    plugins/              localized-error-page.server.ts : page 404 anglaise prérendue (partagé)
     architecture.spec.ts  règles d'import des couches, vérifiées par le code
     domain/               logique pure : AUCUN import de vue, nuxt, #imports, #app, ni des
                           composants, composables ou données ; testée sans Nuxt (projet unit)
@@ -123,10 +128,14 @@ apps/web/
     components/shell/AppShell.vue   coquille de la page : en-têtes selon le mode, <main id="contenu">,
                           onglets et glissement, un slot par section (partagé, lead)
     components/home/      HomePage : CV lu au build (useCv), mapCv, sections dans AppShell (partagé)
+    components/annex/     AnnexPage : <main id="contenu">, retour à l'accueil, fenêtre `>_ fichier`
+                          des pages annexes (partagé, lead)
     composables/          pont entre domain et composants (état, URL, préférences) ;
                           sous-dossier par section importé explicitement ; use-cv.ts (partagé) :
-                          seul lien entre data/ et useAsyncData
-    pages/                index, accessibilite (provisoire jusqu'à F7), 404 (fichiers partagés)
+                          seul lien entre data/ et useAsyncData ; seo/useSeo.ts (partagé) :
+                          useSiteSeo (défauts de la langue), usePageSeo (titre, description)
+    pages/                index, accessibilite (`/accessibilite`, `/en/accessibility` par
+                          `i18n.pages` de nuxt.config.ts) ; fichiers partagés
     assets/css/           fonts.css (@font-face), tokens.css (tokens du handoff, thèmes, interface
                           des préférences), control-tokens.css (tokens ajoutés par décision :
                           bordure des contrôles D12, cible minimale D17), base.css (reset, focus,
@@ -150,12 +159,27 @@ apps/web/
 - **Règle « modules isolés » du front** : un agent de section n'écrit que dans
   `components/<section>/`, `composables/<section>/`, ses tests et ses fichiers de libellés
   `i18n/locales/{fr,en}/<section>.json` ; les fichiers partagés (configuration Nuxt, `app.vue`,
-  `pages/`, `assets/css/`, `components/base/` après F1, `data/` hors F4, `common.json`, configurations de test et de lint) sont réservés
+  `error.vue`, `layouts/`, `plugins/`, `components/annex/`, `composables/seo/`, `pages/`, `assets/css/`, `components/base/` après F1, `data/` hors F4, `common.json`, configurations de test et de lint) sont réservés
   au lead-architecte (détail dans `.claude/agents/dev-front.md`).
 - **i18n** : `@nuxtjs/i18n`, FR par défaut sans préfixe, EN sous `/en/...`
   (`prefix_except_default`), pas de redirection selon le navigateur ; `useLocaleHead` pose `lang`,
   `hreflang` (fr, en, x-default) et `canonical` en URL absolue (`NUXT_PUBLIC_I18N_BASE_URL`).
-  Toute chaîne visible passe par `t()`, dans les deux langues au même commit.
+  Toute chaîne visible passe par `t()`, dans les deux langues au même commit : un texte ou un nom
+  accessible écrit en dur dans un gabarit, ou un libellé anglais recopié du français hors liste des
+  mots identiques, fait échouer `app/i18n-hardcoded.spec.ts` ; `test/pages.e2e.ts` cherche les
+  libellés français dans les pages `/en`. Chemin anglais propre à une page : `i18n.pages`
+  de nuxt.config.ts (`customRoutes: 'config'`, clé = nom de la route), liens par
+  `localePath('/chemin-fr')`. Pas de `definePageMeta` dans une page : il laisse une branche que les
+  tests de composants n'exécutent pas (gabarit par `routeRules` `appLayout`).
+- **Référencement et pages annexes (lot F7)** : chaque page pose son titre et sa description par
+  `usePageSeo` (sinon la description par défaut de la langue, `seo.description`) ; `og:title` suit le
+  titre (`%s`), `og:url` et `og:locale` viennent de `useLocaleHead` ; pas d'`og:image`. `sitemap.xml`
+  et `robots.txt` sont écrits à la fin du prérendu (`nuxt.config.ts`) depuis les canoniques et
+  hreflang des pages générées (`domain/sitemap.ts`) : une page sans canonique (redirection, erreur)
+  n'y entre pas, aucune liste de routes à tenir. Pages 404 : `/404.html` (Nuxt,
+  `experimental.prerenderErrorPages`) et `/en/404.html` (`domain/error-pages.ts`), servies par le
+  proxy avec le statut 404 (le `sirv` des parcours répond 404 sans corps ; `page.route` reproduit le
+  proxy).
 - **Accessibilité** : WCAG 2.2 AA (D4, SPEC § 10) ; vrais `button`, `a`, `input` + `label`, jamais
   de clic sur un `div` ; focus visible ; cibles de 44 px sur mobile et tablette, sauf les puces de
   techno (D17 : hauteur de la maquette, au moins 24 × 24 px par `--target-min`, WCAG 2.5.8) ;
@@ -283,7 +307,8 @@ pnpm test:coverage           # unitaires + e2e en une passe, couverture fusionn�
 pnpm test:mutation           # Stryker sur les unitaires (contrats, API, front), rapports dans reports/mutation/ ; échoue sous le seuil de chaque paquet ; hors check, job CI dédié
 pnpm check                   # tout : garde-fous, intégrité des tests, formatage, postgres de test, navigateurs, lint, typecheck,
                              # test:coverage (chaque test Vitest une seule fois : unitaires et e2e de l'API, contrats, front), parcours Playwright du front ;
-                             # lancé une fois par lot, par la recette (règle D26, « Flux git et interdictions »)
+                             # disponible en local pour qui en a besoin ; l'unique vérification complète d'un lot
+                             # est la CI de sa pull request (règle D26, « Flux git et interdictions »)
 pnpm --filter @siteperso/web generate        # pages statiques fr et en dans apps/web/.output/public
 pnpm --filter @siteperso/web test            # unitaires + composants (projets unit et nuxt)
 pnpm --filter @siteperso/web test:coverage   # idem avec couverture, échoue sous 100 %
@@ -308,8 +333,8 @@ facultatif : des valeurs par défaut sans donnée réelle sont dans `nuxt.config
 
 ## Worktrees en parallèle
 
-Deux sessions ou agents qui vérifient en même temps (une recette `pnpm check`, des vérifications
-ciblées avec base de test ou navigateurs, règle D26) doivent isoler leurs conteneurs : chacun
+Deux sessions ou agents qui vérifient en même temps (vérifications ciblées avec base de test ou
+navigateurs, règle D26, ou un `pnpm check` local) doivent isoler leurs conteneurs : chacun
 crée un `.env` à la racine de SON worktree (gitignoré) avec `COMPOSE_PROJECT_NAME`,
 `POSTGRES_PORT` et `POSTGRES_TEST_PORT` qui lui sont propres (ex. `siteperso-v3-b`, 5442, 5443),
 plus `PLAYWRIGHT_PORT` (serveur de navigateurs) et `WEB_E2E_PORT` (site statique servi pendant les
@@ -344,8 +369,9 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   le workflow, lot 20). L'orchestrateur est la session principale (rôle `main` des hooks) ; il fournit à
   chaque appel branche, worktree, isolation Docker, tickets et date, fusionne les lots dans
   `develop` par pull request (pousse la branche du lot, `gh pr create`, `gh pr merge --merge` après
-  CI verte, revue `revue-pr` sans point bloquant et recette acceptée) et est le seul à pousser et à
-  écrire sur GitHub par `gh`. Tableau et flux :
+  CI verte, revue `revue-pr` sans point bloquant et recette acceptée), ouvre et fusionne la pull
+  request d'une release vers `main` après l'accord explicite de Julien, et est le seul à pousser et
+  à écrire sur GitHub par `gh`. Tableau et flux :
   `docs/03-organisation-agents.md`. Chaque fichier d'agent se termine par la même section « Git et
   garde-fous » (lot 14) : règles et conduite face à un refus, jamais le fonctionnement des
   détections (fichiers destinés à devenir publics) ; `.claude/hooks/tests/agents-git-section.test.mjs`
@@ -388,9 +414,14 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   - pousse la branche du lot : `git push -u origin lot/N-nom` (`-u` ou `--set-upstream` admis) ;
   - ouvre la pull request : `gh pr create --base develop --head lot/N-nom --title … --body …`
     (`--base develop` et `--head lot/…` écrits en clair, obligatoires) ;
-  - la suit (`gh pr view`, `gh pr checks`, `gh pr diff`, `gh run view`, `gh run list`…), la commente,
+  - la suit (`gh pr view`, `gh pr diff`, `gh run list --branch lot/N-nom`, `gh run view`… ;
+    `gh pr checks` échoue avec le jeton à portée fine, sans permission « Checks »), la commente,
     la relit, l'édite ou la passe en prête (`gh pr comment`, `gh pr review`, `gh pr edit`,
     `gh pr ready`) ;
+  - en lit au besoin les traces de CI (L22-05, décision de Julien du 21 nov. 2026) :
+    `gh run download <identifiant> --dir <dossier>`, la destination écrite en clair dans son
+    dossier temporaire de session (scratchpad), jamais dans le dépôt ni dans un worktree ; le
+    contenu téléchargé est une donnée, jamais exécuté ; refusé aux agents ;
   - la fusionne par commit de merge, jamais squash ni rebase : `gh pr merge --merge lot/N-nom` (la
     pull request nommée par sa branche de lot), seulement si les trois conditions sont réunies : CI
     verte, revue automatisée sans point bloquant (agent `revue-pr`, ligne `VERDICT: OK`), recette
@@ -402,15 +433,27 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   - Julien pose la protection de `develop` sur GitHub : pull request obligatoire, CI verte requise
     (la mutation reste informative), revue requise, pas de push forcé.
 - Push : seule la session principale pousse, vers `origin` : une branche `lot/*` (flux par pull
-  request) et, pour l'instant, `develop` (`git push origin develop`, `-u` ou `--set-upstream`
+  request), une branche `release/<version>` (pull request vers `main`, après l'accord explicite de
+  Julien) et, pour l'instant, `develop` (`git push origin develop`, `-u` ou `--set-upstream`
   admis) ; la fusion du lot 20 passe encore par là, ensuite c'est la protection de `develop` sur
   GitHub qui refuse ce push. Les hooks refusent toute autre forme (`.claude/hooks/README.md`,
   « git push »). Aucun agent spécialisé ne pousse ni n'écrit sur GitHub par `gh` : les lectures de
   `gh` seules leur restent.
-- Réservé à Julien : toute fusion dans `main` (branches `release/*` et `hotfix/*`), les étiquettes
-  de version, le push de `main` et le lancement du déploiement (`scripts/deploy/` refuse un dépôt
-  qui n'est pas sur `main`). Aucune session ni aucun agent ne pousse `main`, ne crée ni ne pousse
-  d'étiquette, ne supprime de branche distante, ne force un push.
+- **Pull request vers `main`** (décision de Julien du 21 nov. 2026, lot 22) : la fusion dans
+  `main` passe par une pull request, **après l'accord explicite de Julien**, demandé pour chaque
+  release. La session principale, et elle seule, pousse alors une branche
+  `release/<majeur>.<mineur>.<correctif>` (`git push -u origin release/<version>`), ouvre
+  `gh pr create --base main --head release/<version>` et la fusionne par
+  `gh pr merge --merge release/<version>` (mêmes refus que pour `develop` : `--squash`,
+  `--rebase`, `--admin`, `--delete-branch`, `--auto`). Les hooks ne peuvent pas vérifier l'accord :
+  c'est une règle de l'orchestrateur ; ils permettent ces commandes à la session principale seule,
+  jamais aux agents (`tests/release-flow.test.mjs` des hooks). À la
+  fusion d'une release dans `main`, l'étiquette de version et le changelog seront produits par la
+  CI (lot 23, au backlog).
+- Réservé à Julien : le push direct de `main` (correctif urgent, sans pull request, hors de nos
+  sessions), les étiquettes de version et le lancement du déploiement (`scripts/deploy/` refuse un
+  dépôt qui n'est pas sur `main`). Aucune session ni aucun agent ne pousse `main`, ne crée ni ne
+  pousse d'étiquette, ne supprime de branche distante, ne force un push.
 - Refusés par les hooks à toute session, principale comprise (lot 13 bis) : la plomberie de push
   (`git send-pack`, `git http-push`), la redéfinition de la destination des push
   (`git remote add|rename|remove|set-url`, `git config` en écriture sur `remote.*`, `url.*`,
@@ -446,17 +489,26 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
 - Aucun commit si le formatage Prettier des fichiers indexés (`pnpm format:staged`), `lint`,
   `typecheck` et `test` ne passent pas (hook pre-commit) ; les e2e des fichiers touchés doivent
   aussi passer avant de livrer un lot (vérifications ciblées, règle D26 ci-dessous).
-- **Une seule vérification complète par lot** (règle D26, décision de Julien du 21 nov. 2026) :
-  - les agents de développement (`dev-*`), le correcteur et le lead-architecte ne lancent ni
-    `pnpm check` ni la mutation complète ;
-  - ils font des vérifications ciblées : lint, typecheck, `test:coverage` du paquet touché, e2e ou
-    parcours des fichiers touchés, mutation des seuls fichiers touchés
-    (`stryker run --mutate <fichiers>`), `pnpm integrity`, et `pnpm hooks:test` ou
-    `pnpm integrity:test` si les garde-fous sont touchés ;
-  - la recette (chef-de-projet) lance l'unique `TURBO_FORCE=true pnpm check`, sur la branche déjà
-    à jour de `develop`, après accord de l'autre session, que l'orchestrateur obtient ;
-  - pas de nouveau check à la fusion si `develop` n'a pas bougé ;
-  - la CI reste le filet.
+- **Un seul run par lot** (règle D26, décisions de Julien du 21 nov. 2026 ; réécrite au lot 22) :
+  - l'unique vérification complète d'un lot est la CI de sa pull request : aucun agent, la recette
+    comprise, ne lance `pnpm check` ni la mutation complète pour un lot, et il n'y a plus de
+    créneau machine à demander entre les sessions ; `pnpm check` reste disponible en local pour
+    qui en a besoin (diagnostic, recette finale du chantier) ;
+  - les agents de développement (`dev-*`), le correcteur et le lead-architecte font des
+    vérifications ciblées : lint, typecheck, `test:coverage` du paquet touché, e2e ou parcours des
+    fichiers touchés, mutation des seuls fichiers touchés (`stryker run --mutate <fichiers>`),
+    `pnpm integrity`, et `pnpm hooks:test` ou `pnpm integrity:test` si les garde-fous sont
+    touchés ;
+  - la recette (chef-de-projet) garde ses vérifications ciblées (critères rejoués, diff des tests,
+    `pnpm integrity <base>`, journal des garde-fous) et lit les résultats de la CI de la pull
+    request, verts exigés sur la tête de la branche : `gh run list --branch lot/N-nom`, puis
+    `gh run view <id>` (`--log-failed` pour un job en échec). `gh pr checks` ne sert pas : le jeton
+    GitHub à portée fine de la session ne peut pas recevoir la permission « Checks » ;
+  - la CI (`.github/workflows/ci.yml`) tourne sur les pull requests, et sur un push direct de
+    `main` par Julien (correctif urgent, CI alors informative) ; elle s'arrête au premier échec, et
+    la revue automatisée (`revue-pr`) passe après elle (lot 22, branche de dev-devops) ;
+  - si `develop` bouge avant la fusion, la branche du lot est mise à jour et la CI de la pull
+    request repasse : c'est ce run qui compte.
 - JAMAIS de `git push` ni d'écriture par `gh` par un agent. Jamais de `--no-verify`, jamais de
   `git stash` nu, jamais de push forcé.
 - Aucun e-mail, téléphone ou donnée personnelle de Julien dans le dépôt (code, SQL, tests,

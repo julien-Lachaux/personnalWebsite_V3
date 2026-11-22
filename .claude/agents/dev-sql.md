@@ -38,7 +38,7 @@ critères, extrait de `docs/01` concerné, date du jour.
 6. `pnpm db:reset` puis `pnpm format` et les vérifications ciblées (règle D26, CLAUDE.md) :
    `pnpm lint`, `pnpm typecheck`, `pnpm --filter @siteperso/api test:coverage` (e2e des contraintes
    et des seeds compris), `pnpm integrity` ; `pnpm db:down` en fin de lot. Pas de `pnpm check` ni
-   de mutation complète : la recette lance l'unique vérification complète.
+   de mutation complète : l'unique vérification complète du lot est la CI de sa pull request.
 
 ## Livrable
 

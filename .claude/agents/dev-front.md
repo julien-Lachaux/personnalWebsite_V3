@@ -72,7 +72,7 @@ la couche `data/`), les sections du handoff à lire (`apps/web/design/handoff-v6
 4. `pnpm format`, puis les vérifications ciblées (règle D26, CLAUDE.md) :
    `pnpm --filter @siteperso/web lint typecheck test:coverage`, les parcours Playwright des fichiers
    touchés, `pnpm integrity` ; `pnpm db:down` en fin de lot. Pas de `pnpm check` ni de mutation
-   complète : la recette lance l'unique vérification complète.
+   complète : l'unique vérification complète du lot est la CI de sa pull request.
 
 ## Livrable
 

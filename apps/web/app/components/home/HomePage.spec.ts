@@ -131,7 +131,7 @@ describe('page d’accueil (fixtures)', () => {
     const cv = wrapper.get('a[download]');
     expect(cv.attributes()).toMatchObject({ href: '/cv/cv-fr.pdf', hreflang: 'fr' });
     expect(cv.text()).toContain('(in French)');
-    expect(wrapper.get('.a11y-panel__link').attributes('href')).toBe('/en/accessibilite');
+    expect(wrapper.get('.a11y-panel__link').attributes('href')).toBe('/en/accessibility');
   });
 });
 

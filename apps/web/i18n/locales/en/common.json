@@ -7,20 +7,65 @@
     "showDetails": "Show details: {name}",
     "skipToContent": "Skip to content"
   },
+  "seo": {
+    "description": "Website and CV of Julien Lachaux, full-stack developer: experience, technologies, recommendations and the place of AI in his work."
+  },
+  "annex": {
+    "home": "home page"
+  },
   "declaration": {
     "title": "Accessibility statement",
-    "pending": "The accessibility statement will be published after the site audit.",
+    "description": "How this website conforms to accessibility standards (WCAG 2.2 AA, RGAA), known inaccessible content, contact and how to seek redress.",
+    "pending": "Provisional version: the final statement will be published after the site audit.",
+    "back": "Back to the home page",
+    "intro": "I am committed to making this website accessible to everyone, whatever their hardware, software and abilities. This statement applies to the website {site}.",
+    "status": {
+      "title": "Compliance status",
+      "text": "This website is {status} with the RGAA: it has not yet been audited. Without valid audit results, the RGAA requires it to be declared non-compliant, so no compliance rate is published.",
+      "value": "non-compliant"
+    },
+    "standard": {
+      "title": "Target standard",
+      "text": "The website aims for level AA of WCAG 2.2 (Web Content Accessibility Guidelines) and for the RGAA (the French general accessibility improvement framework), version 4.1.2 or the version in force on the date of the audit."
+    },
+    "technologies": {
+      "title": "Technologies used",
+      "text": "The website is built with HTML5, CSS and JavaScript; WAI-ARIA supplements the semantics of interactive components."
+    },
+    "tests": {
+      "title": "Test environment",
+      "text": "During development, every page is checked automatically with axe-core (WCAG 2.2 level A and AA criteria) in the Chromium browser, at seven screen widths from 390 to 3,440 pixels, in the light and dark themes and with enhanced contrast, in French and in English. Manual tests, with the keyboard and with screen readers, will be carried out during the audit."
+    },
+    "issues": {
+      "title": "Inaccessible content",
+      "none": "No accessibility issue has been identified so far. This list will be drawn up by the audit.",
+      "items": []
+    },
+    "contact": {
+      "title": "Feedback and contact",
+      "text": "If you cannot access some content or a feature of this website, write to me: I will point you to an accessible alternative or send you the content in another format.",
+      "link": "Email me",
+      "subject": "Website accessibility"
+    },
+    "remedies": {
+      "title": "How to seek redress",
+      "text": "If you have reported an accessibility issue that prevents you from accessing some content or a feature of the website and did not receive a satisfactory answer, you can refer the matter to the Défenseur des droits (the French rights ombudsman):",
+      "message": "Send a message to the Défenseur des droits (in French)",
+      "delegate": "Contact a local delegate of the Défenseur des droits (in French)",
+      "post": "Send a letter by post (free of charge, no stamp needed):",
+      "address": "Défenseur des droits, Libre réponse 71120, 75342 Paris CEDEX 07, France"
+    },
+    "date": "Provisional statement drawn up on 21 November 2026."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "text": "The address you asked for does not match any page of this website. It may have changed, or contain a typo.",
     "back": "Back to the home page"
   },
   "error": {
-    "notFound": {
-      "title": "Page not found",
-      "message": "This address does not match any page of the site."
-    },
-    "generic": {
-      "title": "Error",
-      "message": "The page could not be displayed."
-    },
+    "title": "Something went wrong",
+    "text": "The page could not be displayed. Try again in a moment, or go back to the home page.",
+    "status": "Error code: {status}",
     "back": "Back to the home page"
   }
 }

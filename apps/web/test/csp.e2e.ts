@@ -99,7 +99,8 @@ function documentFor(pathname: string): { status: number; file: string } {
     const index = join(path, 'index.html');
     if (existsSync(index)) return { status: 200, file: index };
   }
-  return { status: 404, file: join(publicDir, '404.html') };
+  const notFound = pathname === '/en' || pathname.startsWith('/en/') ? 'en/404.html' : '404.html';
+  return { status: 404, file: join(publicDir, notFound) };
 }
 
 interface Watch {
@@ -154,7 +155,7 @@ const pages = [
   { path: '/', status: 200, lang: 'fr', heading: 'Développeur full-stack' },
   { path: '/en', status: 200, lang: 'en', heading: 'Full-stack developer' },
   { path: '/accessibilite', status: 200, lang: 'fr', heading: 'Déclaration d’accessibilité' },
-  { path: '/en/accessibilite', status: 200, lang: 'en', heading: 'Accessibility statement' },
+  { path: '/en/accessibility', status: 200, lang: 'en', heading: 'Accessibility statement' },
   { path: '/route-inconnue', status: 404, lang: 'fr', heading: 'Page introuvable' },
   { path: '/en/route-inconnue', status: 404, lang: 'en', heading: 'Page not found' },
 ] as const;
