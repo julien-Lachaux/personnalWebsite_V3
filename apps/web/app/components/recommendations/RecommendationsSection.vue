@@ -103,8 +103,15 @@ const { t } = useI18n();
   margin-inline: auto;
 }
 
-.recos__source {
+.recos__source.base-button {
   align-self: flex-start;
+
+  /* Texte agrandi (WCAG 1.4.4, 1.4.10) : le libellé passe à la ligne au lieu d'être rogné par la tuile
+     (`white-space: nowrap` de base-button.css) ; le texte reste aligné à gauche. */
+  max-width: 100%;
+  height: auto;
+  white-space: normal;
+  text-align: start;
 
   /* Aligne le texte du lien sur le bord du contenu (le lien texte a 0,25 rem de marge intérieure). */
   margin-inline-start: -0.25rem;

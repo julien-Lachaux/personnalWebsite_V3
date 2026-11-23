@@ -20,7 +20,7 @@ defineProps<{
     <div class="action-bar__clip">
       <div class="action-bar__buttons">
         <ContactButton class="action-bar__contact" size="md" />
-        <CvButton :href="cvPath" size="md" />
+        <CvButton class="action-bar__cv" :href="cvPath" size="md" />
       </div>
     </div>
   </div>
@@ -63,5 +63,13 @@ defineProps<{
 
 .action-bar__contact {
   flex: 1;
+}
+
+/* Texte agrandi (WCAG 1.4.4, 1.4.10) : le libellé du CV (« CV PDF (in French) ») passe à la ligne et le
+   bouton peut rétrécir, au lieu de sortir de l'écran (`white-space: nowrap` de base-button.css). */
+.action-bar__cv.base-button {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: normal;
 }
 </style>

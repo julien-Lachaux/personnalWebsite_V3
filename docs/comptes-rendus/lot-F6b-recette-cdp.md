@@ -25,3 +25,16 @@ PR #11 `lot/F6b-ia-vide` -> develop, tête `1e7b6c6`.
 ## Points ouverts
 
 - Après correction : nouvelle CI sur la tête et nouveau `VERDICT:` à relire.
+
+## Recette de contrôle (23 nov.)
+
+Tête examinée : db4fdee. Contrôles ciblés, sans `pnpm check` ni mutation (D26).
+
+- CI : run 45150874512 vert sur la tête (jobs front, couverture, 7 parcours Playwright + axe, mutation contrats/API/front, garde-fous, pile Docker). Dernière revue de la PR : `VERDICT: OK`.
+- Bloquant levé : `--dur-cursor-blink: 1100ms` dans `motion.css`, avec `0.01ms` sous mouvement réduit (variantes `prefers-reduced-motion` et `data-motion`). `AiPlaceholder.vue` l'utilise (`animation: … var(--dur-cursor-blink)`). Test `cursor-tokens.spec.ts` ajouté.
+- D28 : `ai.json` fr et en portent `ai.placeholder.text` = « placeholder ». Seules modifications de tests existants : `HomePage.spec.ts` (titre du cas renommé, assertions inchangées) et `i18n-hardcoded.spec.ts` (une ligne ajoutée à `SAME_IN_BOTH`). Rien d'affaibli. Commit d423071 porte `Justification-test: F6b-D28`. `audit.log` : les autorisations 3d751685 et d520207c ne servent que sur `AiPlaceholder.spec.ts`, `HomePage-ai-placeholder.spec.ts`, `HomePage.spec.ts` et `i18n-hardcoded.spec.ts`.
+- `pnpm integrity origin/develop` : OK.
+- Docs : D27 et D28 présentes dans `docs/05` (D26 précisée) ; clôture de F5D-1 ajoutée au triage.
+- Non rejoué : étapes 4 à 6 de la recette complète (cycles, retrait de test, tests de réserve), hors périmètre de cette recette courte.
+
+Verdict : **accepté**.
