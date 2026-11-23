@@ -189,3 +189,16 @@ Ce qui a pu être essayé sans Docker :
   console « Failed to load resource … 404 » est ignoré, et seulement pour elles. Tests : `csp-smoke.e2e-spec.ts`.
 - Vérifié : tests e2e ciblés (csp-smoke, web-front-config, local-stack-front sans pile, csp-hashes : 28 réussis),
   `pnpm lint:shell` vert, `pnpm integrity develop` OK. Pile complète non relancée, comme demandé.
+
+## Redirection ouverte par `/fr/%09/hote` (revue de la PR #13)
+
+- Défaut : la garde n'excluait que `/` et `\` ; une tabulation décodée donnait `Location: /<TAB>/hote`, lue
+  `//hote` par le navigateur. Correction : liste blanche. Sous `/fr/`, seul passe un premier caractère de
+  `[A-Za-z0-9._~-]` suivi d'aucun contrôle, espace ni `\` (`@frbad`), et jamais de `//` (`@frdbl`), sinon 404 ;
+  la redirection `@fr` reprend la même liste. Les chemins sont lus décodés (`orig_uri.path`) : `%252F` devient
+  `%2F`, que `%` hors liste refuse.
+- Vérifié : `caddy validate` (image épinglée) « Valid configuration » ; Caddy jetable (conteneur supprimé) : 404 sans
+  `Location` pour `/fr/%09/hote`, `%0d`, `%0a`, `%20`, `%2F`, `%5C`, `%252F`, `/fr//hote`, `/fr/a%09b` ; 301 pour `/fr`
+  et `/fr/` (vers `/`), `/fr/a/b` (`/a/b`), `/fr/cv/cv-fr.pdf` (`/cv/cv-fr.pdf`) ; `/frais` 200.
+- Test ajouté : `apps/api/test/fr-redirect.e2e-spec.ts` (nouveau, lit les expressions du Caddyfile). Aucun test de
+  `develop` modifié.

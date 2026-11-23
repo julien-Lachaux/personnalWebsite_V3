@@ -55,20 +55,31 @@ http://{$SITE_DOMAIN:localhost} {
 	# version n'est encore publiée (première installation) : le site répond alors 404 sans CSP.
 
 	# D15 : la langue par défaut n'a pas de préfixe ; `/fr` et `/fr/*` redirigent (301) vers le même
-	# chemin sans préfixe (doublure de la page `meta refresh` que Nuxt génère, en 200). Le premier
-	# caractère de la suite ne peut être ni `/` ni `\` : `/fr//hote` donnerait `//hote`, une
-	# redirection hors du site (ce chemin tombe alors sur la page 404).
+	# chemin sans préfixe (doublure de la page `meta refresh` que Nuxt génère, en 200). Une suite
+	# mal formée (`/fr//hote`, `/fr/%09/hote`…) donnerait `//hote` après nettoyage par le navigateur : une
+	# redirection hors du site, refusée par la liste blanche ci-dessous (404).
 	#
 	# Le matcher `path` nettoie le chemin (docs Caddy : « multiple slashes are merged ») : `/fr//hote`
 	# y devient `/fr/hote` et la garde ci-dessous ne le voit plus (constaté : 301 au lieu de 404).
 	# Le chemin d'origine, non nettoyé, est lu par `vars_regexp` sur `{http.request.orig_uri.path}` :
 	# `/fr/` suivi de `/` ou `\` donne une erreur 404 (page 404 du front) avant la redirection.
-	@frraw vars_regexp frraw {http.request.orig_uri.path} ^/fr/[/\\]
-	handle @frraw {
+	# Liste blanche : seul un chemin d'origine `/fr/` suivi d'un premier caractère de [A-Za-z0-9._~-] puis
+	# d'aucun caractère de contrôle, espace, `\` ni `//` est redirigé ; tout autre chemin sous `/fr/` donne
+	# une 404. Le chemin d'origine est lu décodé : `%09`, `%0d`, `%0a`, `%20`, `%2F`, `%5C` sont refusés
+	# comme leurs caractères, `%252F` (devenu `%2F`) parce que `%` n'est pas dans la liste.
+	@frbad {
+		vars_regexp frbad {http.request.orig_uri.path} ^/fr/
+		not vars_regexp frok {http.request.orig_uri.path} ^/fr/(?:[A-Za-z0-9._~-][^\x00-\x20\x7f\\]*)?$
+	}
+	handle @frbad {
+		error 404
+	}
+	@frdbl vars_regexp frdbl {http.request.orig_uri.path} ^/fr/.*//
+	handle @frdbl {
 		error 404
 	}
 
-	@fr path_regexp fr ^/fr(?:/([^/\\].*)?)?$
+	@fr path_regexp fr ^/fr(?:/([A-Za-z0-9._~-][^\x00-\x20\x7f\\]*)?)?$
 	handle @fr {
 		redir * /{re.fr.1} permanent
 	}
