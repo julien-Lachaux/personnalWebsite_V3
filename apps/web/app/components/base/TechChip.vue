@@ -84,10 +84,11 @@ function onClick(event: MouseEvent, disabled: boolean): void {
   min-height: var(--desktop-control);
 }
 
+/* Pleine opacité : à 0,75 sur le fond de la puce active, le compteur tombait à 3,8:1 en thème clair
+   (RA-6, WCAG 1.4.3). */
 .tech-chip__count {
   font-family: var(--font-mono);
   font-size: var(--font-size-meta);
-  opacity: 0.75;
 }
 
 /* Néon : au survol (souris) et quand la puce est active. Sans lueur en thème clair (les variables
