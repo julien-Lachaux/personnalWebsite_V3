@@ -676,7 +676,12 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
           await axe(page, `${palette.name}, suggestions`);
 
           await field(section).fill('');
+          await expect(drawer(section)).toHaveClass(/filter-drawer--open/);
           await section.getByRole('button', { name: locale.showOthers }).click();
+          await expect(section.getByRole('button', { name: locale.hideOthers })).toHaveAttribute(
+            'aria-expanded',
+            'true',
+          );
           await expect(section.getByText(locale.partial, { exact: true }).first()).toBeVisible();
           await axe(page, `${palette.name}, autres expériences`);
         });
