@@ -1,0 +1,126 @@
+import { expect, test, type Locator, type Page } from '@playwright/test';
+
+// Défauts du lot F8 trouvés au texte agrandi à 130 % (WCAG 1.4.4 Redimensionnement du texte et 1.4.10
+// Redistribution), chacun par une assertion ciblée sur l'élément fautif. Mesure : `scrollWidth` d'un
+// conteneur qui rogne (`overflow-x` autre que `visible`) comparé à sa largeur visible, ou bord d'un
+// contrôle comparé à la fenêtre. Ces tests échouent tant que le défaut existe.
+
+const STORAGE_KEY = 'siteperso:preferences';
+
+const LOCALES = {
+  fr: { path: '/', nav: 'Sections', recos: 'Recos', tabs: ['Profil', 'XP', 'Recos', 'IA'] },
+  en: { path: '/en', nav: 'Sections', recos: 'Recs', tabs: ['Profile', 'XP', 'Recs', 'AI'] },
+} as const;
+
+type LocaleCode = keyof typeof LOCALES;
+
+function tabsMode(page: Page): boolean {
+  return (page.viewportSize()?.width ?? 0) < 1024;
+}
+
+/** Page à 130 % : hydratée, animations finies. */
+async function open130(page: Page, path: string): Promise<void> {
+  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
+    key: STORAGE_KEY,
+    value: JSON.stringify({ version: 1, theme: 'clair', textSize: 130 }),
+  });
+  await page.goto(path);
+  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+  await expect(page.locator('html')).toHaveAttribute('data-text-size', '130');
+}
+
+async function settled(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (animation) =>
+          animation.playState !== 'running' ||
+          animation.effect?.getComputedTiming().endTime === Infinity,
+      ),
+  );
+}
+
+/** Contenu hors du conteneur qui rogne un élément : px de large en trop, 0 si tout est visible. */
+async function clippedWidth(element: Locator): Promise<number> {
+  return element.evaluate((node) => {
+    let parent = node.parentElement;
+    while (parent !== null && getComputedStyle(parent).overflowX === 'visible') {
+      parent = parent.parentElement;
+    }
+    if (parent === null) return 0;
+    const right = Math.max(
+      ...[node, ...node.querySelectorAll('*')].map((child) => child.getBoundingClientRect().right),
+    );
+    return Math.max(0, Math.ceil(right - parent.getBoundingClientRect().right));
+  });
+}
+
+for (const code of Object.keys(LOCALES) as LocaleCode[]) {
+  const locale = LOCALES[code];
+
+  test.describe(`${code} à 130 %`, () => {
+    test('BUG-F1 : le lien « publiées sur LinkedIn » des recommandations n’est pas rogné', async ({
+      page,
+    }) => {
+      test.fail(
+        (page.viewportSize()?.width ?? 0) !== 834,
+        'BUG-F1 : lien LinkedIn rogné, sauf à 834',
+      );
+      await open130(page, locale.path);
+      if (tabsMode(page)) {
+        await page
+          .getByRole('navigation', { name: locale.nav })
+          .getByRole('button', { name: locale.recos, exact: true })
+          .click();
+      }
+      const link = page
+        .locator('#section-recommendations')
+        .getByRole('link', { name: /LinkedIn/ })
+        .first();
+      await expect(link).toBeVisible();
+      await settled(page);
+      expect(await clippedWidth(link)).toBe(0);
+    });
+
+    test('BUG-F2 : le titre de l’en-tête mobile n’est pas tronqué', async ({ page }) => {
+      test.fail((page.viewportSize()?.width ?? 0) === 390, 'BUG-F2 : titre tronqué à 390');
+      await open130(page, locale.path);
+      if (!tabsMode(page)) {
+        await expect(page.locator('.mobile-header')).toHaveCount(0);
+        return;
+      }
+      const nav = page.getByRole('navigation', { name: locale.nav });
+      for (const name of locale.tabs) {
+        await nav.getByRole('button', { name, exact: true }).click();
+        await settled(page);
+        const title = page.locator('.mobile-header__title');
+        const [visible, full] = await title.evaluate((node) => [
+          node.clientWidth,
+          node.scrollWidth,
+        ]);
+        expect(full, `onglet ${name}`).toBeLessThanOrEqual(visible);
+      }
+    });
+
+    test('BUG-F3 : les boutons de la barre d’actions tiennent dans la fenêtre', async ({
+      page,
+    }) => {
+      test.fail(
+        (page.viewportSize()?.width ?? 0) === 390 && code === 'en',
+        'BUG-F3 : bouton CV coupé à 390 en anglais',
+      );
+      await open130(page, locale.path);
+      if (!tabsMode(page)) {
+        await expect(page.locator('.action-bar')).toHaveCount(0);
+        return;
+      }
+      await settled(page);
+      const width = page.viewportSize()?.width ?? 0;
+      for (const button of await page.locator('.action-bar').getByRole('link').all()) {
+        const box = await button.boundingBox();
+        expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);
+      }
+    });
+  });
+}
