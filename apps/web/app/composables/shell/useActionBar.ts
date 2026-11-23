@@ -3,9 +3,21 @@
 // `hidden`. Le retour au changement d'onglet vient de `resetKey` (l'onglet courant).
 // L'écouteur est posé quand la zone existe (après le montage) et retiré quand elle change ou que le
 // composant est démonté ; rien n'est lu pendant le rendu serveur.
+//
+// Clavier (RA-2, WCAG 2.1.1) : la barre masquée est `inert`, donc hors du parcours de Tab. Tant que le
+// focus est dans la zone qui défile et vient du clavier (`:focus-visible`), la barre ne se masque pas, et
+// elle revient quand le focus clavier entre dans la zone : « Lancer l'entretien » et « CV PDF » restent
+// atteignables depuis le contenu. La souris et le toucher (pas de `:focus-visible`) masquent comme avant.
 import { ref, watch, type Ref } from 'vue';
 
 import { initialActionBarState, nextActionBarState } from '../../domain/action-bar.js';
+
+/** Le focus est dans `zone` et vient du clavier. */
+function keyboardFocusIn(zone: HTMLElement): boolean {
+  const focused = document.activeElement;
+  // `contains` refuse `null` (aucun focus) ; sinon `focused` est un élément de la zone.
+  return zone.contains(focused) && focused!.matches(':focus-visible');
+}
 
 export interface UseActionBar {
   /** La barre d'actions est masquée. */
@@ -37,10 +49,17 @@ export function useActionBar(
       if (!element) return;
       const onScroll = (): void => {
         state = nextActionBarState(state, element.scrollTop, now());
-        hidden.value = state.hidden;
+        hidden.value = state.hidden && !keyboardFocusIn(element);
+      };
+      const onFocusIn = (): void => {
+        if (keyboardFocusIn(element)) hidden.value = false;
       };
       element.addEventListener('scroll', onScroll, { passive: true });
-      onCleanup(() => element.removeEventListener('scroll', onScroll));
+      document.addEventListener('focusin', onFocusIn);
+      onCleanup(() => {
+        element.removeEventListener('scroll', onScroll);
+        document.removeEventListener('focusin', onFocusIn);
+      });
     },
     { immediate: true, flush: 'post' },
   );
