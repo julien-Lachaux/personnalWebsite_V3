@@ -104,6 +104,8 @@ function revoke(root, args) {
   const grants = readAuthorizations(root);
   const g = grants.find((x) => x.id === args.id);
   if (!g) fail(`autorisation inconnue : ${args.id ?? '(absente)'}`);
+  // L26-05 : la date de révocation borne la conservation des écritures relevées sous elle.
+  if (!g.revoked) g.revoked_at = new Date().toISOString();
   g.revoked = true;
   writeAuthorizations(root, grants);
   audit(root, { event: 'revoke', id: g.id, agent: g.agent, ticket: g.ticket });
