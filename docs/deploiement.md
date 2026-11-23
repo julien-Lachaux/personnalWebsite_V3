@@ -320,6 +320,10 @@ Secret de dépôt `CLAUDE_CODE_OAUTH_TOKEN` : jeton Claude Code de l'abonnement 
 Le jeton ne passe jamais dans une commande, un fichier ni une conversation. La revue consomme les limites de
 l'abonnement Max, partagées avec son usage interactif. Sans ce secret, le contrôle « Revue PR (Claude) » échoue.
 
+Suivi de la consommation : chaque run écrit coût équivalent, tours, durée et modèle dans son résumé (étape
+« Consommation de la revue ») ; pour plusieurs runs, passer leurs résultats JSON à
+`node scripts/ci/review-usage.mjs` (fichier ou entrée standard, rien n'est appelé par le script).
+
 ### Règles à poser
 
 - Pull request obligatoire pour modifier `develop` (pas de push direct), sans approbation humaine exigée

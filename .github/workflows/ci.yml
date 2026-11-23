@@ -579,3 +579,20 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.revue.outputs.execution_file }}
         run: bash scripts/ci/review-verdict.sh "$EXECUTION_FILE"
+      # L26-06 : consommation de la revue (coût équivalent, tours, durée, modèle) dans le résumé du run,
+      # même si la revue ou le verdict a échoué. Seules ces valeurs sont lues, aucun secret n'est touché.
+      - name: Consommation de la revue
+        if: always()
+        env:
+          EXECUTION_FILE: ${{ steps.revue.outputs.execution_file }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          {
+            echo "### Consommation de la revue Claude"
+            echo
+            if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
+              node scripts/ci/review-usage.mjs --pr "$PR_NUMBER" --run "$GITHUB_RUN_ID" "$EXECUTION_FILE" || echo "Valeurs de consommation illisibles."
+            else
+              echo "Aucun fichier d'exécution : la revue n'a pas produit de résultat."
+            fi
+          } >>"$GITHUB_STEP_SUMMARY"
