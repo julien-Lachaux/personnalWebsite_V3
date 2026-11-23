@@ -39,7 +39,9 @@
     "issues": {
       "title": "Inaccessible content",
       "none": "No accessibility issue has been identified so far. This list will be drawn up by the audit.",
-      "items": []
+      "items": [
+        "The CV in PDF format (“CV PDF” button) is untagged: it has no structure (headings, lists), no declared language and no document title, which makes it hard to read with a screen reader. It is written in French, including from the English version of the site. Alternative: the content of the CV is presented on the page itself, and I can send it in another form on request."
+      ]
     },
     "contact": {
       "title": "Feedback and contact",

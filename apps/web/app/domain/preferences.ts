@@ -192,17 +192,3 @@ export function clearPreferences(
   }
   return 'cleared';
 }
-
-/**
- * Valeurs par défaut écrites dans le stockage. Depuis D11, le bouton « Réinitialiser » utilise
- * `clearPreferences` (suppression) : cette fonction est conservée parce que son test existant ne se
- * modifie pas (voir le compte rendu du lot F3b).
- */
-export function resetPreferences(
-  storage: PreferencesStorage | null | undefined,
-  system: SystemPreferences,
-): Preferences {
-  const defaults = defaultPreferences(system);
-  savePreferences(storage, defaults);
-  return defaults;
-}

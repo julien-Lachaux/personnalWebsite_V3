@@ -84,10 +84,11 @@ function onClick(event: MouseEvent, disabled: boolean): void {
   min-height: var(--desktop-control);
 }
 
+/* Pleine opacité : à 0,75 sur le fond de la puce active, le compteur tombait à 3,8:1 en thème clair
+   (RA-6, WCAG 1.4.3). */
 .tech-chip__count {
   font-family: var(--font-mono);
   font-size: var(--font-size-meta);
-  opacity: 0.75;
 }
 
 /* Néon : au survol (souris) et quand la puce est active. Sans lueur en thème clair (les variables
@@ -97,6 +98,16 @@ function onClick(event: MouseEvent, disabled: boolean): void {
   border-color: var(--neon);
   background-color: var(--neon-bg);
   color: var(--neon);
+}
+
+/* Coche de l'état pressé (D35, RA-7, WCAG 1.4.1) : l'état ne repose plus sur la seule couleur. Écart
+   voulu au handoff, dans tous les thèmes. Décorative : le contenu alternatif vide la garde hors du nom
+   accessible et du texte (la première déclaration est le repli d'un navigateur qui ignore la
+   seconde) ; elle prend la couleur de la puce (`--neon`), aucune couleur propre. */
+.tech-chip--pressed::before {
+  content: '✓';
+  content: '✓' / '';
+  font-weight: var(--font-weight-bold);
 }
 
 @media (hover: hover) {

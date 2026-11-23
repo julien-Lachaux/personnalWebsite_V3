@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Easter egg « Huile de coude » (SPEC § 8) : fenêtre modale `huile-de-coude.sh` ouverte par la puce de la
-// pause professionnelle. Des lignes de terminal apparaissent une à une (textes de `data/site-content.json`,
-// `easterEgg.lines`), puis une barre de progression, puis « Terminé » ; « Retour au CV » (ou ×, Échap, voile)
+// pause professionnelle. Des lignes de terminal apparaissent une à une (textes de l'i18n,
+// `experience.easterEgg.*`), puis une barre de progression, puis « Terminé » ; « Retour au CV » (ou ×, Échap, voile)
 // ferme et rend le focus à la puce (`returnFocusTo`). La fenêtre est celle de l'élément de base `Window`
 // (modale, piège de focus, défilement de la page bloqué) ; son nom accessible est explicite, le nom de
 // fichier reste le titre visible (D18).

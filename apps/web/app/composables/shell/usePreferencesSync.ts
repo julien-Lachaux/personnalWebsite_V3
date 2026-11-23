@@ -15,8 +15,7 @@ import {
 import { usePreferences } from './usePreferences.js';
 
 // La table des attributs vit dans `domain/root-attributes.ts`, partagée avec le script de thème
-// sans flash (D5, `domain/theme-script.ts`) ; réexportée ici pour les appelants existants.
-export { DARK_QUERY, REDUCED_MOTION_QUERY, rootAttributes, type RootAttributes };
+// sans flash (D5, `domain/theme-script.ts`).
 
 /** Pose (ou retire) les attributs sur l'élément. */
 export function applyRootAttributes(root: Element, attributes: RootAttributes): void {

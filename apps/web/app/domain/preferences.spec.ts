@@ -7,7 +7,6 @@ import {
   defaultPreferences,
   loadPreferences,
   parsePreferences,
-  resetPreferences,
   savePreferences,
   serializePreferences,
   type Preferences,
@@ -286,28 +285,5 @@ describe('savePreferences', () => {
       },
     };
     expect(savePreferences(storage, CUSTOM)).toBe('error');
-  });
-});
-
-describe('resetPreferences', () => {
-  it('rend les valeurs par défaut du système et les écrit à la place des réglages', () => {
-    const storage = storageWith(serializePreferences(CUSTOM));
-    const preferences = resetPreferences(storage, DARK_SYSTEM);
-    expect(preferences).toEqual(defaultPreferences(DARK_SYSTEM));
-    expect(loadPreferences(storage, LIGHT_SYSTEM)).toEqual({
-      preferences: defaultPreferences(DARK_SYSTEM),
-      status: 'restored',
-    });
-  });
-
-  it('rend les valeurs par défaut même sans stockage ou avec un stockage qui refuse', () => {
-    expect(resetPreferences(null, REDUCED_SYSTEM)).toEqual(defaultPreferences(REDUCED_SYSTEM));
-    const refusing: PreferencesStorage = {
-      getItem: () => null,
-      setItem: () => {
-        throw new Error('refusé');
-      },
-    };
-    expect(resetPreferences(refusing, REDUCED_SYSTEM)).toEqual(defaultPreferences(REDUCED_SYSTEM));
   });
 });

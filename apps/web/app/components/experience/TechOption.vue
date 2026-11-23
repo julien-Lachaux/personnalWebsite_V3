@@ -50,10 +50,9 @@ const label = computed(() =>
 </template>
 
 <style scoped>
-/* Même apparence que le compteur de `TechChip` (`count`). */
+/* Même apparence que le compteur de `TechChip` (`count`), pleine opacité (RA-6, WCAG 1.4.3). */
 .tech-option__count {
   font-family: var(--font-mono);
   font-size: var(--font-size-meta);
-  opacity: 0.75;
 }
 </style>

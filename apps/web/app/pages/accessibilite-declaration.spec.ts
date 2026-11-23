@@ -86,15 +86,14 @@ describe('déclaration d’accessibilité : rubriques', () => {
     expect(wrapper.text()).toContain('Cette déclaration s’applique au site http://localhost:3001.');
   });
 
-  it('dit qu’aucun contenu non accessible n’est recensé tant que la liste est vide', async () => {
+  it('liste le CV PDF non balisé parmi les contenus non accessibles (D33, D34)', async () => {
     const wrapper = await mount('/accessibilite');
 
     const heading = wrapper.findAll('h2')[4]!;
     expect(heading.text()).toBe('Contenus non accessibles');
-    expect(heading.element.nextElementSibling?.tagName).toBe('P');
-    expect(heading.element.nextElementSibling?.textContent).toBe(
-      'Aucun défaut d’accessibilité n’est recensé à ce jour. Cette liste sera établie par l’audit.',
-    );
+    expect(heading.element.nextElementSibling?.tagName).toBe('UL');
+    expect(heading.element.nextElementSibling?.textContent).toContain('n’est pas balisé');
+    expect(wrapper.text()).not.toContain('Aucun défaut d’accessibilité n’est recensé');
   });
 });
 

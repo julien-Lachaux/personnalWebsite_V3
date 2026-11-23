@@ -237,7 +237,7 @@ describe('Popover', () => {
     expect(byId('trigger').getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('non modal : reste ouvert quand le focus sort, sans piège de focus ni voile', async () => {
+  it('non modal : se ferme quand le focus sort (sans le reprendre), sans piège de focus ni voile', async () => {
     await mountPage();
     byId('trigger').click();
     await nextTick();
@@ -247,7 +247,7 @@ describe('Popover', () => {
     expect(pressKey(byId('other'), 'Tab').defaultPrevented).toBe(false);
     await nextTick();
 
-    expect(panel().hasAttribute('hidden')).toBe(false);
+    expect(panel().hasAttribute('hidden')).toBe(true);
     expect(document.activeElement).toBe(byId('other'));
     expect(document.querySelector('.window-layer, .window-layer__scrim')).toBeNull();
   });

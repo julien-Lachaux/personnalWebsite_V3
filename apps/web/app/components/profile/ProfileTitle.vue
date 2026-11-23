@@ -6,7 +6,8 @@
 // `tag` : le niveau de titre est choisi par l'appelant. `h1` quand ce composant porte le titre de la
 // page, `div` (par défaut) quand la coquille pose déjà le `h1` (même texte) : un seul `h1` par page.
 // Pas de `nowrap` : la seconde ligne passe à la ligne si la pastille ne tient pas (texte agrandi à
-// 130 %, reflux WCAG 1.4.10).
+// 130 %, reflux WCAG 1.4.10). Un mot plus large que la fenêtre (« Développeur » à 320 px, texte agrandi
+// ou espacé) se coupe au lieu de déborder (`overflow-wrap: anywhere`, RA-3).
 import SeniorBadge from '../base/SeniorBadge.vue';
 
 withDefaults(
@@ -35,7 +36,9 @@ withDefaults(
 .profile-title {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   margin: 0;
+  overflow-wrap: anywhere;
   font-size: var(--font-size-h1-mobile);
   font-weight: var(--font-weight-regular);
   line-height: 1.04;

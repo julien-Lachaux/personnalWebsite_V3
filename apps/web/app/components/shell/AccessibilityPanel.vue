@@ -214,6 +214,16 @@ watch(open, () => {
   text-underline-offset: 0.2em;
 }
 
+/* Sous 1024 px (écrans tactiles) : cible de 44 px (`--touch-target`), comme les autres commandes du panneau
+   (RA-9) ; le lien reste aligné sur sa ligne de texte. */
+@media (max-width: 1023px) {
+  .a11y-panel__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-target);
+  }
+}
+
 .a11y-panel__status {
   margin: 0;
   color: var(--muted);
