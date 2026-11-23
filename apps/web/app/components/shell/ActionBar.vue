@@ -54,6 +54,7 @@ defineProps<{
 .action-bar__buttons {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
   min-height: var(--mobile-cta-bar);
   padding: 0.5rem 0.75rem;
@@ -61,15 +62,19 @@ defineProps<{
   background-color: var(--top);
 }
 
+/* Base de la taille du contenu : les deux boutons passent sur deux lignes quand ils ne tiennent plus
+   côte à côte (texte agrandi ou espacé, RA-4) au lieu de rogner le libellé du CV. */
 .action-bar__contact {
-  flex: 1;
+  flex: 1 1 auto;
 }
 
 /* Texte agrandi (WCAG 1.4.4, 1.4.10) : le libellé du CV (« CV PDF (in French) ») passe à la ligne et le
-   bouton peut rétrécir, au lieu de sortir de l'écran (`white-space: nowrap` de base-button.css). */
+   bouton peut rétrécir, au lieu de sortir de l'écran (`white-space: nowrap` de base-button.css) ; un
+   mot trop large se coupe plutôt que de sortir du bouton (`overflow-wrap: anywhere`). */
 .action-bar__cv.base-button {
   flex: 0 1 auto;
   min-width: 0;
+  overflow-wrap: anywhere;
   white-space: normal;
 }
 </style>
