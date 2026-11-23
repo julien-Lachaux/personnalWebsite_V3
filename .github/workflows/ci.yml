@@ -459,9 +459,10 @@ jobs:
           test "$(docker run --rm siteperso-api:ci id -u)" != "0"
 
   pile-locale:
-    name: Pile locale complète (Caddy, API, PostgreSQL) et scénarios de production
+    name: Pile locale complète (Caddy, API, front, PostgreSQL) et scénarios de production
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # BF-15 : la pile construit aussi l'image du front et le génère (pnpm install et nuxt generate dans Docker).
+    timeout-minutes: 35
     permissions:
       contents: read
     services:
@@ -484,14 +485,22 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: '${{ env.NODE_VERSION }}', cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      # BF-15 : construit l'API et l'image de génération du front, migre et seede, génère le front contre
+      # l'API saine, bascule Caddy sur la nouvelle version, attend `/` en 200.
       - run: pnpm stack:up
+      # Navigateurs du parcours de fumée CSP (service playwright, image épinglée par digest) ; le parcours
+      # tourne dans les tests `local-stack-front` (scripts/deploy/csp-smoke.mjs). STACK_REQUIRED=1 : leur
+      # absence ferait échouer le test.
+      - run: pnpm e2e:browsers:up
       - run: pnpm --filter @siteperso/api exec vitest run --project e2e local-stack
       - name: Journaux (échec)
         if: failure()
         run: pnpm stack:ps && docker compose -f docker/compose.prod.yml --env-file docker/.env.local logs --no-color --tail 200
       - name: Arrêt et nettoyage
         if: always()
-        run: pnpm stack:down --volumes
+        run: |
+          pnpm stack:down --volumes
+          docker compose down
 
   # L22-04 : revue Claude APRÈS la CI. Le job (ex-workflow `revue-pr.yml`, supprimé) attend les jobs
   # requis par `needs` : un lot cassé ne consomme pas le quota de l'abonnement Max. Même workflow que la

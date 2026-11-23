@@ -77,3 +77,23 @@ ensure_api_db_password() {
   printf 'API_DB_PASSWORD=%s\n' "$(openssl rand -hex 24)" >>"${ENV_FILE}"
   log "API_DB_PASSWORD généré dans ${ENV_FILE} (rôle PostgreSQL de lecture seule de l'API)"
 }
+
+# Attend que le conteneur de l'API soit « healthy » (HEALTH_TIMEOUT secondes, défaut 180).
+wait_for_api_health() {
+  local timeout="${HEALTH_TIMEOUT:-180}" api_id elapsed=0
+  if [ "${DRY_RUN}" = "1" ]; then
+    log "(dry-run) attendrait le healthcheck de l'API"
+    return 0
+  fi
+  log "Attente du healthcheck de l'API (${timeout} s max)"
+  api_id="$(compose ps -q api)"
+  [ -n "${api_id}" ] || die "le conteneur api n'existe pas"
+  until [ "$(docker inspect --format '{{.State.Health.Status}}' "${api_id}")" = "healthy" ]; do
+    if [ "${elapsed}" -ge "${timeout}" ]; then
+      compose logs --tail 50 migrate api || true
+      die "l'API n'est pas healthy après ${timeout} s"
+    fi
+    sleep 3
+    elapsed=$((elapsed + 3))
+  done
+}
