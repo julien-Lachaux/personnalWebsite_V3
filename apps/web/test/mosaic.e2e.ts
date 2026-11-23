@@ -196,9 +196,20 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
 
     test('cas des captures recalculés : 1280 × 844 et 1024 × 768', async ({ page }) => {
       if (!(await open(page, locale.path))) return;
-      const { width, height } = await zone(page);
-      // La barre du haut fait 56 px quand elle tient sur une ligne : zone de 788 px (1280) ou 712 (1024).
-      if (!((width === 1280 && height === 788) || (width === 1024 && height === 712))) return;
+      // Le cas se décide d'après la fenêtre et la langue, jamais d'après la mesure. La barre du haut fait
+      // 56 px quand elle tient sur une ligne : zone de 788 px (1280, fr et en) ou 712 (1024, fr). À 1024
+      // en anglais elle passe sur deux lignes (85 px, défaut connu F5c) : zone de 683 px, dont les
+      // positions sont vérifiées par le test « positions conformes à computeLayout ». Les autres largeurs
+      // n'ont pas de capture recalculée à la main.
+      const width = page.viewportSize()!.width;
+      const zones: Record<number, { width: number; height: number } | undefined> = {
+        1280: { width: 1280, height: 788 },
+        1024: code === 'fr' ? { width: 1024, height: 712 } : { width: 1024, height: 683 },
+      };
+      const expectedZone = zones[width];
+      if (!expectedZone) return;
+      expect(await zone(page), `zone à ${width} px (${code})`).toEqual(expectedZone);
+      if (width === 1024 && code === 'en') return;
 
       if (width === 1280) {
         const mosaic = await rects(page);
