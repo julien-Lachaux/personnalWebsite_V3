@@ -10,11 +10,13 @@ import { createHash, randomBytes } from 'node:crypto';
 import {
   appendFileSync,
   existsSync,
+  linkSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   realpathSync,
   renameSync,
+  rmdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -155,11 +157,25 @@ export function audit(root, entry) {
   }
 }
 
+/**
+ * Écriture atomique (fichier temporaire puis rename). L26-05 : l'élagage retire les dossiers
+ * devenus vides (`carry/<clé>/`, `authorized-writes/<dépôt>/`) ; s'il en retire un entre la
+ * création du dossier et le rename, l'écriture recommence (ENOENT), trois fois au plus.
+ */
 function writeJsonAtomic(path, data) {
-  mkdirSync(dirname(path), { recursive: true });
-  const tmp = `${path}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`);
-  renameSync(tmp, path);
+  const text = `${JSON.stringify(data, null, 2)}\n`;
+  for (let attempt = 1; ; attempt += 1) {
+    const tmp = `${path}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+    try {
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(tmp, text);
+      renameSync(tmp, path);
+      return;
+    } catch (error) {
+      rmSync(tmp, { force: true });
+      if (error?.code !== 'ENOENT' || attempt >= 3) throw error;
+    }
+  }
 }
 
 function readJson(path, fallback) {
@@ -401,12 +417,59 @@ export function newGrantId() {
 
 // ---------------------------------------------------------------------------------------------
 // Écritures autorisées (L25-04) : empreinte exacte du contenu produit par un Edit, MultiEdit ou
-// Write qu'une autorisation a permis, relevée par le hook PreToolUse (une ligne JSON par écriture,
-// `state/authorized-writes.jsonl`). La fin de tâche d'une autre clé n'alerte pas pour un oracle
-// dont le contenu actuel est exactement celui-là.
+// Write qu'une autorisation a permis, relevée par le hook PreToolUse. La fin de tâche d'une autre
+// clé n'alerte pas pour un oracle dont le contenu actuel est exactement celui-là.
+// L26-05 : un fichier JSON par écriture, `state/authorized-writes/<dépôt>/<horodatage>-….json`
+// (`<dépôt>` = 16 premiers caractères du sha256 de la racine), écrit de façon atomique et jamais
+// réécrit : l'élagage le supprime sans verrou ni risque de perdre une écriture concurrente, et une
+// vérification ne lit que les écritures de son dépôt. L'ancien journal `authorized-writes.jsonl`
+// (lot 25) reste lu tant que l'élagage ne l'a pas converti.
 
-function authorizedWritesPath(root) {
+function authorizedWritesDir(root) {
+  return join(root, 'authorized-writes');
+}
+
+function legacyAuthorizedWritesPath(root) {
   return join(root, 'authorized-writes.jsonl');
+}
+
+function repoDirName(top) {
+  return sha256(top).slice(0, 16);
+}
+
+function listDir(dir) {
+  try {
+    return readdirSync(dir);
+  } catch {
+    return [];
+  }
+}
+
+/** Relevé lisible : tous les champs que la vérification compare. */
+function validWrite(w) {
+  return (
+    w !== null &&
+    typeof w === 'object' &&
+    ['top', 'rel', 'sha256', 'key', 'grant', 'scope', 'ts'].every(
+      (field) => typeof w[field] === 'string',
+    ) &&
+    Number.isFinite(Date.parse(w.ts))
+  );
+}
+
+/** Relevés lisibles d'un texte JSON Lines (ancien format) : [{ line, w }]. */
+function parseWriteLines(text) {
+  const out = [];
+  for (const line of text.split('\n')) {
+    if (line === '') continue;
+    try {
+      const w = JSON.parse(line);
+      if (validWrite(w)) out.push({ line, w });
+    } catch {
+      // Ligne illisible (ou en cours d'écriture par un hook du lot 25) : ignorée.
+    }
+  }
+  return out;
 }
 
 /**
@@ -415,14 +478,32 @@ function authorizedWritesPath(root) {
  */
 export function recordAuthorizedWrite(root, entry) {
   try {
-    mkdirSync(root, { recursive: true });
-    appendFileSync(
-      authorizedWritesPath(root),
-      `${JSON.stringify({ ts: new Date().toISOString(), ...entry })}\n`,
-    );
+    const name = `${Date.now()}-${process.pid}-${randomBytes(4).toString('hex')}.json`;
+    writeJsonAtomic(join(authorizedWritesDir(root), repoDirName(entry.top), name), {
+      ts: new Date().toISOString(),
+      ...entry,
+    });
   } catch {
     // L'écriture reste autorisée ; seule l'attribution à cet agent sera impossible.
   }
+}
+
+/** Écritures autorisées relevées pour un dépôt, de la plus récente à la plus ancienne. */
+export function readAuthorizedWrites(root, top) {
+  const out = [];
+  const dir = join(authorizedWritesDir(root), repoDirName(top));
+  for (const file of listDir(dir)) {
+    if (!file.endsWith('.json')) continue;
+    const w = readJson(join(dir, file), null);
+    if (validWrite(w) && w.top === top) out.push(w);
+  }
+  try {
+    const legacy = readFileSync(legacyAuthorizedWritesPath(root), 'utf8');
+    for (const { w } of parseWriteLines(legacy)) if (w.top === top) out.push(w);
+  } catch {
+    // Pas d'ancien journal : cas normal depuis sa conversion.
+  }
+  return out.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
 }
 
 /**
@@ -431,23 +512,12 @@ export function recordAuthorizedWrite(root, entry) {
  * autorisation toujours connue, liée à cette clé et non révoquée ; ou null.
  */
 export function authorizedWriteBy(root, { top, rel, hash, key, scope, since }) {
-  let lines;
-  try {
-    lines = readFileSync(authorizedWritesPath(root), 'utf8').split('\n');
-  } catch {
-    return null;
-  }
+  const writes = readAuthorizedWrites(root, top);
+  if (writes.length === 0) return null;
   const grants = readAuthorizations(root);
   const from = Date.parse(since);
-  for (const line of lines.reverse()) {
-    let w;
-    try {
-      w = JSON.parse(line);
-    } catch {
-      continue;
-    }
+  for (const w of writes) {
     if (
-      w === null ||
       w.top !== top ||
       w.rel !== rel ||
       w.sha256 !== hash ||
