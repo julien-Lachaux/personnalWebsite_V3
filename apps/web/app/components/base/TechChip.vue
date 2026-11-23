@@ -100,6 +100,16 @@ function onClick(event: MouseEvent, disabled: boolean): void {
   color: var(--neon);
 }
 
+/* Coche de l'état pressé (D35, RA-7, WCAG 1.4.1) : l'état ne repose plus sur la seule couleur. Écart
+   voulu au handoff, dans tous les thèmes. Décorative : le contenu alternatif vide la garde hors du nom
+   accessible et du texte (la première déclaration est le repli d'un navigateur qui ignore la
+   seconde) ; elle prend la couleur de la puce (`--neon`), aucune couleur propre. */
+.tech-chip--pressed::before {
+  content: '✓';
+  content: '✓' / '';
+  font-weight: var(--font-weight-bold);
+}
+
 @media (hover: hover) {
   .tech-chip:not([aria-disabled='true'], .tech-chip--dashed):hover {
     border-color: var(--neon);
