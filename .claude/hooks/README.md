@@ -74,8 +74,9 @@ chaque oracle et celle de chaque fichier non suivi. En fin de tâche (`verify`, 
   abandonné ou d'avant la base commune ne comptent pas ; sans base commune, refus (L25-02,
   `tests/rewritten-history.test.mjs`) ;
 - un oracle dont le contenu actuel est exactement celui d'un Edit, MultiEdit ou Write qu'une
-  autorisation a permis à une autre clé depuis l'instantané (empreinte relevée par PreToolUse dans
-  `state/authorized-writes.jsonl`, autorisation de la même portée, liée à cette clé et non
+  autorisation a permis à une autre clé depuis l'instantané (empreinte relevée par PreToolUse, un
+  fichier par écriture sous `state/authorized-writes/<dépôt>/` depuis L26-05, autorisation de la
+  même portée, liée à cette clé et non
   révoquée) n'est pas signalé à la clé vérifiée ; l'attribution est journalisée (`attributed`).
   Tout autre contenu reste signalé : modification ultérieure, écriture shell (contenu inconnu),
   suppression, autorisation révoquée, autre dépôt, édition au résultat inexact (L25-04,
@@ -85,6 +86,45 @@ chaque oracle et celle de chaque fichier non suivi. En fin de tâche (`verify`, 
   projet, est ignoré et supprimé : worktree retiré dont un outil a recréé des fichiers (serveur
   `nuxt dev` orphelin). Si le worktree reste enregistré (`.git` retiré à la main), une seule
   violation est signalée, pas une par oracle (BF-11, `tests/snapshot-retired-root.test.mjs`).
+
+### Élagage de l'état (L26-05)
+
+Chaque fin de tâche (`verify`), après sa vérification et quel que soit son résultat, élague
+`state/authorized-writes/` et `state/carry/` (`pruneState`, `lib/state.mjs`). L'élagage ne bloque
+jamais : une erreur est journalisée (`error`, mode `prune`), ce qui est retiré aussi (`pruned`,
+nombre de fichiers par motif).
+
+Une écriture autorisée (L25-04) est retirée si elle ne peut plus servir à aucune vérification :
+
+- relevé illisible, ou rangé hors du dossier de son dépôt ;
+- dépôt disparu, ou dossier qui n'est plus ce dépôt et que git ne liste plus parmi les worktrees
+  (même règle que BF-11 : la vérification ignore ce dépôt) ;
+- autorisation inconnue (fichier des autorisations lisible), révoquée ou qui ne la couvre pas,
+  depuis plus de 24 h (`WRITE_GRACE_MS`) ; la révocation est datée (`revoked_at`) depuis L26-05,
+  une révocation plus ancienne compte depuis l'expiration ;
+- autorisation expirée depuis plus de 24 h, et aucun instantané en cours d'une autre clé, sur le
+  même dépôt, pris au plus tard à l'heure de l'écriture : un instantané plus récent, ou à venir, ne
+  la retient jamais (`w.ts >= since`).
+
+Ce qui ne part jamais : une écriture sous une autorisation active ou finie depuis moins de 24 h,
+une écriture qu'un instantané en cours pourrait retenir (même expirée depuis un an), et tout ce qui
+dépend des autorisations ou des instantanés quand l'un de ces fichiers est absent ou illisible.
+
+Un report (L25-03) est retiré s'il est illisible ou rangé hors de sa clé et de son dépôt, si son
+dépôt a disparu ou a été retiré, si plus aucun de ses tests n'a l'empreinte relevée (la reprise
+n'en reprendrait aucun), ou s'il a plus de 7 jours (`CARRY_MAX_AGE_MS`) : clé qui n'a pas repris
+(agent terminé, session close). Une clé reprise au-delà retrouve ses tests protégés (refus, jamais
+de blanchiment). Les dossiers vidés (`carry/<clé>/`, `authorized-writes/<dépôt>/`) sont retirés.
+
+Écritures concurrentes : chaque relevé d'écriture autorisée est un fichier écrit de façon
+atomique (fichier temporaire puis rename) et jamais réécrit, donc sa suppression ne peut pas
+effacer un relevé concurrent ; une vérification ne lit que les relevés de son dépôt. Un report
+peut être remplacé par la fin de tâche de sa clé pendant l'élagage : il est mis de côté par un
+rename, réévalué, puis supprimé, ou remis en place par un lien qui échoue si un report plus récent
+l'a déjà remplacé. L'écriture atomique recommence si l'élagage retire son dossier vide entre sa
+création et le rename. L'ancien journal `state/authorized-writes.jsonl` (lot 25) reste lu jusqu'à
+sa conversion en fichiers par le premier élagage (copie, mise de côté par rename, relecture,
+suppression). Tests : `tests/state-prune.test.mjs`.
 
 ## Exception contrôlée (correcteur, qa, qa-front, lead-architecte, dev-devops)
 
