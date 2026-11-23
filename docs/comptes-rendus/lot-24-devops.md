@@ -202,3 +202,13 @@ Ce qui a pu être essayé sans Docker :
   et `/fr/` (vers `/`), `/fr/a/b` (`/a/b`), `/fr/cv/cv-fr.pdf` (`/cv/cv-fr.pdf`) ; `/frais` 200.
 - Test ajouté : `apps/api/test/fr-redirect.e2e-spec.ts` (nouveau, lit les expressions du Caddyfile). Aucun test de
   `develop` modifié.
+
+## Garde de `/fr` sur la pile réelle (revue de la PR #13, point non bloquant)
+
+- Nouveau `apps/api/test/local-stack-fr-redirect.e2e-spec.ts` : vraies requêtes HTTP vers Caddy, redirections non
+  suivies. 404 sans `Location` pour `/fr/%09/hote.test`, `%0d`, `%0a`, `%20`, `%2F`, `%5C`, `%252F`,
+  `/fr//hote.test`, `/fr/a%09b` ; 301 vers `/`, `/a/b`, `/cv/cv-fr.pdf` pour `/fr`, `/fr/a/b`, `/fr/cv/cv-fr.pdf`.
+- Le job `pile-locale` lance `vitest run --project e2e local-stack` : le motif prend tout fichier dont le nom
+  contient `local-stack`, donc ce fichier est joué sans changer `ci.yml`.
+- Essai : `pnpm db:test:up`, `pnpm stack:up`, `STACK_REQUIRED=1 pnpm --filter @siteperso/api exec vitest run
+  --project e2e local-stack-fr-redirect` : 12 tests réussis ; `pnpm stack:down --volumes` et `pnpm db:down` faits.
