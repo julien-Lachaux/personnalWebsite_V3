@@ -14,6 +14,8 @@ bloque pas les lots. Julien retire une ligne quand il l'a traitée.
 | Traductions EN de l'interface | Relire la liste « Traductions EN de l'interface » plus bas (libellés de `apps/web/i18n/locales/en/`) et retirer les lignes validées | Traductions proposées par les agents, servies telles quelles |
 | Image de partage (Open Graph) | Fournir une image (1200 × 630 px conseillé) si le site doit en afficher une dans les aperçus de liens | Aucune `og:image` : titre, description, adresse et langue seulement |
 | Adresse publique du site | Fixer `NUXT_PUBLIC_I18N_BASE_URL` au build de production (domaine définitif) | `http://localhost:3001` par défaut : liens canoniques, hreflang, `sitemap.xml` et `robots.txt` en dépendent |
+| CV PDF balisé (D33) | Exporter le CV en « PDF balisé / accessible » (structure, langue du document, titre), le nettoyer par `apps/web/scripts/clean-cv-pdf.sh`, puis retirer la mention du PDF de la déclaration d'accessibilité | `cv-fr.pdf` non balisé (PDF 1.3), signalé dans la déclaration comme contenu non accessible, la page web servant d'alternative |
+| Adresse de contact (D31) | Créer l'alias `contact@<domaine de production>` vers la boîte de Julien et le mettre dans `NUXT_PUBLIC_CONTACT_EMAIL` au build de production (jamais dans le dépôt) | Placeholder `contact@example.org` ; l'adresse est forcément en clair dans le `mailto:` |
 | Retouches visuelles | Comparer le site aux maquettes et lister les écarts | Rendu de la V1 ; captures de référence protégées dans `apps/web/design/handoff-v6/` |
 | Contact évolué | Décider de la fonctionnalité qui remplacera le `mailto:` | Bouton « Lancer l'entretien » = `mailto:` |
 | Cinquième entrée de navigation | Décider de son contenu | Non affichée |
