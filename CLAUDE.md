@@ -221,6 +221,13 @@ apps/web/
   unique de `app/domain/root-attributes.ts` (partagée avec `usePreferencesSync`). Toute modification
   du script change son empreinte `THEME_SCRIPT_SHA256` (vérifiée par un test) : à reporter dans la
   CSP (F9).
+- **CSP stricte (lot F9a)** : le site tourne sous `script-src 'self'` et `style-src 'self'` plus les
+  empreintes des seuls éléments en ligne du HTML généré, sans `'unsafe-inline'` ni `'unsafe-eval'`.
+  Donc rien dans le navigateur n'appelle `eval` ou `new Function` (Zod 4 le sonde à la construction de
+  ses schémas : `@siteperso/contracts` n'est évalué qu'au build, source du CV importée à la demande
+  dans `data/fetch-cv.ts`), et aucun `<script>` ni `<style>` n'est injecté à l'exécution (`useHead`
+  avec `innerHTML`, page d'erreur par défaut de Nuxt). Vérifié par `test/csp.e2e.ts` (politique
+  recalculée sur les pages générées, document servi par `page.route`, témoin).
 - **Tests** : deux projets Vitest dans `apps/web/vitest.config.ts`, `unit` (`app/domain/`,
   `app/data/`, `app/architecture.spec.ts`, environnement Node) et `nuxt` (tout autre
   `app/**/*.spec.ts` : composants, composables, pages, montés par `mountSuspended` de

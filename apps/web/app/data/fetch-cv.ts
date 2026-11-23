@@ -5,7 +5,7 @@
 import { type Cv, type Locale } from '@siteperso/contracts';
 
 import { type FetchFn } from './cv-source.js';
-import { createCvSource, type CvSourceSettings } from './select-cv-source.js';
+import type { CvSourceSettings } from './select-cv-source.js';
 
 /** Ce que `useAsyncData` de Nuxt rend une fois attendu, réduit à ce dont on se sert. */
 export interface AsyncDataResult {
@@ -31,11 +31,17 @@ export function cvAsyncDataKey(locale: Locale): string {
  * donnée vient de la charge utile du site statique et la configuration de l'API (privée, absente du
  * client) n'est jamais lue. `useAsyncData` range l'erreur dans `error` sans la lever : on la relève
  * ici, pour que la génération statique échoue au lieu de produire des pages vides.
+ *
+ * Les sources (schémas Zod des contrats, fixtures) sont importées à la demande, dans le gestionnaire
+ * (lot F9a) : le navigateur ne les télécharge ni ne les évalue. Zod 4 sonde `new Function` à la
+ * construction de ses schémas d'objet (compilation à la volée) ; sous la CSP stricte du site
+ * (`script-src` sans `'unsafe-eval'`), cette sonde est une violation sur chaque page.
  */
 export async function fetchCv(deps: FetchCvDeps, locale: Locale): Promise<Cv> {
-  const { data, error } = await deps.asyncData(cvAsyncDataKey(locale), () =>
-    createCvSource(deps.settings(), deps.fetch).load(locale),
-  );
+  const { data, error } = await deps.asyncData(cvAsyncDataKey(locale), async () => {
+    const { createCvSource } = await import('./select-cv-source.js');
+    return createCvSource(deps.settings(), deps.fetch).load(locale);
+  });
   if (error.value !== null && error.value !== undefined) {
     throw error.value instanceof Error
       ? error.value
