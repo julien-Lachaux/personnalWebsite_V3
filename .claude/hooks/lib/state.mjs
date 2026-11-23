@@ -533,6 +533,262 @@ export function authorizedWriteBy(root, { top, rel, hash, key, scope, since }) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Élagage (L26-05) : écritures autorisées (L25-04) et reports de tests créés (L25-03) devenus
+// inutiles. Lancé à chaque fin de tâche (guard.mjs, mode verify), après la vérification.
+
+/** Délai de grâce après la fin (expiration ou révocation) d'une autorisation. */
+export const WRITE_GRACE_MS = 24 * 60 * 60 * 1000;
+/** Âge au-delà duquel le report d'une clé qui n'a pas repris est abandonné. */
+export const CARRY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Autorisations, ou null si le fichier est absent ou illisible (rien n'est alors élagué par elles). */
+function readAuthorizationsStrict(root) {
+  try {
+    const data = JSON.parse(readFileSync(authorizationsPath(root), 'utf8'));
+    return data !== null && Array.isArray(data.grants) ? data.grants : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Fin d'une autorisation : révocation (si datée) ou expiration, la plus tôt des deux. */
+function grantEnd(g) {
+  const expires = Date.parse(g.expires_at);
+  const revoked = g.revoked ? Date.parse(g.revoked_at) : Number.NaN;
+  return Number.isFinite(revoked) ? Math.min(revoked, expires) : expires;
+}
+
+/**
+ * Instantanés en cours (toutes clés), ou null si l'un d'eux est illisible : on ne peut alors pas
+ * prouver qu'une écriture sous une autorisation expirée ne sert plus.
+ */
+function liveSnapshots(root) {
+  const base = join(root, 'snapshots');
+  const out = [];
+  for (const dir of listDir(base)) {
+    for (const file of listDir(join(base, dir))) {
+      if (!file.endsWith('.json')) continue;
+      const s = readJson(join(base, dir, file), null);
+      if (s === null || typeof s.top !== 'string' || typeof s.key !== 'string') return null;
+      out.push(s);
+    }
+  }
+  return out;
+}
+
+/**
+ * Motif de retrait d'une écriture autorisée, ou null si elle peut encore servir. Elle ne sert plus
+ * (authorizedWriteBy ne la retiendrait jamais) si :
+ * - elle est illisible, ou rangée hors du dossier de son dépôt ;
+ * - son dépôt a disparu ou a été retiré (verify ignore et supprime les instantanés d'un tel dépôt) ;
+ * - son autorisation est inconnue, ou révoquée, ou ne la couvre pas, depuis plus de WRITE_GRACE_MS ;
+ * - son autorisation, valide pour elle, a expiré depuis plus de WRITE_GRACE_MS ET aucun instantané
+ *   en cours d'une autre clé, sur le même dépôt, n'a été pris au plus tard à l'heure de l'écriture
+ *   (un instantané plus récent, ou à venir, ne la retient pas : `w.ts >= since` est exigé).
+ * Sans autorisations ou instantanés lisibles, seuls les deux premiers motifs s'appliquent.
+ */
+function writeUselessReason(w, dirName, { grants, snapshots, gone, now }) {
+  if (!validWrite(w) || repoDirName(w.top) !== dirName) return 'illisible';
+  if (gone(w.top)) return 'dépôt retiré';
+  if (grants === null) return null;
+  const g = grants.find((x) => x !== null && typeof x === 'object' && x.id === w.grant);
+  if (!g) return now - Date.parse(w.ts) > WRITE_GRACE_MS ? 'autorisation inconnue' : null;
+  if (!(now - grantEnd(g) > WRITE_GRACE_MS)) return null;
+  const usable =
+    !g.revoked && g.bound_to === w.key && Array.isArray(g.paths) && grantCovers(g, w.rel);
+  if (!usable) return 'autorisation révoquée';
+  if (snapshots === null) return null;
+  const needed = snapshots.some(
+    (s) =>
+      s.top === w.top &&
+      s.key !== w.key &&
+      !gone(s.top) &&
+      !(Date.parse(w.ts) < Date.parse(s.created)),
+  );
+  return needed ? null : 'autorisation expirée';
+}
+
+/** Fichier temporaire d'une écriture interrompue (plantage), plus vieux que le délai de grâce. */
+function removeStaleTemp(path, now) {
+  try {
+    if (now - statSync(path).mtimeMs > WRITE_GRACE_MS) rmSync(path, { force: true });
+  } catch {
+    // Déjà retiré par un autre élagage.
+  }
+}
+
+/** Dossier vide retiré ; un dossier où un hook vient d'écrire reste (ENOTEMPTY). */
+function removeIfEmpty(dir) {
+  try {
+    rmdirSync(dir);
+  } catch {
+    // Non vide, ou déjà retiré.
+  }
+}
+
+/**
+ * Convertit l'ancien journal (lot 25) en fichiers : copie de chaque ligne lisible (nom tiré de son
+ * empreinte, donc deux élagages concurrents produisent les mêmes fichiers), puis le journal est mis
+ * de côté par un rename atomique, relu pour les lignes ajoutées entre-temps, et supprimé. Les
+ * lecteurs voient toujours chaque ligne, dans le journal ou dans son fichier.
+ */
+function convertLegacyWrites(root) {
+  const legacy = legacyAuthorizedWritesPath(root);
+  const copy = (text) => {
+    for (const { line, w } of parseWriteLines(text)) {
+      const path = join(
+        authorizedWritesDir(root),
+        repoDirName(w.top),
+        `legacy-${sha256(line).slice(0, 16)}.json`,
+      );
+      if (!existsSync(path)) writeJsonAtomic(path, w);
+    }
+  };
+  let text;
+  try {
+    text = readFileSync(legacy, 'utf8');
+  } catch {
+    return;
+  }
+  copy(text);
+  const moved = `${legacy}.${process.pid}.${randomBytes(4).toString('hex')}.converting`;
+  try {
+    renameSync(legacy, moved);
+  } catch {
+    return;
+  }
+  try {
+    copy(readFileSync(moved, 'utf8'));
+  } catch (error) {
+    // Conversion interrompue : le journal reprend sa place pour rester lu, sauf s'il a été recréé.
+    if (!existsSync(legacy)) renameSync(moved, legacy);
+    throw error;
+  }
+  rmSync(moved, { force: true });
+}
+
+function pruneAuthorizedWrites(root, context) {
+  convertLegacyWrites(root);
+  const base = authorizedWritesDir(root);
+  const removed = [];
+  for (const dirName of listDir(base)) {
+    const dir = join(base, dirName);
+    for (const file of listDir(dir)) {
+      const path = join(dir, file);
+      if (!file.endsWith('.json')) {
+        removeStaleTemp(path, context.now);
+        continue;
+      }
+      // Un relevé n'est jamais réécrit : le supprimer ne peut pas effacer un relevé plus récent.
+      const reason = writeUselessReason(readJson(path, null), dirName, context);
+      if (reason === null) continue;
+      rmSync(path, { force: true });
+      removed.push(reason);
+    }
+    removeIfEmpty(dir);
+  }
+  return removed;
+}
+
+/**
+ * Motif de retrait d'un report (L25-03), ou null s'il peut encore servir à la reprise de sa clé :
+ * illisible ou rangé hors de sa clé et de son dépôt ; dépôt disparu ou retiré ; plus aucun test
+ * reporté n'a l'empreinte relevée (ensureSnapshot n'en reprendrait aucun) ; plus vieux que
+ * CARRY_MAX_AGE_MS (clé qui n'a pas repris : agent terminé, session close).
+ */
+function carryUselessReason(data, keyDir, file, { gone, now }) {
+  if (
+    data === null ||
+    typeof data !== 'object' ||
+    typeof data.key !== 'string' ||
+    typeof data.top !== 'string' ||
+    data.tests === null ||
+    typeof data.tests !== 'object' ||
+    safeKey(data.key) !== keyDir ||
+    `${repoDirName(data.top)}.json` !== file
+  )
+    return 'illisible';
+  if (gone(data.top)) return 'dépôt retiré';
+  if (!(now - Date.parse(data.ts) <= CARRY_MAX_AGE_MS)) return 'trop ancien';
+  const alive = Object.entries(data.tests).some(
+    ([rel, hash]) =>
+      classify(rel) === 'test' && hash !== null && hashFile(join(data.top, rel)) === hash,
+  );
+  return alive ? null : 'tests disparus';
+}
+
+/**
+ * Retire un report s'il est toujours inutile au moment du retrait : la fin de tâche de sa clé peut
+ * le remplacer entre-temps (rename atomique). Il est mis de côté par un rename, réévalué, puis
+ * supprimé, ou remis en place par un lien qui échoue si un report plus récent l'a déjà remplacé.
+ */
+function removeCarryIfStillUseless(path, keyDir, file, context) {
+  const moved = `${path}.${process.pid}.${randomBytes(4).toString('hex')}.prune`;
+  try {
+    renameSync(path, moved);
+  } catch {
+    return null;
+  }
+  const reason = carryUselessReason(readJson(moved, null), keyDir, file, context);
+  if (reason === null) {
+    try {
+      linkSync(moved, path);
+    } catch {
+      // Un report plus récent est déjà en place : il l'emporte.
+    }
+  }
+  rmSync(moved, { force: true });
+  return reason;
+}
+
+function pruneCarry(root, context) {
+  const base = join(root, 'carry');
+  const removed = [];
+  for (const keyDir of listDir(base)) {
+    const dir = join(base, keyDir);
+    for (const file of listDir(dir)) {
+      const path = join(dir, file);
+      if (!file.endsWith('.json')) {
+        removeStaleTemp(path, context.now);
+        continue;
+      }
+      if (carryUselessReason(readJson(path, null), keyDir, file, context) === null) continue;
+      const reason = removeCarryIfStillUseless(path, keyDir, file, context);
+      if (reason !== null) removed.push(reason);
+    }
+    removeIfEmpty(dir);
+  }
+  return removed;
+}
+
+/**
+ * L26-05 : élague `state/authorized-writes/` (et convertit l'ancien journal) et `state/carry/`.
+ * Ne retire jamais une écriture qu'une vérification en cours pourrait retenir, ni un report
+ * récent dont un test a toujours son empreinte. Retourne le nombre de fichiers retirés par motif.
+ */
+export function pruneState(root, { now = Date.now() } = {}) {
+  const status = new Map();
+  const gone = (top) => {
+    if (!status.has(top)) {
+      const s = snapshotRootStatus(root, { top });
+      status.set(top, s === 'absent' || s === 'retired');
+    }
+    return status.get(top);
+  };
+  const context = {
+    grants: readAuthorizationsStrict(root),
+    snapshots: liveSnapshots(root),
+    gone,
+    now,
+  };
+  const count = (reasons) => reasons.reduce((acc, r) => ({ ...acc, [r]: (acc[r] ?? 0) + 1 }), {});
+  return {
+    writes: count(pruneAuthorizedWrites(root, context)),
+    carry: count(pruneCarry(root, context)),
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
 // Vérification de fin de tâche
 
 /** Contenu d'un fichier à un commit (ou null s'il n'y existe pas). */
