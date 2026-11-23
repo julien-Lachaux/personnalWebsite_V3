@@ -11,13 +11,8 @@ import {
   type Preferences,
 } from '../../domain/preferences.js';
 import { PREFERENCES_STATE_KEY, usePreferences, type UsePreferences } from './usePreferences.js';
-import {
-  DARK_QUERY,
-  REDUCED_MOTION_QUERY,
-  applyRootAttributes,
-  rootAttributes,
-  usePreferencesSync,
-} from './usePreferencesSync.js';
+import { DARK_QUERY, REDUCED_MOTION_QUERY, rootAttributes } from '../../domain/root-attributes.js';
+import { applyRootAttributes, usePreferencesSync } from './usePreferencesSync.js';
 
 const ATTRIBUTES = [
   'data-theme',
