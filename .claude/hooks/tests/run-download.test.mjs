@@ -136,7 +136,7 @@ const REFUSED = [
     /écrit par la même commande|illisible/,
   ],
   // Toujours refusé : toute autre écriture par gh sur les runs.
-  ['gh run rerun 123', /ni une lecture ni une écriture du flux/],
+  ['gh run rerun 123 --debug', /débogage/],
   ['gh run cancel 123', /ni une lecture ni une écriture du flux/],
 ];
 

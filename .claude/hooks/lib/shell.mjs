@@ -1050,6 +1050,7 @@ const COMMAND_ENV = new Set([
   'GIT_ASKPASS',
   'SSH_ASKPASS',
   'GIT_EXTERNAL_DIFF',
+  'GIT_PROXY_COMMAND',
 ]);
 /** Variables qui font charger un fichier de code au démarrage d'un interpréteur : illisible. */
 const CODE_FILE_ENV = new Set(['BASH_ENV', 'ENV', 'ZDOTDIR', 'LD_PRELOAD', 'PERL5OPT', 'RUBYOPT']);
@@ -1133,7 +1134,7 @@ export function analyzeCommand(
   command,
   cwd,
   role = null,
-  { depth = 0, fallback = null, vars = null, heads = null, scratch = null } = {},
+  { depth = 0, fallback = null, vars = null, heads = null, scratch = null, configSeen = null } = {},
 ) {
   if (depth > MAX_DEPTH) throw new ShellParseError('imbrication trop profonde (code dans du code)');
   const result = {
@@ -1154,6 +1155,9 @@ export function analyzeCommand(
     written: new Set(),
     gitEnv: [],
     heads: heads ?? new Map(),
+    // L25-01 : entrées de configuration de l'environnement déjà analysées (variable, clé, valeur),
+    // partagées avec le code imbriqué (qui hérite des variables) : chacune ne l'est qu'une fois.
+    configSeen: configSeen ?? new Set(),
   };
   const scopes = [];
   // Le dernier motif l'emporte, sauf un motif « faible » (illisibilité générique), qui ne remplace
@@ -1222,6 +1226,7 @@ export function analyzeCommand(
         vars: st.vars,
         heads: st.heads,
         scratch,
+        configSeen: st.configSeen,
       }),
     );
     opaque(what, code, b);
@@ -1246,6 +1251,8 @@ export function analyzeCommand(
       continue;
     }
     if (item === LEAVE) {
+      // L25-01 : une clé GIT_CONFIG_KEY_<n> du sous-shell sans valeur lisible n'en sort pas.
+      checkEnvConfig(env, st.vars, true);
       const scope = scopes.pop();
       st.base = scope.base;
       st.vars = scope.vars;
@@ -1253,6 +1260,7 @@ export function analyzeCommand(
     }
     analyzeSegment(item, env);
   }
+  checkEnvConfig(env, st.vars, true);
   return result;
 }
 
@@ -1280,6 +1288,7 @@ function analyzeSegment(seg, env) {
     if (name === 'HUSKY' && (value === '0' || value.includes(UNKNOWN)))
       deny(`désactiver husky (${shown(a)}) est interdit`);
     gitConfigEnv(env, name, value, true);
+    allowProtocolEnv(env, name, value, true);
     if (CODE_FILE_ENV.has(name))
       deny(`variable ${name} : elle fait charger un code au démarrage ; illisible, donc refusée`);
     if (
@@ -1288,6 +1297,11 @@ function analyzeSegment(seg, env) {
     )
       deny('NODE_OPTIONS qui charge un module : code illisible, donc refusé');
     if (COMMAND_ENV.has(name) && value !== '') nested(`variable ${name}`, value);
+  }
+  // L25-01 : configuration de l'environnement de cette commande seule (variables de la commande
+  // sur celles du shell) ; une clé sans valeur lisible n'en recevra pas plus loin.
+  if (assignments.some((a) => GIT_CONFIG_ENV.test(a.slice(0, a.indexOf('='))))) {
+    checkEnvConfig(env, overlayVars(st.vars, assignments), true);
   }
   if (code !== null) {
     nested('commande enveloppée', code);
@@ -1633,6 +1647,207 @@ function gitConfigEnv(env, name, value, known) {
   if (refusal !== null) env.deny(refusal);
 }
 
+// ---------------------------------------------------------------------------------------------
+// Clés qui lancent une commande hors de -c (L25-01, L19-05, décision de Julien du 21 nov. 2026).
+// GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT avec GIT_CONFIG_KEY_<n> et GIT_CONFIG_VALUE_<n>, et
+// `--config-env <clé>=<variable>` donnent à git les mêmes entrées que `-c <clé>=<valeur>` : chaque
+// entrée lisible passe par configEntry, comme -c (commande analysée comme du code shell imbriqué,
+// alias qui pousse refusé, transport ext:: refusé). Une valeur illisible d'une clé qui lance une
+// commande est refusée : variable de --config-env absente de la commande ou calculée,
+// GIT_CONFIG_KEY_<n> sans GIT_CONFIG_VALUE_<n> lisible, GIT_CONFIG_PARAMETERS que git rejette.
+// Toutes les paires GIT_CONFIG_KEY_<n> sont lues, sans tenir compte de GIT_CONFIG_COUNT
+// (surestimation prudente). Mesures (git 2.30.2 de l'hôte) : docs/comptes-rendus/lot-25-lead.md.
+
+/** Blancs au sens de git (sane_ctype de git-compat-util.h : espace, \t, \n, \r). */
+const GIT_BLANK = new Set([' ', '\t', '\n', '\r']);
+
+/**
+ * Pas de sq_dequote_step (quote.c de git) : texte entre apostrophes qui commence à `start`
+ * (`'\''` et `'\!'` hors des apostrophes rendent l'apostrophe et le point d'exclamation). Rend
+ * { text, next } (`next` : indice qui suit, null en fin de texte) ou null si git le rejette.
+ */
+function sqDequoteStep(s, start) {
+  if (s[start] !== "'") return null;
+  let text = '';
+  let j = start;
+  for (;;) {
+    j += 1;
+    if (j >= s.length) return null;
+    if (s[j] !== "'") {
+      text += s[j];
+      continue;
+    }
+    j += 1;
+    if (j >= s.length) return { text, next: null };
+    if (s[j] === '\\' && (s[j + 1] === "'" || s[j + 1] === '!') && s[j + 2] === "'") {
+      text += s[j + 1];
+      j += 2;
+      continue;
+    }
+    return { text, next: j };
+  }
+}
+
+/**
+ * Entrées de GIT_CONFIG_PARAMETERS lues comme git (parse_config_env_list de config.c, git >= 2.31,
+ * qui lit aussi l'ancienne forme de git 2.30) : 'clé=valeur' (coupée au premier « = », blancs
+ * autour de la clé retirés), 'clé'='valeur', 'clé'= ou 'clé' (booléen, valeur null), séparées par
+ * des blancs. Rend la liste { key, value }, ou null pour un texte que git rejette.
+ */
+export function parseConfigParameters(text) {
+  const entries = [];
+  let cur = 0;
+  while (cur !== null && cur < text.length) {
+    const step = sqDequoteStep(text, cur);
+    if (step === null) return null;
+    cur = step.next;
+    if (cur === null || GIT_BLANK.has(text[cur])) {
+      const at = step.text.indexOf('=');
+      const key = (at < 0 ? step.text : step.text.slice(0, at)).trim();
+      if (key === '') return null;
+      entries.push({ key, value: at < 0 ? null : step.text.slice(at + 1) });
+    } else if (text[cur] === '=') {
+      cur += 1;
+      if (text[cur] === "'") {
+        const value = sqDequoteStep(text, cur);
+        if (value === null || (value.next !== null && !GIT_BLANK.has(text[value.next])))
+          return null;
+        entries.push({ key: step.text, value: value.text });
+        cur = value.next;
+      } else if (cur >= text.length || GIT_BLANK.has(text[cur])) {
+        entries.push({ key: step.text, value: null });
+      } else return null;
+    } else return null;
+    while (cur !== null && GIT_BLANK.has(text[cur])) cur += 1;
+  }
+  return entries;
+}
+
+/** protocol.allow, protocol.ext.allow : autre que never, ils permettent le transport ext::. */
+const PROTOCOL_KEY = /^protocol\.(ext\.)?allow$/i;
+const EXT_MOTIF =
+  'le transport ext:: lance la commande écrite dans l’URL du dépôt, sans qu’elle se vérifie : ' +
+  'interdit (seul protocol.ext.allow=never est permis)';
+
+/** Clé dont la valeur doit se lire : commande lancée par git, alias, transport ext::. */
+function valueMatters(key) {
+  const k = key.trim();
+  return COMMAND_CONFIG_KEY.test(k) || PROTOCOL_KEY.test(k) || /^alias\./i.test(k);
+}
+
+/**
+ * Entrée de configuration donnée à git hors des fichiers (-c, --config-env, GIT_CONFIG_*) : clé lue
+ * comme git (blancs autour retirés, casse ignorée), `value` null pour un booléen sans valeur.
+ * Mêmes refus que -c : core.hooksPath et inclusion (L19-02), alias qui pousse, transport ext::,
+ * commande lancée par git analysée comme du code shell imbriqué. Un alias est analysé dès sa
+ * définition (`!code` comme du code shell, sinon comme `git <valeur>`) : un git lancé plus loin
+ * (sous-processus, programme) peut l'utiliser sans qu'on le voie.
+ */
+function configEntry(env, rawKey, value, what, base) {
+  const key = rawKey.trim();
+  const refusal = configKeyRefusal(key, what);
+  if (refusal !== null) {
+    env.deny(refusal);
+    return;
+  }
+  if (value === null) return;
+  if (PROTOCOL_KEY.test(key)) {
+    if (value.trim().toLowerCase() !== 'never') env.deny(`${what} : ${EXT_MOTIF}`);
+    return;
+  }
+  if (/^alias\./i.test(key)) {
+    if (/\bpush\b/.test(value)) {
+      env.deny(
+        `un alias qui lance git push (${shown(`${key}=${value}`)}) contourne la règle de push`,
+      );
+      return;
+    }
+    env.nested(`${what}`, value.startsWith('!') ? value.slice(1) : `git ${value}`, base);
+    return;
+  }
+  if (COMMAND_CONFIG_KEY.test(key)) env.nested(what, value.replace(/^!/, ''), base);
+}
+
+/** Variables du shell complétées par celles d'une commande (`NOM=valeur cmd`). */
+function overlayVars(vars, assignments) {
+  const out = new Map(vars);
+  for (const a of assignments) {
+    const k = a.indexOf('=');
+    const value = a.slice(k + 1);
+    out.set(
+      a.slice(0, k).replace(/\[.*$|\+$/, ''),
+      value.includes(UNKNOWN) || a[k - 1] === '+' ? null : value,
+    );
+  }
+  return out;
+}
+
+/**
+ * Entrées de configuration que git lit dans l'environnement `vars` (nom → valeur, null : absente
+ * ou illisible, déjà refusée par gitConfigEnv) : { entries, pending, bogus } ; `pending` : clés
+ * GIT_CONFIG_KEY_<n> sans GIT_CONFIG_VALUE_<n> ; `bogus` : GIT_CONFIG_PARAMETERS que git rejette.
+ */
+function envConfigEntries(vars) {
+  const entries = [];
+  const pending = [];
+  let bogus = null;
+  const params = vars.get('GIT_CONFIG_PARAMETERS');
+  if (typeof params === 'string' && !params.includes(UNKNOWN)) {
+    const parsed = parseConfigParameters(params);
+    if (parsed === null) bogus = params;
+    else for (const e of parsed) entries.push({ ...e, from: 'GIT_CONFIG_PARAMETERS' });
+  }
+  for (const [name, key] of vars) {
+    const m = /^GIT_CONFIG_KEY_(.*)$/.exec(name);
+    if (m === null || typeof key !== 'string' || key.includes(UNKNOWN)) continue;
+    const value = vars.get(`GIT_CONFIG_VALUE_${m[1]}`);
+    if (typeof value !== 'string') pending.push({ key, from: name, index: m[1] });
+    else if (!value.includes(UNKNOWN)) entries.push({ key, value, from: name });
+  }
+  return { entries, pending, bogus };
+}
+
+/**
+ * Analyse les entrées de configuration de l'environnement `vars` (une fois chacune) ; `final` : la
+ * commande ne donnera plus de valeur (fin de commande ou de sous-shell, variables d'une commande).
+ */
+function checkEnvConfig(env, vars, final) {
+  const { entries, pending, bogus } = envConfigEntries(vars);
+  if (bogus !== null)
+    env.deny(
+      `variable GIT_CONFIG_PARAMETERS (${shown(bogus)}) : format que git rejette ('clé=valeur' ou ` +
+        "'clé'='valeur' entre apostrophes, séparés par des blancs) ; lu autrement, il pourrait " +
+        'cacher une entrée : illisible, donc refusée',
+    );
+  for (const { key, value, from } of entries) {
+    const id = `${from}\0${key}\0${value}`;
+    if (env.st.configSeen.has(id)) continue;
+    env.st.configSeen.add(id);
+    configEntry(env, key, value, `variable ${from} (${shown(key.trim())})`, env.st.base);
+  }
+  if (!final) return;
+  for (const { key, from, index } of pending) {
+    if (valueMatters(key))
+      env.deny(
+        `variable ${from}=${shown(key)} sans GIT_CONFIG_VALUE_${index} lisible dans la commande : ` +
+          "la valeur, une commande que git lancerait, viendrait de l'environnement ; illisible, " +
+          'donc refusée',
+      );
+  }
+}
+
+/** GIT_ALLOW_PROTOCOL (liste séparée par « : ») qui permet ext::, ou illisible. */
+function allowProtocolEnv(env, name, value, known) {
+  if (name !== 'GIT_ALLOW_PROTOCOL') return;
+  if (!known || value.includes(UNKNOWN))
+    env.deny(
+      `variable GIT_ALLOW_PROTOCOL illisible (${shown(value)}) : elle peut permettre le transport ` +
+        'ext:: ; illisible, donc refusée',
+    );
+  else if (value.split(':').some((p) => p.trim().toLowerCase() === 'ext'))
+    env.deny(`variable GIT_ALLOW_PROTOCOL=${shown(value)} : ${EXT_MOTIF}`);
+}
+
 function assignVar(env, a) {
   const { st, deny, nested } = env;
   const k = a.indexOf('=');
@@ -1645,6 +1860,9 @@ function assignVar(env, a) {
     deny(`désactiver husky (${shown(a)}) est interdit`);
   if (/^GIT_/.test(name)) st.gitEnv.push(a);
   gitConfigEnv(env, name, value, known);
+  allowProtocolEnv(env, name, value, known);
+  // L25-01 : la valeur d'une clé peut venir plus loin dans la commande (vérifiée à la fin).
+  if (GIT_CONFIG_ENV.test(name)) checkEnvConfig(env, st.vars, false);
   if (CODE_FILE_ENV.has(name))
     deny(`variable ${name} : elle fait charger un code au démarrage ; illisible, donc refusée`);
   if (COMMAND_ENV.has(name) && value !== '') nested(`variable ${name}`, value);
@@ -1833,9 +2051,15 @@ const PUSH_FORM = `seules les formes git push origin ${PUSH_BRANCH}, git push or
 const DESTINATION_KEY =
   /^(remote\..+|url\..+|push\..+|branch\..+\.(remote|pushremote)|branch\.autosetup(merge|rebase)|include\..+|includeif\..+)$/i;
 const DESTINATION_SECTION = /^(remote|url|push|branch|include|includeif)(\.|$)/i;
-/** Clés dont la valeur est une commande lancée par git. */
+/**
+ * Clés dont la valeur est une commande lancée par git. L25-01 : en plus, la commande qui remplace
+ * git-upload-pack ou git-receive-pack d'un remote (lancée en local pour un dépôt local),
+ * core.alternateRefsCommand, gpg.ssh.defaultKeyCommand, les commandes de trailer, de sendemail,
+ * d'imap-send (tunnel), de guitool, de navigateur, de man et la mise à jour `!commande` d'un
+ * sous-module.
+ */
 const COMMAND_CONFIG_KEY =
-  /^(core\.(editor|pager|sshcommand|askpass|fsmonitor|gitproxy)|sequence\.editor|diff\.external|gpg\.(.+\.)?program|credential\.(.+\.)?helper|pager\..+|interactive\.difffilter|uploadpack\.packobjectshook|(diff|merge|filter|mergetool|difftool)\..+\.(command|cmd|textconv|clean|smudge|process|driver|path))$/i;
+  /^(core\.(editor|pager|sshcommand|askpass|fsmonitor|gitproxy|alternaterefscommand)|sequence\.editor|diff\.external|gpg\.(.+\.)?program|gpg\.ssh\.defaultkeycommand|credential\.(.+\.)?helper|pager\..+|interactive\.difffilter|uploadpack\.packobjectshook|(diff|merge|filter|mergetool|difftool)\..+\.(command|cmd|textconv|clean|smudge|process|driver|path)|remote\..+\.(uploadpack|receivepack)|trailer\..+\.(command|cmd)|sendemail\.(.+\.)?(smtpserver|tocmd|cccmd|sendmailcmd)|imap\.tunnel|guitool\..+\.cmd|browser\..+\.(cmd|path)|man\..+\.(cmd|path)|instaweb\.httpd|submodule\..+\.update)$/i;
 const DESTINATION_MOTIF =
   'redéfinit la destination des push (remote, url, push, branche suivie, inclusion) : réservé à Julien';
 
@@ -1937,22 +2161,69 @@ function pushRefusal(rest, { role, globals, assignments, dashed }) {
   return null;
 }
 
-/** Valeur d'un alias git (-c alias.x=… de la commande, puis configuration vue depuis `base`). */
-function gitAlias(base, sub, globals) {
-  for (const [opt, value] of globals) {
-    const m = opt === '-c' && /^alias\.([^=]+)=(.*)$/is.exec(value ?? '');
-    if (m && m[1].toLowerCase() === sub.toLowerCase()) return m[2];
+/**
+ * Options dont la valeur est la commande lancée à la place de git-upload-pack (ou de
+ * git-upload-archive) : en local pour un dépôt local, sur l'hôte distant sinon (L25-01).
+ */
+const LAUNCHER_OPTIONS = {
+  fetch: { long: ['--upload-pack'] },
+  pull: { long: ['--upload-pack'] },
+  'ls-remote': { long: ['--upload-pack'] },
+  clone: { long: ['--upload-pack'], short: 'u' },
+  'fetch-pack': { long: ['--upload-pack', '--exec'] },
+  archive: { long: ['--exec'] },
+};
+
+/**
+ * Valeurs des options longues `long` (abréviations comprises, comme parse-options de git : `--upl`,
+ * `--u` ; `=valeur` ou mot suivant) et de l'option courte `short` (seule, collée `-uX` ou en
+ * groupe `-qu X`), avant `--`.
+ */
+function launcherValues(args, long, short) {
+  const out = [];
+  for (let k = 0; k < args.length; k += 1) {
+    const a = args[k];
+    if (a === '--') break;
+    if (a.startsWith('--')) {
+      const name = a.split('=')[0];
+      if (!long.some((l) => name.length >= 3 && l.startsWith(name))) continue;
+      if (a.includes('=')) out.push(a.slice(a.indexOf('=') + 1));
+      else if (k + 1 < args.length) out.push(args[(k += 1)]);
+    } else if (short && /^-[^-]/.test(a) && a.indexOf(short, 1) > 0) {
+      const glued = a.slice(a.indexOf(short, 1) + 1);
+      if (glued !== '') out.push(glued);
+      else if (k + 1 < args.length) out.push(args[(k += 1)]);
+    }
   }
-  if (base === null) return null;
-  try {
-    return execFileSync('git', ['-C', base, 'config', '--get', `alias.${sub}`], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 5000,
-    }).replace(/\n$/, '');
-  } catch {
-    return null;
+  return out;
+}
+
+/**
+ * Valeurs possibles d'un alias git : entrées de l'environnement (GIT_CONFIG_*), de la commande
+ * (-c, --config-env), puis configuration vue depuis `base`. git lance la dernière définie (la
+ * commande l'emporte sur l'environnement, qui l'emporte sur les fichiers) ; toutes sont rendues,
+ * pour être toutes analysées (L25-01 : avant, le premier -c l'emportait, et le dépôt sur
+ * l'environnement).
+ */
+function gitAliases(base, sub, entries) {
+  const name = `alias.${sub}`.toLowerCase();
+  const values = entries
+    .filter((e) => e.key.trim().toLowerCase() === name && typeof e.value === 'string')
+    .map((e) => e.value);
+  if (base !== null) {
+    try {
+      values.push(
+        execFileSync('git', ['-C', base, 'config', '--get', `alias.${sub}`], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+          timeout: 5000,
+        }).replace(/\n$/, ''),
+      );
+    } catch {
+      // Pas d'alias de ce nom dans la configuration du dépôt.
+    }
   }
+  return [...new Set(values)];
 }
 
 /** Options de git config suivies d'une valeur (mot séparé) : cette valeur n'est pas une option. */
@@ -2235,26 +2506,43 @@ function analyzeGit(
         ? null
         : resolve(gitBase, path);
   };
+  // Entrées de configuration de la ligne de commande (-c, --config-env), dans l'ordre : { key,
+  // value } (value null : booléen sans valeur ; contient UNKNOWN : illisible).
+  const cmdline = [];
+  /** Valeur d'une variable d'environnement vue par git : variables de la commande, puis du shell. */
+  const envValue = (name) => {
+    let value = st.vars.get(name) ?? null;
+    for (const a of assignments) if (a.startsWith(`${name}=`)) value = a.slice(name.length + 1);
+    return value === null || value.includes(UNKNOWN) || name.includes(UNKNOWN) ? null : value;
+  };
   const configEnv = (spec) => {
     const at = spec.lastIndexOf('=');
-    const refusal = configKeyRefusal(
-      at < 0 ? spec : spec.slice(0, at),
-      `git --config-env ${shown(spec)}`,
-    );
-    if (refusal !== null) deny(refusal);
+    const key = (at < 0 ? spec : spec.slice(0, at)).trim();
+    const what = `git --config-env ${shown(spec)}`;
+    // L19-02 : clé illisible ou fichier inclus, qui peuvent fixer core.hooksPath.
+    const refusal = configKeyRefusal(key, what);
+    if (refusal !== null) {
+      deny(refusal);
+      return;
+    }
+    if (at < 0) return; // git refuse la forme sans « = »
+    // L25-01 : la valeur est celle de la variable nommée, analysée comme celle de -c.
+    const value = envValue(spec.slice(at + 1));
+    if (value === null && valueMatters(key))
+      deny(
+        `${what} : la valeur de ${key} vient d'une variable absente de la commande ou calculée ; ` +
+          'git en ferait une commande (ou un alias, ou le transport ext::) : illisible, donc refusée',
+      );
+    else if (value !== null) configEntry(env, key, value, what, gitBase);
+    cmdline.push({ key, value: value ?? UNKNOWN });
   };
   const configValue = (value) => {
-    const key = value.split('=')[0];
-    // L19-02 : clé illisible ou fichier inclus, qui peuvent fixer core.hooksPath.
-    const refusal = configKeyRefusal(key, `git -c ${shown(value)}`);
-    if (refusal !== null) deny(refusal);
-    if (/^core\.hookspath=/i.test(value))
-      deny('changer core.hooksPath désactive le hook pre-commit');
-    if (/^alias\.[^=]*=.*\bpush\b/is.test(value))
-      deny(`un alias qui lance git push (${shown(value)}) contourne la règle de push`);
-    const m = /^([^=]+)=(.*)$/s.exec(value);
-    if (m && COMMAND_CONFIG_KEY.test(m[1]))
-      nested(`git -c ${m[1]}`, m[2].replace(/^!/, ''), gitBase);
+    const at = value.indexOf('=');
+    const key = (at < 0 ? value : value.slice(0, at)).trim();
+    // L19-02 et L25-01 : mêmes refus que les entrées de l'environnement (configEntry), la clé lue
+    // comme git 2.30 la lit (blancs autour retirés : `-c ' core.hooksPath=…'`).
+    configEntry(env, key, at < 0 ? null : value.slice(at + 1), `git -c ${shown(value)}`, gitBase);
+    cmdline.push({ key, value: at < 0 ? null : value.slice(at + 1) });
   };
   for (; k < args.length; k += 1) {
     const a = args[k];
@@ -2296,8 +2584,12 @@ function analyzeGit(
     return;
   }
   if (!GIT_COMMANDS.has(sub)) {
-    const alias = gitAlias(gitBase, sub, globals);
-    if (alias === null) {
+    // L25-01 : alias de l'environnement (GIT_CONFIG_*), de la commande et du dépôt, tous analysés.
+    const aliases = gitAliases(gitBase, sub, [
+      ...envConfigEntries(overlayVars(st.vars, assignments)).entries,
+      ...cmdline,
+    ]);
+    if (aliases.length === 0) {
       deny(
         `git ${sub} n'est ni une commande git connue ni un alias lisible (commande externe ou ` +
           'alias introuvable) : illisible, donc refusé',
@@ -2308,22 +2600,24 @@ function analyzeGit(
       deny(`alias git ${sub} : boucle d'alias, illisible`);
       return;
     }
-    if (alias.startsWith('!')) {
-      nested(`alias git ${sub}`, `${alias.slice(1)} ${rest.map(quote).join(' ')}`, gitBase);
-    } else {
-      const expansion = [];
-      for (const item of parseShell(alias))
-        if (item.words) expansion.push(...item.words.map((w) => resolveWord(w, st)));
-      const prefix = args.slice(0, k);
-      analyzeGit([...prefix, ...expansion, ...rest], env, seg, {
-        assignments,
-        dashed,
-        aliasDepth: aliasDepth + 1,
-        viaXargs,
-      });
+    for (const alias of aliases) {
+      if (alias.startsWith('!')) {
+        nested(`alias git ${sub}`, `${alias.slice(1)} ${rest.map(quote).join(' ')}`, gitBase);
+      } else {
+        const expansion = [];
+        for (const item of parseShell(alias))
+          if (item.words) expansion.push(...item.words.map((w) => resolveWord(w, st)));
+        const prefix = args.slice(0, k);
+        analyzeGit([...prefix, ...expansion, ...rest], env, seg, {
+          assignments,
+          dashed,
+          aliasDepth: aliasDepth + 1,
+          viaXargs,
+        });
+      }
+      if (/\bpush\b/.test(alias))
+        deny(`un alias qui lance git push (${sub}=${alias}) contourne la règle de push`);
     }
-    if (/\bpush\b/.test(alias))
-      deny(`un alias qui lance git push (${sub}=${alias}) contourne la règle de push`);
     return;
   }
   /** Écriture d'une référence nommée : refusée si c'est main ou si le nom est illisible. */
@@ -2359,12 +2653,14 @@ function analyzeGit(
   /** Configuration lisible par git -C gitBase : pas de dépôt calculé ni de variable GIT_CONFIG*. */
   const configIllegible = () =>
     repoIllegible() || [...assignments, ...st.gitEnv].some((a) => /^GIT_CONFIG/.test(a));
-  /** Dernière valeur de `key` donnée par -c (true sans « = »), sinon undefined. */
+  /**
+   * Dernière valeur de `key` donnée par -c ou --config-env (true sans « = » ; UNKNOWN si la
+   * variable de --config-env est illisible), sinon undefined.
+   */
   const commandConfig = (key) => {
     let value;
-    for (const [opt, v] of globals) {
-      const m = opt === '-c' && /^([^=]+)(?:=(.*))?$/s.exec(v ?? '');
-      if (m && m[1].toLowerCase() === key.toLowerCase()) value = m[2] ?? 'true';
+    for (const e of cmdline) {
+      if (e.key.toLowerCase() === key.toLowerCase()) value = e.value ?? 'true';
     }
     return value;
   };
@@ -2471,6 +2767,7 @@ function analyzeGit(
         return;
     }
     let guess = commandConfig('worktree.guessRemote');
+    if (guess?.includes(UNKNOWN)) guess = 'true'; // --config-env illisible : on suppose le pire
     if (guess === undefined)
       guess = configIllegible()
         ? 'true'
@@ -2523,6 +2820,13 @@ function analyzeGit(
       `xargs git ${sub} : références lues sur l’entrée standard ; la branche locale main ne ` +
         's’écrit pas, illisible donc refusé',
     );
+  // L25-01 : commande lancée à la place de git-upload-pack (ou de git-upload-archive), en local
+  // pour un dépôt local : analysée comme du code shell, comme remote.<nom>.uploadpack.
+  if (LAUNCHER_OPTIONS[sub]) {
+    const { long, short } = LAUNCHER_OPTIONS[sub];
+    for (const code of launcherValues(rest, long, short))
+      nested(`git ${sub} ${long[0]}`, code, gitBase);
+  }
   switch (sub) {
     case 'push': {
       const refusal = pushRefusal(rest, {
@@ -2662,6 +2966,14 @@ function analyzeGit(
       const key = write.keys[0];
       if (key && COMMAND_CONFIG_KEY.test(key) && write.values[0] !== undefined)
         nested(`git config ${key}`, write.values[0].replace(/^!/, ''), gitBase);
+      // L25-01 : protocol.ext.allow ou protocol.allow écrit autrement que never permet ext::.
+      if (
+        key &&
+        PROTOCOL_KEY.test(key) &&
+        write.values[0] !== undefined &&
+        write.values[0].trim().toLowerCase() !== 'never'
+      )
+        deny(`git config ${key} ${shown(write.values[0])} : ${EXT_MOTIF}`);
       break;
     }
     case 'rebase': {
@@ -3580,6 +3892,49 @@ function ghRunDownloadRefusal(args, env, assignments, viaXargs) {
   return null;
 }
 
+// L25-05 (décision de Julien du 22 nov. 2026) : relancer un run de la CI, session principale seule.
+const GH_RUN_RERUN = [
+  ['--failed', null, false],
+  ['--job', null, true],
+];
+const RUN_RERUN_FORM = 'gh run rerun <identifiant> [--failed] [--job <identifiant de job>]';
+
+/** Motif du refus d'un `gh run rerun` de la session principale, ou null. */
+function ghRunRerunRefusal(args, env, assignments, viaXargs) {
+  const label = 'gh run rerun';
+  if (viaXargs)
+    return `${label} sous xargs : arguments lus sur l'entrée standard, illisible, donc refusé`;
+  const names = [...assignments.map((a) => a.slice(0, a.indexOf('='))), ...env.st.vars.keys()];
+  const targetEnv = names.find((n) => GH_TARGET_ENV.has(n));
+  if (targetEnv)
+    return `${label} avec la variable ${targetEnv} : elle change le dépôt ou l'hôte visés`;
+  const parsed = ghOptions(
+    label,
+    GH_RUN_RERUN,
+    (name) => {
+      if (name === '--repo' || name === '-R')
+        return `${label} ${name} : vise un autre dépôt que celui du checkout`;
+      if (name === '--debug' || name === '-d')
+        return `${label} ${name} : journalisation de débogage du run, non permise (${RUN_RERUN_FORM})`;
+      return null;
+    },
+    args.slice(2),
+  );
+  if (parsed.error) return parsed.error;
+  const { flags, positionals } = parsed;
+  if (positionals.some((p) => p.includes(UNKNOWN)))
+    return `${label} ${positionals.map(shown).join(' ')} : run illisible, donc refusé`;
+  if (positionals.length !== 1 || !/^[0-9]+$/.test(positionals[0]))
+    return `${label} : nomme un seul run par son identifiant numérique (${RUN_RERUN_FORM})`;
+  const jobs = flags.get('--job') ?? [];
+  if (jobs.length > 1) return `${label} : --job répété, illisible`;
+  if (jobs.some((j) => j.includes(UNKNOWN)))
+    return `${label} --job ${shown(jobs[0])} : job illisible, donc refusé`;
+  if (jobs.some((j) => !/^[0-9]+$/.test(j)))
+    return `${label} --job ${jobs[0]} : identifiant de job numérique attendu (${RUN_RERUN_FORM})`;
+  return null;
+}
+
 function analyzeGh(args, env, { assignments = [], viaXargs = false } = {}) {
   const { deny, role } = env;
   const ops = operands(args, GH_VALUED);
@@ -3649,6 +4004,18 @@ function analyzeGh(args, env, { assignments = [], viaXargs = false } = {}) {
       return;
     }
     const refusal = ghRunDownloadRefusal(args, env, assignments, viaXargs);
+    if (refusal) deny(refusal);
+    return;
+  }
+  if (group === 'run' && action === 'rerun') {
+    if (role !== 'main') {
+      deny(
+        `gh run rerun relance la CI sur GitHub : interdit aux agents (rôle ${role ?? 'inconnu'}) ; ` +
+          'seule la session principale relance un run',
+      );
+      return;
+    }
+    const refusal = ghRunRerunRefusal(args, env, assignments, viaXargs);
     if (refusal) deny(refusal);
     return;
   }
