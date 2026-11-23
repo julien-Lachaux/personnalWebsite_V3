@@ -219,7 +219,7 @@ if (!available) {
       const themeHash = /THEME_SCRIPT_SHA256\s*=\s*'(sha256-[A-Za-z0-9+/=]+)'/.exec(
         readFileSync(themeScript, 'utf8'),
       )?.[1];
-      const pages = ['/', '/en', '/accessibilite', '/en/accessibilite', '/route-inconnue'];
+      const pages = ['/', '/en', '/accessibilite', '/en/accessibility', '/route-inconnue'];
 
       for (const path of pages) {
         const response = await get(path);

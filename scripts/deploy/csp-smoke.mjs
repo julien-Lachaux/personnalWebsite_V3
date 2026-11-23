@@ -18,7 +18,7 @@ export const PAGES = [
   { path: '/', status: 200, main: true },
   { path: '/en', status: 200, main: true },
   { path: '/accessibilite', status: 200, main: true },
-  { path: '/en/accessibilite', status: 200, main: true },
+  { path: '/en/accessibility', status: 200, main: true },
   { path: '/route-inconnue', status: 404, main: true, ignore: DOCUMENT_404 },
   { path: '/en/route-inconnue', status: 404, main: true, ignore: DOCUMENT_404 },
 ];

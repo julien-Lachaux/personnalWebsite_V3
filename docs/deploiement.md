@@ -175,7 +175,7 @@ recharge Caddy puis attend `/` en 200. `apps/api/test/local-stack-front.e2e-spec
 `local-stack.e2e-spec.ts`) vérifie : `/` et `/en` en 200 avec le contenu de l'API, `/fr` en 301, route inconnue en
 404 (page du front), `/cv/cv-fr.pdf` en `application/pdf`, la CSP (présente, stricte, empreintes de chaque script
 en ligne servi), les en-têtes de cache. Avec les navigateurs démarrés (`pnpm e2e:browsers:up`),
-`scripts/deploy/csp-smoke.mjs` charge `/`, `/en`, `/accessibilite`, `/en/accessibilite` et une route inconnue dans
+`scripts/deploy/csp-smoke.mjs` charge `/`, `/en`, `/accessibilite`, `/en/accessibility` et une route inconnue dans
 Chromium (service `playwright`, version de `@playwright/test` d'`apps/web`) et échoue à la première violation CSP,
 erreur de console ou page non affichée ; il vérifie aussi que le script de thème a tourné (`<html data-theme>`).
 Le job CI `pile-locale` lance les deux (`STACK_REQUIRED=1`).
