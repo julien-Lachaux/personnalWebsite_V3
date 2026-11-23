@@ -2,8 +2,9 @@
 
 La production tourne avec `docker/compose.prod.yml` : Caddy (TLS automatique, seul service qui publie
 des ports 80/443), l'API (réseaux internes, `TRUST_PROXY=uniquelocal`), un service `migrate` à usage unique
-(migrations, seeds, rôle de lecture seule de l'API) et PostgreSQL 16 (volume nommé, aucun port publié). Le front viendra plus tard :
-en attendant, Caddy sert `docker/placeholder/index.html` sur `/` et proxifie `/api/*` vers l'API.
+(migrations, seeds, rôle de lecture seule de l'API) et PostgreSQL 16 (volume nommé, aucun port publié). Le front
+statique est généré par un conteneur à usage unique (`web-build`) dans un volume que Caddy sert ; Caddy
+proxifie `/api/*` vers l'API (voir « Front statique »).
 
 ## Prérequis
 
@@ -33,9 +34,9 @@ Le script est idempotent. Il vérifie Docker, crée le dossier de déploiement (
 `/opt/siteperso-v3`, droits 700), puis crée `DEPLOY_DIR/.env.prod` depuis `docker/.env.prod.example` avec un
 mot de passe PostgreSQL du propriétaire (`POSTGRES_PASSWORD`) et un mot de passe du rôle de l'API
 (`API_DB_PASSWORD`) générés par `openssl rand`. Il s'arrête alors avec le **code de sortie 10** : éditer
-`.env.prod` (`SITE_DOMAIN`, `CORS_ORIGIN`, éventuellement `RATE_LIMIT_*`) puis relancer le script. Il
-construit l'image, lance la pile, attend que l'API soit `healthy` (`HEALTH_TIMEOUT`, 180 s par défaut) et
-affiche l'état.
+`.env.prod` (`SITE_DOMAIN`, `CORS_ORIGIN`, **`WEB_CONTACT_EMAIL`**, éventuellement `RATE_LIMIT_*`) puis relancer le
+script. Il construit l'image, lance la pile, attend que l'API soit `healthy` (`HEALTH_TIMEOUT`, 180 s par défaut),
+génère le front contre elle et bascule Caddy (voir « Front statique ») puis affiche l'état.
 
 | Code | Sens                                                               |
 | ---- | ------------------------------------------------------------------ |
@@ -57,7 +58,8 @@ scripts/deploy/update.sh
 Sauvegarde préalable (`backup.sh`, l'échec arrête la mise à jour avant toute modification ; `SKIP_BACKUP=1`
 la saute), `git pull --ff-only origin main` (le dépôt doit être sur `main`, voir « Branche déployée »),
 reconstruction de l'image, `compose run --rm migrate` (migrations et seeds),
-`compose up -d`. Une migration déjà appliquée ne doit jamais être modifiée : le runner compare les
+`compose up -d`, attente de l'API `healthy`, génération du front et bascule de Caddy (si la génération échoue, le
+script s'arrête et le site précédent reste servi). Une migration déjà appliquée ne doit jamais être modifiée : le runner compare les
 checksums et échoue (voir `db/README.md`).
 
 ## Sauvegarde et restauration
@@ -106,11 +108,83 @@ gunzip -c DEPLOY_DIR/backups/<fichier>.sql.gz | \
   exec -T postgres psql -U siteperso -d siteperso
 ```
 
+## Front statique (BF-13 à BF-15)
+
+Le front (`apps/web`) est une génération statique (`nuxt generate`) : aucun serveur Node du front en production.
+Caddy sert les fichiers générés ; l'API ne sert pas le front.
+
+**Choix : un volume, rempli par un conteneur de génération** (et non une image du front servie par Caddy). La
+génération lit le contenu à l'API **migrée et seedée** (`GET /api/v1/cv?lang=`, elle échoue si l'API ne répond
+pas) : un `docker build` ne joint pas le réseau interne de la pile (l'API n'est pas joignable pendant le
+build, et elle exigerait une base prête), alors qu'un conteneur du réseau `app` l'atteint par `http://api:3000`.
+Une image Caddy intégrant les pages obligerait en plus à reconstruire et recréer Caddy (donc couper TLS et
+connexions) à chaque génération. Avec un volume, la bascule est un renommage atomique et Caddy ne redémarre pas.
+
+| Élément                      | Rôle                                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docker/web.Dockerfile`      | image de génération (même base Node que l'API, épinglée par digest, `pnpm install --frozen-lockfile`, utilisateur `node`) ; elle ne sert rien |
+| service `web-build`          | profil `build` : `compose up` ne le lance jamais ; réseau `app` seul (joint l'API, jamais la base ni Internet) ; lecture seule, `cap_drop: ALL` |
+| volume `web_site`            | écrit par `web-build` (`/site`), lu par Caddy en lecture seule (`/srv/web`)                                                                 |
+| `scripts/deploy/web-generate.sh` | dans l'image : génère, contrôle les pages, relève les empreintes CSP, publie `releases/<id>/{public,csp.caddy}`, bascule `current`, garde 3 versions |
+| `scripts/deploy/site.sh`     | `publish_site` : construit l'image, joue `compose run --rm web-build`, recharge Caddy ; partagé par `first-install.sh`, `update.sh` et `pnpm stack:up` |
+
+**Ordre au déploiement** : base, migrations et seeds (`migrate`), API `healthy`, génération du front, bascule de
+Caddy. `first-install.sh`, `update.sh` et `pnpm stack:up` l'appliquent. Un échec de génération (API injoignable,
+adresse de contact vide ou invalide, page attendue absente) arrête le script avant la bascule : le lien `current`
+n'a pas bougé et Caddy continue de servir la version précédente (`apps/api/test/web-generate.e2e-spec.ts` le
+prouve avec un faux `nuxt`). Retour arrière manuel : `releases/<id précédent>` est conservé (3 versions) ;
+repointer `current` puis `caddy reload`.
+
+Variables de génération, toutes dans `.env.prod` (modèle `docker/.env.prod.example`) :
+
+- `WEB_CONTACT_EMAIL` : adresse du bouton « Lancer l'entretien », figée dans les pages à la génération. Le dépôt
+  ne contient que `contact@example.org` ; **la vraie adresse se renseigne sur le serveur**. Vide ou invalide, la
+  génération échoue.
+- `PUBLIC_SITE_URL` (facultatif) : URL publique absolue (canonical, hreflang) ; `https://<SITE_DOMAIN>` par défaut.
+  En local avec un port non standard, elle porte ce port (`docker/.env.local.example`).
+
+### Caddy et la CSP du front
+
+- `/api/*` : inchangé (proxy vers l'API). `/fr` et `/fr/*` : 301 vers le même chemin sans préfixe (D15), le premier
+  caractère de la suite ne pouvant être `/` ni `\` (sinon `/fr//hote` redirigerait hors du site : ce chemin donne
+  la page 404). Le reste : `file_server` sur `/srv/web/current/public`, `try_files {path} {path}/index.html`
+  (`/en` répond 200 sans redirection vers `/en/`). Route inconnue : 404 avec la page `404.html` du front (une
+  coquille rendue côté client, le statut vient de Caddy).
+- En-têtes de tout le site inchangés (HSTS, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, pas de `Server`) ;
+  sur le front : `X-Frame-Options: DENY` et la CSP.
+- **CSP** : `default-src 'self'` ; `script-src 'self'` plus une empreinte par script en ligne ; `style-src 'self'`
+  plus une empreinte par `<style>` en ligne ; `img-src 'self' data:` ; `font-src`, `connect-src` en `'self'` ;
+  `frame-ancestors 'none'`, `base-uri 'self'`, `form-action 'self'`, `object-src 'none'`. Aucun domaine tiers.
+- Les empreintes changent à chaque génération (carte d'import, `window.__NUXT__`, styles critiques de chaque page).
+  `scripts/deploy/csp-hashes.mjs` les relève dans toutes les pages de `.output/public` (le script de thème sans
+  flash D5 en fait partie : sa constante `THEME_SCRIPT_SHA256` se retrouve dans la CSP servie, vérifié par
+  `local-stack-front.e2e-spec.ts`) et écrit `csp.caddy` à côté de `public/` (pas servi). Le `Caddyfile` l'importe
+  depuis `/srv/web/current/csp.*` ; `publish_site` recharge Caddy après la bascule (une fraction de seconde où
+  l'ancienne CSP couvre les nouvelles pages : sans effet pour une page déjà chargée).
+- **Styles par empreintes, pas `'unsafe-inline'`** : les pages générées n'ont aucun attribut `style=` (les styles
+  que Vue pose à l'exécution passent par l'API CSSOM, que la CSP ne bloque pas), et chaque page a un unique bloc
+  `<style>` : les empreintes couvrent tout, sans ouvrir l'injection de style. Si une violation `style-src`
+  apparaît au parcours de fumée, la réponse est de la comprendre, pas d'ajouter `'unsafe-inline'`.
+- **Cache** : `/_nuxt/*` (nom à empreinte) en `public, max-age=31536000, immutable` ; `/fonts/*` (noms de version
+  fixes) une semaine ; tout le reste (HTML, PDF, `404.html`) `no-cache` (revalidation par ETag).
+
+### Parcours de fumée du front (BF-15)
+
+`pnpm stack:up` construit l'API et l'image de génération, migre et seede, génère le front contre l'API saine,
+recharge Caddy puis attend `/` en 200. `apps/api/test/local-stack-front.e2e-spec.ts` (même détection de la pile que
+`local-stack.e2e-spec.ts`) vérifie : `/` et `/en` en 200 avec le contenu de l'API, `/fr` en 301, route inconnue en
+404 (page du front), `/cv/cv-fr.pdf` en `application/pdf`, la CSP (présente, stricte, empreintes de chaque script
+en ligne servi), les en-têtes de cache. Avec les navigateurs démarrés (`pnpm e2e:browsers:up`),
+`scripts/deploy/csp-smoke.mjs` charge `/`, `/en`, `/accessibilite`, `/en/accessibility` et une route inconnue dans
+Chromium (service `playwright`, version de `@playwright/test` d'`apps/web`) et échoue à la première violation CSP,
+erreur de console ou page non affichée ; il vérifie aussi que le script de thème a tourné (`<html data-theme>`).
+Le job CI `pile-locale` lance les deux (`STACK_REQUIRED=1`).
+
 ## Réseaux et durcissement des conteneurs
 
-- Réseaux : `edge` (Caddy : ports publiés, sortie vers Internet pour le certificat), `app` (Caddy et l'API) et
+- Réseaux : `edge` (Caddy : ports publiés, sortie vers Internet pour le certificat), `app` (Caddy, l'API et `web-build`) et
   `data` (l'API, `migrate`, PostgreSQL), ces deux derniers `internal: true`. Caddy ne joint donc pas la base et
-  l'API ne peut pas sortir sur Internet. Le futur front se branchera sur `app`.
+  l'API ne peut pas sortir sur Internet.
 - Chaque conteneur : système de fichiers racine en lecture seule (`tmpfs` pour `/tmp`), `cap_drop: ALL` (Caddy
   garde `NET_BIND_SERVICE`, PostgreSQL les capacités de son entrypoint), `no-new-privileges`, `mem_limit` et
   `pids_limit`.
@@ -187,19 +261,20 @@ Aucun secret n'est versionné : `.env.prod` vit dans `DEPLOY_DIR`, hors du dép�
 ## Pile locale complète
 
 Objectif (décision du 19 novembre 2026) : reproduire sur le poste tout comportement observé en production. La
-pile locale **est** la pile de production : mêmes `docker/compose.prod.yml`, `docker/Caddyfile` et image
-`siteperso-api:prod` (Dockerfile `docker/api.Dockerfile`). Il n'existe ni second compose ni second Caddyfile ;
+pile locale **est** la pile de production : mêmes `docker/compose.prod.yml`, `docker/Caddyfile` et images
+`siteperso-api:prod` (`docker/api.Dockerfile`) et `siteperso-web-build:prod` (`docker/web.Dockerfile`). Il n'existe ni second compose ni second Caddyfile ;
 la variation locale tient dans un seul fichier d'environnement, `docker/.env.local` (copie ignorée par git de
 `docker/.env.local.example`).
 
 ```sh
-pnpm stack:up                    # crée docker/.env.local si besoin (mots de passe générés), construit l'image,
-                                 # démarre, attend /api/v1/health via Caddy
+pnpm stack:up                    # crée docker/.env.local si besoin (mots de passe générés), construit les images,
+                                 # démarre, attend /api/v1/health, génère le front, attend / via Caddy
 pnpm stack:ps                    # état des conteneurs (migrate apparaît « Exited (0) » : normal)
 pnpm stack:logs [service]        # journaux (Caddy : journal d'accès JSON)
 pnpm stack:down                  # arrête et supprime conteneurs et réseaux, garde la base et les certificats
 pnpm stack:down --volumes        # supprime aussi la base et les certificats de Caddy (option explicite)
 curl -sk https://localhost:8443/api/v1/health
+curl -sk -o /dev/null -w '%{http_code}\n' https://localhost:8443/   # le front : 200
 ```
 
 Les scripts sont `scripts/deploy/local-stack.sh` (`DRY_RUN=1` affiche les commandes sans les lancer ;
@@ -220,6 +295,7 @@ Toutes passent par `docker/.env.local` ; aucune ne modifie un fichier compose ou
 | Certificat TLS           | Let's Encrypt                   | autorité interne de Caddy (auto-signé)   | aucune validation ACME possible pour `localhost` (voir ci-dessous)     |
 | `CORS_ORIGIN`            | `https://<domaine>`             | `https://localhost:8443`                 | l'origine suit le domaine et le port                                   |
 | Mots de passe PostgreSQL | secrets du serveur              | générés au hasard, propres au poste      | aucun secret réel hors du serveur                                      |
+| Contact et URL du front  | `WEB_CONTACT_EMAIL` réelle, `https://<domaine>` | `contact@example.org`, `https://localhost:8443` (`PUBLIC_SITE_URL`) | la vraie adresse n'est jamais dans le dépôt |
 | `alt-svc` (HTTP/3)       | `h3=":443"` correct             | annonce `:443` alors que le port publié est 8443 | Caddy annonce son port interne ; sans effet pour curl (HTTP/1.1 et 2) |
 | Sauvegardes, `restart`   | `backup.sh`, `unless-stopped`   | non planifiées ; `restart` identique     | scripts de déploiement réservés au serveur                             |
 | Quota (`RATE_LIMIT_*`)   | 100 par 60 s                    | idem                                     | volontairement identique : le 429 se reproduit avec 100 requêtes      |
@@ -271,11 +347,12 @@ l'indique et réussit : `pnpm check` reste utilisable sur un poste qui n'a pas l
 épuise le quota : le fichier d'essai attend la fin de la fenêtre avant de commencer, et le scénario 8 termine
 en redémarrant l'API, qui remet le quota à zéro.
 
-### Image
+### Images
 
-L'image construite pour la pile s'appelle `siteperso-api:prod`, comme en production : `stack:up` la
-reconstruit à chaque lancement (le cache de couches la rend quasi instantanée si rien n'a changé). Elle peut
-rester sur le poste après `stack:down` ; `docker image rm siteperso-api:prod` la supprime.
+Les images construites pour la pile s'appellent `siteperso-api:prod` et `siteperso-web-build:prod`, comme en
+production : `stack:up` les reconstruit à chaque lancement (le cache de couches les rend quasi instantanées si
+rien n'a changé). Elles peuvent rester sur le poste après `stack:down` ; `docker image rm siteperso-api:prod
+siteperso-web-build:prod` les supprime.
 
 ## Protection de develop
 
@@ -289,9 +366,11 @@ Décision de Julien du 21 nov. 2026 : « on ne lance jamais deux fois les tests 
 `pull_request` (vers `develop` et vers `main`), sur `push` de `main` seulement (hotfix poussés directement : CI
 informative après coup) et sur `workflow_dispatch` (amorçage de la mutation). Plus aucun push de `develop`, `lot/**`,
 `release/**`, `hotfix/**` ni d'étiquette ne la lance. Les jobs requis tournent en parallèle ; le premier qui échoue
-annule tout le run (`gh run cancel`, dernière étape `if: failure()` de chaque job requis, permission `actions: write`
-limitée à ces jobs) : un job qui lance cette annulation peut s'afficher « annulé » plutôt qu'« échoué », la fusion
-reste bloquée dans les deux cas. La revue Claude (`needs:` sur tous les jobs requis, même workflow, pas de
+annule tout le run (lot 26, L26-02) : le job `arret-premier-echec`, lancé en parallèle, sans checkout et seul à
+porter `actions: write`, lit les jobs du run toutes les 15 s (trois tentatives par lecture ; une API injoignable
+donne un avertissement, jamais un job rouge) et, dès qu'un job requis est conclu `failure` ou `timed_out`, écrit un
+résumé puis lance `gh run cancel`. Le job fautif est déjà terminé : il reste « en échec », les autres sont annulés.
+La mutation, la revue et ce job ne sont pas surveillés. La revue Claude (`needs:` sur tous les jobs requis, même workflow, pas de
 `workflow_run`) ne démarre qu'une fois la CI verte. La mutation est complète avec seuils sur les PR vers `main`,
 incrémentale et informative ailleurs.
 
@@ -319,6 +398,10 @@ Secret de dépôt `CLAUDE_CODE_OAUTH_TOKEN` : jeton Claude Code de l'abonnement 
 
 Le jeton ne passe jamais dans une commande, un fichier ni une conversation. La revue consomme les limites de
 l'abonnement Max, partagées avec son usage interactif. Sans ce secret, le contrôle « Revue PR (Claude) » échoue.
+
+Suivi de la consommation : chaque run écrit coût équivalent, tours, durée et modèle dans son résumé (étape
+« Consommation de la revue ») ; pour plusieurs runs, passer leurs résultats JSON à
+`node scripts/ci/review-usage.mjs` (fichier ou entrée standard, rien n'est appelé par le script).
 
 ### Règles à poser
 

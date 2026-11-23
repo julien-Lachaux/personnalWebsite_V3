@@ -1,7 +1,7 @@
 # Production : Caddy (TLS automatique) devant l'API, PostgreSQL privé.
 # Seul `caddy` publie des ports (80/443). Trois réseaux :
 #   - edge : réseau Docker ordinaire de Caddy (ports publiés, sortie vers Internet pour le certificat) ;
-#   - app  : Caddy et l'API, `internal` (aucune sortie vers Internet) ;
+#   - app  : Caddy, l'API et la génération du front, `internal` (aucune sortie vers Internet) ;
 #   - data : l'API, migrate et PostgreSQL, `internal` (Caddy n'y est pas : il ne joint pas la base).
 # Conteneurs durcis : système de fichiers en lecture seule, aucune capacité Linux superflue,
 # `no-new-privileges`, mémoire et nombre de processus bornés.
@@ -24,7 +24,8 @@ services:
       PUBLIC_HTTPS_PORT: ${HTTPS_PORT:-443}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./placeholder:/srv/placeholder:ro
+      # Site du front (volume rempli par web-build) : Caddy le lit sans pouvoir l'écrire.
+      - web_site:/srv/web:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -140,15 +141,41 @@ services:
     mem_limit: 512m
     pids_limit: 200
 
-  # `web` : service réservé au futur front (apps/web, différé). Tant qu'il n'existe pas, Caddy sert
-  # docker/placeholder/index.html. Exemple à activer le moment venu (réseau `app`, comme l'API) :
-  # web:
-  #   image: siteperso-web:prod
-  #   restart: unless-stopped
-  #   expose:
-  #     - '3001'
-  #   networks:
-  #     - app
+  # Génération du front (BF-13) : image dédiée à la génération, volume `web_site` lu par Caddy. Profil
+  # `build` : ni `up` ni `up -d --build` ne le lancent ; scripts/deploy/site.sh (publish_site) le joue après
+  # que l'API est migrée, seedée et saine (`compose run --rm web-build`), puis recharge Caddy.
+  # Réseau `app` seul (interne) : il joint l'API, jamais la base ni Internet. Contenu et adresse du
+  # bouton de contact figés dans les pages au build (NUXT_PUBLIC_*), jamais lus à l'exécution.
+  web-build:
+    profiles: [build]
+    build:
+      context: ..
+      dockerfile: docker/web.Dockerfile
+    image: siteperso-web-build:prod
+    restart: 'no'
+    environment:
+      NUXT_CV_SOURCE: api
+      NUXT_API_BASE_URL: http://api:3000
+      NUXT_PUBLIC_CONTACT_EMAIL: ${WEB_CONTACT_EMAIL:-}
+      NUXT_PUBLIC_I18N_BASE_URL: ${PUBLIC_SITE_URL:-https://${SITE_DOMAIN:-localhost}}
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - web_site:/site
+    networks:
+      - app
+    # Seul conteneur dont le système de fichiers n'est pas en lecture seule : Nitro vide et recrée
+    # `.output` (un `tmpfs` monté dessus fait échouer `rmdir` : EROFS) et Nuxt écrit `.nuxt` et ses caches.
+    # Constaté sous Docker (lot 24). Conteneur jetable (`run --rm`), sans port, sur le réseau interne
+    # `app`, utilisateur `node`, sans capacité : seul le volume du site survit.
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2g
+    pids_limit: 300
 
 networks:
   edge:
@@ -159,5 +186,6 @@ networks:
 
 volumes:
   pgdata:
+  web_site:
   caddy_data:
   caddy_config:

@@ -10,8 +10,8 @@ set -euo pipefail
 
 # shellcheck source=scripts/deploy/common.sh
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
-
-HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-180}"
+# shellcheck source=scripts/deploy/site.sh
+. "$(dirname "${BASH_SOURCE[0]}")/site.sh"
 
 require_docker
 require_deploy_branch
@@ -51,22 +51,14 @@ log "Démarrage de la pile (migrations et seeds passent par le service migrate)"
 run compose up -d
 
 if [ "${DRY_RUN}" = "1" ]; then
+  publish_site
   log "Dry-run : attente du healthcheck et état ignorés."
   exit 0
 fi
 
-log "Attente du healthcheck de l'API (${HEALTH_TIMEOUT} s max)"
-api_id="$(compose ps -q api)"
-[ -n "${api_id}" ] || die "le conteneur api n'existe pas"
-elapsed=0
-until [ "$(docker inspect --format '{{.State.Health.Status}}' "${api_id}")" = "healthy" ]; do
-  if [ "${elapsed}" -ge "${HEALTH_TIMEOUT}" ]; then
-    compose logs --tail 50 migrate api || true
-    die "l'API n'est pas healthy après ${HEALTH_TIMEOUT} s"
-  fi
-  sleep 3
-  elapsed=$((elapsed + 3))
-done
+wait_for_api_health
+# Ordre BF-13 : l'API est migrée, seedée et saine avant la génération du front (qui lit son contenu).
+publish_site
 
 log "État de la pile"
 compose ps

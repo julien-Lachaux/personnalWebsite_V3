@@ -51,6 +51,7 @@ import {
   markReported,
   normalize,
   pendingViolations,
+  pruneState,
   recordAuthorizedWrite,
   recordViolations,
   relativeTo,
@@ -511,7 +512,33 @@ function snapshotCwd(ctx) {
   if (top) ensureSnapshot(ctx.root, ctx.key, top);
 }
 
+/**
+ * L26-05 : élagage des écritures autorisées et des reports devenus inutiles, après la vérification.
+ * Jamais bloquant : une erreur est journalisée et la fin de tâche garde son résultat.
+ */
+function prune(ctx) {
+  try {
+    const removed = pruneState(ctx.root);
+    if (Object.keys(removed.writes).length + Object.keys(removed.carry).length > 0)
+      audit(ctx.root, { event: 'pruned', role: ctx.role, key: ctx.key, ...removed });
+  } catch (error) {
+    audit(ctx.root, {
+      event: 'error',
+      mode: 'prune',
+      role: ctx.role,
+      key: ctx.key,
+      message: error?.message ?? String(error),
+    });
+  }
+}
+
 function verify(ctx) {
+  const code = verifySnapshots(ctx);
+  prune(ctx);
+  return code;
+}
+
+function verifySnapshots(ctx) {
   // BF-11 : l'instantané d'une racine disparue ou d'un worktree retiré (dossier recréé par un outil,
   // qui n'est plus ce dépôt) est ignoré et supprimé, sans attendre que les autres soient propres.
   const snapshots = listSnapshots(ctx.root, ctx.key).filter((s) => {
