@@ -38,6 +38,7 @@ import {
 } from './lib/shell.mjs';
 import {
   audit,
+  carryCreatedTests,
   clearViolations,
   dropSnapshot,
   dropSnapshots,
@@ -50,8 +51,10 @@ import {
   markReported,
   normalize,
   pendingViolations,
+  recordAuthorizedWrite,
   recordViolations,
   relativeTo,
+  sha256,
   snapshotRootStatus,
   stateRoot,
   toplevelOf,
@@ -100,7 +103,7 @@ function contextOf(input) {
     typeof input.scratchpad_dir === 'string' && isAbsolute(input.scratchpad_dir)
       ? normalize(input.scratchpad_dir)
       : null;
-  return { input, role, key, cwd, scratch, root: stateRoot(cwd), used: [] };
+  return { input, role, key, cwd, scratch, root: stateRoot(cwd), used: [], writes: [] };
 }
 
 /** Le dossier temporaire de session est jetable : rien n'y est protégé. */
@@ -289,6 +292,36 @@ function checkFileTool(ctx, tool, ti) {
       path: rel,
     });
   }
+  // L25-04 : empreinte exacte du contenu que l'écriture autorisée produira, pour que la fin de
+  // tâche d'une autre clé qui a photographié ce dépôt ne la lui attribue pas.
+  const exact = exactContent(tool, ti, before);
+  if (exact !== null) {
+    for (const use of ctx.used.filter((u) => u.path === rel))
+      ctx.writes.push({ top, rel, sha256: sha256(exact), grant: use.grant, scope: use.scope });
+  }
+}
+
+/**
+ * Contenu que l'outil écrira, s'il est exactement connu : Write ; Edit et MultiEdit dont chaque
+ * texte remplacé est présent (une seule fois sans replace_all). Sinon null : l'outil échouera ou
+ * normalisera, et rien n'est relevé.
+ */
+function exactContent(tool, ti, before) {
+  if (tool === 'Write') return typeof ti.content === 'string' ? ti.content : null;
+  if (tool !== 'Edit' && tool !== 'MultiEdit') return null;
+  const edits = tool === 'MultiEdit' ? ti.edits : [ti];
+  if (!Array.isArray(edits)) return null;
+  let text = before;
+  for (const e of edits) {
+    if (!e || typeof e.old_string !== 'string' || typeof e.new_string !== 'string') return null;
+    if (e.old_string === '') return null;
+    const count = text.split(e.old_string).length - 1;
+    if (count === 0 || (count > 1 && !e.replace_all)) return null;
+    text = e.replace_all
+      ? text.split(e.old_string).join(e.new_string)
+      : text.replace(e.old_string, () => e.new_string);
+  }
+  return text;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -469,6 +502,8 @@ function preToolUse(ctx) {
   if (FILE_TOOLS.has(tool)) checkFileTool(ctx, tool, ti);
   else if (SHELL_TOOLS.has(tool) || typeof ti.command === 'string') checkShell(ctx, ti);
   journalUses(ctx);
+  for (const w of ctx.writes)
+    recordAuthorizedWrite(ctx.root, { ...w, key: ctx.key, role: ctx.role });
 }
 
 function snapshotCwd(ctx) {
@@ -492,6 +527,9 @@ function verify(ctx) {
     })),
   );
   if (violations.length === 0) {
+    // L25-03 : les tests créés pendant la tâche restent libres si la même clé reprend (agent
+    // relancé par un message, nouveau tour de la session principale).
+    for (const s of snapshots) carryCreatedTests(ctx.root, ctx.key, s);
     dropSnapshots(ctx.root, ctx.key);
     clearViolations(ctx.root, ctx.key);
     return 0;

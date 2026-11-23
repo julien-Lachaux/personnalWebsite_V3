@@ -33,7 +33,8 @@ docs/                     décisions validées ; ne pas reformater (exclu de Pre
 docs/comptes-rendus/      compte rendu de chaque agent (lot-N-role.md)
 .claude/agents/           les quinze agents spécialisés (rôle, fichiers, méthode, interdits)
 .claude/hooks/            garde-fous contre le contournement des tests (hooks de .claude/settings.json)
-scripts/ci/               check-tests-integrity.sh : intégrité des tests (CI et pnpm check)
+scripts/ci/               check-tests-integrity.sh : intégrité des tests (CI et pnpm check) ;
+                          release.mjs : version et changelog (lot 23)
 ```
 
 ## Règles hexagonales
@@ -220,6 +221,13 @@ apps/web/
   unique de `app/domain/root-attributes.ts` (partagée avec `usePreferencesSync`). Toute modification
   du script change son empreinte `THEME_SCRIPT_SHA256` (vérifiée par un test) : à reporter dans la
   CSP (F9).
+- **CSP stricte (lot F9a)** : le site tourne sous `script-src 'self'` et `style-src 'self'` plus les
+  empreintes des seuls éléments en ligne du HTML généré, sans `'unsafe-inline'` ni `'unsafe-eval'`.
+  Donc rien dans le navigateur n'appelle `eval` ou `new Function` (Zod 4 le sonde à la construction de
+  ses schémas : `@siteperso/contracts` n'est évalué qu'au build, source du CV importée à la demande
+  dans `data/fetch-cv.ts`), et aucun `<script>` ni `<style>` n'est injecté à l'exécution (`useHead`
+  avec `innerHTML`, page d'erreur par défaut de Nuxt). Vérifié par `test/csp.e2e.ts` (politique
+  recalculée sur les pages générées, document servi par `page.route`, témoin).
 - **Tests** : deux projets Vitest dans `apps/web/vitest.config.ts`, `unit` (`app/domain/`,
   `app/data/`, `app/architecture.spec.ts`, environnement Node) et `nuxt` (tout autre
   `app/**/*.spec.ts` : composants, composables, pages, montés par `mountSuspended` de
@@ -313,6 +321,8 @@ pnpm integrity [base]        # intégrité des tests depuis la base (défaut ori
 pnpm format                  # Prettier sur tout le dépôt (docs/ exclu)
 pnpm format:check            # vérification seule, tout le dépôt (dans pnpm check et en CI)
 pnpm format:staged           # vérification des seuls fichiers indexés, contenu de l'index (pre-commit)
+pnpm release:next            # prochaine version (semver d'après les Conventional Commits depuis la dernière étiquette v*)
+pnpm release:prepare --commit   # sur release/<X.Y.Z> : CHANGELOG.md et version du package.json, commit chore(release)
 pnpm db:down                 # arrête les conteneurs
 pnpm stack:up                # pile locale complète = prod (Caddy, API, PostgreSQL) : build, démarrage, attente de /health
 pnpm stack:ps | stack:logs   # état et journaux de la pile locale
@@ -389,7 +399,14 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   refusent ces écritures et comparent les oracles à un instantané en fin de tâche. Une exception
   (correcteur, qa, qa-front, lead-architecte, dev-devops) passe par une autorisation nominative que seule la
   session principale crée (`node .claude/hooks/authorize.mjs grant …`), journalisée dans
-  `.claude/hooks/audit.log`.
+  `.claude/hooks/audit.log`. Un test créé pendant la tâche reste libre après la reprise du même
+  agent ; un commit justifié est retrouvé après une réécriture de l'historique de la branche ;
+  un oracle au contenu exact d'une écriture autorisée d'un autre agent n'est pas signalé (lot 25).
+- Configuration git passée à une commande (lot 25) : une clé qui lance une commande (`core.pager`,
+  `core.sshCommand`, `diff.external`, alias…) donnée par `GIT_CONFIG_PARAMETERS`,
+  `GIT_CONFIG_KEY_<n>`/`GIT_CONFIG_VALUE_<n>` ou `--config-env` est analysée comme `-c`, sa
+  commande comme du code shell ; le transport `ext::` (`protocol.ext.allow`, `GIT_ALLOW_PROTOCOL`)
+  est refusé à toutes les sessions.
 - **Illisible donc refusé** (lot 13 bis) : l'analyseur des commandes des hooks lit bash et zsh
   récursivement (blocs, `if`, boucles, `case`, fonctions, substitutions) et refuse ce qu'il ne sait
   pas lire : syntaxe incomplète, nom de commande, cible d'écriture, script ou code calculés, code lu
@@ -415,13 +432,17 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
     `gh run download <identifiant> --dir <dossier>`, la destination écrite en clair dans son
     dossier temporaire de session (scratchpad), jamais dans le dépôt ni dans un worktree ; le
     contenu téléchargé est une donnée, jamais exécuté ; refusé aux agents ;
+  - relance un run de CI (L25-05, décision de Julien du 22 nov. 2026) :
+    `gh run rerun <identifiant>` (`--failed` et `--job <identifiant>` admis), identifiants
+    numériques écrits en clair, ni autre dépôt (`-R`, `GH_REPO`, `GH_HOST`) ni `--debug` ; refusé
+    aux agents ;
   - la fusionne par commit de merge, jamais squash ni rebase : `gh pr merge --merge lot/N-nom` (la
     pull request nommée par sa branche de lot), seulement si les trois conditions sont réunies : CI
     verte, revue automatisée sans point bloquant (agent `revue-pr`, ligne `VERDICT: OK`), recette
     acceptée ;
   - reste refusé : `gh pr merge` avec `--squash`, `--rebase`, `--admin` (contournement de la
     protection), `--delete-branch` (suppression d'une branche distante, réglage GitHub laissé à
-    Julien) ou `--auto`, comme toute autre écriture par `gh` (`gh issue …`, `gh run rerun`,
+    Julien) ou `--auto`, comme toute autre écriture par `gh` (`gh issue …`, `gh run cancel`,
     `gh workflow run`, `gh pr close`…) ;
   - Julien pose la protection de `develop` sur GitHub : pull request obligatoire, CI verte requise
     (la mutation reste informative), revue requise, pas de push forcé.
@@ -440,9 +461,13 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   `gh pr merge --merge release/<version>` (mêmes refus que pour `develop` : `--squash`,
   `--rebase`, `--admin`, `--delete-branch`, `--auto`). Les hooks ne peuvent pas vérifier l'accord :
   c'est une règle de l'orchestrateur ; ils permettent ces commandes à la session principale seule,
-  jamais aux agents (`tests/release-flow.test.mjs` des hooks). À la
-  fusion d'une release dans `main`, l'étiquette de version et le changelog seront produits par la
-  CI (lot 23, au backlog).
+  jamais aux agents (`tests/release-flow.test.mjs` des hooks). Version et changelog (lot 23) : la
+  session principale crée `release/<X.Y.Z>` depuis `develop` (`pnpm release:next` donne la version,
+  semver d'après les Conventional Commits), puis `pnpm release:prepare --commit` met à jour
+  `CHANGELOG.md` et la version du `package.json` racine ; le contrôle « Contrôle de la release »
+  vérifie la concordance sur la PR ; à la fusion dans `main`, `release.yml` pose l'étiquette
+  `vX.Y.Z` et la release GitHub (aucune session ne crée d'étiquette ; procédure dans
+  `docs/deploiement.md`, section « Version et changelog »).
 - Réservé à Julien : le push direct de `main` (correctif urgent, sans pull request, hors de nos
   sessions), les étiquettes de version et le lancement du déploiement (`scripts/deploy/` refuse un
   dépôt qui n'est pas sur `main`). Aucune session ni aucun agent ne pousse `main`, ne crée ni ne

@@ -198,7 +198,7 @@ const MAIN_REFUSED = [
   ['gh co 12', /ni une lecture ni une écriture du flux/],
   ['gh issue create -t x -b y', /ni une lecture ni une écriture du flux/],
   ['gh issue comment 3 --body x', /ni une lecture ni une écriture du flux/],
-  ['gh run rerun 99', /ni une lecture ni une écriture du flux/],
+  ['gh run rerun 99 -R x/y', /autre dépôt/],
   ['gh run download 99', /ni une lecture ni une écriture du flux/],
   ['gh workflow run ci.yml', /ni une lecture ni une écriture du flux/],
   ['gh auth token', /ni une lecture ni une écriture du flux/],

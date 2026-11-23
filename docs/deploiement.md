@@ -510,3 +510,62 @@ supplémentaire grâce à _Actions > CI > Run workflow_ (`workflow_dispatch`) su
 Lot 22 : le run complet avec seuils ne dépend plus des étiquettes `v*` mais des pull requests vers `main`
 (`MUTATION_FULL` dans `ci.yml`) ; vers `develop` il reste incrémental. Aucun push sur `develop` n'alimente plus le
 cache d'incrément : l'amorçage se fait par `workflow_dispatch` sur `develop`, puis les PR le restaurent depuis leur base.
+
+## Version et changelog
+
+Décisions de Julien du 21 nov. 2026 (lot 23). Une seule source de vérité : les Conventional Commits. Aucun
+robot n'écrit sur `main` ni sur une branche de release ; l'étiquette ne vient que du workflow
+`.github/workflows/release.yml` (les hooks refusent toute étiquette aux sessions).
+
+### Calcul de la version
+
+`scripts/ci/release.mjs` (Node et git, rien à installer, testé par `scripts/ci/tests/release.test.sh`) lit
+les commits depuis la dernière étiquette `v*` (la plus haute en semver, pas la plus récente, même si elle
+n'est pas dans l'historique de la branche) : `feat` donne une mineure, `fix` et `perf` un correctif, `!` après
+le type ou un pied `BREAKING CHANGE:` une majeure. Les commits de fusion et `chore(release)` sont ignorés ;
+`docs`, `chore`, `test`, `ci`, `build`, `refactor` et `style` ne déclenchent rien et n'entrent pas au
+changelog (sauf s'ils sont incompatibles). Sans `feat`, `fix`, `perf` ni rupture, il n'y a rien à publier
+(`pnpm release:next` échoue). Le changelog `CHANGELOG.md` est en français : « Changements incompatibles »,
+« Nouveautés », « Corrections », « Performances ».
+
+Première version : sans aucune étiquette, la version est `3.0.0` (V3 du site), avec une section d'introduction
+sans liste de commits (l'historique est dans git). Elle s'amorce par le même chemin que les suivantes.
+
+### Procédure (session principale, puis Julien)
+
+1. Depuis `develop` à jour : `v=$(pnpm -s release:next)`, puis `git switch -c release/$v develop`.
+2. `pnpm release:prepare --commit --trailer 'Co-Authored-By: …'` : écrit `CHANGELOG.md`, passe la `version`
+   du `package.json` racine à `$v` (les paquets du monorepo restent privés à `0.0.0`) et commite
+   `chore(release): $v`. Rejouable : la section de la version est remplacée, pas dupliquée.
+3. Pousser `release/$v` et ouvrir la pull request vers `main` (règle déjà en place, lot 22).
+4. Le job `Contrôle de la release` vérifie que la branche, la version calculée, le `package.json` et le
+   changelog concordent et que l'étiquette n'existe pas. Si des commits ont été ajoutés qui changent la version
+   (un `feat` après un correctif, par exemple), il échoue : relancer l'étape 2 et pousser.
+5. Julien relit le changelog dans la pull request et la fusionne (commit de merge). Le job `Étiquette et release`
+   pose alors `v$v` sur le commit de merge et crée la release GitHub avec la section du changelog.
+6. Julien déploie ensuite comme décrit plus haut.
+
+Le job de contrôle est ignoré (donc vert) hors branche `release/*` : Julien peut l'ajouter aux contrôles requis
+de `main` sans bloquer les autres pull requests.
+
+### Hotfix poussé directement sur `main`
+
+Un push sur `main` n'étiquette que si la version du `package.json` est supérieure à la dernière étiquette,
+n'est pas déjà étiquetée **et** a sa section dans `CHANGELOG.md`. Un hotfix qui ne touche ni l'un ni l'autre ne
+crée donc aucune étiquette : il part avec la prochaine release, dont le changelog le reprend (ses commits
+`fix` sont postérieurs à la dernière étiquette ; penser à rapatrier `main` dans `develop`, sinon le prochain
+calcul, fait depuis `develop`, ne le voit pas). Pour étiqueter un hotfix tout de suite, Julien exécute
+`pnpm release:prepare --any-branch --commit` dans le même push : la version, le changelog et l'étiquette
+suivent.
+
+### Limite : l'étiquette ne déclenche aucun autre workflow
+
+Une étiquette créée avec le `GITHUB_TOKEN` ne lance aucun workflow (protection de GitHub contre les boucles).
+Un déploiement automatique « sur étiquette » (L14-05) ne partirait donc pas. Options, sans rien implémenter :
+
+- enchaîner le déploiement dans `release.yml` (un job `needs: etiquette`, ou un workflow appelé par
+  `workflow_call`) : sans jeton supplémentaire, le plus simple ;
+- remplacer le `GITHUB_TOKEN` par un jeton d'une GitHub App (installation limitée au dépôt, `contents: write`) :
+  l'étiquette lance alors les workflows sur `push: tags`, mais il faut créer l'App et stocker sa clé en secret ;
+- garder l'étiquette passive et lancer le déploiement à la main (`workflow_dispatch` ou script du VPS), comme
+  aujourd'hui.
