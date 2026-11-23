@@ -7,8 +7,8 @@
 // « non conforme » (règle du RGAA sans audit en cours de validité), sans taux inventé.
 //
 // - Tout le texte vient des libellés (`declaration.*` de common.json), dans les deux langues.
-// - Les contenus non accessibles sont la liste `declaration.issues.items` (vide tant que l'audit n'a pas
-//   eu lieu : la page dit alors qu'aucun défaut n'est recensé).
+// - Les contenus non accessibles sont la liste `declaration.issues.items` (D34 : tous les défauts connus
+//   non corrigés ; vide, la page dit qu’aucun défaut n’est recensé).
 // - Le contact est un `mailto:` vers NUXT_PUBLIC_CONTACT_EMAIL, comme « Lancer l'entretien » : l'adresse
 //   n'est jamais affichée ; absente ou invalide, la page lève une erreur et la génération échoue.
 // - L'adresse du site citée est celle des liens canoniques (NUXT_PUBLIC_I18N_BASE_URL).

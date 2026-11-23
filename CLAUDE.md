@@ -154,7 +154,7 @@ apps/web/
 
 - **Couches** : la logique décide dans `domain/`, le composable relie l'état, le composant affiche.
   Un composant peut importer une fonction pure de `domain/`, jamais `data/` (sauf `HomePage`, `mapCv`) :
-  D37, vérifié par `app/architecture.spec.ts`.
+  D37, vérifié par `app/architecture-components.spec.ts`.
   Les auto-imports de Nuxt ne servent pas dans `domain/` ni `data/` : ces dossiers sont testés dans
   le projet Vitest `unit`, sans Nuxt, où un `ref()` non importé échoue. Les contenus viennent de
   l'API (`GET /cv?lang=` au build) ou de fixtures validées par `@siteperso/contracts`, jamais de
