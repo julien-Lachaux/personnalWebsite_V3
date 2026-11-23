@@ -366,9 +366,11 @@ Décision de Julien du 21 nov. 2026 : « on ne lance jamais deux fois les tests 
 `pull_request` (vers `develop` et vers `main`), sur `push` de `main` seulement (hotfix poussés directement : CI
 informative après coup) et sur `workflow_dispatch` (amorçage de la mutation). Plus aucun push de `develop`, `lot/**`,
 `release/**`, `hotfix/**` ni d'étiquette ne la lance. Les jobs requis tournent en parallèle ; le premier qui échoue
-annule tout le run (`gh run cancel`, dernière étape `if: failure()` de chaque job requis, permission `actions: write`
-limitée à ces jobs) : un job qui lance cette annulation peut s'afficher « annulé » plutôt qu'« échoué », la fusion
-reste bloquée dans les deux cas. La revue Claude (`needs:` sur tous les jobs requis, même workflow, pas de
+annule tout le run (lot 26, L26-02) : le job `arret-premier-echec`, lancé en parallèle, sans checkout et seul à
+porter `actions: write`, lit les jobs du run toutes les 15 s (trois tentatives par lecture ; une API injoignable
+donne un avertissement, jamais un job rouge) et, dès qu'un job requis est conclu `failure` ou `timed_out`, écrit un
+résumé puis lance `gh run cancel`. Le job fautif est déjà terminé : il reste « en échec », les autres sont annulés.
+La mutation, la revue et ce job ne sont pas surveillés. La revue Claude (`needs:` sur tous les jobs requis, même workflow, pas de
 `workflow_run`) ne démarre qu'une fois la CI verte. La mutation est complète avec seuils sur les PR vers `main`,
 incrémentale et informative ailleurs.
 
@@ -396,6 +398,10 @@ Secret de dépôt `CLAUDE_CODE_OAUTH_TOKEN` : jeton Claude Code de l'abonnement 
 
 Le jeton ne passe jamais dans une commande, un fichier ni une conversation. La revue consomme les limites de
 l'abonnement Max, partagées avec son usage interactif. Sans ce secret, le contrôle « Revue PR (Claude) » échoue.
+
+Suivi de la consommation : chaque run écrit coût équivalent, tours, durée et modèle dans son résumé (étape
+« Consommation de la revue ») ; pour plusieurs runs, passer leurs résultats JSON à
+`node scripts/ci/review-usage.mjs` (fichier ou entrée standard, rien n'est appelé par le script).
 
 ### Règles à poser
 

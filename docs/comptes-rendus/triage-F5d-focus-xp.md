@@ -72,3 +72,13 @@ Rapport de l'agent triage, consigné par l'orchestrateur.
   --project=mobile-390 --project=tablette-834 --workers=2 --repeat-each=10` (0 échec), puis la sonde
   avec gel des animations ou CPU bridé.
 - Lien avec F5D-1 : même famille plausible (mesure pendant une animation), non démontré.
+
+# Clôture de F5D-1 (22 novembre 2026)
+
+Clos par Julien en « non reproduit, sous surveillance » : depuis la correction F5D-2 (PR #8), toutes
+les CI front sont vertes (PR #8, #5, #6, #12) et le parcours XP n'a plus échoué ; le triage ne l'a pas
+reproduit (plus de 100 essais, CPU bridé). L'artefact `front-rapports` du run 44928473401 a pu être
+téléchargé (`gh run download`, permis depuis le lot back 22), mais son rapport Playwright (1,5 Mo,
+résultats compressés dans le HTML) n'a pas pu être lu : les garde-fous refusent un interpréteur sur un
+fichier de plus de 512 Ko. Si l'échec revient : télécharger l'artefact du run et demander à la session
+back d'autoriser la lecture de ces rapports dans le scratchpad.

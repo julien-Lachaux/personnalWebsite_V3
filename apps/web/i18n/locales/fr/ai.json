@@ -1,5 +1,8 @@
 {
   "ai": {
-    "tagsLabel": "Mots-clés"
+    "tagsLabel": "Mots-clés",
+    "placeholder": {
+      "text": "placeholder"
+    }
   }
 }

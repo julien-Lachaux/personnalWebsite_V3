@@ -10,12 +10,14 @@
 // - Expérience : la section a sa propre zone qui défile (la liste sous le filtre) ; elle est donnée à la
 //   coquille (`scrollers`) pour la barre d'actions et la flèche, et la section remplit l'onglet XP.
 //   Marges et fondu du bas suivent la mise en page de l'onglet (variables de la section).
-// - IA : rien quand l'API ne sert pas de section IA.
+// - IA : le placeholder terminal (D27) quand l'API ne sert pas de section IA (`view.ai` nul), jamais une
+//   tuile ou un onglet vide.
 import { computed, useTemplateRef } from 'vue';
 import { useHead, useI18n, useLocalePath } from '#imports';
 
 import { useCv } from '../../composables/use-cv.js';
 import { mapCv } from '../../data/map-cv.js';
+import AiPlaceholder from '../ai/AiPlaceholder.vue';
 import AiSection from '../ai/AiSection.vue';
 import ExperienceSection from '../experience/ExperienceSection.vue';
 import ProfileSection from '../profile/ProfileSection.vue';
@@ -75,6 +77,7 @@ useHead(() => ({
     </template>
     <template #ai>
       <AiSection v-if="view.ai" :ai="view.ai" />
+      <AiPlaceholder v-else />
     </template>
   </AppShell>
 </template>

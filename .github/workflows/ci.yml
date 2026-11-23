@@ -23,18 +23,15 @@ concurrency:
   cancel-in-progress: true
 
 # Permissions minimales : la CI ne lit que le dépôt, ne publie rien. `actions: write` (annulation du
-# run au premier échec, L22-03) et `pull-requests: write` (revue) ne sont donnés qu'aux jobs concernés.
+# run au premier échec, L26-02) et `pull-requests: write` (revue) ne sont donnés qu'aux jobs concernés.
 permissions:
   contents: read
 
 env:
   NODE_VERSION: '26.13.1'
 
-# L22-03 : arrêt au premier échec. Les jobs requis tournent en parallèle ; le premier qui échoue annule
-# tout le run (`gh run cancel`, dernière étape `if: failure()` du job, avec `actions: write` limité à ces
-# jobs). La mutation et la revue Claude, qui attendent ou tournent en même temps, sont annulées avec lui.
-# Un job annulé par cette étape peut s'afficher « annulé » plutôt qu'« échoué » : dans les deux cas le
-# contrôle n'est pas vert et la fusion reste bloquée.
+# L22-03 puis L26-02 : arrêt au premier échec, par le job `arret-premier-echec` (il annule le run sans que
+# le job fautif passe en « annulé »). La mutation et la revue Claude sont annulées avec le reste.
 
 jobs:
   qualite:
@@ -43,10 +40,10 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      # `actions: write` : seulement pour l'étape finale qui annule le run au premier échec (L22-03).
-      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # La version de pnpm vient du champ `packageManager` du package.json racine.
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -68,13 +65,6 @@ jobs:
       - run: pnpm husky:test
       # Pas de `pnpm test` ici : les unitaires des contrats et de l'API sont exécutés par le job `e2e`
       # (`test:coverage`, projets unit et e2e) et ceux du front par le job `front-qualite`.
-      - name: Annuler le run (premier échec)
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
 
   garde-fous:
     name: Garde-fous (intégrité des tests, hooks des agents)
@@ -82,13 +72,12 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      # `actions: write` : seulement pour l'étape finale qui annule le run au premier échec (L22-03).
-      actions: write
     steps:
       # Historique complet : le script remonte au point de divergence avec la branche d'intégration.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -97,19 +86,15 @@ jobs:
       # Tous les fichiers *.test.sh (marqueurs, configurations protégées, directives Stryker disable).
       - name: Tests du script d'intégrité
         run: for t in scripts/ci/tests/*.test.sh; do bash "$t" || exit 1; done
+      # L26-03 : la matrice front-parcours reprend exactement les viewports de playwright.config.ts.
+      - name: Cohérence de la matrice front-parcours
+        run: node scripts/ci/check-front-matrix.mjs
       # Test existant modifié ou supprimé, configuration de test changée sans Justification-test,
       # marqueur de saut ou commentaire d'ignore : échec. Base = cible de la PR, sinon develop.
       - name: Intégrité des tests depuis la branche d'intégration
         env:
           BASE_REF: ${{ github.base_ref || 'develop' }}
         run: bash scripts/ci/check-tests-integrity.sh "origin/${BASE_REF}"
-      - name: Annuler le run (premier échec)
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
 
   e2e:
     name: Tests e2e et couverture 100 % (PostgreSQL 16)
@@ -117,8 +102,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      # `actions: write` : seulement pour l'étape finale qui annule le run au premier échec (L22-03).
-      actions: write
     services:
       postgres:
         image: postgres:16-alpine
@@ -138,6 +121,8 @@ jobs:
       CORS_ORIGIN: http://localhost:3001
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -183,13 +168,6 @@ jobs:
           retention-days: 14
       # Seconde passe e2e dans un ordre de fichiers aléatoire : détecte une dépendance entre fichiers.
       - run: pnpm --filter @siteperso/api exec vitest run --project e2e --sequence.shuffle.files
-      - name: Annuler le run (premier échec)
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
 
   # L22-06 : l'ancien job unique « Front » (lint, typecheck, couverture, puis 7 projets Playwright en
   # séquence : 30 à 40 min sur l'exécuteur à 2 cœurs, les parcours seuls 26,8 min) est réparti en un
@@ -200,10 +178,10 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      # `actions: write` : seulement pour l'étape finale qui annule le run au premier échec (L22-03).
-      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -245,13 +223,6 @@ jobs:
           path: apps/web/coverage/lcov.info
           if-no-files-found: warn
           retention-days: 14
-      - name: Annuler le run (premier échec)
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
 
   # Parcours Playwright + axe : un job par projet Playwright (= une taille d'écran des maquettes). Une
   # matrice par projet plutôt que `--shard` : noms de contrôles stables et lisibles (un échec dit quelle
@@ -263,8 +234,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      # `actions: write` : seulement pour l'étape finale qui annule le run au premier échec (L22-03).
-      actions: write
     strategy:
       fail-fast: false
       matrix:
@@ -278,6 +247,8 @@ jobs:
           - ultra-3440
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -310,13 +281,6 @@ jobs:
       - name: Arrêt des navigateurs
         if: always()
         run: docker compose down
-      - name: Annuler le run (premier échec)
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
 
   analyse-statique:
     name: Analyse statique (actionlint des workflows, shellcheck des scripts)
@@ -324,20 +288,69 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      # `actions: write` : seulement pour l'étape finale qui annule le run au premier échec (L22-03).
-      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # Images Docker épinglées par digest dans le script, même commande que `pnpm check`.
       - run: bash scripts/ci/static-analysis.sh workflows
       - run: bash scripts/ci/static-analysis.sh shell
-      - name: Annuler le run (premier échec)
-        if: failure()
+
+  # L26-02 : arrêt au premier échec SANS masquer le job fautif. Annuler le run depuis le job en échec
+  # (`gh run cancel` dans une étape `if: failure()`, L22-03) marquait ce job « annulé » comme les autres.
+  # Ici le job fautif se termine normalement, donc « en échec » ; ce job de surveillance, lancé en
+  # parallèle, lit les jobs du run toutes les 15 s et, dès qu'un job surveillé est conclu `failure`, écrit
+  # un résumé puis annule le run : seuls les jobs encore en cours (et celui-ci) sont annulés. Exclus de la
+  # surveillance : la mutation, la revue et ce job. Pas de checkout (aucun identifiant git) ; `actions:
+  # write` seulement. Non requis par la protection de develop.
+  arret-premier-echec:
+    name: Arrêt au premier échec
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: write
+    steps:
+      - name: Surveiller les jobs requis
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
+        run: |
+          watched='select(.name | test("^(Test par mutation|Revue PR|Arrêt au premier échec)") | not)'
+          # Lecture de l'API : trois tentatives espacées. Un échec d'infrastructure (API injoignable, JSON
+          # illisible) ne rend jamais ce job rouge : avertissement, puis on reprend la surveillance.
+          fetch_jobs() {
+            local _
+            for _ in 1 2 3; do
+              if gh api "repos/${GH_REPO}/actions/runs/${RUN_ID}/jobs?per_page=100" --jq "[.jobs[] | ${watched}]"; then
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+          while true; do
+            if ! jobs="$(fetch_jobs)" || ! failed="$(jq -r '[.[] | select(.conclusion == "failure" or .conclusion == "timed_out") | .name] | join(", ")' <<<"$jobs")"; then
+              echo "::warning::API des jobs injoignable ou illisible, surveillance reprise dans 15 s."
+              sleep 15
+              continue
+            fi
+            if [ -n "$failed" ]; then
+              echo "Premier échec : ${failed}. Annulation du reste du run."
+              printf '### Premier échec du run\n\nJob en échec : %s\n\nLes autres jobs sont annulés.\n' "$failed" >>"$GITHUB_STEP_SUMMARY"
+              gh run cancel "$RUN_ID" || echo "::warning::Annulation impossible (jeton en lecture seule ?)."
+              exit 0
+            fi
+            if ! pending="$(jq '[.[] | select(.status != "completed")] | length' <<<"$jobs")" || ! total="$(jq 'length' <<<"$jobs")"; then
+              sleep 15
+              continue
+            fi
+            if [ "$total" -gt 0 ] && [ "$pending" -eq 0 ]; then
+              echo "Tous les jobs surveillés sont terminés sans échec."
+              exit 0
+            fi
+            sleep 15
+          done
 
   mutation:
     name: Test par mutation (${{ matrix.name }})
@@ -378,6 +391,8 @@ jobs:
             timeout: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -434,21 +449,14 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      # `actions: write` : seulement pour l'étape finale qui annule le run au premier échec (L22-03).
-      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - run: docker build -f docker/api.Dockerfile -t siteperso-api:ci .
       - name: Vérifier le démarrage du conteneur (utilisateur non root)
         run: |
           test "$(docker run --rm siteperso-api:ci id -u)" != "0"
-      - name: Annuler le run (premier échec)
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
 
   pile-locale:
     name: Pile locale complète (Caddy, API, front, PostgreSQL) et scénarios de production
@@ -457,8 +465,6 @@ jobs:
     timeout-minutes: 35
     permissions:
       contents: read
-      # `actions: write` : seulement pour l'étape finale qui annule le run au premier échec (L22-03).
-      actions: write
     services:
       postgres: # base de test exigée par le setup global du projet e2e, indépendante de la pile
         image: postgres:16-alpine
@@ -473,6 +479,8 @@ jobs:
       STACK_REQUIRED: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: '${{ env.NODE_VERSION }}', cache: pnpm }
@@ -493,13 +501,6 @@ jobs:
         run: |
           pnpm stack:down --volumes
           docker compose down
-      - name: Annuler le run (premier échec)
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-        run: gh run cancel "$RUN_ID"
 
   # L22-04 : revue Claude APRÈS la CI. Le job (ex-workflow `revue-pr.yml`, supprimé) attend les jobs
   # requis par `needs` : un lot cassé ne consomme pas le quota de l'abonnement Max. Même workflow que la
@@ -604,3 +605,20 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.revue.outputs.execution_file }}
         run: bash scripts/ci/review-verdict.sh "$EXECUTION_FILE"
+      # L26-06 : consommation de la revue (coût équivalent, tours, durée, modèle) dans le résumé du run,
+      # même si la revue ou le verdict a échoué. Seules ces valeurs sont lues, aucun secret n'est touché.
+      - name: Consommation de la revue
+        if: always()
+        env:
+          EXECUTION_FILE: ${{ steps.revue.outputs.execution_file }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          {
+            echo "### Consommation de la revue Claude"
+            echo
+            if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
+              node scripts/ci/review-usage.mjs --pr "$PR_NUMBER" --run "$GITHUB_RUN_ID" "$EXECUTION_FILE" || echo "Valeurs de consommation illisibles."
+            else
+              echo "Aucun fichier d'exécution : la revue n'a pas produit de résultat."
+            fi
+          } >>"$GITHUB_STEP_SUMMARY"
