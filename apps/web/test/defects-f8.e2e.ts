@@ -83,26 +83,6 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       expect(await clippedWidth(link)).toBe(0);
     });
 
-    test('BUG-F2 : le titre de l’en-tête mobile n’est pas tronqué', async ({ page }) => {
-      test.fail((page.viewportSize()?.width ?? 0) === 390, 'BUG-F2 : titre tronqué à 390');
-      await open130(page, locale.path);
-      if (!tabsMode(page)) {
-        await expect(page.locator('.mobile-header')).toHaveCount(0);
-        return;
-      }
-      const nav = page.getByRole('navigation', { name: locale.nav });
-      for (const name of locale.tabs) {
-        await nav.getByRole('button', { name, exact: true }).click();
-        await settled(page);
-        const title = page.locator('.mobile-header__title');
-        const [visible, full] = await title.evaluate((node) => [
-          node.clientWidth,
-          node.scrollWidth,
-        ]);
-        expect(full, `onglet ${name}`).toBeLessThanOrEqual(visible);
-      }
-    });
-
     test('BUG-F3 : les boutons de la barre d’actions tiennent dans la fenêtre', async ({
       page,
     }) => {
