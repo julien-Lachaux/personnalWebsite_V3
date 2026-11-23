@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // « Lancer l'entretien » (F3-05) : lien `mailto:` vers l'adresse de la configuration publique
-// (`NUXT_PUBLIC_CONTACT_EMAIL`), sujet prérempli. Tant que l'adresse n'est pas configurée (ou n'a pas
-// une forme admise), le bouton n'est pas rendu : un lien vide serait trompeur. La classe et les
-// attributs reçus vont sur le lien.
+// (`NUXT_PUBLIC_CONTACT_EMAIL`), sujet prérempli. Une adresse absente ou de forme non admise fait échouer
+// la génération avant (`AppShell` lève) ; monté seul, le composant ne rend alors rien plutôt qu'un lien
+// vide, trompeur. La classe et les attributs reçus vont sur le lien.
 import { useI18n } from '#imports';
 
 import { useContactLink } from '../../composables/shell/useContactLink.js';
