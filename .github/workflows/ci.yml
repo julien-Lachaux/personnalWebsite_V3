@@ -317,17 +317,34 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           watched='select(.name | test("^(Test par mutation|Revue PR|Arrêt au premier échec)") | not)'
+          # Lecture de l'API : trois tentatives espacées. Un échec d'infrastructure (API injoignable, JSON
+          # illisible) ne rend jamais ce job rouge : avertissement, puis on reprend la surveillance.
+          fetch_jobs() {
+            local _
+            for _ in 1 2 3; do
+              if gh api "repos/${GH_REPO}/actions/runs/${RUN_ID}/jobs?per_page=100" --jq "[.jobs[] | ${watched}]"; then
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
           while true; do
-            jobs="$(gh api "repos/${GH_REPO}/actions/runs/${RUN_ID}/jobs?per_page=100" --jq "[.jobs[] | ${watched}]")"
-            failed="$(jq -r '[.[] | select(.conclusion == "failure") | .name] | join(", ")' <<<"$jobs")"
+            if ! jobs="$(fetch_jobs)" || ! failed="$(jq -r '[.[] | select(.conclusion == "failure" or .conclusion == "timed_out") | .name] | join(", ")' <<<"$jobs")"; then
+              echo "::warning::API des jobs injoignable ou illisible, surveillance reprise dans 15 s."
+              sleep 15
+              continue
+            fi
             if [ -n "$failed" ]; then
               echo "Premier échec : ${failed}. Annulation du reste du run."
               printf '### Premier échec du run\n\nJob en échec : %s\n\nLes autres jobs sont annulés.\n' "$failed" >>"$GITHUB_STEP_SUMMARY"
               gh run cancel "$RUN_ID" || echo "::warning::Annulation impossible (jeton en lecture seule ?)."
               exit 0
             fi
-            pending="$(jq '[.[] | select(.status != "completed")] | length' <<<"$jobs")"
-            total="$(jq 'length' <<<"$jobs")"
+            if ! pending="$(jq '[.[] | select(.status != "completed")] | length' <<<"$jobs")" || ! total="$(jq 'length' <<<"$jobs")"; then
+              sleep 15
+              continue
+            fi
             if [ "$total" -gt 0 ] && [ "$pending" -eq 0 ]; then
               echo "Tous les jobs surveillés sont terminés sans échec."
               exit 0

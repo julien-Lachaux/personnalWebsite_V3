@@ -4,9 +4,9 @@
 //                                        dernière étiquette v* ; code 1 s'il n'y a rien à publier
 //   release.mjs prepare [--commit] [--trailer <ligne>]... [--any-branch]
 //                                        met à jour CHANGELOG.md et la version du package.json racine ; refuse
-//                                        hors d'une branche release/<version> sauf --any-branch (hotfix)
+//                                        hors d'une branche release/<version> sauf --any-branch (hotfix) ;
+//                                        --commit est toujours refusé sur la branche main, même avec --any-branch
 //   release.mjs check <branche>          concordance branche, version calculée, package.json, CHANGELOG
-//   (prepare --commit est toujours refusé sur la branche main, même avec --any-branch)
 //   release.mjs notes <version>          section du CHANGELOG de cette version (corps de la release GitHub)
 //   release.mjs should-tag               version à étiqueter après un push sur main, ou rien (code 0)
 // Environnement : RELEASE_DATE (AAAA-MM-JJ, tests), exécuté à la racine du dépôt.
