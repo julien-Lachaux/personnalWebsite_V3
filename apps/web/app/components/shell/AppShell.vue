@@ -223,7 +223,7 @@ function sectionClass(id: SectionId): Record<string, boolean> {
     />
     <BottomNav
       v-if="mode !== 'mosaic'"
-      class="app-shell__mobile"
+      class="app-shell__mobile app-shell__nav"
       :active="tab"
       @select="selectTab"
     />
@@ -323,6 +323,40 @@ function sectionClass(id: SectionId): Record<string, boolean> {
     clip-path: inset(50%);
     white-space: nowrap;
     border: 0;
+  }
+}
+
+/* Fenêtre basse (zoom de 400 %, RA-1, WCAG 1.4.10) : sous 30 rem de haut (la hauteur suit la taille de
+   texte choisie), en-tête, filtre, barre d'actions et navigation ne laisseraient aucune place à la liste.
+   La coquille ne tient plus en `100dvh` : la page défile, l'en-tête, le filtre (voir ExperienceSection) et
+   la barre d'actions sont statiques, la navigation du bas reste seule fixe (collée au bord bas, sans
+   masquer le focus : `scroll-padding-bottom`). */
+@media (max-width: 1023px) and (max-height: 30rem) {
+  .app-shell {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .app-shell__main,
+  .app-shell__main--self-scrolling {
+    display: block;
+    overflow: visible;
+  }
+
+  .app-shell__main--self-scrolling .app-shell__sections,
+  .app-shell__section--self-scrolling.app-shell__section--current {
+    display: block;
+  }
+
+  .app-shell__nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+  }
+
+  :global(html) {
+    scroll-padding-bottom: var(--mobile-nav);
   }
 }
 

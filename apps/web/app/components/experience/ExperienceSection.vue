@@ -112,6 +112,19 @@ defineExpose({ scroller: list });
   scrollbar-color: var(--line) transparent;
 }
 
+/* Fenêtre basse (RA-1) : la page défile (voir AppShell), le filtre est statique et la liste prend la
+   hauteur de son contenu au lieu de défiler dans un cadre de quelques lignes. */
+@media (max-width: 1023px) and (max-height: 30rem) {
+  .experience-section {
+    display: block;
+    height: auto;
+  }
+
+  .experience-section__list {
+    overflow: visible;
+  }
+}
+
 .experience-section__inner {
   box-sizing: border-box;
   max-width: var(--content-max);
