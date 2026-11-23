@@ -63,10 +63,6 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     test('BUG-F1 : le lien « publiées sur LinkedIn » des recommandations n’est pas rogné', async ({
       page,
     }) => {
-      test.fail(
-        (page.viewportSize()?.width ?? 0) !== 834,
-        'BUG-F1 : lien LinkedIn rogné, sauf à 834',
-      );
       await open130(page, locale.path);
       if (tabsMode(page)) {
         await page
@@ -86,10 +82,6 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     test('BUG-F3 : les boutons de la barre d’actions tiennent dans la fenêtre', async ({
       page,
     }) => {
-      test.fail(
-        (page.viewportSize()?.width ?? 0) === 390 && code === 'en',
-        'BUG-F3 : bouton CV coupé à 390 en anglais',
-      );
       await open130(page, locale.path);
       if (!tabsMode(page)) {
         await expect(page.locator('.action-bar')).toHaveCount(0);
