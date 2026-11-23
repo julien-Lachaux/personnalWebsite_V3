@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Panneau non modal (ticket F1-04, SPEC § 10.1) : sert le panneau d'accessibilité (`accessibilite.cfg`).
-// Pas de piège de focus ni de voile : la page reste utilisable, le panneau se ferme par son bouton ×
-// ou par Échap.
+// Pas de piège de focus ni de voile : la page reste utilisable, le panneau se ferme par son bouton ×,
+// par Échap, ou quand le focus sort de sa racine (Tab au-delà du dernier réglage : sinon le panneau fixe
+// reste ouvert et masque l'élément qui reçoit le focus, RA-5, WCAG 2.4.11), sans reprendre le focus.
 //
 // Le déclencheur est fourni par le slot `trigger`, qui reçoit `props` à répandre sur le bouton :
 //   <BasePopover v-model:open="open" title="accessibilite.cfg" close-label="Fermer…">
@@ -99,14 +100,29 @@ function onKeydown(event: KeyboardEvent): void {
   close();
 }
 
+/** Le focus passe hors de la racine (déclencheur et panneau) : le panneau se ferme, le focus reste où il est. */
+function onFocusout(event: FocusEvent): void {
+  const next = event.relatedTarget;
+  // `relatedTarget` est nul quand le focus quitte la page (ou va sur un élément non focalisable) : le
+  // panneau reste ouvert, comme avant.
+  if (!open.value || !(next instanceof Node) || root.value!.contains(next)) return;
+  open.value = false;
+}
+
 watch(open, (isOpen) => {
   if (isOpen) void nextTick(focusInitial);
 });
 
 // Échap est écouté sur toute la racine (panneau et déclencheur), posé à la main : un `@keydown` sur un
 // `<div>` serait une interaction sur un élément non interactif (vuejs-accessibility).
-onMounted(() => root.value!.addEventListener('keydown', onKeydown));
-onBeforeUnmount(() => root.value!.removeEventListener('keydown', onKeydown));
+onMounted(() => {
+  root.value!.addEventListener('keydown', onKeydown);
+  root.value!.addEventListener('focusout', onFocusout);
+});
+onBeforeUnmount(() => {
+  root.value!.removeEventListener('keydown', onKeydown);
+  root.value!.removeEventListener('focusout', onFocusout);
+});
 </script>
 
 <template>
