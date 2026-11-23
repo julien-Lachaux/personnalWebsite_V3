@@ -6,6 +6,7 @@
 //                                        met à jour CHANGELOG.md et la version du package.json racine ; refuse
 //                                        hors d'une branche release/<version> sauf --any-branch (hotfix)
 //   release.mjs check <branche>          concordance branche, version calculée, package.json, CHANGELOG
+//   (prepare --commit est toujours refusé sur la branche main, même avec --any-branch)
 //   release.mjs notes <version>          section du CHANGELOG de cette version (corps de la release GitHub)
 //   release.mjs should-tag               version à étiqueter après un push sur main, ou rien (code 0)
 // Environnement : RELEASE_DATE (AAAA-MM-JJ, tests), exécuté à la racine du dépôt.
@@ -172,6 +173,12 @@ const commands = {
         'Rien à publier : aucun commit feat, fix, perf ou incompatible depuis la dernière étiquette.',
       );
     const branch = git('branch', '--show-current');
+    // `main` est réservée à Julien : jamais de commit de préparation dessus, même avec --any-branch.
+    if (args.includes('--commit') && branch === 'main') {
+      fail(
+        'prepare --commit refusé sur la branche main : préparer sur release/<version> ou hotfix/*.',
+      );
+    }
     if (!args.includes('--any-branch') && branch !== `release/${version}`) {
       fail(
         `Branche courante « ${branch} » : la version ${version} se prépare sur release/${version} (ou --any-branch).`,
