@@ -288,8 +288,11 @@ apps/web/
 
 ## Commandes
 
-Prérequis sur l'hôte : Podman (avec un fournisseur compose : `docker-compose` ou `podman-compose`)
-ou Docker (avec `docker compose`), et pnpm 10 (>= 10.34.5 : les versions 9.x sont visées par des avis de sécurité sans correctif), plus `gh` dans `~/.local/bin` pour la session principale (flux par pull request, décision de Julien du 21 nov. 2026). pnpm télécharge lui-même
+Poste de développement : Fedora (KDE) depuis le 24 nov. 2026, plus WSL2. Prérequis sur l'hôte : Podman
+(avec un fournisseur compose : `docker-compose` ou `podman-compose`) ou Docker (avec `docker compose`),
+et pnpm 10 (>= 10.34.5 : les versions 9.x sont visées par des avis de sécurité sans correctif), plus
+`gh` installé par le gestionnaire de paquets du système (`dnf`) pour la session principale (flux par
+pull request, décisions de Julien du 21 et du 24 nov. 2026). pnpm télécharge lui-même
 la version de Node fixée dans `.npmrc` (`use-node-version`, Node 26 = dernière ligne stable,
 docs/02) et l'utilise pour tous les scripts ; `engines.node` vaut `>=26 <27`.
 
@@ -547,9 +550,10 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   `docs/traductions-a-relire.md` (table, slug, champ, texte FR, texte EN proposé) ; Julien
   relit puis retire les lignes validées. Aucune traduction n'est considérée définitive avant.
 - Rien d'installé globalement sur l'hôte en dehors de Podman (ou Docker), pnpm et `gh` : PostgreSQL
-  uniquement en conteneur, Node téléchargé par pnpm, `gh` (GitHub CLI) dans `~/.local/bin` pour la session
-  principale seulement (exception décidée par Julien le 21 nov. 2026, flux par pull request). Pas de
-  `npm i -g`, pas de `brew`/`apt` pour le projet.
+  uniquement en conteneur, Node téléchargé par pnpm, `gh` (GitHub CLI) installé par `dnf`, pour la
+  session principale seulement (exception décidée par Julien le 21 nov. 2026, flux par pull request ;
+  installation système décidée le 24 nov. 2026). Pas de `npm i -g`, pas d'autre paquet système
+  (`dnf`, `brew`, `apt`) pour le projet.
 - Versions de paquets : stables actuelles vérifiées sur npm (`pnpm view <pkg> version`),
   épinglées exactement dans les `package.json`. Node : toujours la dernière ligne stable
   (https://nodejs.org/dist/index.json) ; en cas d'incompatibilité, on en discute avec Julien

@@ -66,7 +66,8 @@ millions de tokens au total ; le lot 3 et le lot 6 sont les plus coûteux.
     (la mutation reste informative), revue requise, pas de push forcé ; la suppression automatique
     des branches fusionnées est un réglage GitHub qu'il choisira (`gh pr merge --delete-branch`
     reste refusé) ;
-  - `gh` (GitHub CLI) est installé dans `~/.local/bin` (exception autorisée par Julien) et connecté
+  - `gh` (GitHub CLI) est installé par `dnf` sur le poste Fedora (exception autorisée par Julien,
+    installation système depuis le 24 nov. 2026, auparavant `~/.local/bin` sous WSL2) et connecté
     au compte de Julien pour la session principale ; les agents n'en ont que les lectures ;
   - transitoire : `git push origin develop` reste permis à la session principale, la fusion du
     lot 20 passant encore par là ; ensuite, la protection de `develop` refuse ce push.
