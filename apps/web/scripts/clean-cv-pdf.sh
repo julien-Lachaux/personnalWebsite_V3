@@ -5,7 +5,8 @@
 # incrémentale), identifiant de fichier déterministe, sans flux d'objets (dictionnaires en clair, que
 # app/cv-pdf.spec.ts relit). Le contenu visible des pages n'est pas modifié.
 #
-# Outils en Docker (rien d'installé sur l'hôte) : Alpine épinglée par digest, qpdf, jq et exiftool en
+# Outils en conteneur (rien d'installé sur l'hôte), par podman ou docker (scripts/container-engine.sh,
+# CONTAINER_ENGINE pour imposer l'un des deux) : Alpine épinglée par digest, qpdf, jq et exiftool en
 # version exacte ; exiftool affiche les métadonnées avant et après.
 #
 # Usage : bash apps/web/scripts/clean-cv-pdf.sh <source.pdf> <destination.pdf>
@@ -25,13 +26,29 @@ if [[ ! -f "$source_file" ]]; then
   exit 1
 fi
 
-image='alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf'
+# shellcheck source=scripts/container-engine.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../../../scripts/container-engine.sh"
+engine=$(container_engine)
 
-docker run --rm \
+# Propriétaire du PDF écrit : l'utilisateur courant. Podman sans privilèges associe le root du
+# conteneur à cet utilisateur (0:0 dedans) ; il faut aussi lever l'étiquetage SELinux des montages,
+# sans réétiqueter les dossiers de l'hôte.
+owner="$(id -u):$(id -g)"
+engine_options=()
+if [[ $engine == podman ]]; then
+  if [[ $(podman info --format '{{.Host.Security.Rootless}}') == true ]]; then
+    owner='0:0'
+  fi
+  engine_options+=(--security-opt label=disable)
+fi
+
+image='docker.io/library/alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf'
+
+"$engine" run --rm "${engine_options[@]}" \
   -v "$source_file:/work/source.pdf:ro" \
   -v "$destination_dir:/work/out" \
   -e "DESTINATION=/work/out/$destination_name" \
-  -e "OWNER=$(id -u):$(id -g)" \
+  -e "OWNER=$owner" \
   "$image" sh -euc '
     apk add --no-cache -q qpdf=12.3.2-r0 exiftool=13.55-r0 jq=1.8.2-r0 >/dev/null
     echo "== avant (exiftool) =="

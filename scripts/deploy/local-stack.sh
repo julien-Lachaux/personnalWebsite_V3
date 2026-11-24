@@ -6,7 +6,8 @@
 #
 # Variables d'environnement reconnues :
 #   STACK_ENV_FILE      fichier d'environnement (défaut docker/.env.local, créé depuis le modèle s'il manque)
-#   DRY_RUN=1           affiche les commandes docker qui modifient l'état au lieu de les exécuter
+#   DRY_RUN=1           affiche les commandes compose qui modifient l'état au lieu de les exécuter
+#   CONTAINER_ENGINE    podman ou docker (défaut : docker s'il est installé, sinon podman ; scripts/container-engine.sh)
 #   STACK_WAIT_SECONDS  délai d'attente de /api/v1/health puis de la page d'accueil via Caddy (défaut 180)
 set -euo pipefail
 
@@ -15,6 +16,8 @@ COMPOSE_FILE="${REPO_DIR}/docker/compose.prod.yml"
 EXAMPLE_FILE="${REPO_DIR}/docker/.env.local.example"
 ENV_FILE="${STACK_ENV_FILE:-${REPO_DIR}/docker/.env.local}"
 DRY_RUN="${DRY_RUN:-0}"
+# shellcheck source=scripts/container-engine.sh
+source "${REPO_DIR}/scripts/container-engine.sh"
 WAIT_SECONDS="${STACK_WAIT_SECONDS:-180}"
 
 log() { printf '[stack] %s\n' "$*"; }
@@ -35,7 +38,7 @@ init_compose() {
   if [ -f "${ENV_FILE}" ]; then
     name="$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' "${ENV_FILE}" | tail -n 1)"
   fi
-  COMPOSE=(docker compose)
+  COMPOSE=("${ENGINE}" compose)
   if [ -n "${name}" ]; then
     COMPOSE+=(-p "${name}")
   fi
@@ -139,8 +142,12 @@ if [ "${command}" = "down" ] && [ "$#" -gt 0 ] && [ "$*" != "--volumes" ]; then
   die "option inconnue pour down : $* (seule --volumes est acceptée)"
 fi
 
-command -v docker >/dev/null 2>&1 || die "docker est introuvable"
-docker compose version >/dev/null 2>&1 || die "le plugin « docker compose » est introuvable"
+ENGINE="$(container_engine)" || die "aucun moteur de conteneurs utilisable"
+if [ "${ENGINE}" = podman ]; then
+  # Bandeau « Executing external compose provider » de `podman compose` coupé.
+  export PODMAN_COMPOSE_WARNING_LOGS=false
+fi
+"${ENGINE}" compose version >/dev/null 2>&1 || die "« ${ENGINE} compose » est introuvable"
 
 ensure_env_file
 init_compose

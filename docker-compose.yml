@@ -10,9 +10,15 @@
 
 name: ${COMPOSE_PROJECT_NAME:-siteperso-v3}
 
+# oom_score_adj explicite sur les services à healthcheck : sous Podman sans privilèges, via
+# `podman compose` (fournisseur docker-compose), un conteneur créé sans cette valeur refuse tout
+# `exec`, healthcheck compris (« crun: write to /proc/self/oom_score_adj: Permission denied »), et
+# `up --wait` le voit « unhealthy ». Une valeur haute peut toujours être posée sans privilège ;
+# elle n'a pas d'autre effet qu'une priorité de l'OOM killer sur ces conteneurs de développement.
 services:
   postgres:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
+    oom_score_adj: 500
     restart: unless-stopped
     environment:
       POSTGRES_DB: siteperso
@@ -29,7 +35,8 @@ services:
       retries: 15
 
   postgres-test:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
+    oom_score_adj: 500
     environment:
       POSTGRES_DB: siteperso_test
       POSTGRES_USER: siteperso
@@ -44,7 +51,7 @@ services:
       timeout: 3s
       retries: 15
 
-  # Essai local de l'image de production : `docker compose --profile api up -d --build api`.
+  # Essai local de l'image de production : `bash scripts/compose.sh --profile api up -d --build api`.
   # Hors profil, `pnpm db:up` ne le démarre pas.
   api:
     profiles: ['api']
@@ -69,6 +76,7 @@ services:
   # `pnpm e2e:browsers:up` (appelé par `pnpm check`) ; `pnpm db:down` l'arrête avec le reste.
   playwright:
     image: mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579
+    oom_score_adj: 500
     init: true
     user: pwuser
     working_dir: /home/pwuser
