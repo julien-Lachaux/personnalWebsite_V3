@@ -297,10 +297,12 @@ la version de Node fixée dans `.npmrc` (`use-node-version`, Node 26 = dernière
 docs/02) et l'utilise pour tous les scripts ; `engines.node` vaut `>=26 <27`.
 
 Moteur de conteneurs : les scripts locaux (`db:up`, `db:test:up`, `e2e:browsers:up`, `db:down`,
-`stack:*`, `clean-cv-pdf.sh`) passent par `scripts/container-engine.sh` : `CONTAINER_ENGINE=podman|docker`
-s'il est posé, sinon docker s'il est installé (exécuteurs de la CI), sinon podman (poste de Julien).
-Le déploiement de production (`scripts/deploy/common.sh`) et l'analyse statique
-(`scripts/ci/static-analysis.sh`) restent sur docker.
+`stack:*`, `clean-cv-pdf.sh`, `lint:workflows` et `lint:shell` par `scripts/ci/static-analysis.sh`)
+passent par `scripts/container-engine.sh` : `CONTAINER_ENGINE=podman|docker` s'il est posé, sinon
+docker s'il est installé (exécuteurs de la CI), sinon podman (poste de Julien) ; une commande `docker`
+qui est en fait podman (`podman-docker`) compte pour podman. Sous podman, la pile locale ajoute
+`docker/compose.podman.yml`. Seul le déploiement de production (`scripts/deploy/common.sh`) reste
+sur docker.
 
 ```sh
 pnpm install                 # dépendances, Node via pnpm, hook pre-commit husky

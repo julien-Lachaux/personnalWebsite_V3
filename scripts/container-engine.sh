@@ -3,7 +3,10 @@
 # nettoyage du CV PDF). À sourcer : définit container_engine, qui affiche le moteur retenu.
 #   CONTAINER_ENGINE=podman|docker   impose le moteur ;
 #   sinon docker s'il est installé (exécuteurs de la CI GitHub), sinon podman (poste de Julien, sans
-#   docker). Avec podman-docker, la commande `docker` est déjà podman.
+#   docker).
+# Avec podman-docker, la commande `docker` est en fait podman (`docker --version` le dit) : le moteur
+# retenu est alors podman, pour que ses réglages propres s'appliquent (SELinux, propriétaire des
+# fichiers, oom_score_adj de la pile locale).
 # Le déploiement de production (scripts/deploy/common.sh) reste sur docker.
 
 container_engine() {
@@ -29,5 +32,9 @@ container_engine() {
     echo "${engine} est introuvable" >&2
     return 1
   }
+  if [ "${engine}" = docker ] && command -v podman >/dev/null 2>&1 &&
+    docker --version 2>/dev/null | grep -qi podman; then
+    engine=podman
+  fi
   echo "${engine}"
 }
