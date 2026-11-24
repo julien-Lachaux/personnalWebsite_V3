@@ -1,10 +1,11 @@
-import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { request as httpRequest, type IncomingMessage } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it } from 'vitest';
+
+import { runCompose } from './support/compose.js';
 
 /**
  * Scénarios de reproduction de la production, rejoués contre la pile locale complète
@@ -97,13 +98,9 @@ function countHeader(response: StackResponse, name: string): number {
 function compose(args: string[]) {
   // `-p` prime sur la COMPOSE_PROJECT_NAME du `.env` racine que vitest.e2e charge dans l'environnement.
   const project = env['COMPOSE_PROJECT_NAME'] ? ['-p', env['COMPOSE_PROJECT_NAME']] : [];
-  return spawnSync(
-    'docker',
-    ['compose', ...project, '-f', composeFile, '--env-file', envFile, ...args],
-    {
-      encoding: 'utf8',
-    },
-  );
+  return runCompose([...project, '-f', composeFile, '--env-file', envFile, ...args], {
+    encoding: 'utf8',
+  });
 }
 
 async function waitForHealth(timeoutMs: number): Promise<void> {

@@ -1,8 +1,9 @@
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it } from 'vitest';
+
+import { runCompose } from './support/compose.js';
 
 const composeFile = fileURLToPath(new URL('../../../docker/compose.prod.yml', import.meta.url));
 
@@ -30,20 +31,16 @@ describe('pile de production (docker/compose.prod.yml)', () => {
   let config: ComposeConfig;
 
   beforeAll(() => {
-    const result = spawnSync(
-      'docker',
-      ['compose', '-f', composeFile, 'config', '--format', 'json'],
-      {
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          SITE_DOMAIN: 'example.test',
-          POSTGRES_PASSWORD: 'proprietaire',
-          API_DB_PASSWORD: 'lecture',
-          CORS_ORIGIN: 'https://example.test',
-        },
+    const result = runCompose(['-f', composeFile, 'config', '--format', 'json'], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        SITE_DOMAIN: 'example.test',
+        POSTGRES_PASSWORD: 'proprietaire',
+        API_DB_PASSWORD: 'lecture',
+        CORS_ORIGIN: 'https://example.test',
       },
-    );
+    });
     expect(result.status, result.stderr).toBe(0);
     config = JSON.parse(result.stdout) as ComposeConfig;
   });

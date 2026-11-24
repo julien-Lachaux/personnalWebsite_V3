@@ -3,7 +3,7 @@
 # empreintes CSP des pages et publie le résultat dans le volume du site (scripts/deploy/web-generate.sh).
 # Caddy sert ce volume en lecture seule : aucun serveur Node du front en production (docs/05, D2).
 # Même image de base que l'API (épinglée par digest ; elle doit rester celle de `.npmrc`).
-ARG NODE_IMAGE=node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
+ARG NODE_IMAGE=docker.io/library/node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
 
 # --- deps : dépendances du front et des contrats (lockfile figé) --------------------------
 FROM ${NODE_IMAGE} AS deps

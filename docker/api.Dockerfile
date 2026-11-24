@@ -5,7 +5,7 @@
 
 # Image de base épinglée par digest (reproductible, insensible à un tag déplacé). La version doit rester
 # celle de `.npmrc` (use-node-version) ; la mise à jour du tag et du digest se fait par un lot (Dependabot est désactivé).
-ARG NODE_IMAGE=node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
+ARG NODE_IMAGE=docker.io/library/node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
 
 # --- deps : dépendances du monorepo (lockfile figé) ---------------------------------------
 FROM ${NODE_IMAGE} AS deps
