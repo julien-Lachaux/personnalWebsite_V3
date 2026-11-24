@@ -42,11 +42,28 @@ init_compose() {
   if [ -n "${name}" ]; then
     COMPOSE+=(-p "${name}")
   fi
-  COMPOSE+=(-f "${COMPOSE_FILE}" --env-file "${ENV_FILE}")
+  COMPOSE+=(-f "${COMPOSE_FILE}")
+  if [ "${ENGINE}" = podman ]; then
+    COMPOSE+=(-f "${REPO_DIR}/docker/compose.podman.yml")
+  fi
+  COMPOSE+=(--env-file "${ENV_FILE}")
 }
 
 # Fonctions attendues par site.sh (publication du front, partagée avec le déploiement).
-compose() { "${COMPOSE[@]}" "$@"; }
+# Sous podman, docker-compose construit sans BuildKit : il ignore docker/web.Dockerfile.dockerignore
+# et prendrait le .dockerignore racine (celui de l'API), sans le front. L'image du front est alors
+# construite par `podman build`, avec son propre fichier d'exclusion et le nom attendu par compose.
+compose() {
+  if [ "${ENGINE}" = podman ] && [ "$*" = "build web-build" ]; then
+    podman build \
+      --file "${REPO_DIR}/docker/web.Dockerfile" \
+      --ignorefile "${REPO_DIR}/docker/web.Dockerfile.dockerignore" \
+      --tag siteperso-web-build:prod \
+      "${REPO_DIR}"
+    return
+  fi
+  "${COMPOSE[@]}" "$@"
+}
 
 run() {
   if [ "${DRY_RUN}" = "1" ]; then
