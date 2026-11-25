@@ -16,6 +16,9 @@ d'avant le lot modifié, aucune configuration protégée touchée.
 | a97ed80 | `docs` : CLAUDE.md (convention « page hors index ») et ce compte rendu |
 | 673bee4 | `feat(web)` : profil LinkedIn à la place du CV PDF (retour de Julien), tests de la page |
 | 976b7d3 | `test(web)` : parcours de la page avec le profil LinkedIn |
+| b093e24 | `docs` : compte rendu mis à jour |
+| 28c7c4e | `feat(web)` : charge utile réduite à l'URL de LinkedIn (`fetchCvValue`, `linkedinUrl`, `useLinkedinUrl`), décision de Julien |
+| edc15ce | `test(web)` : contrôle des charges utiles générées |
 | (ce commit) | `docs` : compte rendu mis à jour |
 
 ## Fait
@@ -27,11 +30,15 @@ d'avant le lot modifié, aucune configuration protégée touchée.
     affichée ; absente ou invalide, la page lève et la génération échoue, comme la déclaration
     d'accessibilité) ;
   - « Profil LinkedIn » / « LinkedIn profile » (retour de Julien, à la place du « CV PDF ») : l'URL est le
-    lien social de slug `linkedin` du CV lu au build, par le même chemin que l'accueil (`useCv`, puis
-    `mapLinks` de `data/map-cv.ts`) ; aucune URL écrite en dur, aucun appel à l'API à l'affichage (la donnée
-    vient de la charge utile). Lien absent des données : la page lève « Lien LinkedIn absent du CV « fr » :
-    la page « travaux en cours » attend un lien social de slug « linkedin » (social_links). », la génération
-    échoue. Lien externe par la convention du site (`LinkButton` avec `external-label`
+    lien social de slug `linkedin` du CV lu au build, à la même source que l'accueil (API ou fixtures selon
+    `NUXT_CV_SOURCE`) ; aucune URL écrite en dur, aucun appel à l'API à l'affichage (la donnée vient de la
+    charge utile). Décision de Julien : la charge utile ne contient que cette URL. Lecture par
+    `useLinkedinUrl` (`composables/use-cv.ts`) → `fetchCvValue` (`data/fetch-cv.ts`, clé
+    `cv-<langue>-linkedin`, distincte de `cv-<langue>` de l'accueil, qui ne change pas) → `linkedinUrl`
+    (`data/map-cv.ts`) dans le gestionnaire de `useAsyncData`, exécuté au build seulement. La page n'importe
+    rien de `data/`. Lien absent des données : « Lien LinkedIn absent du CV : la page « travaux en cours »
+    attend un lien social de slug « linkedin » (social_links). », la génération échoue. Charges utiles
+    générées : 145 octets chacune (`{"cv-fr-linkedin": "<url>"}`), au lieu de 21 Ko avec le CV entier. Lien externe par la convention du site (`LinkButton` avec `external-label`
     `common.opensInNewTab`) : `target="_blank"`, `rel="noopener noreferrer"`, nom accessible « Profil
     LinkedIn (s'ouvre dans un nouvel onglet) » / « LinkedIn profile (opens in a new tab) ». Style du bouton
     CV d'avant (`outline`, `md`, icône décorative, celle de LinkedIn de `SocialLinks`).
@@ -49,9 +56,9 @@ d'avant le lot modifié, aucune configuration protégée touchée.
 Fichiers générés dans `apps/web/.output/public/` :
 
 - `travaux/index.html` (fr) et `en/work-in-progress/index.html` (en) : les pages ;
-- `travaux/_payload.json` et `en/work-in-progress/_payload.json` : charges utiles. Depuis le lien LinkedIn,
-  la page les lit à l'hydratation (le CV de la langue, `useAsyncData`), et non plus seulement lors d'un
-  changement de langue : le proxy doit les servir (comportement sans elles non vérifié) ;
+- `travaux/_payload.json` et `en/work-in-progress/_payload.json` : charges utiles (145 octets, la seule URL
+  de LinkedIn). Depuis le lien LinkedIn, la page les lit à l'hydratation (`useAsyncData`), et non plus
+  seulement lors d'un changement de langue : le proxy doit les servir (comportement sans elles non vérifié) ;
 - pas de page `/fr/travaux` (la règle `/fr/**` reste une redirection du proxy).
 
 Ressources demandées par la page (sonde Playwright, chargement puis changement de langue) : `/_nuxt/*`
@@ -72,24 +79,30 @@ changé.)
 
 ## Vérifications
 
-Après le retour de Julien (site régénéré sur les fixtures) :
+Après la décision de Julien sur la charge utile (site régénéré sur les fixtures) :
 
 | Vérification | Résultat |
 |---|---|
-| `pnpm --filter @siteperso/web test:coverage` | 129 fichiers, 1153 tests verts ; 100 % sur les quatre métriques (1450 instructions, 777 branches, 468 fonctions, 1290 lignes) |
+| `pnpm --filter @siteperso/web test:coverage` | 131 fichiers, 1158 tests verts ; 100 % sur les quatre métriques (1457 instructions, 777 branches, 475 fonctions, 1296 lignes) |
 | `pnpm --filter @siteperso/web lint` puis `typecheck` | verts (zéro avertissement) |
-| `playwright test test/work-in-progress.e2e.ts` (7 tailles) | 77 verts |
-| `playwright test test/pages.e2e.ts test/csp.e2e.ts` (7 tailles) | 161 verts (plan du site exact, CSP de toutes les pages, empreintes de la nouvelle page comprises) |
+| `stryker run --mutate app/data/fetch-cv.ts,app/data/map-cv.ts` | 100 % : 121 mutants tués, aucun survivant (`fetch-cv.ts` 27, `map-cv.ts` 94), seuil 100 |
+| `playwright test test/work-in-progress.e2e.ts` (7 tailles) | 98 verts |
+| `playwright test test/pages.e2e.ts test/csp.e2e.ts` (7 tailles) | 161 verts (plan du site exact, CSP de toutes les pages) |
 | `pnpm integrity 80b756b` | OK |
-| Mutation | sans objet : aucun fichier de `app/domain` ni `app/data` modifié (`mapLinks` seulement importé) |
 | `pnpm db:down` | conteneurs du lot arrêtés après la série |
 
 Nouveaux tests : `app/pages/travaux.spec.ts` (fr/en, contact, LinkedIn du CV, nouvel onglet et
-`noopener noreferrer`, méta, erreur sans adresse), `app/pages/travaux-linkedin.spec.ts` (CV sans lien
-`linkedin` : erreur explicite), `app/app-unindexed.spec.ts` (racine sans canonique ni hreflang ni `og:url`,
+`noopener noreferrer`, méta, erreur sans adresse), `app/pages/travaux-linkedin.spec.ts` (source du CV sans
+lien `linkedin` : erreur explicite par le vrai chemin de lecture), `app/data/fetch-cv-value.spec.ts`
+(charge utile réduite à la valeur choisie sous `cv-<langue>-<nom>`, erreur de sélection relevée, valeur vide
+refusée), `app/data/map-cv-linkedin.spec.ts` (slug `linkedin` et non `linkedin-recommendations`, erreur
+quand il manque), `app/app-unindexed.spec.ts` (racine sans canonique ni hreflang ni `og:url`,
 retour à l'indexation après navigation), `app/composables/seo/useSeo-unindexed.spec.ts`,
 `app/components/annex/AnnexPage-without-back.spec.ts`, `test/work-in-progress.e2e.ts` (clair et sombre, fr
-et en, axe, thème, langue, LinkedIn, débordement, 503, plan du site, CSP).
+et en, axe, thème, langue, LinkedIn, débordement, 503, plan du site, CSP ; charges utiles générées des
+deux pages : une seule donnée, `cv-<langue>-linkedin` = l'URL, ni `profile`, `experiences`,
+`recommendations`, `skillGroups`, `socialLinks`, `cv-fr` ou `cv-en` dans `_payload.json` ni dans
+`__NUXT_DATA__` ; témoin : la charge utile de l'accueil contient bien ces champs, donc le contrôle mord).
 
 ## Décisions
 
@@ -101,9 +114,16 @@ et en, axe, thème, langue, LinkedIn, débordement, 503, plan du site, CSP).
   facultatif dans AnnexPage, changement minimal). Le nom du site de l'en-tête reste un lien vers l'accueil,
   comme sur les autres pages annexes.
 - **Bouton de contact de l'accueil réutilisé** (« Lancer l'entretien ») : même mécanisme, même sujet de mail.
-- **LinkedIn lu par `useCv` et `mapLinks`** dans la page (comme demandé : même chemin que l'accueil). La règle
-  D37 (`architecture-components.spec.ts`) ne vise que `components/` ; une page peut lire la couche de données.
-  Libellé propre à la page (`workInProgress.linkedin`) plutôt que le libellé « LinkedIn » servi par l'API :
+- **Charge utile réduite à l'URL de LinkedIn** (décision de Julien, première piste du compte rendu
+  précédent) : la sélection se fait dans le gestionnaire de `useAsyncData` (`fetchCvValue(deps, langue,
+  nom, sélection)`), et non par l'option `pick` de Nuxt. `pick` ne garde que des clés de premier niveau
+  (`socialLinks` entier, avec les recommandations LinkedIn) et laisserait la sélection et l'échec hors de
+  `data/`, sans test unitaire ni mutation. `fetchCv` et `fetchCvValue` partagent la même lecture
+  (`read`) ; `fetchCv`, sa clé `cv-<langue>` et l'accueil ne changent pas (`fetch-cv.spec.ts` inchangé et
+  vert). Les types `FetchCvDeps` et `AsyncDataResult` prennent un paramètre de type (par défaut `Cv`, donc
+  compatibles avec les tests existants). La page n'importe que le composable `useLinkedinUrl` ; seul
+  `composables/use-cv.ts` relie `data/` à `useAsyncData`, comme avant.
+- Libellé propre à la page (`workInProgress.linkedin`) plutôt que le libellé « LinkedIn » servi par l'API :
   nom explicite demandé par Julien.
 - Libellés dans `common.json` (`workInProgress.*`, inséré après `annex`, loin de `notFound` et `error`
   que le lot 30 modifie) : un nouveau fichier de libellés ferait échouer `i18n-messages.spec.ts`, qui fixe
@@ -129,13 +149,11 @@ Nom de fichier de la fenêtre : `travaux-en-cours.md` (non traduit, comme `decla
 
 ## Points ouverts
 
-- **Le CV complet est dans la charge utile de la page des travaux.** Lire le lien par `useCv` (chemin de
-  l'accueil) met le CV entier de la langue dans `travaux/_payload.json` et `en/work-in-progress/_payload.json`
-  (21 Ko chacun ; expériences, recommandations, compétences, liens), que la page télécharge à l'hydratation.
-  Pendant les travaux, le contenu du site reste donc lisible par qui ouvre ce fichier. Si c'est gênant :
-  réduire la charge utile à ce que la page lit (option `pick` ou `transform` de `useAsyncData`, à faire passer
-  par `use-cv.ts` et `data/fetch-cv.ts`, sous une autre clé que `cv-<langue>`), ou lire le lien au build hors
-  `useAsyncData`. Non fait : cela s'écarte de « même chemin que l'accueil » ; décision à Julien.
+- Réglé (décision de Julien) : le CV complet n'est plus dans la charge utile de la page des travaux (21 Ko
+  auparavant, 145 octets désormais, contrôlé par le parcours). Reste publique, comme sur tout le site, la
+  charge utile de l'accueil (`/_payload.json`, CV entier) : pendant les travaux, c'est au proxy (lot 32) de
+  ne pas la servir à qui n'a pas la clé ; la page des travaux la précharge seulement (lien d'accueil de
+  l'en-tête) et n'en a pas besoin.
 - Les fonctions de politique CSP sont recopiées dans `test/work-in-progress.e2e.ts` depuis `test/csp.e2e.ts`
   (qui n'exporte rien, et `test/support/` est protégé). À factoriser dans `test/support/` sous autorisation,
   ou en ajoutant les deux adresses à la liste de `csp.e2e.ts` (test existant, correcteur).
