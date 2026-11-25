@@ -42,16 +42,18 @@ for (const size of SIZES) {
           let cv = false;
           for (let index = 0; index < MAX_TABS && !cv; index += 1) {
             await page.keyboard.press('Tab');
-            const { text, href } = await page.evaluate(() => {
+            const { text, href, controls } = await page.evaluate(() => {
               const element = document.activeElement;
               return {
                 text: (element?.textContent ?? '').trim(),
                 href: element instanceof HTMLAnchorElement ? element.getAttribute('href') : null,
+                controls: element?.getAttribute('aria-controls') ?? null,
               };
             });
             if (!contact && text.startsWith(locale.contact) && href?.startsWith('mailto:')) {
               contact = true;
-            } else if (contact && href?.includes('/cv/')) {
+            } else if (contact && controls !== null && text === 'CV PDF') {
+              // D44 : « CV PDF » est le bouton du menu (il commande la liste des versions).
               cv = true;
             }
           }

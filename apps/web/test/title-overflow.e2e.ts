@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 // Débordements de mots longs (constats RA-3 et RA-4, WCAG 1.4.4, 1.4.10, 1.4.12) :
 // - le titre du Profil (« Développeur » en tête) ne sort pas de la fenêtre à 320 px, texte à 115 et 130 % ;
-// - « CV PDF (in French) » de la barre d'actions n'est pas rogné à 390 px avec l'espacement des textes et
-//   le texte à 130 % (le CV anglais est absent : le lien mène au CV français, avec la mention).
+// - le bouton « CV PDF » (menu du CV, D44) de la barre d'actions n'est pas rogné à 390 px avec
+//   l'espacement des textes et le texte à 130 %.
 // La taille de fenêtre est posée par chaque groupe : le parcours ne dépend pas du projet Playwright.
 
 const STORAGE_KEY = 'siteperso:preferences';

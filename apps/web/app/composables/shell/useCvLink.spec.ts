@@ -16,7 +16,7 @@ import {
 } from 'vue';
 import { useRuntimeConfig } from '#imports';
 
-import { useCvLink, type CvLinkView } from './useCvLink.js';
+import { useCvLink, type CvEntryView } from './useCvLink.js';
 
 const mounted: VueWrapper[] = [];
 
@@ -35,8 +35,11 @@ function publicConfig(): { cvFiles: string[] } {
 
 let original: string[] = [];
 
-async function linkAt(route: string, href: () => string): Promise<ComputedRef<CvLinkView>> {
-  let link!: ComputedRef<CvLinkView>;
+async function linkAt(
+  route: string,
+  href: () => string,
+): Promise<ComputedRef<readonly CvEntryView[]>> {
+  let link!: ComputedRef<readonly CvEntryView[]>;
   mounted.push(
     await mountSuspended(Probe, {
       route,
@@ -70,38 +73,47 @@ describe('useCvLink', () => {
     expect(publicConfig().cvFiles).toEqual(present);
   });
 
-  it('sans CV anglais, la page anglaise mène au CV français, en le disant', async () => {
+  it('sans CV anglais, la page anglaise garde l’entrée anglaise, inactive et annoncée', async () => {
     publicConfig().cvFiles = ['cv-fr.pdf'];
 
     const link = await linkAt('/en', () => '/cv/cv-en.pdf');
 
-    expect(link.value).toEqual({ href: '/cv/cv-fr.pdf', hreflang: 'fr', mention: '(in French)' });
+    expect(link.value).toEqual([
+      { language: 'fr', label: 'French version', href: '/cv/cv-fr.pdf', soon: undefined },
+      { language: 'en', label: 'English version', href: undefined, soon: '(coming soon)' },
+    ]);
   });
 
-  it('avec le CV anglais, la page anglaise y mène, sans mention', async () => {
+  it('avec les deux CV, les deux entrées mènent à leur fichier, sans mention', async () => {
     publicConfig().cvFiles = ['cv-en.pdf', 'cv-fr.pdf'];
 
     const link = await linkAt('/en', () => '/cv/cv-en.pdf');
 
-    expect(link.value).toEqual({ href: '/cv/cv-en.pdf', hreflang: undefined, mention: undefined });
+    expect(link.value).toEqual([
+      { language: 'fr', label: 'French version', href: '/cv/cv-fr.pdf', soon: undefined },
+      { language: 'en', label: 'English version', href: '/cv/cv-en.pdf', soon: undefined },
+    ]);
   });
 
-  it('la page française garde le CV français, sans mention', async () => {
+  it('la page française traduit les libellés et la mention', async () => {
     publicConfig().cvFiles = ['cv-fr.pdf'];
 
     const link = await linkAt('/', () => '/cv/cv-fr.pdf');
 
-    expect(link.value).toEqual({ href: '/cv/cv-fr.pdf', hreflang: undefined, mention: undefined });
+    expect(link.value).toEqual([
+      { language: 'fr', label: 'Version française', href: '/cv/cv-fr.pdf', soon: undefined },
+      { language: 'en', label: 'Version anglaise', href: undefined, soon: '(bientôt)' },
+    ]);
   });
 
   it('suit l’adresse reçue quand elle change', async () => {
     publicConfig().cvFiles = ['cv-fr.pdf'];
-    const href = ref('/cv/exemple.pdf');
+    const href = ref('/cv/cv-fr.pdf');
 
-    const link = await linkAt('/en', () => href.value);
-    expect(link.value.href).toBe('/cv/exemple.pdf');
+    const link = await linkAt('/', () => href.value);
+    expect(link.value[0]?.href).toBe('/cv/cv-fr.pdf');
 
-    href.value = '/cv/cv-en.pdf';
-    expect(link.value).toEqual({ href: '/cv/cv-fr.pdf', hreflang: 'fr', mention: '(in French)' });
+    href.value = '/autre/cv-fr.pdf';
+    expect(link.value[0]?.href).toBe('/autre/cv-fr.pdf');
   });
 });

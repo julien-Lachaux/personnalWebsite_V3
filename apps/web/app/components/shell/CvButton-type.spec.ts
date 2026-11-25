@@ -1,17 +1,32 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { useRuntimeConfig } from '#imports';
 
 import CvButton from './CvButton.vue';
 
-describe('CvButton (D22)', () => {
-  it('annonce un document PDF, dans chaque langue', async () => {
+let original: string[] = [];
+
+beforeEach(() => {
+  original = useRuntimeConfig().public.cvFiles;
+  useRuntimeConfig().public.cvFiles = ['cv-fr.pdf', 'cv-en.pdf'];
+});
+
+afterEach(() => {
+  useRuntimeConfig().public.cvFiles = original;
+});
+
+describe('CvButton (D22, D44)', () => {
+  it('annonce un document PDF pour chaque version, dans chaque langue', async () => {
     for (const route of ['/', '/en']) {
       const wrapper = await mountSuspended(CvButton, {
         route,
-        props: { href: '/cv/exemple.pdf' },
+        props: { href: '/cv/cv-fr.pdf' },
       });
 
-      expect(wrapper.get('a').attributes('type'), route).toBe('application/pdf');
+      expect(
+        wrapper.findAll('li a').map((link) => link.attributes('type')),
+        route,
+      ).toEqual(['application/pdf', 'application/pdf']);
       wrapper.unmount();
     }
   });

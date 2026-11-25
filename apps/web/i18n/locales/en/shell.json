@@ -13,7 +13,11 @@
     "actions": {
       "interview": "Start the interview",
       "cv": "CV PDF",
-      "cvInFrench": "(in French)",
+      "cvMenu": {
+        "fr": "French version",
+        "en": "English version",
+        "soon": "(coming soon)"
+      },
       "subject": "Getting in touch from your website"
     },
     "theme": {

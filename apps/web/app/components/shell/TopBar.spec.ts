@@ -67,11 +67,12 @@ describe('TopBar : structure', () => {
     const wrapper = await mountBar(null);
 
     const actions = wrapper.get('.top-bar__actions');
-    const [contact, cv] = actions.findAll('a');
-    expect(contact!.attributes('href')).toBe(MAILTO);
-    expect(contact!.text()).toBe('Lancer l’entretien');
-    expect(cv!.attributes('href')).toBe('/cv/exemple.pdf');
-    expect(cv!.text()).toBe('CV PDF');
+    const contact = actions.get('a.base-button');
+    const cv = actions.get('button');
+    expect(contact.attributes('href')).toBe(MAILTO);
+    expect(contact.text()).toBe('Lancer l’entretien');
+    expect(cv.attributes('aria-expanded')).toBe('false');
+    expect(cv.text()).toBe('CV PDF');
   });
 
   it('range nom, navigation, actions puis langue, accessibilité et thème (D43)', async () => {
@@ -106,8 +107,8 @@ describe('TopBar : structure', () => {
     expect(
       wrapper
         .get('.top-bar__actions')
-        .findAll('a')
-        .map((link) => link.text()),
+        .findAll('a.base-button, button')
+        .map((control) => control.text()),
     ).toEqual(['CV PDF']);
   });
 });
@@ -177,8 +178,8 @@ describe('TopBar : anglais', () => {
     expect(
       wrapper
         .get('.top-bar__actions')
-        .findAll('a')
-        .map((link) => link.text()),
+        .findAll('a.base-button, button')
+        .map((control) => control.text()),
     ).toEqual(['Start the interview', 'CV PDF']);
   });
 });
