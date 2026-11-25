@@ -307,6 +307,8 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         if (side && id === 'profile') {
           // D42 : le Profil prend la place d'XP en haut de la colonne, ouvert.
           await expect(other).toBeVisible();
+          await expect(other).not.toHaveAttribute('inert');
+          await expect(other).not.toHaveAttribute('aria-hidden');
           await expect(other.locator('.tile__body')).not.toHaveAttribute('inert');
         } else if (side) {
           await expect(other).toBeVisible();
