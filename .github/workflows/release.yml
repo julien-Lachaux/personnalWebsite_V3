@@ -7,8 +7,9 @@ name: Release
 #     section, pose l'étiquette vX.Y.Z et crée la release GitHub avec cette section. Un hotfix poussé
 #     directement sans toucher version ni changelog ne crée aucune étiquette.
 #   - lot 33 (production tout statique, décision de Julien du 25 nov. 2026) : après l'étiquetage, le job « site »
-#     du MÊME workflow génère le front contre l'API (PostgreSQL de service, migrations, seeds), relève la CSP et
-#     joint à la release `site-<version>.tar.gz` et sa somme SHA-256 (scripts/deploy/build-site-archive.sh). Le
+#     du MÊME workflow (lecture seule) génère le front contre l'API (PostgreSQL de service, migrations, seeds),
+#     relève la CSP et produit `site-<version>.tar.gz` et sa somme SHA-256 (scripts/deploy/build-site-archive.sh),
+#     que le job « publier » (écriture, sans code du dépôt) joint à la release. Le
 #     serveur ne fait que télécharger et vérifier cette archive (scripts/deploy/deploy-static.sh). Variables du
 #     dépôt GitHub exigées (Settings > Secrets and variables > Actions > Variables) : SITE_CONTACT_EMAIL (adresse
 #     du bouton de contact) et SITE_BASE_URL (origine https publique du site, sans barre finale) ; absentes, le
@@ -26,8 +27,8 @@ on:
   push:
     branches: [main]
 
-# Permissions minimales : lecture seule par défaut, écriture du contenu (étiquette, release) donnée au seul
-# job qui étiquette.
+# Permissions minimales : lecture seule par défaut, écriture du contenu donnée aux seuls jobs qui n'exécutent
+# aucune dépendance : « etiquette » (étiquette, release) et « publier » (archive du site jointe à la release).
 permissions:
   contents: read
 
@@ -89,8 +90,10 @@ jobs:
     if: needs.etiquette.outputs.version != ''
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Lecture seule : ce job exécute tout l'arbre de dépendances (installation, build, API, génération). Le
+    # jeton d'écriture est réservé au job « publier », qui n'installe ni n'exécute rien du dépôt.
     permissions:
-      contents: write
+      contents: read
     services:
       postgres:
         image: postgres:16-alpine
@@ -150,9 +153,35 @@ jobs:
           exit 1
       - name: Archive du site (génération, contrôle des pages, CSP)
         run: bash scripts/deploy/build-site-archive.sh "$VERSION" "$RUNNER_TEMP/site"
-      - name: Archive et somme jointes à la release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: site-${{ env.VERSION }}
+          path: |
+            ${{ runner.temp }}/site/site-${{ env.VERSION }}.tar.gz
+            ${{ runner.temp }}/site/site-${{ env.VERSION }}.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 1
+
+  publier:
+    name: Publication du site dans la release
+    needs: [etiquette, site]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Seul job du lot 33 qui écrit : ni checkout, ni installation, ni code du dépôt exécuté.
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.etiquette.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: site-${{ env.VERSION }}
+          path: ${{ runner.temp }}/site
+      - name: Somme vérifiée, archive et somme jointes à la release
+        working-directory: ${{ runner.temp }}/site
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh release upload "v$VERSION" \
-            "$RUNNER_TEMP/site/site-$VERSION.tar.gz" "$RUNNER_TEMP/site/site-$VERSION.tar.gz.sha256" --clobber
+          sha256sum --check "site-$VERSION.tar.gz.sha256"
+          gh release upload "v$VERSION" "site-$VERSION.tar.gz" "site-$VERSION.tar.gz.sha256" --clobber
