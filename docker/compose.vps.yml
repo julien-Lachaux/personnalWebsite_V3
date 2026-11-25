@@ -27,7 +27,9 @@ services:
       # Dossier du socket, créé et recréé au démarrage par l'hôte (2750 compte-appli:caddy).
       - ${PROD_RUN_DIR:-/run/prod/site-perso}:/run/prod
     oom_score_adj: 500
-    security_opt:
+    # `!override` : remplace la liste de compose.prod.yml au lieu de s'y ajouter (Docker Compose refuse
+    # deux `no-new-privileges:true` dans la liste fusionnée) ; no-new-privileges y reste.
+    security_opt: !override
       - no-new-privileges:true
       - label=disable
   api:
