@@ -1,0 +1,45 @@
+# Surcharge de docker/compose.prod.yml pour le VPS sous Podman sans privilèges (lot 29), jamais en local :
+#   DEPLOY_VARIANT=vps (scripts/deploy/common.sh) ajoute ce fichier après compose.prod.yml.
+# Deux niveaux de Caddy : celui de l'HÔTE tient 80/443 (ports < 1024 interdits à un compte sans
+# privilèges), le TLS, la redirection HTTP vers HTTPS et relaie vers le socket Unix de celui de la pile
+# (`/run/prod/site-perso/web.sock` sur l'hôte, `/run/prod/web.sock` dans le conteneur).
+# Cette pile ne publie donc AUCUN port, sans NET_BIND_SERVICE ni réseau `edge` (plus de sortie vers
+# Internet : plus de certificat à obtenir). Caddy n'a pas de `user:` : seul le root du conteneur (le
+# compte de l'appli sur l'hôte) crée le socket dans le dossier 2750 ; `cap_drop: [ALL]` le prive du reste.
+# `!reset` et `!override` demandent Compose 2.24 ou plus.
+# Noms d'image complets partout : le compte de l'appli refuse les noms courts (short-name-mode enforcing).
+# `oom_score_adj` : sous Podman sans privilèges un conteneur créé sans valeur explicite refuse tout `exec`
+# (healthcheck de PostgreSQL, `caddy reload`, voir compose.podman.yml). Une valeur ne peut qu'être relevée
+# sans privilège ; PostgreSQL reçoit la plus basse (il est tué en dernier), l'API et Caddy plus haut, la
+# génération du front (2 Go) la plus haute.
+services:
+  caddy:
+    image: docker.io/library/caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
+    restart: always
+    ports: !reset []
+    cap_add: !reset []
+    networks: !override
+      - app
+    environment:
+      PUBLIC_HTTPS_PORT: !reset null
+    volumes:
+      - ./Caddyfile.vps:/etc/caddy/Caddyfile:ro
+      # Dossier du socket, créé et recréé au démarrage par l'hôte (2750 compte-appli:caddy).
+      - ${PROD_RUN_DIR:-/run/prod/site-perso}:/run/prod
+    oom_score_adj: 500
+    security_opt:
+      - no-new-privileges:true
+      - label=disable
+  api:
+    image: localhost/siteperso-api:prod
+    restart: always
+    oom_score_adj: 500
+  migrate:
+    image: localhost/siteperso-api:prod
+    oom_score_adj: 500
+  postgres:
+    restart: always
+    oom_score_adj: 300
+  web-build:
+    image: localhost/siteperso-web-build:prod
+    oom_score_adj: 900

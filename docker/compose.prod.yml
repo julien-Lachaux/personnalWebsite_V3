@@ -82,6 +82,20 @@ services:
       - no-new-privileges:true
     mem_limit: 512m
     pids_limit: 100
+    # Déclaré ici et non seulement dans le Dockerfile (HEALTHCHECK) : `wait_for_api_health` et les
+    # `depends_on: service_healthy` ne dépendent ainsi pas du format de l'image (Docker v2 ou OCI).
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
 
   # Applique les migrations puis les seeds (runner du lot 1 : db/migrations, db/seeds), crée ou met à jour
   # le rôle de lecture seule de l'API, puis s'arrête. Seul service qui utilise le rôle propriétaire.
