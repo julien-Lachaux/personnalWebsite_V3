@@ -175,16 +175,123 @@ La génération du front produit, à côté de `404.html` et `en/404.html`, une 
 autonomes : aucun script de l'application, aucune charge utile, aucun appel à l'API ; seuls les feuilles de style
 de `/_nuxt/*.css`, les polices de `/fonts/` et le script de thème en ligne (haché dans `csp.caddy` comme les
 autres éléments en ligne, puisque `csp-hashes.mjs` lit toutes les pages). Elles sont `noindex`, sans canonique et
-hors de `sitemap.xml`. Branchement attendu dans `handle_errors` (non fait au lot 30) :
+hors de `sitemap.xml`. Branchées dans `handle_errors` des deux Caddyfile au lot 32 :
 
-- pour les statuts 500, 502, 503 et 504, servir `50x.html` (ou `en/50x.html` quand le chemin d'origine est `/en`
-  ou commence par `/en/`, même règle que la 404) **en gardant le statut de l'erreur** (`file_server` avec
-  `status {err.status_code}`), avec la CSP du front (`import /srv/web/current/csp.*`) et `Cache-Control:
-  no-cache` ;
-- la servir par **réécriture**, jamais par redirection : le lien « Réessayer » de la page (`href=""`) recharge
-  l'adresse affichée, qui doit rester celle qui a échoué ;
-- le cas des réponses de `/api/*` (502 quand l'API est arrêtée : page HTML ou réponse brute pour un client JSON)
-  est à trancher au lot 32.
+- 404 : `404.html` ou `en/404.html` (déjà en place) ; 500, 502, 503 et 504 hors `/api/*` : `50x.html` ou
+  `en/50x.html` (chemin d'origine `/en` ou `/en/…`), **par réécriture** (jamais de redirection : « Réessayer »
+  recharge l'adresse qui a échoué), avec le statut de l'erreur (`file_server { status {err.status_code} }`), la CSP
+  du front et `Cache-Control: no-cache` ;
+- `/api/*` : **inchangé** (décision de Julien, le comportement des erreurs serveur de l'API fait l'objet d'un
+  ticket séparé). Constaté sur la pile d'essai, API arrêtée : `502 Bad Gateway`, `Content-Type: text/plain;
+  charset=utf-8`, corps `502 Bad Gateway`,, jamais la page HTML ;
+- aucune erreur 50x n'est produite par le site statique lui-même : ces pages ne servent que quand Caddy ne joint
+  plus l'API (et pour les adresses hors `/api/*` qu'une erreur de Caddy atteint) ; le test
+  `wip-mode.e2e-spec.ts` les provoque par une route d'essai `/boom/*` ajoutée à une copie du Caddyfile.
+
+### Mode travaux (lot 32)
+
+Ferme le site au public pendant un chantier, sans régénérer le front. Même fonctionnement en local et sur le VPS
+(`docker/wip.caddy`, importé par `docker/Caddyfile` et `docker/Caddyfile.vps` ; `docker/caddy-start.sh`, point
+d'entrée du conteneur Caddy). Variables de `docker/.env.prod` (et de `docker/.env.local` pour la pile locale) :
+
+| Variable | Rôle |
+|---|---|
+| `WIP_MODE` | `off` (défaut) ou `on` ; autre valeur : le conteneur refuse de démarrer |
+| `WIP_KEY` | clé d'accès, jamais dans le dépôt : 32 caractères au moins parmi `A-Za-z0-9._~-` (`openssl rand -hex 24`) |
+| `WIP_STATUS` | statut de la page travaux, 503 par défaut (décision de Julien du 25 nov. 2026) ; `200` pour une page ordinaire |
+| `WIP_RETRY_AFTER` | `Retry-After` de la page, en secondes (3600) |
+| `WIP_API` | `open` (défaut, décision de Julien) : `/api/*` reste ouverte ; `closed` : 503 `application/problem+json` sans le cookie |
+
+Comportement avec `WIP_MODE=on` : toute adresse hors `/api/*` redirige (302, `Cache-Control: no-store`) vers
+`/travaux`, ou `/en/work-in-progress` pour `/en` et `/en/*` ; ces pages répondent 503 avec `Retry-After`,
+`X-Robots-Tag: noindex`, la CSP du front et `no-cache`. Passent sans redirection : `/_nuxt/*`, `/_i18n/*`,
+`/fonts/*`, `/robots.txt` et les deux `_payload.json` de la page. **Clé** : `/?acces=<clé>` (n'importe quelle page
+hors API) pose le cookie `acces` (`HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`, 30 jours) et
+redirige vers la même adresse sans le paramètre ; avec le cookie, le site s'affiche normalement. Clé ou cookie
+faux : comportement du mode actif, sans indice. La valeur du cookie est l'empreinte SHA-256 de `wip:<clé>`
+(calculée par `caddy-start.sh`, relue par `{file./tmp/wip.token}`), jamais la clé : changer la clé invalide les
+cookies. Le paramètre `acces` est retiré de l'URI de chaque entrée du journal d'accès de la pile (`log` en
+`format filter`) ; `Cookie` et `Set-Cookie` y sont déjà masqués par Caddy. **Limite** : le Caddy de l'hôte (VPS) voit
+l'adresse avant la pile et journalise son URI : y appliquer le même filtre (bloc ci-dessous), sinon la clé s'écrit
+dans le journal de l'hôte.
+
+Procédure (compte de l'appli, dans `DEPLOY_DIR`) :
+
+```sh
+# Activer : éditer .env.prod (WIP_MODE=on et WIP_KEY=$(openssl rand -hex 24)), puis recréer le seul Caddy.
+# Les variables de Caddy sont fixées à la création du conteneur : un `caddy reload` ne les relit pas.
+docker-compose -f docker/compose.prod.yml -f docker/compose.vps.yml --env-file .env.prod up -d caddy
+# Désactiver : WIP_MODE=off (ou retirer la ligne), même commande. Changer la clé : nouvelle WIP_KEY, même commande.
+# Contrôle : curl -sI https://<domaine>/ doit donner 302 (actif) ou 200 (éteint).
+```
+
+Le site n'est pas régénéré (le volume `web_site` ne change pas) ; la recréation de Caddy dure quelques secondes.
+`WIP_MODE=on` avec une clé absente ou trop courte : Caddy s'arrête avec « WIP_MODE=on exige une clé WIP_KEY d'au
+moins 32 caractères » (`docker-compose logs caddy`), la pile n'est jamais à moitié protégée.
+
+### Pages d'erreur quand la pile est arrêtée (Caddy de l'hôte, à reporter dans `add-app.sh`)
+
+Pile entière arrêtée, le Caddy de l'hôte ne joint plus le socket : il répond 502. Il peut servir une copie
+statique des pages 50x et de leurs ressources, posée dans un dossier de l'hôte lisible par `caddy` (hors du
+dossier 700 de l'appli), mise à jour à chaque déploiement. Bloc à ajouter au site de l'hôte (à côté de son
+`reverse_proxy unix//run/prod/site-perso/web.sock`) :
+
+```caddyfile
+	log {
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					delete acces
+				}
+			}
+		}
+	}
+	handle_errors {
+		header -Server
+		@assets path /_nuxt/* /fonts/*
+		handle @assets {
+			root * /srv/site-perso-errors
+			file_server
+		}
+		@down expression {err.status_code} in [502, 503, 504]
+		handle @down {
+			root * /srv/site-perso-errors
+			header Cache-Control "no-cache"
+			header X-Robots-Tag "noindex"
+			# CSP du front relue comme simple VALEUR d'en-tête (placeholder `{file.…}`), jamais par `import` :
+			# le fichier est écrit par le compte de l'appli, qui ne doit pas pouvoir modifier la configuration
+			# du Caddy de l'hôte.
+			header Content-Security-Policy "{file./srv/site-perso-errors/csp.txt}"
+			@en vars_regexp en {http.request.orig_uri.path} ^/en(?:/|$)
+			rewrite * /50x.html
+			rewrite @en /en/50x.html
+			file_server {
+				status {err.status_code}
+			}
+		}
+	}
+```
+
+Le bloc `log` remplace celui de l'hôte s'il existe déjà (il ajoute seulement le filtre de la clé). La page 50x de
+l'hôte reçoit la CSP du front de la version publiée (`csp.caddy`, empreinte du script de thème comprise) : seule la
+valeur de l'en-tête est copiée, dans `csp.txt`, et l'hôte la relit comme une chaîne. Ne jamais importer `csp.caddy`
+dans le Caddyfile de l'hôte : ce fichier, écrit par le compte de l'appli, pourrait alors porter n'importe quelle
+directive dans la configuration de l'hôte.
+Copie, à ajouter à `update.sh` côté hôte (ou à lancer après chaque `update.sh`, dossier créé une fois en 0755 par
+l'administrateur et appartenant à l'appli) :
+
+```sh
+docker-compose -f docker/compose.prod.yml -f docker/compose.vps.yml --env-file .env.prod exec -T caddy \
+  tar -C /srv/web/current/public -cf - 50x.html en/50x.html _nuxt fonts \
+  | tar -C /srv/site-perso-errors -xf -
+# Valeur seule de la CSP (une ligne, sans saut de ligne final) ; vide = copie refusée.
+docker-compose -f docker/compose.prod.yml -f docker/compose.vps.yml --env-file .env.prod exec -T caddy \
+  cat /srv/web/current/csp.caddy \
+  | sed -n 's/^header Content-Security-Policy "\([^"]*\)"$/\1/p' | tr -d '\n' > /srv/site-perso-errors/csp.txt
+test -s /srv/site-perso-errors/csp.txt || { echo "CSP introuvable dans csp.caddy" >&2; exit 1; }
+chmod -R a+rX /srv/site-perso-errors
+```
 
 ### Parcours de fumée du front (BF-15)
 

@@ -1,0 +1,96 @@
+# Mode travaux (lot 32) : extraits importés par docker/Caddyfile et docker/Caddyfile.vps
+# (`import /etc/caddy/wip.caddy` en tête, puis `import wip-{$WIP_MODE:off}` dans le bloc du site).
+#
+# Variables (docker/.env.prod, voir docker/.env.prod.example ; lues par Caddy à son démarrage, donc un
+# changement demande de recréer le conteneur : `compose up -d caddy`, sans régénérer le site) :
+#   WIP_MODE         off (défaut) ou on ; toute autre valeur est refusée au démarrage (caddy-start.sh)
+#   WIP_KEY          clé d'accès (32 caractères au moins, [A-Za-z0-9._~-]) ; jamais dans le dépôt
+#   WIP_STATUS       statut de la page travaux (défaut 503 : le site est temporairement indisponible ;
+#                    200 pour une page « normale »)
+#   WIP_RETRY_AFTER  en-tête Retry-After de la page, en secondes (défaut 3600)
+#   WIP_API          open (défaut : /api/* reste ouverte) ou closed (503 problem+json tant que le
+#                    cookie d'accès manque)
+# Le cookie d'accès ne porte pas la clé : sa valeur est l'empreinte SHA-256 de « wip: » + la clé, écrite
+# par caddy-start.sh dans /tmp/wip.token (lue ici par {file./tmp/wip.token}).
+
+(wip-off) {
+}
+
+(wip-api-open) {
+}
+
+# API fermée : /api/* répond 503 en problem+json aux visiteurs sans cookie d'accès.
+(wip-api-closed) {
+	@wipapi {
+		path /api/*
+		not header Cookie *acces={file./tmp/wip.token}*
+	}
+	handle @wipapi {
+		header Content-Type "application/problem+json"
+		header Cache-Control "no-store"
+		header Retry-After "{$WIP_RETRY_AFTER:3600}"
+		header Content-Security-Policy "default-src 'none';frame-ancestors 'none'"
+		respond `{"type":"about:blank","title":"Service Unavailable","status":503}` 503
+	}
+}
+
+(wip-on) {
+	import wip-api-{$WIP_API:open}
+
+	# Clé valide (n'importe quelle page hors API) : cookie posé, puis retour à la même adresse sans le
+	# paramètre `acces`. La valeur du cookie est l'empreinte de la clé, jamais la clé.
+	@wipkey {
+		not path /api/*
+		query acces={$WIP_KEY}
+	}
+	handle @wipkey {
+		route {
+			header Set-Cookie "acces={file./tmp/wip.token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000"
+			header Cache-Control "no-store"
+			uri query -acces
+			redir * {uri} 302
+		}
+	}
+
+	# Les pages travaux (fr, en), servies avec le statut WIP_STATUS.
+	@wippage {
+		path /travaux /travaux/ /en/work-in-progress /en/work-in-progress/
+		not header Cookie *acces={file./tmp/wip.token}*
+	}
+	handle @wippage {
+		import /srv/web/current/csp.*
+		header X-Frame-Options "DENY"
+		header X-Robots-Tag "noindex"
+		header Retry-After "{$WIP_RETRY_AFTER:3600}"
+		header Cache-Control "no-cache"
+		root * /srv/web/current/public
+		try_files {path} {path}/index.html
+		file_server {
+			status {$WIP_STATUS:503}
+		}
+	}
+
+	# Tout le reste (page HTML, PDF, plan du site, adresse inconnue…) : redirection sans mémoire (302,
+	# no-store) vers la page travaux de la langue. Passent seulement les ressources de la page.
+	@wipredir {
+		path /en /en/*
+		not path /en/work-in-progress /en/work-in-progress/
+		not path /_nuxt/* /_i18n/* /fonts/* /robots.txt /en/work-in-progress/_payload.json
+		not header Cookie *acces={file./tmp/wip.token}*
+	}
+	@wipredirfr {
+		not path /api/*
+		not path /en /en/*
+		not path /travaux /travaux/
+		not path /_nuxt/* /_i18n/* /fonts/* /robots.txt /travaux/_payload.json
+		not header Cookie *acces={file./tmp/wip.token}*
+	}
+	handle @wipredir {
+		header Cache-Control "no-store"
+		redir * /en/work-in-progress 302
+	}
+	handle @wipredirfr {
+		header Cache-Control "no-store"
+		redir * /travaux 302
+	}
+}
