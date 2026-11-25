@@ -94,9 +94,14 @@ case "${PROJECT}" in
 *-vps) ;;
 *) die "projet « ${PROJECT} » refusé : la pile d'essai porte un nom en -vps (${ENV_FILE} n'est pas un fichier d'essai ?)" ;;
 esac
+# Dans un `case`, `*` accepte aussi `/` : après le préfixe, ni `/` ni `..` (pas de remontée hors de
+# /tmp). Si TMPDIR change entre `up` et `down`, `down` refuse d'agir : échec sûr, rien n'est supprimé.
 case "${RUN_DIR}" in
 "${TMPDIR:-/tmp}"/siteperso-vps-run.*) ;;
 *) die "dossier du socket « ${RUN_DIR} » refusé : attendu ${TMPDIR:-/tmp}/siteperso-vps-run.* (${ENV_FILE} n'est pas un fichier d'essai ?)" ;;
+esac
+case "${RUN_DIR#"${TMPDIR:-/tmp}"/siteperso-vps-run.}" in
+'' | */* | *..*) die "dossier du socket « ${RUN_DIR} » refusé : ni « / » ni « .. » après le préfixe" ;;
 esac
 
 COMPOSE=("${ENGINE}" compose -p "${PROJECT}"
