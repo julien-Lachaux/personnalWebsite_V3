@@ -13,6 +13,12 @@
   "annex": {
     "home": "accueil"
   },
+  "workInProgress": {
+    "title": "Site en cours de construction",
+    "description": "Le site de Julien Lachaux est en cours de construction. En attendant, vous pouvez lui écrire ou télécharger son CV.",
+    "intro": "Je reconstruis ce site de fond en comble. Il revient bientôt, avec mon parcours, mes expériences et les technologies que j’utilise.",
+    "next": "En attendant, vous pouvez m’écrire ou télécharger mon CV."
+  },
   "declaration": {
     "title": "Déclaration d’accessibilité",
     "description": "État de conformité du site aux règles d’accessibilité (WCAG 2.2 AA, RGAA), contenus non accessibles connus, contact et voies de recours.",

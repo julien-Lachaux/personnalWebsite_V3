@@ -13,6 +13,12 @@
   "annex": {
     "home": "home page"
   },
+  "workInProgress": {
+    "title": "Site under construction",
+    "description": "Julien Lachaux’s website is under construction. In the meantime, you can email him or download his CV.",
+    "intro": "I’m rebuilding this site from the ground up. It will be back soon, with my background, experience and the technologies I work with.",
+    "next": "In the meantime, you can email me or download my CV."
+  },
   "declaration": {
     "title": "Accessibility statement",
     "description": "How this website conforms to accessibility standards (WCAG 2.2 AA, RGAA), known inaccessible content, contact and how to seek redress.",
