@@ -406,26 +406,29 @@ Suivi de la consommation : chaque run écrit coût équivalent, tours, durée et
 
 ### Rulesets
 
-Les trois rulesets du dépôt sont versionnés, au format d'import et d'export de GitHub, dans
+Les quatre rulesets du dépôt sont versionnés, au format d'import et d'export de GitHub, dans
 `docs/github/rulesets/`. Ils font foi : un changement passe d'abord par ces fichiers (pull request), puis Julien le
 reporte sur GitHub.
 
-| Fichier | Type | Cible | Contournement |
-|---|---|---|---|
-| `develop.json` | ruleset de branche | `refs/heads/develop` | aucun, administrateurs compris |
-| `main.json` | ruleset de branche | `refs/heads/main` | rôle Admin (`bypass_mode: always`) : push direct d'un correctif urgent par Julien |
-| `tags-version.json` | ruleset d'étiquettes | `refs/tags/v*` | aucun |
+| Fichier | Nom sur GitHub | Type | Cible | Contournement |
+|---|---|---|---|---|
+| `develop.json` | Protection de develop | ruleset de branche | `refs/heads/develop` | aucun, administrateurs compris |
+| `main.json` | Protection de main | ruleset de branche | `refs/heads/main` | rôle Admin (`bypass_mode: always`) : push direct d'un correctif urgent par Julien |
+| `main-integrite.json` | Intégrité de main | ruleset de branche | `refs/heads/main` | aucun, administrateurs compris |
+| `tags-version.json` | Protection des étiquettes de version | ruleset d'étiquettes | `refs/tags/v*` | aucun |
 
-Portée du contournement de `main` : `bypass_mode: always` lève **toutes** les règles du ruleset pour le rôle Admin,
-pas seulement la PR obligatoire : un administrateur peut aussi forcer un push, supprimer `main` et fusionner sans
-les contrôles requis. Tout jeton d'API au nom de Julien en hérite, y compris celui de la session principale s'il a
-le droit d'écriture sur le contenu : seuls les hooks l'arrêtent alors (push de `main`, push forcé, `gh pr merge
---admin`). Variante plus stricte, non retenue à ce jour : sortir `deletion` et `non_fast_forward` dans un ruleset
-séparé sans contournement (le push direct d'un correctif reste une avance rapide, donc permis).
+`main` porte deux rulesets (GitHub applique l'union des règles). Raison (revue de la PR #21) : `bypass_mode: always`
+lève **toutes** les règles du ruleset pour le rôle Admin, et tout jeton d'API au nom de Julien en hérite, y compris
+celui de la session principale. « Protection de main » ne garde donc que ce qu'un correctif urgent doit pouvoir
+contourner (PR obligatoire et contrôles requis) ; « Intégrité de main », sans contournement, interdit à tous la
+suppression et le push forcé. Le push direct d'un correctif reste permis : c'est une avance rapide. Un administrateur
+peut encore pousser ou fusionner sur `main` sans PR ni CI : contre la session principale, seuls les hooks l'arrêtent
+(push de `main`, `gh pr merge --admin`).
 
-Règles des deux rulesets de branche :
+Règles des rulesets de branche :
 
-- suppression et push forcé interdits (`deletion`, `non_fast_forward`) ;
+- suppression et push forcé interdits (`deletion`, `non_fast_forward`) : dans `develop.json` et
+  `main-integrite.json` ;
 - pull request obligatoire, 0 approbation (l'auteur ne peut pas approuver sa propre PR : la « revue requise » est
   le contrôle automatisé), fusion par commit de merge seulement (`allowed_merge_methods: ["merge"]`, ni squash ni
   rebase) ;
@@ -469,8 +472,9 @@ si une fusion est refusée faute d'approbation alors que la CI est verte, c'est 
 
 Vérification (lecture seule) : `gh api repos/julien-Lachaux/personnalWebsite_V3/rulesets` liste les rulesets ;
 `gh api repos/julien-Lachaux/personnalWebsite_V3/rulesets/<id>` donne le détail à comparer au fichier. Constaté le
-25 nov. 2026 : les trois rulesets sont actifs et conformes aux fichiers, aux deux champs ajoutés près, et `main` n'a
-plus de protection classique.
+25 nov. 2026 : les quatre rulesets sont actifs et conformes aux fichiers, aux deux champs ajoutés près, et `main` n'a
+plus de protection classique. `gh api repos/julien-Lachaux/personnalWebsite_V3/rules/branches/main` montre chaque
+règle appliquée à `main` avec le ruleset qui la porte (`deletion` et `non_fast_forward` par « Intégrité de main »).
 
 ### Décisions de Julien (21 nov. 2026)
 
@@ -483,8 +487,9 @@ plus de protection classique.
 
 ### Décisions de Julien (25 nov. 2026)
 
-- `main` est protégée par un ruleset aux mêmes règles que `develop`, sauf le contournement par le rôle Admin, qui
-  garde le push direct d'un correctif urgent.
+- `main` est protégée aux mêmes règles que `develop`, réparties en deux rulesets : PR obligatoire et contrôles
+  requis contournables par le rôle Admin, qui garde le push direct d'un correctif urgent ; suppression et push forcé
+  interdits à tous, sans contournement (revue de la PR #21).
 - Les étiquettes `v*` sont protégées contre la suppression et le déplacement.
 - Les rulesets sont versionnés dans `docs/github/rulesets/` : rien de secret dans ces fichiers (noms de jobs,
   règles, rôle Admin par son identifiant générique 5).
