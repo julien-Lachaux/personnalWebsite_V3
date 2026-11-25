@@ -1,6 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime';
 import type { VueWrapper } from '@vue/test-utils';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 import { useRuntimeConfig } from '#imports';
 
@@ -120,6 +120,53 @@ describe('CvButton, menu au clavier (D44)', () => {
     await nextTick();
 
     expect(wrapper.get('button').attributes('aria-expanded')).toBe('true');
+  });
+
+  it('un clic hors du menu le ferme, sans voler le focus', async () => {
+    const wrapper = await mountMenu();
+    const outside = document.createElement('p');
+    document.body.append(outside);
+    hosts.push(outside);
+    await wrapper.get('button').trigger('click');
+    (wrapper.get('li a[href]').element as HTMLElement).focus();
+
+    outside.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await nextTick();
+
+    expect(wrapper.get('button').attributes('aria-expanded')).toBe('false');
+    expect(wrapper.get('ul').attributes()).toHaveProperty('hidden');
+  });
+
+  it('un clic dans le menu (bouton ou entrée) le laisse ouvert', async () => {
+    const wrapper = await mountMenu();
+    await wrapper.get('button').trigger('click');
+
+    wrapper.get('li a[href]').element.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    wrapper.get('button').element.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await nextTick();
+
+    expect(wrapper.get('button').attributes('aria-expanded')).toBe('true');
+  });
+
+  it('n’écoute le document que menu ouvert : retiré à la fermeture et au démontage', async () => {
+    const added = vi.spyOn(document, 'addEventListener');
+    const removed = vi.spyOn(document, 'removeEventListener');
+    const wrapper = await mountMenu();
+    const count = (spy: typeof added): number =>
+      spy.mock.calls.filter(([type]) => type === 'pointerdown').length;
+    expect(count(added)).toBe(0);
+
+    await wrapper.get('button').trigger('click');
+    expect(count(added)).toBe(1);
+
+    await wrapper.get('button').trigger('click');
+    expect(count(removed)).toBe(1);
+
+    await wrapper.get('button').trigger('click');
+    wrapper.unmount();
+    mounted.pop();
+    expect(count(removed)).toBeGreaterThanOrEqual(2);
+    vi.restoreAllMocks();
   });
 
   it('un focus sortant alors que le menu est fermé ne change rien', async () => {

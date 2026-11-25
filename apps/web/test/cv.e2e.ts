@@ -79,6 +79,23 @@ for (const { code, path, labels, soon } of LOCALES) {
     expect(results.violations).toEqual([]);
   });
 
+  test(`${code} (${path}) : un clic sur une zone neutre de la page referme le menu`, async ({
+    page,
+  }) => {
+    await page.goto(path);
+    await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+
+    const trigger = page.getByRole('button', { name: 'CV PDF', exact: true });
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+    // Coin bas-gauche de la fenêtre, loin du menu, hors des barres : aucune cible focalisable.
+    const viewport = page.viewportSize()!;
+    await page.mouse.click(2, viewport.height / 2);
+
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
   test(`${code} (${path}) : Échap referme le menu et rend le focus au bouton`, async ({ page }) => {
     await page.goto(path);
     await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);

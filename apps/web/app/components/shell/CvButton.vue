@@ -7,7 +7,7 @@
 // adresse), avec « (bientôt) ». Chaque lien est téléchargé (`download`), annoncé comme PDF (`type`) et
 // porte la langue du document (`hreflang`). `placement` : la liste s'ouvre sous le bouton (barre du
 // haut) ou au-dessus (barre d'actions du bas). La classe reçue va sur la racine.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import { useI18n } from '#imports';
 
 import BaseButton from '../base/Button.vue';
@@ -47,6 +47,21 @@ function onFocusout(event: FocusEvent): void {
   open.value = false;
 }
 
+/**
+ * Un clic hors du menu le ferme, sans voler le focus : sur une zone qui ne prend pas le focus,
+ * `focusout` n'a pas de cible (`relatedTarget` nul) et ne suffit pas. Écouteur posé à l'ouverture,
+ * retiré à la fermeture et au démontage.
+ */
+function onPointerdown(event: PointerEvent): void {
+  if (event.target instanceof Node && root.value!.contains(event.target)) return;
+  open.value = false;
+}
+
+watch(open, (isOpen) => {
+  if (isOpen) document.addEventListener('pointerdown', onPointerdown);
+  else document.removeEventListener('pointerdown', onPointerdown);
+});
+
 // Écouteurs posés à la main : un `@keydown` sur un `<div>` serait une interaction sur un élément non
 // interactif (vuejs-accessibility), comme dans Popover.
 onMounted(() => {
@@ -54,6 +69,7 @@ onMounted(() => {
   root.value!.addEventListener('focusout', onFocusout);
 });
 onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onPointerdown);
   root.value!.removeEventListener('keydown', onKeydown);
   root.value!.removeEventListener('focusout', onFocusout);
 });
