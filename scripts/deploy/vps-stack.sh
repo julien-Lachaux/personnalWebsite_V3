@@ -39,11 +39,6 @@ up | ps | logs | exec | down) ;;
   ;;
 esac
 
-ENGINE="$(container_engine)" || die "aucun moteur de conteneurs utilisable"
-if [ "${ENGINE}" = podman ]; then
-  export PODMAN_COMPOSE_WARNING_LOGS=false
-fi
-
 random_secret() { head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
 
 ensure_env_file() {
@@ -103,6 +98,13 @@ esac
 case "${RUN_DIR#"${TMPDIR:-/tmp}"/siteperso-vps-run.}" in
 '' | */* | *..*) die "dossier du socket « ${RUN_DIR} » refusé : ni « / » ni « .. » après le préfixe" ;;
 esac
+
+# Moteur détecté après le garde-fou : un fichier qui n'est pas d'essai est refusé pour ce motif, même
+# sur un poste sans moteur de conteneurs.
+ENGINE="$(container_engine)" || die "aucun moteur de conteneurs utilisable"
+if [ "${ENGINE}" = podman ]; then
+  export PODMAN_COMPOSE_WARNING_LOGS=false
+fi
 
 COMPOSE=("${ENGINE}" compose -p "${PROJECT}"
   -f "${REPO_DIR}/docker/compose.prod.yml"
