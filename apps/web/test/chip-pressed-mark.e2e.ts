@@ -94,6 +94,7 @@ test.describe('1280 px, coche des puces d’une carte', () => {
     page,
   }) => {
     await page.goto('/');
+    await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
     const section = page.locator('#section-experience');
     const idle = section.locator('article button.tech-chip[aria-pressed="false"]').first();
     await expect(idle).toBeVisible();
