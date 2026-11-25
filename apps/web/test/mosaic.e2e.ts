@@ -357,6 +357,19 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       // D42 : XP agrandie, le Profil occupe la colonne latérale et défile comme d'habitude.
       await expect(body).toHaveAttribute('tabindex', '0');
       await expect(body).not.toHaveAttribute('inert');
+      // Défilement réel (F12-BARRE, revue de la PR 20) : le corps du Profil dépasse dans la colonne
+      // latérale et suit un scrollTo. À 3440 × 1440 la colonne est assez haute pour tout afficher : le
+      // corps ne dépasse pas et il n'y a rien à faire défiler.
+      const overflows = await body.evaluate(
+        (element) => element.scrollHeight > element.clientHeight,
+      );
+      if (page.viewportSize()!.height >= 1440) {
+        expect(overflows).toBe(false);
+        return;
+      }
+      expect(overflows).toBe(true);
+      await body.evaluate((element) => element.scrollTo(0, element.scrollHeight));
+      expect(await body.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
     });
 
     test('tuile agrandie : XP défile dans la colonne latérale, les autres sont repliées (D42)', async ({

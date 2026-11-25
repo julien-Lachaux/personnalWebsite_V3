@@ -75,3 +75,13 @@ anglais). Avant : échec `683` attendu contre `712` reçu (rapporté par la CI).
 `top-bar-height`, `language-switch-d43` sur portable-1024, desktop-1280 et mobile-390 : 90 réussis ;
 `pnpm integrity develop` : OK ; conteneurs arrêtés. Commit avec `Justification-test: F12-BARRE`.
 Le correctif de production est sur la branche du lot en `54ef8df` (cherry-pick de `9b6c869`).
+
+## Suite 2 : preuve du défilement du Profil (revue de la PR 20)
+
+`mosaic.e2e.ts`, test « Profil … défile quand il dépasse (D41) » : ajout de `scrollHeight > clientHeight`
+sur le corps du Profil en colonne latérale (XP agrandie), puis `scrollTo` et `scrollTop > 0`. Premier
+essai sans condition : 2 échecs, seulement à ultra-3440 (1440 px de haut, le Profil tient et ne dépasse
+pas). À cette hauteur le test affirme donc l'absence de dépassement ; ailleurs il exige le dépassement
+et le défilement. Résultat : `mosaic` sur portable-1024, desktop-1280, grand-1440 et ultra-3440 : 104
+réussis ; lint vert ; `pnpm integrity develop` : OK ; conteneurs arrêtés. Commit avec
+`Justification-test: F12-BARRE` (ajout d'assertions dans un test existant).
