@@ -13,11 +13,13 @@
 //   à largeur égale (`ResizeObserver` ; un changement de largeur vient de la mise en page elle-même et
 //   s'anime, il ne relance rien), quand un réglage d'affichage change sur `<html>` (taille du texte,
 //   police, espacement) et une fois les polices chargées (`document.fonts.ready`).
-// - Profil (SPEC § 4.1) : réduit par S sans défilement dans la mosaïque (largeur `largeur / S` puis
-//   `scale(S)` depuis le coin haut gauche) ; défilant en colonne latérale, quand le texte est agrandi ou
-//   quand même S = 0,6 ne suffit pas.
+// - Profil (D41) : taille de texte normale, jamais réduit ; il défile comme IA et Recos quand son contenu
+//   dépasse la tuile.
 // - XP : la tuile ne défile pas, la liste de la section défile seule (hauteur définie par la tuile).
-// - Animation : position, taille et S ensemble (`--dur-tile`, `--ease-tile`) ; une tuile sortie devient
+// - Tuile agrandie (D42) : les tuiles de la colonne latérale autres qu'XP (ou que le Profil quand XP est
+//   agrandie) se replient en bas sur leur
+//   barre de titre (`folded` : corps inerte, non lu, hors de la tabulation) ; XP prend la hauteur libérée.
+// - Animation : position et taille ensemble (`--dur-tile`, `--ease-tile`) ; une tuile sortie devient
 //   `visibility: hidden` après `--dur-tile`, `inert` et `aria-hidden` tout de suite (`pushedOut`). Pas de
 //   transition au premier placement ni quand la zone ou les mesures changent (`instant`).
 // - Bouton de chaque tuile : demande `toggle` ; la tuile agrandie est celle de la coquille (`expanded`).
@@ -26,7 +28,6 @@ import { useI18n } from '#imports';
 
 import { SECTION_FILES } from '../../composables/shell/sections.js';
 import { useMosaic } from '../../composables/shell/useMosaic.js';
-import { usePreferences } from '../../composables/shell/usePreferences.js';
 import { TILE_ORDER } from '../../domain/layout.js';
 import type { TileId } from '../../domain/layout-types.js';
 import BaseTile from '../base/Tile.vue';
@@ -51,7 +52,6 @@ const MEASURED: readonly TileId[] = ['profile', 'recommendations', 'ai'];
 const TEXT_ATTRIBUTES = ['data-text-size', 'data-font', 'data-spacing'];
 
 const { t } = useI18n();
-const { preferences } = usePreferences();
 
 const root = ref<HTMLElement | null>(null);
 const contents: Partial<Record<TileId, HTMLElement>> = {};
@@ -79,9 +79,8 @@ function measure(tile: TileId, width: number): number {
   return height;
 }
 
-const { layout, fit, instant, setZone, remeasure } = useMosaic(
+const { layout, instant, setZone, remeasure } = useMosaic(
   computed(() => props.expanded),
-  computed(() => preferences.value.textSize !== 100),
   measure,
 );
 
@@ -96,20 +95,14 @@ function tileStyle(id: TileId): CSSProperties | undefined {
   return { left: `${x}px`, top: `${y}px`, width: `${width}px`, height: `${height}px` };
 }
 
-/**
- * XP ne défile jamais (sa liste défile seule) ; le Profil seulement hors réduction (colonne latérale,
- * texte agrandi) ou si S = 0,6 ne suffit pas ; IA et Recos toujours.
- */
+/** XP ne défile jamais (sa liste défile seule) ; Profil, IA et Recos défilent. */
 function scrollable(id: TileId): boolean {
-  if (id === 'experience') return false;
-  return id !== 'profile' || fit.value === null || fit.value.overflows;
+  return id !== 'experience';
 }
 
-/** Contenu du Profil élargi puis réduit (S < 1) ; rien à poser quand il défile. */
-const profileStyle = computed<CSSProperties | undefined>(() => {
-  if (fit.value === null) return undefined;
-  return { width: `${fit.value.contentWidth}px`, transform: `scale(${fit.value.scale})` };
-});
+function isFolded(id: TileId): boolean {
+  return layout.value?.tiles[id].placement === 'folded';
+}
 
 function isOut(id: TileId): boolean {
   return layout.value?.tiles[id].visible === false;
@@ -176,20 +169,11 @@ onBeforeUnmount(() => {
       :expand-label="t('common.expand', { name: t(`shell.headings.${id}`) })"
       :collapse-label="t('common.collapse', { name: t(`shell.headings.${id}`) })"
       :pushed-out="isOut(id)"
+      :folded="isFolded(id)"
       :scrollable="scrollable(id)"
       @toggle="emit('toggle', id)"
     >
-      <div v-if="id === 'profile'" class="tile-grid__fit">
-        <div
-          :ref="(element) => setContent(id, element)"
-          class="tile-grid__content tile-grid__content--profile"
-          :style="profileStyle"
-        >
-          <slot name="profile" />
-        </div>
-      </div>
       <div
-        v-else
         :ref="(element) => setContent(id, element)"
         class="tile-grid__content"
         :class="`tile-grid__content--${id}`"
@@ -234,16 +218,8 @@ onBeforeUnmount(() => {
 }
 
 /* Premier placement, nouvelle zone, nouvelles mesures : pas d'animation. */
-.tile-grid--instant .tile-grid__tile,
-.tile-grid--instant .tile-grid__content--profile {
+.tile-grid--instant .tile-grid__tile {
   transition: none;
-}
-
-/* Profil : boîte de la largeur visible (contenu de 820 px au plus, centré), contenu élargi puis réduit
-   depuis son coin haut gauche. */
-.tile-grid__fit {
-  width: min(100%, var(--content-max));
-  margin-inline: auto;
 }
 
 .tile-grid__content {
@@ -254,12 +230,7 @@ onBeforeUnmount(() => {
 }
 
 .tile-grid__content--profile {
-  max-width: none;
   padding: 1.5rem var(--tile-padding) 0.75rem;
-  transform-origin: top left;
-  transition:
-    transform var(--dur-tile) var(--ease-tile),
-    width var(--dur-tile) var(--ease-tile);
 }
 
 /* XP : toute la hauteur de la tuile, la section gère ses marges et sa liste qui défile. */

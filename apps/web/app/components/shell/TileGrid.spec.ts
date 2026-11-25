@@ -2,9 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime';
 import type { VueWrapper } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { h, nextTick } from 'vue';
-import { clearNuxtState } from '#imports';
 
-import { PREFERENCES_STATE_KEY, usePreferences } from '../../composables/shell/usePreferences.js';
 import { computeLayout } from '../../domain/layout.js';
 import type { TileId, Zone } from '../../domain/layout-types.js';
 import TileGrid from './TileGrid.vue';
@@ -125,7 +123,6 @@ beforeEach(() => {
 
 afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount();
-  clearNuxtState(PREFERENCES_STATE_KEY);
   localStorage.clear();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -155,7 +152,6 @@ function expectedRect(id: TileId, expanded: TileId | null) {
   const layout = computeLayout({
     zone,
     expanded,
-    textEnlarged: false,
     contentHeight: (tileId, innerWidth) =>
       Math.ceil(contentHeight(tileId, Math.min(innerWidth, 820)) + 0.5),
   });
@@ -204,7 +200,7 @@ describe('TileGrid : tuiles', () => {
     }
   });
 
-  it('agrandie : bouton « Réduire », classe de la tuile agrandie ; les autres en colonne latérale', async () => {
+  it('agrandie : bouton « Réduire », classe de la tuile agrandie ; les autres en colonne latérale (repliées)', async () => {
     const wrapper = await mountGrid('experience');
 
     const experience = tile(wrapper, 'experience');
@@ -241,45 +237,69 @@ describe('TileGrid : tuiles', () => {
 });
 
 describe('TileGrid : Profil', () => {
-  it('contenu qui tient : S = 1, pas de défilement', async () => {
+  it('contenu qui tient : taille normale, ni largeur imposée ni mise à l’échelle (D41)', async () => {
     const wrapper = await mountGrid();
 
     const content = tile(wrapper, 'profile').get('.tile-grid__content--profile');
-    expect(content.attributes('style')).toBe('width: 417px; transform: scale(1);');
-    expect(tile(wrapper, 'profile').get('.tile__body').attributes('tabindex')).toBeUndefined();
-  });
-
-  it('contenu trop haut : élargi à largeur / S puis réduit de S, sans défilement', async () => {
-    profileArea = 600_000;
-    const wrapper = await mountGrid();
-
-    const style = tile(wrapper, 'profile').get('.tile-grid__content--profile').attributes('style');
-    const [, width, scale] = /width: ([\d.]+)px; transform: scale\(([\d.]+)\);/.exec(style!)!;
-    expect(Number(scale)).toBeGreaterThanOrEqual(0.6);
-    expect(Number(scale)).toBeLessThan(1);
-    expect(Number(width) * Number(scale)).toBeCloseTo(417, 6);
-    expect(tile(wrapper, 'profile').get('.tile__body').attributes('tabindex')).toBeUndefined();
-  });
-
-  it('même S = 0,6 ne suffit pas : le Profil défile', async () => {
-    profileArea = 2_000_000;
-    const wrapper = await mountGrid();
-
-    expect(
-      tile(wrapper, 'profile').get('.tile-grid__content--profile').attributes('style'),
-    ).toContain('scale(0.6)');
+    expect(content.attributes('style')).toBeUndefined();
     expect(tile(wrapper, 'profile').get('.tile__body').attributes('tabindex')).toBe('0');
   });
 
-  it('texte agrandi : ni réduction ni largeur imposée, le Profil défile', async () => {
-    usePreferences().set('textSize', 115);
-    profileArea = 600_000;
+  it('contenu trop haut : aucune réduction, le Profil défile comme les autres tuiles', async () => {
+    profileArea = 2_000_000;
     const wrapper = await mountGrid();
 
     expect(
       tile(wrapper, 'profile').get('.tile-grid__content--profile').attributes('style'),
     ).toBeUndefined();
     expect(tile(wrapper, 'profile').get('.tile__body').attributes('tabindex')).toBe('0');
+    expect(tile(wrapper, 'profile').find('.tile-grid__fade').exists()).toBe(true);
+  });
+});
+
+describe('TileGrid : tuiles repliées (D42)', () => {
+  it('XP agrandie : Profil ouvert et défilant en colonne latérale, Recos et IA repliées (corps inerte, non lu, hors tabulation)', async () => {
+    const wrapper = await mountGrid('experience');
+
+    const profile = tile(wrapper, 'profile').get('.tile__body');
+    expect(profile.attributes('inert')).toBeUndefined();
+    expect(profile.attributes('aria-hidden')).toBeUndefined();
+    expect(profile.attributes('tabindex')).toBe('0');
+    for (const id of ['recommendations', 'ai'] as const) {
+      const body = tile(wrapper, id).get('.tile__body');
+      expect(body.attributes('inert')).toBeDefined();
+      expect(body.attributes('aria-hidden')).toBe('true');
+      expect(body.attributes('tabindex')).toBeUndefined();
+      expect(tile(wrapper, id).get('.tile__toggle').attributes('disabled')).toBeUndefined();
+    }
+    const body = tile(wrapper, 'experience').get('.tile__body');
+    expect(body.attributes('inert')).toBeUndefined();
+    expect(body.attributes('aria-hidden')).toBeUndefined();
+  });
+
+  it('Recos agrandie : XP reste ouverte dans la colonne latérale, Profil et IA se replient', async () => {
+    const wrapper = await mountGrid('recommendations');
+
+    expect(tile(wrapper, 'experience').get('.tile__body').attributes('inert')).toBeUndefined();
+    expect(tile(wrapper, 'profile').get('.tile__body').attributes('inert')).toBeDefined();
+    expect(tile(wrapper, 'ai').get('.tile__body').attributes('inert')).toBeDefined();
+    expect(tile(wrapper, 'recommendations').get('.tile__body').attributes('inert')).toBeUndefined();
+  });
+
+  it('le bouton d’une tuile repliée demande son agrandissement', async () => {
+    const wrapper = await mountGrid('experience');
+
+    await tile(wrapper, 'recommendations').get('.tile__toggle').trigger('click');
+
+    expect(wrapper.emitted('toggle')).toEqual([['recommendations']]);
+  });
+
+  it('mosaïque : aucune tuile repliée', async () => {
+    const wrapper = await mountGrid();
+
+    for (const id of TILES) {
+      expect(tile(wrapper, id).get('.tile__body').attributes('inert')).toBeUndefined();
+    }
   });
 });
 

@@ -28,8 +28,6 @@ export interface LayoutInput {
   zone: Zone;
   /** Tuile agrandie, ou `null` pour la mosaïque (ignoré hors mosaïque). */
   expanded: TileId | null;
-  /** Texte agrandi (SPEC § 4.1) : le Profil ne se réduit pas et défile. */
-  textEnlarged: boolean;
   contentHeight: ContentHeight;
 }
 
@@ -37,10 +35,11 @@ export interface LayoutInput {
  * - `mosaic` : place de la mosaïque ;
  * - `expanded` : tuile agrandie ;
  * - `stacked` : Profil ou IA posé sous l'autre, à la même largeur ;
- * - `side` : colonne latérale à droite de la tuile agrandie ;
+ * - `side` : colonne latérale à droite de la tuile agrandie (XP, ou le Profil quand XP est agrandie, qui prend la hauteur libérée) ;
+ * - `folded` : tuile de la colonne latérale repliée en bas sur sa seule barre de titre (D42) ;
  * - `pushed` : sortie de la zone (invisible, non focalisable).
  */
-export type Placement = 'mosaic' | 'expanded' | 'stacked' | 'side' | 'pushed';
+export type Placement = 'mosaic' | 'expanded' | 'stacked' | 'side' | 'folded' | 'pushed';
 
 /** Côté de la zone par lequel une tuile est poussée. */
 export type PushDirection = 'left' | 'right' | 'top' | 'bottom';
@@ -53,21 +52,6 @@ export interface TileLayout {
   placement: Placement;
   /** Côté de sortie d'une tuile `pushed`, sinon `null`. */
   push: PushDirection | null;
-}
-
-/**
- * - `reduced` : le Profil tient sans défiler grâce au facteur S (`fit.ts`) ;
- * - `scrolling` : S = 1 et le Profil défile (colonne latérale, texte agrandi).
- */
-export type ProfileMode = 'reduced' | 'scrolling';
-
-/** Ce que `fit.ts` doit connaître du Profil pour calculer S. */
-export interface ProfileFit {
-  mode: ProfileMode;
-  /** Largeur intérieure (px) de la tuile du Profil : `FitRequest.width`. */
-  contentWidth: number;
-  /** Hauteur intérieure (px) de la tuile du Profil : `FitRequest.availableHeight`. */
-  availableHeight: number;
 }
 
 /** Une section à la fois (mobile) ou une colonne centrée (tablette). */
@@ -86,7 +70,6 @@ export interface MosaicLayout {
   area: Rect;
   expanded: TileId | null;
   tiles: Record<TileId, TileLayout>;
-  profile: ProfileFit;
 }
 
 export type Layout = TabsLayout | MosaicLayout;

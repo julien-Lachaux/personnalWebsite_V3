@@ -6,11 +6,13 @@
 //
 // - Racine `<section>` nommée par `label` (« Profil », « Expérience »…). Le corps est un groupe nommé
 //   par le titre ; quand il peut défiler (`scrollable`, défaut) il est atteignable au clavier
-//   (`tabindex="0"`). `scrollable: false` (Profil dans la mosaïque, qui ne défile jamais) rogne sans
+//   (`tabindex="0"`). `scrollable: false` (XP, dont la liste défile seule) rogne sans
 //   défilement ni arrêt de tabulation.
 // - Bouton agrandir / réduire : `expandLabel` / `collapseLabel` (noms accessibles, déjà traduits,
 //   ex. « Agrandir Profil » / « Réduire Profil ») selon `expanded` ; l'événement `toggle` demande le
 //   changement d'état, la tuile n'en garde aucun.
+// - `folded` (D42, tuile repliée sur sa barre de titre) : le corps est `inert` et `aria-hidden="true"` ;
+//   seul le bouton agrandir de la barre reste opérable.
 // - `pushedOut` (tuile sortie de la zone) : `inert` + `aria-hidden="true"` ; le masquage visuel
 //   (`visibility: hidden` différé de 550 ms) est posé par TileGrid.
 //
@@ -18,12 +20,12 @@
 // `content-box`) ; avec la bordure de la tuile (2 × 1,5 px), 48,5 px de décor au-dessus du contenu :
 // c'est le « 48 » de la logique de mise en page (la maquette ajoute 3 px à la hauteur du contenu).
 
-import { useId } from 'vue';
+import { computed, useId } from 'vue';
 
 // Nom multi-mot (règle `vue/multi-word-component-names`) : celui que Nuxt donne à l'élément de base.
 defineOptions({ name: 'BaseTile' });
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     /** Nom de fichier de la barre de titre, sans le `>_` (ex. `profil.cv`). */
     title: string;
@@ -33,14 +35,17 @@ withDefaults(
     expandLabel: string;
     collapseLabel: string;
     pushedOut?: boolean;
+    folded?: boolean;
     scrollable?: boolean;
   }>(),
-  { expanded: false, pushedOut: false, scrollable: true },
+  { expanded: false, pushedOut: false, folded: false, scrollable: true },
 );
 
 const emit = defineEmits<{ toggle: [] }>();
 
 const titleId = useId();
+/** Un corps replié ne défile pas et ne se tabule pas. */
+const scrolls = computed(() => props.scrollable && !props.folded);
 </script>
 
 <template>
@@ -91,10 +96,12 @@ const titleId = useId();
     </div>
     <div
       class="tile__body"
-      :class="{ 'tile__body--scroll': scrollable }"
+      :class="{ 'tile__body--scroll': scrolls }"
       role="group"
       :aria-labelledby="titleId"
-      :tabindex="scrollable ? 0 : undefined"
+      :aria-hidden="folded ? 'true' : undefined"
+      :inert="folded"
+      :tabindex="scrolls ? 0 : undefined"
     >
       <slot />
     </div>
