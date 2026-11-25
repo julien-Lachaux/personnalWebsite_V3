@@ -1,6 +1,11 @@
 # Déploiement en production (VPS)
 
-La production tourne avec `docker/compose.prod.yml` : Caddy (TLS automatique, seul service qui publie
+> **Depuis le lot 33 (25 nov. 2026), la production est tout statique** : ni API, ni base, ni génération sur le
+> VPS. La procédure à suivre est « Production tout statique » (plus bas). Le reste de ce document (pile complète
+> `compose.prod.yml`, `first-install.sh`, `update.sh`, sauvegardes) décrit la pile que reproduit `pnpm stack:up` en
+> local et que les tests exercent ; il ne sert plus au serveur.
+
+La pile complète tourne avec `docker/compose.prod.yml` : Caddy (TLS automatique, seul service qui publie
 des ports 80/443), l'API (réseaux internes, `TRUST_PROXY=uniquelocal`), un service `migrate` à usage unique
 (migrations, seeds, rôle de lecture seule de l'API) et PostgreSQL 16 (volume nommé, aucun port publié). Le front
 statique est généré par un conteneur à usage unique (`web-build`) dans un volume que Caddy sert ; Caddy
@@ -420,6 +425,107 @@ clients, `docker/compose.vps-frontal.yml`, rien n'est publié) ; `VPS_STACK_EXTR
 quota par client sur cette pile ; il n'est pas encore branché dans la CI (modification de `ci.yml` à autoriser :
 `up`, `vitest run --project e2e vps-stack` avec `VPS_STACK_REQUIRED=1`, `down`).
 
+## Production tout statique (lot 33)
+
+Décision de Julien (25 nov. 2026). Le site affiché n'appelle jamais l'API : les pages et leurs `_payload.json`
+sont figés à la génération, le contenu vient de `db/seeds/`. L'API ne sert qu'à FABRIQUER le site. Le VPS ne
+porte donc plus que le Caddy de la pile, qui sert une archive produite par la CI.
+
+```
+push de main (release.yml)
+  -> job « etiquette » : étiquette vX.Y.Z et release GitHub
+  -> job « site » : PostgreSQL de service, migrations, seeds, API, `nuxt generate` contre l'API, contrôle des
+     pages, relevé de la CSP (csp.caddy), archive site-X.Y.Z.tar.gz + site-X.Y.Z.tar.gz.sha256 jointes à la release
+VPS (compte app-site-perso, sans sudo)
+  -> scripts/deploy/deploy-static.sh X.Y.Z : télécharge, vérifie la somme, extrait, bascule `current`, recharge Caddy
+```
+
+| Fichier                                | Rôle                                                                                                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/deploy/build-site-archive.sh` | CI : génère, contrôle, relève la CSP, écrit l'archive (`public/`, `csp.caddy`) et sa somme SHA-256                         |
+| `scripts/deploy/deploy-static.sh`      | VPS : déploiement d'une version, retour arrière, pages de secours de l'hôte                                               |
+| `docker/compose.vps-static.yml`        | pile du VPS : **un seul service, Caddy**, aucun port, site monté en lecture seule (autonome, pas une surcharge)           |
+| `docker/Caddyfile.vps-static`          | Caddyfile de cette pile : celui de `Caddyfile.vps` (CSP, `/fr`, mode travaux, pages d'erreur), sauf `/api/*`             |
+
+### Variables de dépôt GitHub (à poser par Julien, une fois)
+
+Valeurs publiques figées dans les pages au build, jamais dans le dépôt. Réglages du dépôt, « Secrets and variables »,
+« Actions », onglet **Variables** (pas Secrets : ces valeurs finissent de toute façon dans les pages publiques) :
+
+| Nom                  | Valeur                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| `SITE_CONTACT_EMAIL` | adresse du bouton « Lancer l'entretien » (devient `NUXT_PUBLIC_CONTACT_EMAIL`)             |
+| `SITE_BASE_URL`      | origine publique du site, `https://<domaine>`, sans chemin ni barre finale (devient `NUXT_PUBLIC_I18N_BASE_URL` : canonique, hreflang, plan du site) |
+
+Absentes ou vides, le job « site » échoue avant toute génération (message `::error::`) ; la release et l'étiquette
+existent alors sans archive. Poser les variables puis relancer : `gh run rerun <identifiant> --failed` (le
+job ne rejoue que `site`, l'envoi se fait avec `--clobber`). Le job n'a d'autre droit que `contents: write` (envoi à
+la release) ; le dépôt est public, l'archive se télécharge sans jeton.
+
+### Variables du serveur (compte de l'appli)
+
+```sh
+export DEPLOY_DIR=/srv/apps/site-perso        # site/ (versions) et .env.prod facultatif
+export DEPLOY_COMPOSE=docker-compose          # Compose v2, parle à l'API de Podman (DOCKER_HOST)
+export STATIC_RELEASE_REPO=<propriétaire>/<dépôt>   # dépôt GitHub public des releases
+# facultatif : STATIC_ERRORS_DIR=/srv/site-perso-errors (défaut), PROD_RUN_DIR=/run/prod/site-perso (défaut)
+```
+
+`DEPLOY_VARIANT`, `DEPLOY_INSPECT` et `DEPLOY_WEB_BUILD` ne servent plus (pas d'API, pas d'image à construire).
+`DEPLOY_DIR/.env.prod`, s'il existe, n'est lu que pour le mode travaux (`WIP_*`, `docker/.env.prod.example`).
+Aucun secret PostgreSQL ni `CORS_ORIGIN` : ces variables ne servent plus à la production.
+
+### Premier déploiement, pas à pas
+
+Pré-requis déjà en place (lot 29) : Caddy de l'hôte qui relaie vers `/run/prod/site-perso/web.sock`, dossier du socket
+2750, dossier `/srv/site-perso-errors` créé une fois en 0755 et appartenant à l'appli.
+
+1. Julien pose `SITE_CONTACT_EMAIL` et `SITE_BASE_URL` (ci-dessus).
+2. Julien prépare la release (`release/<X.Y.Z>`, pull request vers `main`, fusion) : le workflow étiquette puis
+   génère l'archive. Vérifier que le job « Site statique de la release » est vert et que la release porte
+   `site-<X.Y.Z>.tar.gz` et `site-<X.Y.Z>.tar.gz.sha256`.
+3. Sur le VPS, si l'ancienne pile complète tourne : l'arrêter (`docker-compose -f docker/compose.prod.yml -f
+   docker/compose.vps.yml --env-file .env.prod down`, **sans `-v`** tant que la sauvegarde de la base n'est pas
+   archivée ailleurs) : les deux Caddy se disputeraient le même socket. Le contenu étant dans `db/seeds/`, la base
+   n'a plus d'utilité en production.
+4. `git -C <dépôt> pull --ff-only origin main` (le dépôt cloné sur `main` apporte les fichiers compose et les
+   scripts ; `deploy-static.sh` refuse un autre branche), exporter les variables ci-dessus.
+5. `bash scripts/deploy/deploy-static.sh X.Y.Z`. Il télécharge l'archive et sa somme, **vérifie la somme avant
+   d'extraire** (somme fausse : code 1, rien n'est modifié), contrôle le contenu de l'archive (seuls `public/` et
+   `csp.caddy`, pages attendues présentes), extrait dans `DEPLOY_DIR/site/releases/X.Y.Z/`, bascule `current`
+   (lien temporaire puis renommage atomique), garde les trois versions les plus récentes et la version active,
+   lance `compose up -d` (Caddy seul) puis `caddy reload` (CSP), enfin copie les pages 50x, `_nuxt`, `fonts` et
+   `csp.txt` (valeur seule de la CSP, extraite de `csp.caddy` sans conteneur) dans `STATIC_ERRORS_DIR`. Si ce
+   dossier est absent, la copie est ignorée avec un avertissement.
+6. Vérifier : `curl -I https://<domaine>/` (200, CSP, HSTS), `/fr` (301), `/en`, une route inconnue (404 avec la page
+   du site), `/api/v1/health` (410 problem+json).
+
+### Mise à jour, retour arrière, mode travaux
+
+- **Mise à jour** : à chaque release dont l'archive est prête, `bash scripts/deploy/deploy-static.sh X.Y.Z`. Rien
+  d'autre : pas de sauvegarde, pas de migration, pas d'attente d'API. Si l'étape échoue avant la bascule, la version
+  active reste servie. Rejouer la version déjà active ne retélécharge rien (réapplique rechargement et copie).
+- **Retour arrière** : `bash scripts/deploy/deploy-static.sh --rollback` réactive la plus récente des versions
+  strictement plus anciennes que l'active (répété, remonte d'une version à chaque fois) ; `--rollback X.Y.Z`
+  réactive une version précise encore présente (trois gardées). Même rechargement et mêmes pages de secours.
+- **Mode travaux** : inchangé (voir « Mode travaux (lot 32) »). Variables `WIP_*` dans `DEPLOY_DIR/.env.prod`, puis
+  `STATIC_SITE_DIR=$DEPLOY_DIR/site docker-compose -f docker/compose.vps-static.yml --env-file
+  $DEPLOY_DIR/.env.prod up -d caddy` (recrée le seul Caddy ; ses variables sont lues à la création).
+- **`/api/*`** répond 410 (Gone) en `application/problem+json`, quelle que soit la méthode, sans amont : l'API a
+  existé et est retirée volontairement (404 ferait croire à une adresse mal écrite, 405 à une méthode à changer).
+  Avec `WIP_API=closed`, le mode travaux répond encore 503 avant (sans cookie d'accès).
+- **Montage** : on monte `DEPLOY_DIR/site` (dossier parent) sur `/srv/web`, pas le lien `current` : un montage de lien
+  est résolu à la création du conteneur et resterait sur l'ancienne version après une bascule ; Caddy suit le lien
+  dans le conteneur et n'a rien à recréer.
+- Premier essai d'une nouvelle pile : `STATIC_RESTART=no` (pas de relance en boucle tant qu'elle n'a pas démarré),
+  puis le retirer.
+
+### Ce qui reste à relever sur le serveur réel
+
+Vérifier `podman inspect` et un `exec` (`oom_score_adj`, voir lot 29), la présence de `curl`, `tar`, `sha256sum`
+sur le compte de l'appli, les droits du dossier de secours, et qu'aucun conteneur de l'ancienne pile ne tient plus le
+socket.
+
 ## Rôles PostgreSQL
 
 Deux rôles, pour que l'API en lecture seule ne puisse rien écrire même si elle est compromise :
@@ -768,3 +874,7 @@ Un déploiement automatique « sur étiquette » (L14-05) ne partirait donc pas.
   l'étiquette lance alors les workflows sur `push: tags`, mais il faut créer l'App et stocker sa clé en secret ;
 - garder l'étiquette passive et lancer le déploiement à la main (`workflow_dispatch` ou script du VPS), comme
   aujourd'hui.
+
+Lot 33 : la première option est retenue pour la génération du site : le job `site` de `release.yml` (`needs:
+etiquette`) joint l'archive à la release. Le déploiement sur le VPS reste lancé à la main par Julien
+(`scripts/deploy/deploy-static.sh <version>`).
