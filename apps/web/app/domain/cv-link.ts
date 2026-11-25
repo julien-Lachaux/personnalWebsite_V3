@@ -13,6 +13,11 @@ export function cvFileName(language: string): string {
   return `cv-${language}.pdf`;
 }
 
+/** Le CV anglais est présent dans `public/cv/` (déclaration d'accessibilité, D47). */
+export function hasEnglishCv(available: readonly string[]): boolean {
+  return available.includes(cvFileName('en'));
+}
+
 export interface CvVersion {
   readonly language: CvLanguage;
   /** Adresse du fichier de cette langue (même dossier que l'adresse du CV reçue de l'API). */
