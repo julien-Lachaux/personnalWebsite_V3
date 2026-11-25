@@ -9,8 +9,8 @@ Agents spécialisés et garde-fous contre le contournement des tests : `.claude/
 
 ## Lancer en 4 commandes
 
-Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 10 (>= 10.34.5 : les versions 9.x sont visées par des avis de sécurité sans correctif). Node 26 (dernière ligne
-stable) est téléchargé par pnpm (`.npmrc`, `use-node-version`), rien d'autre à installer.
+Prérequis sur l'hôte : Podman (avec un fournisseur compose) ou Docker (avec `docker compose`), et pnpm 12 (>= 12.23.0). Node 26 (dernière ligne
+stable) est téléchargé par pnpm (`devEngines.runtime` du `package.json`), rien d'autre à installer.
 
 ```sh
 pnpm install                       # 1. dépendances + hook pre-commit

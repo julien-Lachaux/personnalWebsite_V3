@@ -290,11 +290,14 @@ apps/web/
 
 Poste de développement : Fedora (KDE) depuis le 24 nov. 2026, plus WSL2. Prérequis sur l'hôte : Podman
 (avec un fournisseur compose : `docker-compose` ou `podman-compose`) ou Docker (avec `docker compose`),
-et pnpm 10 (>= 10.34.5 : les versions 9.x sont visées par des avis de sécurité sans correctif), plus
+et pnpm 12 (>= 12.23.0, `packageManager` ; montée depuis pnpm 10 le 25 nov. 2026), plus
 `gh` installé par le gestionnaire de paquets du système (`dnf`) pour la session principale (flux par
 pull request, décisions de Julien du 21 et du 24 nov. 2026). pnpm télécharge lui-même
-la version de Node fixée dans `.npmrc` (`use-node-version`, Node 26 = dernière ligne stable,
-docs/02) et l'utilise pour tous les scripts ; `engines.node` vaut `>=26 <27`.
+la version de Node fixée par `devEngines.runtime` du package.json racine (Node 26 = dernière ligne
+stable, docs/02 ; `pnpm install --no-runtime` dans les images Docker, qui fournissent Node) et
+l'utilise pour tous les scripts ; `engines.node` vaut `>=26 <27`. Depuis pnpm 11, `.npmrc` ne porte
+plus aucun réglage du projet : `allowBuilds` (scripts d'installation autorisés) et `engineStrict`
+sont dans `pnpm-workspace.yaml`.
 
 Moteur de conteneurs : les scripts locaux (`db:up`, `db:test:up`, `e2e:browsers:up`, `db:down`,
 `stack:*`, `clean-cv-pdf.sh`, `lint:workflows` et `lint:shell` par `scripts/ci/static-analysis.sh`)
