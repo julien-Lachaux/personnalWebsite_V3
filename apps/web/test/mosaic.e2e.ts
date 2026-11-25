@@ -10,7 +10,8 @@ import type { MosaicLayout, Rect, TileId } from '../app/domain/layout-types.js';
 //   dont les cas des captures de référence recalculés à la main (1280 mosaïque, 1280 XP agrandie,
 //   1024 XP agrandie) ;
 // - agrandir puis réduire au clavier (bouton de la tuile, onglets de la barre du haut), focus ;
-// - colonne latérale (≥ 1244 px, D42 : XP ouverte, les autres tuiles repliées sur leur barre de titre) ou
+// - colonne latérale (≥ 1244 px, D42 : XP ouverte, ou le Profil quand XP est agrandie, les autres tuiles
+//   repliées sur leur barre de titre) ou
 //   poussée hors zone (portable) ; Profil à la taille de texte normale qui défile (D41) ; aucun
 //   recalcul après la fin de l'animation ;
 // - axe WCAG 2.2 AA dans la mosaïque et en tuile agrandie ; mouvement réduit.
@@ -209,10 +210,10 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         await tile(page, 'experience').getByRole('button', { name: locale.expandXp }).click();
         await settled(page);
         const expanded = await rects(page);
-        // XP de 868 px à gauche ; colonne latérale de 376 px, D42 : Profil, Recos et IA repliés en bas
-        // sur leur barre de titre (49 px, gouttière de 12 px).
+        // XP de 868 px à gauche ; colonne latérale de 376 px, D42 : le Profil en haut sur la hauteur
+        // libérée, Recos et IA repliées en bas sur leur barre de titre (49 px, gouttière de 12 px).
         expectRect(expanded.experience, { x: 12, y: 12, width: 868, height: 764 }, 'XP');
-        expectRect(expanded.profile, { x: 892, y: 605, width: 376, height: 49 }, 'Profil');
+        expectRect(expanded.profile, { x: 892, y: 12, width: 376, height: 642 }, 'Profil');
         expectRect(expanded.recommendations, { x: 892, y: 666, width: 376, height: 49 }, 'Recos');
         expectRect(expanded.ai, { x: 892, y: 727, width: 376, height: 49 }, 'IA');
         return;
@@ -303,7 +304,11 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
 
       for (const id of ['profile', 'recommendations', 'ai'] as const) {
         const other = tile(page, id);
-        if (side) {
+        if (side && id === 'profile') {
+          // D42 : le Profil prend la place d'XP en haut de la colonne, ouvert.
+          await expect(other).toBeVisible();
+          await expect(other.locator('.tile__body')).not.toHaveAttribute('inert');
+        } else if (side) {
           await expect(other).toBeVisible();
           await expect(other).not.toHaveAttribute('inert');
           await expect(other).not.toHaveAttribute('aria-hidden');
@@ -349,7 +354,9 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       await tile(page, 'experience').locator('.tile__toggle').click();
       await settled(page);
       await expect(content).toHaveCSS('transform', 'none');
-      await expect(body).not.toHaveAttribute('tabindex');
+      // D42 : XP agrandie, le Profil occupe la colonne latérale et défile comme d'habitude.
+      await expect(body).toHaveAttribute('tabindex', '0');
+      await expect(body).not.toHaveAttribute('inert');
     });
 
     test('tuile agrandie : XP défile dans la colonne latérale, les autres sont repliées (D42)', async ({

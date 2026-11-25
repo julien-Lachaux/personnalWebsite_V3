@@ -16,7 +16,8 @@
 // - Profil (D41) : taille de texte normale, jamais réduit ; il défile comme IA et Recos quand son contenu
 //   dépasse la tuile.
 // - XP : la tuile ne défile pas, la liste de la section défile seule (hauteur définie par la tuile).
-// - Tuile agrandie (D42) : les tuiles de la colonne latérale autres qu'XP se replient en bas sur leur
+// - Tuile agrandie (D42) : les tuiles de la colonne latérale autres qu'XP (ou que le Profil quand XP est
+//   agrandie) se replient en bas sur leur
 //   barre de titre (`folded` : corps inerte, non lu, hors de la tabulation) ; XP prend la hauteur libérée.
 // - Animation : position et taille ensemble (`--dur-tile`, `--ease-tile`) ; une tuile sortie devient
 //   `visibility: hidden` après `--dur-tile`, `inert` et `aria-hidden` tout de suite (`pushedOut`). Pas de

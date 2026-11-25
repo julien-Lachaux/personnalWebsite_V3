@@ -186,11 +186,13 @@ function expandedTiles(context: MosaicContext, target: TileId): Record<TileId, T
 
   const others = TILE_ORDER.filter((id) => id !== target && id !== stacked?.id);
   const sideX = left + tileWidth + GAP;
-  // D42 : seule XP reste ouverte dans la colonne latérale ; les autres se replient en bas, sur leur
-  // barre de titre, et XP prend la hauteur libérée.
-  const folded = others.filter((id) => id !== 'experience');
+  // D42 : une seule tuile reste ouverte en haut de la colonne latérale, sur toute la hauteur libérée :
+  // XP, ou le Profil quand XP est elle-même agrandie. Les autres se replient en dessous, sur leur
+  // barre de titre.
+  const sideTop: TileId = target === 'experience' ? 'profile' : 'experience';
+  const folded = others.filter((id) => id !== sideTop);
   const foldedBlock = folded.length * (FOLDED_HEIGHT + GAP);
-  const sideExperienceHeight = Math.max(0, innerHeight - foldedBlock);
+  const sideTopHeight = Math.max(0, innerHeight - foldedBlock);
 
   const layoutOf = (id: TileId): TileLayout => {
     if (id === target) {
@@ -207,13 +209,13 @@ function expandedTiles(context: MosaicContext, target: TileId): Record<TileId, T
       return { id, rect, visible: true, placement: 'stacked', push: null };
     }
     if (hasSide) {
-      if (id === 'experience') {
-        const rect = { x: sideX, y: GAP, width: sideWidth, height: sideExperienceHeight };
+      if (id === sideTop) {
+        const rect = { x: sideX, y: GAP, width: sideWidth, height: sideTopHeight };
         return { id, rect, visible: true, placement: 'side', push: null };
       }
       const rect = {
         x: sideX,
-        y: GAP + sideExperienceHeight + GAP + folded.indexOf(id) * (FOLDED_HEIGHT + GAP),
+        y: GAP + sideTopHeight + GAP + folded.indexOf(id) * (FOLDED_HEIGHT + GAP),
         width: sideWidth,
         height: FOLDED_HEIGHT,
       };

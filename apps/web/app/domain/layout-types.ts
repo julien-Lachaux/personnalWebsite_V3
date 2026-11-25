@@ -35,7 +35,7 @@ export interface LayoutInput {
  * - `mosaic` : place de la mosaïque ;
  * - `expanded` : tuile agrandie ;
  * - `stacked` : Profil ou IA posé sous l'autre, à la même largeur ;
- * - `side` : colonne latérale à droite de la tuile agrandie (XP, qui prend la hauteur libérée) ;
+ * - `side` : colonne latérale à droite de la tuile agrandie (XP, ou le Profil quand XP est agrandie, qui prend la hauteur libérée) ;
  * - `folded` : tuile de la colonne latérale repliée en bas sur sa seule barre de titre (D42) ;
  * - `pushed` : sortie de la zone (invisible, non focalisable).
  */

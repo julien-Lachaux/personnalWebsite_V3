@@ -140,13 +140,16 @@ describe('useMosaic : Profil sans réduction (D41)', () => {
     expect(mosaic.layout.value?.tiles.profile.rect.height).toBe(764);
   });
 
-  it('colonne latérale : le Profil se replie sur sa barre de titre', () => {
+  it('XP agrandie : le Profil prend la colonne latérale (D42), Recos et IA se replient', () => {
     const { mosaic, expanded } = setup(content(600_000));
     mosaic.setZone(DESKTOP);
 
     expanded.value = 'experience';
 
-    expect(mosaic.layout.value?.tiles.profile.placement).toBe('folded');
+    const { tiles } = mosaic.layout.value!;
+    expect(tiles.profile.placement).toBe('side');
+    expect(tiles.recommendations.placement).toBe('folded');
+    expect(tiles.ai.placement).toBe('folded');
   });
 });
 

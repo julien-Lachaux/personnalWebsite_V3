@@ -258,10 +258,14 @@ describe('TileGrid : Profil', () => {
 });
 
 describe('TileGrid : tuiles repliées (D42)', () => {
-  it('XP agrandie : Profil, Recos et IA repliés (corps inerte, non lu, hors tabulation), XP ouverte', async () => {
+  it('XP agrandie : Profil ouvert et défilant en colonne latérale, Recos et IA repliées (corps inerte, non lu, hors tabulation)', async () => {
     const wrapper = await mountGrid('experience');
 
-    for (const id of ['profile', 'recommendations', 'ai'] as const) {
+    const profile = tile(wrapper, 'profile').get('.tile__body');
+    expect(profile.attributes('inert')).toBeUndefined();
+    expect(profile.attributes('aria-hidden')).toBeUndefined();
+    expect(profile.attributes('tabindex')).toBe('0');
+    for (const id of ['recommendations', 'ai'] as const) {
       const body = tile(wrapper, id).get('.tile__body');
       expect(body.attributes('inert')).toBeDefined();
       expect(body.attributes('aria-hidden')).toBe('true');

@@ -273,12 +273,13 @@ describe('mosaïque 2 colonnes', () => {
 });
 
 describe('tuile agrandie avec colonne latérale (desktop)', () => {
-  it('XP agrandie à 1280×844 : tuile de 868 px à gauche, trois tuiles repliées en bas à droite (D42)', () => {
-    // Place restante de 376 px (au moins 340) : Profil, Recos et IA réduits à leur barre de titre.
+  it('XP agrandie à 1280×788 : tuile de 868 px à gauche, Profil en haut de la colonne, Recos et IA repliées (D42)', () => {
+    // Place restante de 376 px (au moins 340) : le Profil prend la hauteur libérée, Recos et IA se
+    // réduisent à leur barre de titre dessous.
     const layout = mosaic({ width: 1280, height: 788 }, { expanded: 'experience' });
     expect(rects(layout)).toEqual({
       experience: r(12, 12, 868, 764),
-      profile: r(892, 605, 376, FOLDED_HEIGHT),
+      profile: r(892, 12, 376, 642),
       recommendations: r(892, 666, 376, FOLDED_HEIGHT),
       ai: r(892, 727, 376, FOLDED_HEIGHT),
     });
@@ -288,7 +289,12 @@ describe('tuile agrandie avec colonne latérale (desktop)', () => {
       placement: 'expanded',
       push: null,
     });
-    for (const id of ['profile', 'recommendations', 'ai'] as const) {
+    expect(tile(layout, 'profile')).toMatchObject({
+      visible: true,
+      placement: 'side',
+      push: null,
+    });
+    for (const id of ['recommendations', 'ai'] as const) {
       expect(tile(layout, id)).toMatchObject({ visible: true, placement: 'folded', push: null });
     }
     // La colonne latérale se termine à la marge basse de la zone.
@@ -299,8 +305,12 @@ describe('tuile agrandie avec colonne latérale (desktop)', () => {
     // Zone 1244 px : 1244 − 24 − 868 − 12 = 340.
     const withSide = mosaic({ width: 1244, height: 788 }, { expanded: 'experience' });
     expect(tile(withSide, 'profile')).toMatchObject({
+      placement: 'side',
+      rect: r(892, 12, 340, 642),
+    });
+    expect(tile(withSide, 'recommendations')).toMatchObject({
       placement: 'folded',
-      rect: r(892, 605, 340, FOLDED_HEIGHT),
+      rect: r(892, 666, 340, FOLDED_HEIGHT),
     });
     const without = mosaic({ width: 1243, height: 788 }, { expanded: 'experience' });
     expect(tile(without, 'profile').placement).toBe('pushed');
@@ -339,10 +349,18 @@ describe('tuile agrandie avec colonne latérale (desktop)', () => {
     }
   });
 
-  it('XP agrandie : les tuiles repliées gardent l’ordre de lecture et une gouttière entre elles', () => {
+  it('XP agrandie : le Profil garde le haut de la colonne, Recos et IA se replient dessous dans cet ordre', () => {
     const layout = mosaic({ width: 1280, height: 788 }, { expanded: 'experience' });
     const ys = (['profile', 'recommendations', 'ai'] as const).map((id) => tile(layout, id).rect.y);
-    expect(ys).toEqual([605, 666, 727]);
+    expect(ys).toEqual([12, 666, 727]);
+    // Une gouttière entre le Profil et la première tuile repliée.
+    const profile = tile(layout, 'profile').rect;
+    expect(profile.y + profile.height + GAP).toBe(666);
+  });
+
+  it('XP agrandie : le Profil ne prend jamais une hauteur négative quand la zone est trop basse', () => {
+    const layout = mosaic({ width: 1280, height: 100 }, { expanded: 'experience' });
+    expect(tile(layout, 'profile').rect.height).toBe(0);
   });
 
   it('ne donne jamais une hauteur négative à XP quand la zone est trop basse', () => {
