@@ -554,11 +554,12 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   marquées « à relire » pour Julien. Chaque traduction produite est listée dans
   `docs/traductions-a-relire.md` (table, slug, champ, texte FR, texte EN proposé) ; Julien
   relit puis retire les lignes validées. Aucune traduction n'est considérée définitive avant.
-- Rien d'installé globalement sur l'hôte en dehors de Podman (ou Docker), pnpm et `gh` : PostgreSQL
-  uniquement en conteneur, Node téléchargé par pnpm, `gh` (GitHub CLI) installé par `dnf`, pour la
-  session principale seulement (exception décidée par Julien le 21 nov. 2026, flux par pull request ;
-  installation système décidée le 24 nov. 2026). Pas de `npm i -g`, pas d'autre paquet système
-  (`dnf`, `brew`, `apt`) pour le projet.
+- Rien d'installé globalement sur l'hôte en dehors de Podman (ou Docker) avec son fournisseur compose
+  (`docker-compose` ou `podman-compose`, que `podman compose` appelle ; passage à Podman décidé par
+  Julien le 24 nov. 2026), pnpm et `gh` : PostgreSQL uniquement en conteneur, Node téléchargé par
+  pnpm, `gh` (GitHub CLI) installé par `dnf`, pour la session principale seulement (exception décidée
+  par Julien le 21 nov. 2026, flux par pull request ; installation système décidée le 24 nov. 2026).
+  Pas de `npm i -g`, pas d'autre paquet système (`dnf`, `brew`, `apt`) pour le projet.
 - Versions de paquets : stables actuelles vérifiées sur npm (`pnpm view <pkg> version`),
   épinglées exactement dans les `package.json`. Node : toujours la dernière ligne stable
   (https://nodejs.org/dist/index.json) ; en cas d'incompatibilité, on en discute avec Julien
