@@ -216,8 +216,9 @@ apps/web/
   `apps/web/public/cv/cv-fr.pdf` est son CV tel quel, e-mail et téléphone visibles compris ; ce n'est
   pas une fuite et aucune revue ne le signale comme telle. Ses métadonnées sont nettoyées
   (`bash apps/web/scripts/clean-cv-pdf.sh <source> <destination>`, vérifié par `app/cv-pdf.spec.ts`).
-  Un CV de langue absent de `public/cv/` (liste relevée au build, `runtimeConfig.public.cvFiles`)
-  est remplacé par le CV français, signalé sur le bouton (`app/domain/cv-link.ts`, `useCvLink`).
+  Le bouton « CV PDF » est un menu des deux versions (D44) : une version absente de `public/cv/`
+  (liste relevée au build, `runtimeConfig.public.cvFiles`) reste affichée, inactive, avec
+  « (bientôt) » (`app/domain/cv-link.ts`, `useCvLink`).
 - **Thème sans flash (D5)** : script en ligne en tête (`app/domain/theme-script.ts`, posé par
   `nuxt.config.ts`) qui pose les attributs de `<html>` avant le premier affichage avec la table
   unique de `app/domain/root-attributes.ts` (partagée avec `usePreferencesSync`). Toute modification
