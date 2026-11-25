@@ -156,11 +156,10 @@ const { t } = useI18n();
   gap: 0.5rem;
 }
 
-/* De 1024 à 1279 px, « Start the interview » et « CV PDF (in French) » (repli D22, pas de CV anglais)
-   dépassent leurs équivalents français : sans resserrement la barre passe sur deux lignes en anglais et
-   l'onglet « AI » se replie. Intervalles entre blocs 8 px, marges internes des onglets 8 px, marge
-   gauche 16 px : environ 80 px gagnés, pour 74 px manquants ; les cibles restent à 40 px de haut et au
-   moins 24 px de large (D17). */
+/* De 1024 à 1279 px, « Start the interview » dépasse son équivalent français : sans resserrement, la
+   barre risque de passer sur deux lignes en anglais (onglet « AI » replié, F12-BARRE). Intervalles entre
+   blocs 8 px, marges internes des onglets 8 px, marge gauche 16 px ; les cibles restent à 40 px de haut
+   et au moins 24 px de large (D17). Vérifié par `test/top-bar-height.e2e.ts`. */
 @media (min-width: 1024px) and (max-width: 1279px) {
   .top-bar {
     --top-bar-gap: 0.5rem;
