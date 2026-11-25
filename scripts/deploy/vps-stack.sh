@@ -87,6 +87,17 @@ RUN_DIR="$(sed -n 's/^PROD_RUN_DIR=//p' "${ENV_FILE}" | tail -n 1)"
 if [ -z "${PROJECT}" ] || [ -z "${RUN_DIR}" ]; then
   die "COMPOSE_PROJECT_NAME ou PROD_RUN_DIR manque dans ${ENV_FILE}"
 fi
+# Garde-fou : ce script crée, puis supprime (down : volumes, dossier du socket), une pile d'ESSAI.
+# Un VPS_STACK_ENV_FILE pointé par erreur vers un vrai fichier d'environnement ne doit rien toucher
+# d'autre : projet compose en `-vps` et dossier du socket créé par ensure_env_file seulement.
+case "${PROJECT}" in
+*-vps) ;;
+*) die "projet « ${PROJECT} » refusé : la pile d'essai porte un nom en -vps (${ENV_FILE} n'est pas un fichier d'essai ?)" ;;
+esac
+case "${RUN_DIR}" in
+"${TMPDIR:-/tmp}"/siteperso-vps-run.*) ;;
+*) die "dossier du socket « ${RUN_DIR} » refusé : attendu ${TMPDIR:-/tmp}/siteperso-vps-run.* (${ENV_FILE} n'est pas un fichier d'essai ?)" ;;
+esac
 
 COMPOSE=("${ENGINE}" compose -p "${PROJECT}"
   -f "${REPO_DIR}/docker/compose.prod.yml"
