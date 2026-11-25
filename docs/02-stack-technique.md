@@ -29,6 +29,18 @@ implémentées dans l'API ; Caddy ne fait que les doubler en première ligne (en
 l'API ne l'a pas fait, écritures transmises à l'API qui répond elle-même 405). Écarts résiduels connus,
 consignés dans `docs/deploiement.md` : les réponses produites par Caddy lui-même avant l'API (URL mal
 encodée 400, corps trop grand 413, API injoignable 502) sortent en `text/plain`, pas en problem+json.
+
+### Plus d'API en production (décision du 25 nov. 2026, lot 33)
+Le site affiché n'appelle jamais l'API : les données sont figées dans les pages et leurs `_payload.json` à la
+génération, et le contenu vient de `db/seeds/`. En production il n'y a donc **ni API, ni PostgreSQL, ni
+génération** : seul Caddy sert l'archive du site produite par la CI à chaque release. L'API reste l'outil de
+FABRICATION du site (génération en CI contre une base migrée et seedée), et l'environnement de développement,
+de test et de la pile locale. La parité ci-dessus reste vraie entre développement et pile locale ; en production,
+`/api/*` répond 410 en problem+json (sans amont). Ce qu'on perd : l'API `/api/v1` consultable publiquement en
+ligne (documentation OpenAPI, `health`), le contenu ne se met plus à jour sans nouvelle release, et la surface
+d'attaque et les sauvegardes de base disparaissent du serveur. Détail : `docs/deploiement.md`, « Production tout
+statique ».
+
 ## Règles « Rust-friendly »
 - Architecture hexagonale : `domain` (types, règles, aucune dépendance Nest), `application`
   (cas d'usage), `infrastructure` (Drizzle, HTTP). Nest n'apparaît que dans `infrastructure/http`.
@@ -50,7 +62,9 @@ encodée 400, corps trop grand 413, API injoignable 502) sortent en `text/plain`
 | Statistiques | aucune pour l'instant (D8) |
 
 ## Hébergement
-VPS, Docker Compose, Caddy en frontal (TLS automatique), aucun port base de données exposé.
+VPS, Docker Compose, Caddy en frontal (TLS automatique), aucun port base de données exposé. Depuis le 25 nov.
+2026 la production est entièrement statique : un seul conteneur Caddy sert l'archive du site de la release, sans
+API ni base sur le serveur (voir « Plus d'API en production »).
 
 ## Monorepo
 ```
