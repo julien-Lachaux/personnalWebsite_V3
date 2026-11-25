@@ -17,8 +17,11 @@ require_docker
 require_deploy_branch
 
 log "Dossier de déploiement : ${DEPLOY_DIR}"
-mkdir -p "${DEPLOY_DIR}"
-chmod 700 "${DEPLOY_DIR}"
+# Droits posés seulement à la création : un dossier fourni par l'hôte (VPS : 0750, compte de l'appli) reste tel quel.
+if [ ! -d "${DEPLOY_DIR}" ]; then
+  mkdir -p "${DEPLOY_DIR}"
+  chmod 700 "${DEPLOY_DIR}"
+fi
 
 if [ ! -f "${ENV_FILE}" ]; then
   command -v openssl >/dev/null 2>&1 || die "openssl est introuvable (génération des mots de passe)"

@@ -225,6 +225,15 @@ curl -6 https://<domaine>/api/v1/health
 docker compose -f docker/compose.prod.yml --env-file DEPLOY_DIR/.env.prod logs caddy | grep '"uri":"/api/v1/health"' | tail -3
 ```
 
+**Variante VPS sous Podman (lot 29)** : la faiblesse RS-4 est levée par construction. En rootless, l'IP source
+est perdue (rootlesskit) sur un réseau compose : c'est le Caddy de l'hôte qui reçoit les clients (IPv4 et IPv6) et
+transmet leur adresse par `X-Forwarded-For` ; le Caddy de la pile la croit (`trusted_proxies_unix`), l'API la lit
+(`TRUST_PROXY=uniquelocal`). Prouvé en essai (`bash scripts/deploy/vps-stack.sh up`, puis
+`apps/api/test/vps-stack.e2e-spec.ts`) : deux clients d'adresses distinctes ont chacun leur quota (le second garde
+200 quand le premier atteint 429, même avec un `X-Forwarded-For` forgé) et le journal de la pile porte leurs
+adresses. La vérification IPv4/IPv6 réelle reste à faire une fois sur le serveur (`curl -4` puis `curl -6`, journal
+`/var/log/caddy/site-perso.access.log` de l'hôte et journal de la pile).
+
 Si l'adresse affichée est une `172.x.0.1` (ou `::ffff:172.x.0.1`) au lieu de l'IP publique du client : les
 visiteurs IPv6 partagent un quota. Corrections possibles, à choisir selon l'hôte : désactiver le proxy
 utilisateur de Docker (`"userland-proxy": false` dans `/etc/docker/daemon.json`, puis redémarrer Docker) ou
@@ -255,6 +264,54 @@ son plafond de 1 Kio, mesuré lors de l'essai du lot 9) sont des réponses d'inf
 du comportement de l'API. **Tranché par Julien le 19 nov. 2026** : ces trois écarts (400, 413, 502) sont
 acceptés et ne seront pas corrigés côté Caddy ; le front traite toute réponse non JSON comme une erreur
 générique.
+
+## Production sous Podman sans privilèges (lot 29)
+
+Décision de Julien (25 nov. 2026) : **Caddy en deux niveaux**. Le serveur (Debian 13, Podman 5.4 sans privilèges,
+`docker-compose` 2.26 parlant à l'API de Podman par `DOCKER_HOST=unix:///run/user/<uid>/podman/podman.sock`) fait
+tourner l'appli sous le compte `app-site-perso`, sans sudo, dossier `/srv/apps/site-perso`. Un compte non root ne
+peut pas lier 80/443 : le **Caddy de l'hôte** (paquet officiel) tient 80/443, le TLS (Let's Encrypt), la redirection
+HTTP vers HTTPS et des en-têtes par défaut (préfixe `?` : ceux de la pile l'emportent), puis relaie vers le socket
+Unix `/run/prod/site-perso/web.sock`. Le **Caddy de la pile** (frontal de l'appli) écoute ce socket, sert le front,
+la CSP, `/fr`, `/api/*` (plafond de corps de 1 Kio) : même site que `docker/Caddyfile`, vérifié identique par
+`prod-vps.e2e-spec.ts`. Aucun port n'est publié.
+
+Fichiers : `docker/compose.vps.yml` (surcharge de `compose.prod.yml`, sans `ports`, sans `NET_BIND_SERVICE`, sans
+réseau `edge`, noms d'image complets, `restart: always`, `oom_score_adj`), `docker/Caddyfile.vps`
+(`bind unix//run/prod/web.sock|0660`, `servers { trusted_proxies_unix }`, `auto_https off`). Pas de `user:` sur le
+Caddy de la pile : seul le root du conteneur (le compte de l'appli sur l'hôte) crée le socket dans le dossier 2750.
+
+Variables du compte de l'appli (environnement de la session ou de `~/.profile`) :
+
+```sh
+export DEPLOY_DIR=/srv/apps/site-perso     # clone du dépôt, .env.prod, sauvegardes
+export DEPLOY_COMPOSE=docker-compose       # Compose v2 (Go) ; défaut « docker compose »
+export DEPLOY_INSPECT="podman inspect"     # défaut « docker inspect »
+export DEPLOY_VARIANT=vps                  # ajoute docker/compose.vps.yml
+export DEPLOY_WEB_BUILD=podman             # le front se construit par podman build (docker-compose ignore
+                                           # web.Dockerfile.dockerignore : pas de BuildKit)
+```
+
+Procédure (Julien, sous `app-site-perso`) : cloner le dépôt sur `main`, exporter ces variables, lancer
+`bash scripts/deploy/first-install.sh` (code 10 : remplir `.env.prod`, relancer), puis `update.sh` à chaque mise à
+jour. Relance au démarrage : `restart: always` (relancé par `podman-restart.service`). Vérifier ensuite :
+`curl -I https://<domaine>/api/v1/health`, `curl -4`/`curl -6`, `docker-compose … ps`, et l'absence de `ports`
+(`docker-compose -f docker/compose.prod.yml -f docker/compose.vps.yml --env-file … config | grep -c published`
+doit afficher 0).
+
+Contrôles rootless (essai sur Podman 6.2 sans privilèges, poste de développement) : `mem_limit` et `pids_limit`
+fonctionnent (cgroups délégués : cpu, memory, pids ; pas io) ; `cap_add` de PostgreSQL (CHOWN, DAC_OVERRIDE, FOWNER,
+SETGID, SETUID) et `cap_drop: ALL` ailleurs, volumes nommés et réseaux `internal` fonctionnent. Sans `oom_score_adj`
+explicite, tout `exec` échoue (`exit status 126`, healthcheck « unhealthy ») : constaté de nouveau. La variante fixe
+donc PostgreSQL à 300 (tué en dernier : seule une valeur supérieure à celle du conteneur est permise sans privilège),
+l'API, Caddy et migrate à 500, la génération du front (2 Go) à 900. À retester sur Podman 5.4.2 du serveur
+(`podman inspect` du conteneur et un `exec`).
+
+Essai local de la variante : `bash scripts/deploy/vps-stack.sh up | ps | logs | exec | down` (frontal simulé et deux
+clients, `docker/compose.vps-frontal.yml`, rien n'est publié) ; `VPS_STACK_EXTRA_FILE` ajoute un fichier compose
+(`restart: 'no'` tant qu'une pile n'a pas démarré une fois). Le test `vps-stack.e2e-spec.ts` rejoue l'IP réelle et le
+quota par client sur cette pile ; il n'est pas encore branché dans la CI (modification de `ci.yml` à autoriser :
+`up`, `vitest run --project e2e vps-stack` avec `VPS_STACK_REQUIRED=1`, `down`).
 
 ## Rôles PostgreSQL
 
