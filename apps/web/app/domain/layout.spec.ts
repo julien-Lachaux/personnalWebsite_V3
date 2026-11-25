@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BREAKPOINTS,
   EXPANDED_MAX_WIDTH,
+  FOLDED_HEIGHT,
   GAP,
   PAGE_MAX_WIDTH,
   SIDE_MIN_WIDTH,
@@ -23,12 +24,11 @@ const NOTHING_MEASURED = heights({});
 
 function mosaic(
   zone: { width: number; height: number },
-  options: { expanded?: TileId | null; textEnlarged?: boolean; contentHeight?: ContentHeight } = {},
+  options: { expanded?: TileId | null; contentHeight?: ContentHeight } = {},
 ): MosaicLayout {
   const layout = computeLayout({
     zone,
     expanded: options.expanded ?? null,
-    textEnlarged: options.textEnlarged ?? false,
     contentHeight: options.contentHeight ?? NOTHING_MEASURED,
   });
   if (layout.mode !== 'mosaic') throw new Error(`mosaïque attendue : ${layout.mode}`);
@@ -60,6 +60,7 @@ describe('constantes', () => {
     expect(TABLET_COLUMN_WIDTH).toBe(640);
     expect(BREAKPOINTS).toEqual({ tablet: 768, portable: 1024, desktop: 1200 });
     expect(TILE_CHROME).toEqual({ width: 3, height: 48 });
+    expect(FOLDED_HEIGHT).toBe(49);
   });
 });
 
@@ -68,7 +69,6 @@ describe('mode selon la largeur', () => {
     computeLayout({
       zone: { width, height: 700 },
       expanded: 'experience',
-      textEnlarged: false,
       contentHeight: NOTHING_MEASURED,
     });
 
@@ -151,7 +151,6 @@ describe('mosaïque 3 colonnes', () => {
       ai: r(888, 12, 380, 482),
       recommendations: r(888, 506, 380, 482),
     });
-    expect(layout.profile).toEqual({ mode: 'reduced', contentWidth: 417, availableHeight: 700 });
   });
 
   it('donne au Profil toute la hauteur quand sa hauteur n’est pas encore mesurée', () => {
@@ -179,14 +178,6 @@ describe('mosaïque 3 colonnes', () => {
         'profile',
       ).rect.height,
     ).toBe(764);
-  });
-
-  it('indique pour le Profil la largeur et la hauteur à passer à fit', () => {
-    const layout = mosaic(
-      { width: 1280, height: 788 },
-      { contentHeight: heights({ profile: 900 }) },
-    );
-    expect(layout.profile).toEqual({ mode: 'reduced', contentWidth: 417, availableHeight: 716 });
   });
 
   it('desktop à 1200 px : XP étroite (352 px), colonnes fixes de 420 et 380 px', () => {
@@ -240,15 +231,6 @@ describe('mosaïque 3 colonnes', () => {
     expect(mosaic({ width: 1921, height: 1000 }).area.x).toBe(241);
     expect(mosaic({ width: 1920, height: 1000 }).area.x).toBe(240);
   });
-
-  it('désactive la réduction du Profil quand le texte est agrandi, sans changer sa hauteur', () => {
-    const layout = mosaic(
-      { width: 1280, height: 788 },
-      { textEnlarged: true, contentHeight: heights({ profile: 900 }) },
-    );
-    expect(layout.profile).toEqual({ mode: 'scrolling', contentWidth: 417, availableHeight: 716 });
-    expect(tile(layout, 'profile').rect.height).toBe(764);
-  });
 });
 
 describe('mosaïque 2 colonnes', () => {
@@ -261,7 +243,6 @@ describe('mosaïque 2 colonnes', () => {
       recommendations: r(704, 403, 308, 297),
     });
     expect(layout.area).toEqual(r(0, 0, 1024, 712));
-    expect(layout.profile).toEqual({ mode: 'reduced', contentWidth: 357, availableHeight: 640 });
   });
 
   it('ne mesure pas le Profil et ne le raccourcit pas, même avec un contenu court', () => {
@@ -292,14 +273,14 @@ describe('mosaïque 2 colonnes', () => {
 });
 
 describe('tuile agrandie avec colonne latérale (desktop)', () => {
-  it('XP agrandie à 1280×844 : tuile de 868 px à gauche, trois tuiles à parts égales à droite', () => {
-    // Capture desktop-1280_xp-agrandi : place restante de 376 px (au moins 340).
+  it('XP agrandie à 1280×844 : tuile de 868 px à gauche, trois tuiles repliées en bas à droite (D42)', () => {
+    // Place restante de 376 px (au moins 340) : Profil, Recos et IA réduits à leur barre de titre.
     const layout = mosaic({ width: 1280, height: 788 }, { expanded: 'experience' });
     expect(rects(layout)).toEqual({
       experience: r(12, 12, 868, 764),
-      profile: r(892, 12, 376, 247),
-      recommendations: r(892, 271, 376, 246),
-      ai: r(892, 529, 376, 247),
+      profile: r(892, 605, 376, FOLDED_HEIGHT),
+      recommendations: r(892, 666, 376, FOLDED_HEIGHT),
+      ai: r(892, 727, 376, FOLDED_HEIGHT),
     });
     expect(layout.expanded).toBe('experience');
     expect(tile(layout, 'experience')).toMatchObject({
@@ -308,34 +289,65 @@ describe('tuile agrandie avec colonne latérale (desktop)', () => {
       push: null,
     });
     for (const id of ['profile', 'recommendations', 'ai'] as const) {
-      expect(tile(layout, id)).toMatchObject({ visible: true, placement: 'side', push: null });
+      expect(tile(layout, id)).toMatchObject({ visible: true, placement: 'folded', push: null });
     }
     // La colonne latérale se termine à la marge basse de la zone.
-    expect(529 + 247).toBe(788 - GAP);
-  });
-
-  it('place le Profil de la colonne latérale en taille normale, avec défilement', () => {
-    const layout = mosaic({ width: 1280, height: 788 }, { expanded: 'experience' });
-    expect(layout.profile).toEqual({ mode: 'scrolling', contentWidth: 373, availableHeight: 199 });
+    expect(727 + FOLDED_HEIGHT).toBe(788 - GAP);
   });
 
   it('accepte la colonne latérale à 340 px exactement, la refuse à 339 px', () => {
     // Zone 1244 px : 1244 − 24 − 868 − 12 = 340.
     const withSide = mosaic({ width: 1244, height: 788 }, { expanded: 'experience' });
     expect(tile(withSide, 'profile')).toMatchObject({
-      placement: 'side',
-      rect: r(892, 12, 340, 247),
+      placement: 'folded',
+      rect: r(892, 605, 340, FOLDED_HEIGHT),
     });
     const without = mosaic({ width: 1243, height: 788 }, { expanded: 'experience' });
     expect(tile(without, 'profile').placement).toBe('pushed');
   });
 
-  it('IA agrandie : la colonne latérale reprend l’ordre Profil, XP, Recos', () => {
+  it('IA agrandie : XP prend la hauteur libérée, Profil et Recos se replient dessous dans cet ordre', () => {
     const layout = mosaic({ width: 1280, height: 788 }, { expanded: 'ai' });
     expect(tile(layout, 'ai')).toMatchObject({ placement: 'expanded', rect: r(12, 12, 868, 764) });
-    expect(tile(layout, 'profile').rect.y).toBe(12);
-    expect(tile(layout, 'experience').rect.y).toBe(271);
-    expect(tile(layout, 'recommendations').rect.y).toBe(529);
+    expect(tile(layout, 'experience')).toMatchObject({
+      placement: 'side',
+      visible: true,
+      push: null,
+      rect: r(892, 12, 376, 642),
+    });
+    expect(tile(layout, 'profile')).toMatchObject({
+      placement: 'folded',
+      rect: r(892, 666, 376, FOLDED_HEIGHT),
+    });
+    expect(tile(layout, 'recommendations')).toMatchObject({
+      placement: 'folded',
+      rect: r(892, 727, 376, FOLDED_HEIGHT),
+    });
+  });
+
+  it('XP prend toute la hauteur libérée, une gouttière au-dessus des tuiles repliées', () => {
+    for (const expanded of ['profile', 'recommendations', 'ai'] as const) {
+      const layout = mosaic({ width: 1280, height: 788 }, { expanded });
+      const experience = tile(layout, 'experience').rect;
+      const folded = (['profile', 'recommendations', 'ai'] as const).filter(
+        (id) => tile(layout, id).placement === 'folded',
+      );
+      const first = tile(layout, folded[0]!).rect;
+      expect(experience.y).toBe(GAP);
+      expect(first.y).toBe(experience.y + experience.height + GAP);
+      expect(experience.height).toBe(764 - folded.length * (FOLDED_HEIGHT + GAP));
+    }
+  });
+
+  it('XP agrandie : les tuiles repliées gardent l’ordre de lecture et une gouttière entre elles', () => {
+    const layout = mosaic({ width: 1280, height: 788 }, { expanded: 'experience' });
+    const ys = (['profile', 'recommendations', 'ai'] as const).map((id) => tile(layout, id).rect.y);
+    expect(ys).toEqual([605, 666, 727]);
+  });
+
+  it('ne donne jamais une hauteur négative à XP quand la zone est trop basse', () => {
+    const layout = mosaic({ width: 1280, height: 100 }, { expanded: 'ai' });
+    expect(tile(layout, 'experience').rect.height).toBe(0);
   });
 
   it('Recos agrandie à la hauteur de son contenu, ou pleine hauteur sans mesure', () => {
@@ -416,13 +428,12 @@ describe('empilement Profil et IA', () => {
     expect(rects(layout)).toEqual({
       profile: r(12, 12, 868, 298),
       ai: r(12, 322, 868, 248),
-      experience: r(892, 12, 376, 376),
-      recommendations: r(892, 400, 376, 376),
+      experience: r(892, 12, 376, 703),
+      recommendations: r(892, 727, 376, FOLDED_HEIGHT),
     });
     expect(tile(layout, 'ai')).toMatchObject({ placement: 'stacked', visible: true, push: null });
     expect(tile(layout, 'experience').placement).toBe('side');
-    // Le Profil agrandi reste réductible, à la hauteur de son contenu.
-    expect(layout.profile).toEqual({ mode: 'reduced', contentWidth: 865, availableHeight: 250 });
+    expect(tile(layout, 'recommendations').placement).toBe('folded');
   });
 
   it('IA agrandie : le Profil vient dessous', () => {
@@ -432,7 +443,6 @@ describe('empilement Profil et IA', () => {
       placement: 'stacked',
       rect: r(12, 272, 868, 298),
     });
-    expect(layout.profile).toEqual({ mode: 'reduced', contentWidth: 865, availableHeight: 250 });
   });
 
   it('empile quand la somme des deux tuiles et de la gouttière égale la hauteur disponible', () => {
@@ -446,10 +456,10 @@ describe('empilement Profil et IA', () => {
       { width: 1280, height: 788 },
       { expanded: 'profile', contentHeight: heights({ profile: 400, ai: 257 }) },
     );
-    expect(tile(tooTall, 'ai').placement).toBe('side');
+    expect(tile(tooTall, 'ai').placement).toBe('folded');
   });
 
-  it('n’empile pas quand les deux ne tiennent pas : le Profil est plafonné et l’IA va à droite', () => {
+  it('n’empile pas quand les deux ne tiennent pas : le Profil est plafonné et l’IA se replie à droite', () => {
     const layout = mosaic(
       { width: 1280, height: 788 },
       { expanded: 'profile', contentHeight: heights({ profile: 900, ai: 300 }) },
@@ -458,8 +468,7 @@ describe('empilement Profil et IA', () => {
       placement: 'expanded',
       rect: r(12, 12, 868, 764),
     });
-    expect(tile(layout, 'ai').placement).toBe('side');
-    expect(layout.profile).toEqual({ mode: 'reduced', contentWidth: 865, availableHeight: 716 });
+    expect(tile(layout, 'ai').placement).toBe('folded');
   });
 
   it('n’empile pas tant que l’autre tuile n’est pas mesurée', () => {
@@ -467,13 +476,13 @@ describe('empilement Profil et IA', () => {
       { width: 1280, height: 788 },
       { expanded: 'profile', contentHeight: heights({ profile: 250 }) },
     );
-    expect(tile(profileOnly, 'ai').placement).toBe('side');
+    expect(tile(profileOnly, 'ai').placement).toBe('folded');
     expect(tile(profileOnly, 'profile').rect.height).toBe(298);
     const aiOnly = mosaic(
       { width: 1280, height: 788 },
       { expanded: 'profile', contentHeight: heights({ ai: 200 }) },
     );
-    expect(tile(aiOnly, 'ai').placement).toBe('side');
+    expect(tile(aiOnly, 'ai').placement).toBe('folded');
     expect(tile(aiOnly, 'profile').rect.height).toBe(764);
   });
 
@@ -532,11 +541,6 @@ describe('tuile agrandie sans place latérale (poussée)', () => {
       placement: 'pushed',
       push: 'right',
     });
-  });
-
-  it('garde le Profil poussé à sa géométrie de mosaïque pour son facteur S', () => {
-    const layout = mosaic({ width: 1024, height: 712 }, { expanded: 'experience' });
-    expect(layout.profile).toEqual({ mode: 'reduced', contentWidth: 357, availableHeight: 640 });
   });
 
   it('IA agrandie à 1024 : XP sort par le haut, Profil par la gauche, Recos par la droite', () => {
@@ -606,30 +610,11 @@ describe('tuile agrandie sans place latérale (poussée)', () => {
   });
 });
 
-describe('texte agrandi et tuile agrandie', () => {
-  it('garde la colonne latérale et le défilement du Profil', () => {
-    const layout = mosaic(
-      { width: 1280, height: 788 },
-      { expanded: 'experience', textEnlarged: true },
-    );
-    expect(layout.profile.mode).toBe('scrolling');
-  });
-
-  it('désactive aussi la réduction du Profil agrandi', () => {
-    const layout = mosaic(
-      { width: 1280, height: 788 },
-      { expanded: 'profile', textEnlarged: true, contentHeight: heights({ profile: 900 }) },
-    );
-    expect(layout.profile).toEqual({ mode: 'scrolling', contentWidth: 865, availableHeight: 716 });
-  });
-});
-
 describe('mode onglets', () => {
   it('ignore la tuile agrandie et les mesures', () => {
     const layout = computeLayout({
       zone: { width: 390, height: 700 },
       expanded: 'profile',
-      textEnlarged: true,
       contentHeight: () => {
         throw new Error('aucune mesure attendue');
       },

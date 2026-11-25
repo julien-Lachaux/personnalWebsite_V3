@@ -10,8 +10,9 @@ import type { MosaicLayout, Rect, TileId } from '../app/domain/layout-types.js';
 //   dont les cas des captures de référence recalculés à la main (1280 mosaïque, 1280 XP agrandie,
 //   1024 XP agrandie) ;
 // - agrandir puis réduire au clavier (bouton de la tuile, onglets de la barre du haut), focus ;
-// - colonne latérale (≥ 1244 px) ou poussée hors zone (portable) ; Profil réduit sans défilement dans
-//   la mosaïque, défilant en colonne latérale ; aucun recalcul après la fin de l'animation ;
+// - colonne latérale (≥ 1244 px, D42 : XP ouverte, les autres tuiles repliées sur leur barre de titre) ou
+//   poussée hors zone (portable) ; Profil à la taille de texte normale qui défile (D41) ; aucun
+//   recalcul après la fin de l'animation ;
 // - axe WCAG 2.2 AA dans la mosaïque et en tuile agrandie ; mouvement réduit.
 // Sous 1024 px, la vue par onglets est inchangée : chaque test le vérifie puis s'arrête.
 
@@ -106,32 +107,18 @@ async function zone(page: Page): Promise<{ width: number; height: number }> {
   }));
 }
 
-/** Facteur S appliqué au contenu du Profil (1 sans transformation). */
-async function profileScale(page: Page): Promise<number> {
-  return tile(page, 'profile')
-    .locator('.tile-grid__content--profile')
-    .evaluate((element) => {
-      const transform = getComputedStyle(element).transform;
-      return transform === 'none' ? 1 : new DOMMatrixReadOnly(transform).a;
-    });
-}
-
 /**
- * Mise en page attendue : `computeLayout` avec la hauteur du Profil lue dans la page quand il n'est pas
- * réduit (S = 1 : sa hauteur de contenu est sa hauteur naturelle à sa largeur) ; réduit, il prend toute
- * la hauteur (contenu « non mesuré »).
+ * Mise en page attendue : `computeLayout` avec la hauteur du Profil lue dans la page (sa hauteur de
+ * contenu est sa hauteur naturelle à sa largeur, D41 : jamais réduite).
  */
 async function expectedLayout(page: Page, expanded: TileId | null): Promise<MosaicLayout> {
-  const scale = await profileScale(page);
   const profileHeight = await tile(page, 'profile')
     .locator('.tile-grid__content--profile')
     .evaluate((element: HTMLElement) => element.offsetHeight);
   const layout = computeLayout({
     zone: await zone(page),
     expanded,
-    textEnlarged: false,
-    contentHeight: (id) =>
-      id === 'profile' && scale === 1 ? Math.ceil(profileHeight + 0.5) : undefined,
+    contentHeight: (id) => (id === 'profile' ? Math.ceil(profileHeight + 0.5) : undefined),
   });
   if (layout.mode !== 'mosaic') throw new Error('mosaïque attendue');
   return layout;
@@ -222,11 +209,12 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         await tile(page, 'experience').getByRole('button', { name: locale.expandXp }).click();
         await settled(page);
         const expanded = await rects(page);
-        // XP de 868 px à gauche ; colonne latérale de 376 px : Profil, Recos, IA (247, 246, 247).
+        // XP de 868 px à gauche ; colonne latérale de 376 px, D42 : Profil, Recos et IA repliés en bas
+        // sur leur barre de titre (49 px, gouttière de 12 px).
         expectRect(expanded.experience, { x: 12, y: 12, width: 868, height: 764 }, 'XP');
-        expectRect(expanded.profile, { x: 892, y: 12, width: 376, height: 247 }, 'Profil');
-        expectRect(expanded.recommendations, { x: 892, y: 271, width: 376, height: 246 }, 'Recos');
-        expectRect(expanded.ai, { x: 892, y: 529, width: 376, height: 247 }, 'IA');
+        expectRect(expanded.profile, { x: 892, y: 605, width: 376, height: 49 }, 'Profil');
+        expectRect(expanded.recommendations, { x: 892, y: 666, width: 376, height: 49 }, 'Recos');
+        expectRect(expanded.ai, { x: 892, y: 727, width: 376, height: 49 }, 'IA');
         return;
       }
 
@@ -319,6 +307,10 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
           await expect(other).toBeVisible();
           await expect(other).not.toHaveAttribute('inert');
           await expect(other).not.toHaveAttribute('aria-hidden');
+          // D42 : repliée, seule la barre de titre reste lue et atteignable ; le corps est inerte.
+          await expect(other.locator('.tile__body')).toHaveAttribute('inert', '');
+          await expect(other.locator('.tile__body')).toHaveAttribute('aria-hidden', 'true');
+          await expect(other.locator('.tile__toggle')).toBeVisible();
         } else {
           await expect(other).toBeHidden();
           await expect(other).toHaveAttribute('inert', '');
@@ -340,43 +332,49 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       }
     });
 
-    test('Profil : réduit sans barre de défilement dans la mosaïque, défilant en colonne latérale', async ({
+    test('Profil : taille de texte normale, jamais réduit, défile quand il dépasse (D41)', async ({
       page,
     }) => {
       if (!(await open(page, locale.path))) return;
       const body = tile(page, 'profile').locator('.tile__body');
       const content = tile(page, 'profile').locator('.tile-grid__content--profile');
 
-      await expect(body).not.toHaveAttribute('tabindex');
-      await expect(body).toHaveCSS('overflow-y', 'hidden');
-      const fits = await body.evaluate((element: HTMLElement) => {
-        const box = element.getBoundingClientRect();
-        const inner = element
-          .querySelector('.tile-grid__content--profile')!
-          .getBoundingClientRect();
-        return {
-          scrollbar: element.offsetWidth - element.clientWidth,
-          bottom: inner.bottom - box.bottom,
-          right: inner.right - box.right,
-        };
-      });
-      expect(fits.scrollbar).toBe(0);
-      expect(fits.bottom).toBeLessThanOrEqual(1);
-      expect(fits.right).toBeLessThanOrEqual(1);
-      const scale = await profileScale(page);
-      expect(scale).toBeGreaterThanOrEqual(0.6);
-      expect(scale).toBeLessThanOrEqual(1);
+      await expect(content).toHaveCSS('transform', 'none');
+      await expect(body).toHaveAttribute('tabindex', '0');
+      await expect(body).toHaveCSS('overflow-y', 'auto');
       await expect(page.locator('#section-profile .profile-title')).toBeVisible();
 
       const { width } = await zone(page);
       if (Math.min(width, 1440) - 2 * GAP - EXPANDED_MAX_WIDTH - GAP < 340) return;
       await tile(page, 'experience').locator('.tile__toggle').click();
       await settled(page);
-      await expect(body).toHaveAttribute('tabindex', '0');
       await expect(content).toHaveCSS('transform', 'none');
-      expect(await body.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
-        true,
-      );
+      await expect(body).not.toHaveAttribute('tabindex');
+    });
+
+    test('tuile agrandie : XP défile dans la colonne latérale, les autres sont repliées (D42)', async ({
+      page,
+    }) => {
+      if (!(await open(page, locale.path))) return;
+      const { width } = await zone(page);
+      if (Math.min(width, 1440) - 2 * GAP - EXPANDED_MAX_WIDTH - GAP < 340) return;
+
+      await tile(page, 'recommendations').locator('.tile__toggle').click();
+      await settled(page);
+
+      const list = tile(page, 'experience').locator('.experience-section__list');
+      await expect(tile(page, 'experience')).toBeVisible();
+      expect(
+        await list.evaluate((element) => element.scrollHeight > element.clientHeight),
+        'la liste d’XP dépasse sa tuile',
+      ).toBe(true);
+      await list.evaluate((element) => element.scrollTo(0, element.scrollHeight));
+      expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      for (const id of ['profile', 'ai'] as const) {
+        const folded = await tile(page, id).boundingBox();
+        expect(folded!.height, `${id} repliée`).toBeLessThan(50);
+        await expect(tile(page, id).locator('.tile__body')).toHaveAttribute('inert', '');
+      }
     });
 
     test('aucun recalcul après la fin de l’animation', async ({ page }) => {
@@ -386,10 +384,8 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         await tile(page, id).locator('.tile__toggle').click();
         await settled(page);
         const end = await rects(page);
-        const scale = await profileScale(page);
         await page.waitForTimeout(300);
         expect(await rects(page), `${id} agrandie`).toEqual(end);
-        expect(await profileScale(page)).toBe(scale);
         expect(
           await grid(page).evaluate((element) => element.getAnimations({ subtree: true }).length),
         ).toBe(0);
@@ -398,21 +394,19 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       }
     });
 
-    test('animation : position, taille et S en 550 ms sur la courbe de la maquette, sortie différée', async ({
+    test('animation : position et taille en 550 ms sur la courbe de la maquette, sortie différée', async ({
       page,
     }) => {
       if (!(await open(page, locale.path))) return;
 
-      // Profil agrandi : sa place, sa taille et son facteur S changent ensemble.
+      // Profil agrandi : sa place et sa taille changent ensemble.
       await tile(page, 'profile').locator('.tile__toggle').click();
-      // Transitions des tuiles et du contenu du Profil (pas celles du bouton pressé).
+      // Transitions des tuiles (pas celles du bouton pressé).
       const transitions = await grid(page).evaluate((element) =>
         element
           .getAnimations({ subtree: true })
           .filter((animation) =>
-            (animation.effect as KeyframeEffect).target!.matches(
-              '[data-tile], .tile-grid__content--profile',
-            ),
+            (animation.effect as KeyframeEffect).target!.matches('[data-tile]'),
           )
           .map((animation) => {
             const timing = animation.effect!.getComputedTiming();
@@ -428,12 +422,12 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
           }),
       );
       const moving = transitions.filter(({ property }) => property !== 'visibility');
-      // Seules bougent les propriétés qui changent (à 1024, le Profil garde son `top`), parmi la place,
-      // la taille et S.
+      // Seules bougent les propriétés qui changent (à 1024, le Profil garde son `top`), parmi la place
+      // et la taille.
       const properties = moving.map(({ property }) => property);
       expect(properties).toEqual(expect.arrayContaining(['left', 'width']));
       for (const property of properties) {
-        expect(['left', 'top', 'width', 'height', 'transform']).toContain(property);
+        expect(['left', 'top', 'width', 'height']).toContain(property);
       }
       for (const transition of moving) {
         expect(transition).toMatchObject({

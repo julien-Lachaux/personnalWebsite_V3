@@ -45,6 +45,31 @@ describe('Tile', () => {
     expect(section.attributes('aria-hidden')).toBe('true');
   });
 
+  it('repliée (folded, D42) : corps inerte, non lu, sans tabindex ni défilement ; barre et bouton actifs', async () => {
+    const wrapper = await mountSuspended(Tile, {
+      props: { ...baseProps, folded: true },
+      slots: { default: () => h('a', { href: '#x' }, 'Lien') },
+    });
+
+    const body = wrapper.get('.tile__body');
+    expect(body.attributes('inert')).toBeDefined();
+    expect(body.attributes('aria-hidden')).toBe('true');
+    expect(body.attributes('tabindex')).toBeUndefined();
+    expect(body.classes()).not.toContain('tile__body--scroll');
+    const section = wrapper.get('section');
+    expect(section.attributes('inert')).toBeUndefined();
+    expect(section.attributes('aria-hidden')).toBeUndefined();
+    await wrapper.get('.tile__toggle').trigger('click');
+    expect(wrapper.emitted('toggle')).toHaveLength(1);
+  });
+
+  it('non repliée : corps ni inerte ni masqué', async () => {
+    const wrapper = await mountSuspended(Tile, { props: baseProps });
+
+    expect(wrapper.get('.tile__body').attributes('inert')).toBeUndefined();
+    expect(wrapper.get('.tile__body').attributes('aria-hidden')).toBeUndefined();
+  });
+
   it('bouton agrandir : vrai <button> nommé « Agrandir … », icône masquée, 44 × 44 px par la classe', async () => {
     const wrapper = await mountSuspended(Tile, { props: baseProps });
 

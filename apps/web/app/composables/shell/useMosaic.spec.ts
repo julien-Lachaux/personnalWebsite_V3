@@ -1,13 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
 
-import { computeFit, FIT_MAX_CONTENT_WIDTH } from '../../domain/fit.js';
 import { computeLayout } from '../../domain/layout.js';
 import type { MosaicLayout, TileId, Zone } from '../../domain/layout-types.js';
-import { CHROME_EXTRA, useMosaic, type MeasureContent } from './useMosaic.js';
+import { CHROME_EXTRA, CONTENT_MAX_WIDTH, useMosaic, type MeasureContent } from './useMosaic.js';
 
-// État de la mosaïque (lot F6) : mesures faites d'avance pour les cinq états, rendu sans mesure, S du
-// Profil, transitions coupées hors agrandissement. La mesure du DOM est remplacée par une fonction.
+// État de la mosaïque (lot F6) : mesures faites d'avance pour les cinq états, rendu sans mesure,
+// Profil sans réduction (D41), transitions coupées hors agrandissement. La mesure du DOM est remplacée par une fonction.
 
 const DESKTOP: Zone = { width: 1280, height: 788 };
 
@@ -17,18 +16,12 @@ function content(profileArea: number, others = 300): MeasureContent {
 }
 
 /** La mise en page attendue, calculée par le domaine avec les mêmes mesures arrondies. */
-function expected(
-  zone: Zone,
-  expanded: TileId | null,
-  measure: MeasureContent,
-  textEnlarged = false,
-): MosaicLayout {
+function expected(zone: Zone, expanded: TileId | null, measure: MeasureContent): MosaicLayout {
   const layout = computeLayout({
     zone,
     expanded,
-    textEnlarged,
     contentHeight: (tile, innerWidth) =>
-      Math.ceil(measure(tile, Math.min(innerWidth, FIT_MAX_CONTENT_WIDTH)) + CHROME_EXTRA),
+      Math.ceil(measure(tile, Math.min(innerWidth, CONTENT_MAX_WIDTH)) + CHROME_EXTRA),
   });
   if (layout.mode !== 'mosaic') throw new Error('mosaïque attendue');
   return layout;
@@ -58,11 +51,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function setup(measure: MeasureContent, textEnlarged = false) {
+function setup(measure: MeasureContent) {
   const expanded = ref<TileId | null>(null);
-  const enlarged = ref(textEnlarged);
   const spy = vi.fn(measure);
-  return { expanded, enlarged, spy, mosaic: useMosaic(expanded, enlarged, spy) };
+  return { expanded, spy, mosaic: useMosaic(expanded, spy) };
 }
 
 describe('useMosaic : zone', () => {
@@ -70,7 +62,6 @@ describe('useMosaic : zone', () => {
     const { mosaic, spy } = setup(content(200_000));
 
     expect(mosaic.layout.value).toBeNull();
-    expect(mosaic.fit.value).toBeNull();
     expect(mosaic.instant.value).toBe(true);
     mosaic.remeasure();
     expect(spy).not.toHaveBeenCalled();
@@ -94,7 +85,6 @@ describe('useMosaic : zone', () => {
     mosaic.setZone({ width: 900, height: 700 });
 
     expect(mosaic.layout.value).toBeNull();
-    expect(mosaic.fit.value).toBeNull();
   });
 
   it('même zone : rien n’est remesuré ni recalculé', () => {
@@ -141,42 +131,22 @@ describe('useMosaic : aucun recalcul visible', () => {
   });
 });
 
-describe('useMosaic : facteur S du Profil', () => {
-  it('réduit le Profil qui dépasse : S de computeFit, hauteur disponible moins le demi-pixel', () => {
-    const measure = content(600_000);
-    const { mosaic } = setup(measure);
+describe('useMosaic : Profil sans réduction (D41)', () => {
+  it('Profil plus long que la zone : tuile pleine hauteur, le contenu garde sa taille et défile', () => {
+    const { mosaic } = setup(content(600_000));
 
     mosaic.setZone(DESKTOP);
 
-    const layout = mosaic.layout.value!;
-    expect(layout.profile.mode).toBe('reduced');
-    const fit = computeFit((width) => measure('profile', width), {
-      width: layout.profile.contentWidth,
-      availableHeight: layout.profile.availableHeight - CHROME_EXTRA,
-      textEnlarged: false,
-    });
-    expect(mosaic.fit.value).toEqual(fit);
-    expect(fit.scale).toBeLessThan(1);
-    expect(fit.overflows).toBe(false);
+    expect(mosaic.layout.value?.tiles.profile.rect.height).toBe(764);
   });
 
-  it('texte agrandi : le Profil défile, pas de S', () => {
-    const { mosaic } = setup(content(600_000), true);
-
-    mosaic.setZone(DESKTOP);
-
-    expect(mosaic.layout.value?.profile.mode).toBe('scrolling');
-    expect(mosaic.fit.value).toBeNull();
-  });
-
-  it('colonne latérale : le Profil défile, pas de S', () => {
+  it('colonne latérale : le Profil se replie sur sa barre de titre', () => {
     const { mosaic, expanded } = setup(content(600_000));
     mosaic.setZone(DESKTOP);
 
     expanded.value = 'experience';
 
-    expect(mosaic.layout.value?.tiles.profile.placement).toBe('side');
-    expect(mosaic.fit.value).toBeNull();
+    expect(mosaic.layout.value?.tiles.profile.placement).toBe('folded');
   });
 });
 
@@ -245,17 +215,5 @@ describe('useMosaic : nouvelles mesures', () => {
 
     expect(mosaic.layout.value).toEqual(expected(DESKTOP, null, content(220_000)));
     expect(mosaic.instant.value).toBe(true);
-  });
-
-  it('Profil plus long après remesure : S diminue', () => {
-    let area = 600_000;
-    const { mosaic } = setup((tile, width) => (tile === 'profile' ? area / width : 300));
-    mosaic.setZone(DESKTOP);
-    const before = mosaic.fit.value!.scale;
-
-    area = 640_000;
-    mosaic.remeasure();
-
-    expect(mosaic.fit.value!.scale).toBeLessThan(before);
   });
 });
