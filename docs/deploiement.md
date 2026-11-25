@@ -168,6 +168,24 @@ Variables de génération, toutes dans `.env.prod` (modèle `docker/.env.prod.ex
 - **Cache** : `/_nuxt/*` (nom à empreinte) en `public, max-age=31536000, immutable` ; `/fonts/*` (noms de version
   fixes) une semaine ; tout le reste (HTML, PDF, `404.html`) `no-cache` (revalidation par ETag).
 
+### Pages d'erreur serveur (lot 30, branchement au lot 32)
+
+La génération du front produit, à côté de `404.html` et `en/404.html`, une page d'erreur serveur par langue :
+`/srv/web/current/public/50x.html` (français) et `/srv/web/current/public/en/50x.html` (anglais). Elles sont
+autonomes : aucun script de l'application, aucune charge utile, aucun appel à l'API ; seuls les feuilles de style
+de `/_nuxt/*.css`, les polices de `/fonts/` et le script de thème en ligne (haché dans `csp.caddy` comme les
+autres éléments en ligne, puisque `csp-hashes.mjs` lit toutes les pages). Elles sont `noindex`, sans canonique et
+hors de `sitemap.xml`. Branchement attendu dans `handle_errors` (non fait au lot 30) :
+
+- pour les statuts 500, 502, 503 et 504, servir `50x.html` (ou `en/50x.html` quand le chemin d'origine est `/en`
+  ou commence par `/en/`, même règle que la 404) **en gardant le statut de l'erreur** (`file_server` avec
+  `status {err.status_code}`), avec la CSP du front (`import /srv/web/current/csp.*`) et `Cache-Control:
+  no-cache` ;
+- la servir par **réécriture**, jamais par redirection : le lien « Réessayer » de la page (`href=""`) recharge
+  l'adresse affichée, qui doit rester celle qui a échoué ;
+- le cas des réponses de `/api/*` (502 quand l'API est arrêtée : page HTML ou réponse brute pour un client JSON)
+  est à trancher au lot 32.
+
 ### Parcours de fumée du front (BF-15)
 
 `pnpm stack:up` construit l'API et l'image de génération, migre et seede, génère le front contre l'API saine,

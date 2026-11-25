@@ -182,7 +182,9 @@ apps/web/
   n'y entre pas, aucune liste de routes à tenir. Pages 404 : `/404.html` (Nuxt,
   `experimental.prerenderErrorPages`) et `/en/404.html` (`domain/error-pages.ts`), servies par le
   proxy avec le statut 404 (le `sirv` des parcours répond 404 sans corps ; `page.route` reproduit le
-  proxy).
+  proxy). Pages d'erreur serveur (lot 30) : `/50x.html` et `/en/50x.html` (`domain/server-error-page.ts`),
+  rendues par `error.vue` puis privées de l'application au prérendu (seul le script de thème reste) :
+  aucune hydratation, servies par le proxy pour 500, 502, 503 et 504 avec ce statut, à l'adresse demandée.
 - **Accessibilité** : WCAG 2.2 AA (D4, SPEC § 10) ; vrais `button`, `a`, `input` + `label`, jamais
   de clic sur un `div` ; focus visible ; cibles de 44 px sur mobile et tablette, sauf les puces de
   techno (D17 : hauteur de la maquette, au moins 24 × 24 px par `--target-min`, WCAG 2.5.8) ;

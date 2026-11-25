@@ -5,10 +5,19 @@
 // barres de la page d'accueil : accessibilité, langue, thème. Le contenu (`<main id="contenu">`) vient
 // de la page (`components/annex/AnnexPage.vue`).
 //
-// Une page l'emploie par `definePageMeta({ layout: 'annex' })` ; `error.vue`, qui remplace app.vue, par
-// `<NuxtLayout name="annex">`.
+// Une page l'emploie par `routeRules` (`appLayout: 'annex'`, nuxt.config.ts) ; `error.vue`, qui remplace
+// app.vue, par `<NuxtLayout name="annex">`. Sans contrôles (`:controls="false"`, lot 30) pour une page
+// servie sans JavaScript (page d'erreur serveur) : leurs boutons n'y feraient rien.
 import HeaderControls from '../components/shell/HeaderControls.vue';
 import { SITE_HANDLE } from '../composables/shell/sections.js';
+
+withDefaults(
+  defineProps<{
+    /** Faux pour une page sans JavaScript : l'en-tête ne garde que le lien vers l'accueil. */
+    controls?: boolean;
+  }>(),
+  { controls: true },
+);
 
 const { t } = useI18n();
 const localePath = useLocalePath();
@@ -21,7 +30,7 @@ const localePath = useLocalePath();
         <span aria-hidden="true" class="annex-layout__prompt">&gt;_</span>
         {{ SITE_HANDLE }}<span class="visually-hidden"> ({{ t('annex.home') }})</span>
       </NuxtLink>
-      <HeaderControls :declaration-url="localePath('/accessibilite')" />
+      <HeaderControls v-if="controls" :declaration-url="localePath('/accessibilite')" />
     </header>
     <slot />
   </div>

@@ -7,6 +7,11 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { isLocalizedErrorPage, LOCALIZED_ERROR_PAGES } from './app/domain/error-pages';
+import {
+  isServerErrorPage,
+  SERVER_ERROR_PAGES,
+  standaloneErrorPage,
+} from './app/domain/server-error-page';
 import { seoFiles, SITEMAP_FILE } from './app/domain/sitemap';
 import { themeScript } from './app/domain/theme-script';
 
@@ -133,17 +138,33 @@ export default defineNuxtConfig({
 
   nitro: {
     prerender: {
-      // Pages 404 des autres langues (`/en/404.html`) en plus de celles qu'atteint le robot (lot F7).
-      routes: ['/', '/en', '/fr', '/fr/accessibilite', ...LOCALIZED_ERROR_PAGES],
+      // Pages 404 des autres langues (`/en/404.html`) en plus de celles qu'atteint le robot (lot F7) ;
+      // pages d'erreur serveur `/50x.html` et `/en/50x.html` (lot 30).
+      routes: [
+        '/',
+        '/en',
+        '/fr',
+        '/fr/accessibilite',
+        ...LOCALIZED_ERROR_PAGES,
+        ...SERVER_ERROR_PAGES,
+      ],
       crawlLinks: true,
       failOnError: true,
     },
     hooks: {
       // Une page 404 d'une autre langue est rendue avec le statut 404 : le prérendu la garde (sans
       // cela, `failOnError` arrête la génération) ; toute autre erreur reste une erreur.
+      //
+      // Page d'erreur serveur (lot 30) : rendue de même par error.vue (statut 404 de son adresse), puis
+      // privée de l'application de Nuxt (scripts et préchargements, sauf le script de thème) pour
+      // s'afficher sans JavaScript ni serveur, à n'importe quelle adresse (app/domain/server-error-page.ts).
       'prerender:generate'(route) {
         if (isLocalizedErrorPage(route.route) && route.error?.statusCode === 404)
           delete route.error;
+        if (isServerErrorPage(route.route) && route.error?.statusCode === 404) {
+          delete route.error;
+          route.contents = standaloneErrorPage(route.contents ?? '', themeScript());
+        }
       },
       'prerender:route'(route) {
         if (route.error === undefined && route.fileName?.endsWith('.html') && route.contents) {
