@@ -354,11 +354,12 @@ production : `stack:up` les reconstruit à chaque lancement (le cache de couches
 rien n'a changé). Elles peuvent rester sur le poste après `stack:down` ; `docker image rm siteperso-api:prod
 siteperso-web-build:prod` les supprime.
 
-## Protection de develop
+## Protection des branches et des étiquettes
 
 Décisions de Julien du 21 nov. 2026 : flux par pull requests vers `develop`, revue automatisée de chaque PR
-(job `Revue PR (Claude)` de `.github/workflows/ci.yml`, depuis le lot 22) et `develop` protégée. Les hooks des
-agents refusent `gh api` en écriture : c'est Julien qui pose ces réglages, une fois.
+(job `Revue PR (Claude)` de `.github/workflows/ci.yml`, depuis le lot 22) et `develop` protégée ; le 25 nov. 2026,
+`main` et les étiquettes de version le sont aussi. Les hooks des agents refusent `gh api` en écriture : c'est
+Julien qui pose ces réglages. Ils sont versionnés dans `docs/github/rulesets/` (section « Rulesets » plus bas).
 
 ### Déclencheurs de la CI (lot 22)
 
@@ -403,98 +404,63 @@ Suivi de la consommation : chaque run écrit coût équivalent, tours, durée et
 « Consommation de la revue ») ; pour plusieurs runs, passer leurs résultats JSON à
 `node scripts/ci/review-usage.mjs` (fichier ou entrée standard, rien n'est appelé par le script).
 
-### Règles à poser
+### Rulesets
 
-- Pull request obligatoire pour modifier `develop` (pas de push direct), sans approbation humaine exigée
-  (0 approbation : l'auteur ne peut pas approuver sa propre PR, la « revue requise » est le contrôle
-  automatisé ci-dessous).
-- Contrôles requis (noms exacts des jobs, à l'identique de `ci.yml`, quinze contrôles depuis le lot 22) :
-  - `Qualité (format, lint, typecheck, build, tests)`
-  - `Garde-fous (intégrité des tests, hooks des agents)`
-  - `Tests e2e et couverture 100 % (PostgreSQL 16)`
-  - `Front (lint, typecheck, couverture 100 %)`
-  - `Front parcours Playwright + axe (mobile-390)`
-  - `Front parcours Playwright + axe (tablette-834)`
-  - `Front parcours Playwright + axe (portable-1024)`
-  - `Front parcours Playwright + axe (desktop-1280)`
-  - `Front parcours Playwright + axe (grand-1440)`
-  - `Front parcours Playwright + axe (fullhd-1920)`
-  - `Front parcours Playwright + axe (ultra-3440)`
-  - `Analyse statique (actionlint des workflows, shellcheck des scripts)`
-  - `Image Docker de l'API (build sans push)`
-  - `Pile locale complète (Caddy, API, PostgreSQL) et scénarios de production`
-  - `Revue PR (Claude)`
-- La mutation (`Test par mutation (contrats|API|front)`) n'est PAS requise : elle reste informative.
-- Une PR issue d'un fork ou en brouillon ne saute pas « Revue PR (Claude) » (un job sauté compte comme réussi) : le job échoue avec un message clair, sans lancer l'action ni utiliser le secret.
-- Push forcé et suppression de `develop` interdits.
+Les trois rulesets du dépôt sont versionnés, au format d'import et d'export de GitHub, dans
+`docs/github/rulesets/`. Ils font foi : un changement passe d'abord par ces fichiers (pull request), puis Julien le
+reporte sur GitHub.
 
-### Forme 1 : ruleset par `gh api` (recommandée)
+| Fichier | Type | Cible | Contournement |
+|---|---|---|---|
+| `develop.json` | ruleset de branche | `refs/heads/develop` | aucun, administrateurs compris |
+| `main.json` | ruleset de branche | `refs/heads/main` | rôle Admin (`bypass_mode: always`) : push direct d'un correctif urgent par Julien |
+| `tags-version.json` | ruleset d'étiquettes | `refs/tags/v*` | aucun |
 
-`bypass_actors` est vide : la règle s'applique aussi aux administrateurs (voir la question plus bas). Pour que
-les administrateurs puissent la contourner, remplacer `[]` par
-`[{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}]` (rôle Admin).
+Règles des deux rulesets de branche :
 
-```sh
-gh api --method POST repos/julien-Lachaux/personnalWebsite_V3/rulesets --input - <<'JSON'
-{
-  "name": "Protection de develop",
-  "target": "branch",
-  "enforcement": "active",
-  "conditions": { "ref_name": { "include": ["refs/heads/develop"], "exclude": [] } },
-  "bypass_actors": [],
-  "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    {
-      "type": "pull_request",
-      "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": false,
-        "require_code_owner_review": false,
-        "require_last_push_approval": false,
-        "required_review_thread_resolution": false
-      }
-    },
-    {
-      "type": "required_status_checks",
-      "parameters": {
-        "strict_required_status_checks_policy": false,
-        "required_status_checks": [
-          { "context": "Qualité (format, lint, typecheck, build, tests)" },
-          { "context": "Garde-fous (intégrité des tests, hooks des agents)" },
-          { "context": "Tests e2e et couverture 100 % (PostgreSQL 16)" },
-          { "context": "Front (lint, typecheck, couverture 100 %)" },
-          { "context": "Front parcours Playwright + axe (mobile-390)" },
-          { "context": "Front parcours Playwright + axe (tablette-834)" },
-          { "context": "Front parcours Playwright + axe (portable-1024)" },
-          { "context": "Front parcours Playwright + axe (desktop-1280)" },
-          { "context": "Front parcours Playwright + axe (grand-1440)" },
-          { "context": "Front parcours Playwright + axe (fullhd-1920)" },
-          { "context": "Front parcours Playwright + axe (ultra-3440)" },
-          { "context": "Analyse statique (actionlint des workflows, shellcheck des scripts)" },
-          { "context": "Image Docker de l'API (build sans push)" },
-          { "context": "Pile locale complète (Caddy, API, PostgreSQL) et scénarios de production" },
-          { "context": "Revue PR (Claude)" }
-        ]
-      }
-    }
-  ]
-}
-JSON
-```
+- suppression et push forcé interdits (`deletion`, `non_fast_forward`) ;
+- pull request obligatoire, 0 approbation (l'auteur ne peut pas approuver sa propre PR : la « revue requise » est
+  le contrôle automatisé), fusion par commit de merge seulement (`allowed_merge_methods: ["merge"]`, ni squash ni
+  rebase) ;
+- contrôles requis, noms exacts des jobs (une matrice donne un contrôle par valeur), sans exiger une branche à
+  jour (`strict_required_status_checks_policy: false`) :
+  - communs aux deux branches, quatorze : `Qualité (format, lint, typecheck, build, tests)`,
+    `Garde-fous (intégrité des tests, hooks des agents)`, `Tests e2e et couverture 100 % (PostgreSQL 16)`,
+    `Front (lint, typecheck, couverture 100 %)`, les sept `Front parcours Playwright + axe (<projet>)` (mobile-390,
+    tablette-834, portable-1024, desktop-1280, grand-1440, fullhd-1920, ultra-3440),
+    `Analyse statique (actionlint des workflows, shellcheck des scripts)`, `Image Docker de l'API (build sans push)`,
+    `Pile locale complète (Caddy, API, front, PostgreSQL) et scénarios de production` ;
+  - `develop` ajoute `Revue PR (Claude)` (le job ne tourne que vers `develop`) ;
+  - `main` ajoute `Contrôle de la release` (`release.yml` ; ignoré, donc vert, hors branche `release/*`).
+- Jamais requis : `Test par mutation (contrats|API|front)` (informatif) et `Arrêt au premier échec` (il annule le
+  run au premier échec mais se termine toujours en succès : le requérir ne protégerait rien).
+- Une PR issue d'un fork ou en brouillon ne saute pas « Revue PR (Claude) » (un job sauté compte comme réussi) : le
+  job échoue avec un message clair, sans lancer l'action ni utiliser le secret.
 
-Variante : la protection de branche classique (`PUT repos/julien-Lachaux/personnalWebsite_V3/branches/develop/protection`)
-offre les mêmes réglages (`required_pull_request_reviews`, `required_status_checks.contexts`,
-`allow_force_pushes: false`, `allow_deletions: false`, `enforce_admins: true`), mais un ruleset se liste, se teste
-(`enforcement: evaluate`) et se modifie plus facilement.
+Ruleset d'étiquettes : une étiquette `v*` ne peut être ni supprimée ni déplacée (`deletion`, `update`). Sa création
+reste libre : `release.yml` la pose avec le `GITHUB_TOKEN`, et les hooks refusent déjà toute étiquette aux sessions.
 
-### Forme 2 : interface GitHub
+Un job renommé dans `ci.yml` ou `release.yml` impose de mettre à jour ces fichiers et le ruleset en ligne dans la
+même pull request : sinon le contrôle requis attend un job qui n'existe plus et bloque toute fusion.
 
-_Settings > Rules > Rulesets > New ruleset > New branch ruleset_ : nom « Protection de develop », _Enforcement
-status_ Active, _Bypass list_ vide, _Target branches_ > _Add target_ > _Include by pattern_ `develop`. Cocher
-_Restrict deletions_, _Block force pushes_, _Require a pull request before merging_ (0 approbation requise),
-_Require status checks to pass_ (ajouter les quinze noms ci-dessus ; un nom n'est proposé qu'après avoir tourné au
-moins une fois sur une PR), laisser _Require branches to be up to date_ décoché. _Create_.
+Poser ou mettre à jour (Julien) :
+
+1. _Settings > Rules > Rulesets > New ruleset > Import a ruleset_, un fichier à la fois, relire, _Create_. Pour
+   mettre à jour un ruleset existant, le supprimer puis réimporter le fichier, ou reporter la différence à la main.
+   En ligne de commande, l'équivalent est
+   `gh api --method POST repos/julien-Lachaux/personnalWebsite_V3/rulesets --input docs/github/rulesets/<fichier>`.
+2. Ne pas garder de protection de branche classique (_Settings > Branches_) à côté des rulesets : une seule source.
+3. Un nom de contrôle qui n'a jamais tourné est accepté à l'import ; il n'est vérifié qu'à la première PR qui le
+   produit (cas de `Contrôle de la release` avant la première release).
+
+À l'import, GitHub complète la règle `pull_request` de deux champs absents des fichiers : `required_reviewers: []`
+(sans effet) et `require_extra_approval_for_unattributed_changes: true`. Ce dernier n'a pas été observé à l'œuvre :
+si une fusion est refusée faute d'approbation alors que la CI est verte, c'est lui qu'il faut décocher.
+
+Vérification (lecture seule) : `gh api repos/julien-Lachaux/personnalWebsite_V3/rulesets` liste les rulesets ;
+`gh api repos/julien-Lachaux/personnalWebsite_V3/rulesets/<id>` donne le détail à comparer au fichier. Constaté le
+25 nov. 2026 : les trois rulesets sont actifs et conformes aux fichiers, aux deux champs ajoutés près, et `main` n'a
+plus de protection classique.
 
 ### Décisions de Julien (21 nov. 2026)
 
@@ -504,6 +470,14 @@ moins une fois sur une PR), laisser _Require branches to be up to date_ décoch�
 - Quinze contrôles requis (lot 22) : les jobs de `ci.yml` hors mutation (dont les e2e de l'API, le job front de qualité et les sept parcours Playwright, un par taille d'écran) et `Revue PR (Claude)`.
 - « Revue requise » = le contrôle `Revue PR (Claude)`, sans approbation humaine (un compte ne peut pas approuver
   sa propre PR).
+
+### Décisions de Julien (25 nov. 2026)
+
+- `main` est protégée par un ruleset aux mêmes règles que `develop`, sauf le contournement par le rôle Admin, qui
+  garde le push direct d'un correctif urgent.
+- Les étiquettes `v*` sont protégées contre la suppression et le déplacement.
+- Les rulesets sont versionnés dans `docs/github/rulesets/` : rien de secret dans ces fichiers (noms de jobs,
+  règles, rôle Admin par son identifiant générique 5).
 
 ### Premier run du test par mutation (informatif)
 
