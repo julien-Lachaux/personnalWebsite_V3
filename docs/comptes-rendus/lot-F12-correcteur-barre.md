@@ -64,3 +64,14 @@ Aucun test existant modifié.
 
 - Rien de non fait. Pas de mutation (aucun fichier de `domain/` ou `data/` touché).
 - Point ouvert : marge de 6 px à 1024 px en anglais, voir plus haut.
+
+## Suite : test `mosaic.e2e.ts` qui figeait le défaut (autorisation nominative F12-BARRE)
+
+La CI (portable-1024) échouait sur « cas des captures recalculés » en `/en` : zone attendue 683 px
+(barre sur deux lignes, « défaut connu F5c »), reçue 712 px. Le test était faux depuis la correction :
+il encodait le défaut. Modifié : zone de 1024 à 712 px dans les deux langues, commentaire mis à jour, et
+`return` anticipé de l'anglais à 1024 retiré (les positions du cas 1024 français valent aussi en
+anglais). Avant : échec `683` attendu contre `712` reçu (rapporté par la CI). Après : `mosaic`,
+`top-bar-height`, `language-switch-d43` sur portable-1024, desktop-1280 et mobile-390 : 90 réussis ;
+`pnpm integrity develop` : OK ; conteneurs arrêtés. Commit avec `Justification-test: F12-BARRE`.
+Le correctif de production est sur la branche du lot en `54ef8df` (cherry-pick de `9b6c869`).
