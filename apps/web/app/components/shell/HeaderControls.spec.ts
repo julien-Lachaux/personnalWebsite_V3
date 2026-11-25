@@ -6,7 +6,7 @@ import HeaderControls from './HeaderControls.vue';
 const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
 
 describe('HeaderControls', () => {
-  it('range accessibilité, langue et thème, dans cet ordre', async () => {
+  it('range langue, accessibilité et thème, dans cet ordre (D43)', async () => {
     const wrapper = await mountSuspended(HeaderControls, {
       route: '/',
       props: { declarationUrl: '/accessibilite' },
@@ -15,8 +15,8 @@ describe('HeaderControls', () => {
     const accessibility = wrapper.get('button[aria-haspopup="dialog"]').element;
     const language = wrapper.get('a[hreflang]').element;
     const theme = wrapper.get('button[aria-label^="Thème"]').element;
-    expect(accessibility.compareDocumentPosition(language) & FOLLOWING).toBeTruthy();
-    expect(language.compareDocumentPosition(theme) & FOLLOWING).toBeTruthy();
+    expect(language.compareDocumentPosition(accessibility) & FOLLOWING).toBeTruthy();
+    expect(accessibility.compareDocumentPosition(theme) & FOLLOWING).toBeTruthy();
     expect(accessibility.getAttribute('aria-label')).toBe('Options d’accessibilité');
     expect(language.getAttribute('hreflang')).toBe('en');
     expect(theme.getAttribute('aria-label')).toBe('Thème sombre, passer en thème clair');

@@ -74,15 +74,15 @@ describe('TopBar : structure', () => {
     expect(cv!.text()).toBe('CV PDF');
   });
 
-  it('range nom, navigation, actions puis accessibilité, langue et thème', async () => {
+  it('range nom, navigation, actions puis langue, accessibilité et thème (D43)', async () => {
     const wrapper = await mountBar(null);
 
     const order = [
       wrapper.get('.top-bar__brand').element,
       wrapper.get('nav').element,
       wrapper.get('.top-bar__actions').element,
-      wrapper.get('button[aria-haspopup="dialog"]').element,
       wrapper.get('a[hreflang]').element,
+      wrapper.get('button[aria-haspopup="dialog"]').element,
       wrapper.get('button[aria-label^="Thème"]').element,
     ];
     for (let index = 1; index < order.length; index += 1) {
