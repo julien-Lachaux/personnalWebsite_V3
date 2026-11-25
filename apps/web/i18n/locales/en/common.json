@@ -76,5 +76,11 @@
     "text": "The page could not be displayed. Try again in a moment, or go back to the home page.",
     "status": "Error code: {status}",
     "back": "Back to the home page"
+  },
+  "serverError": {
+    "title": "Website temporarily unavailable",
+    "text": "The server could not answer your request. The problem is temporary: please try again in a few moments.",
+    "retry": "Try again",
+    "back": "Back to the home page"
   }
 }

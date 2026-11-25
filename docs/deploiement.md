@@ -168,6 +168,24 @@ Variables de génération, toutes dans `.env.prod` (modèle `docker/.env.prod.ex
 - **Cache** : `/_nuxt/*` (nom à empreinte) en `public, max-age=31536000, immutable` ; `/fonts/*` (noms de version
   fixes) une semaine ; tout le reste (HTML, PDF, `404.html`) `no-cache` (revalidation par ETag).
 
+### Pages d'erreur serveur (lot 30, branchement au lot 32)
+
+La génération du front produit, à côté de `404.html` et `en/404.html`, une page d'erreur serveur par langue :
+`/srv/web/current/public/50x.html` (français) et `/srv/web/current/public/en/50x.html` (anglais). Elles sont
+autonomes : aucun script de l'application, aucune charge utile, aucun appel à l'API ; seuls les feuilles de style
+de `/_nuxt/*.css`, les polices de `/fonts/` et le script de thème en ligne (haché dans `csp.caddy` comme les
+autres éléments en ligne, puisque `csp-hashes.mjs` lit toutes les pages). Elles sont `noindex`, sans canonique et
+hors de `sitemap.xml`. Branchement attendu dans `handle_errors` (non fait au lot 30) :
+
+- pour les statuts 500, 502, 503 et 504, servir `50x.html` (ou `en/50x.html` quand le chemin d'origine est `/en`
+  ou commence par `/en/`, même règle que la 404) **en gardant le statut de l'erreur** (`file_server` avec
+  `status {err.status_code}`), avec la CSP du front (`import /srv/web/current/csp.*`) et `Cache-Control:
+  no-cache` ;
+- la servir par **réécriture**, jamais par redirection : le lien « Réessayer » de la page (`href=""`) recharge
+  l'adresse affichée, qui doit rester celle qui a échoué ;
+- le cas des réponses de `/api/*` (502 quand l'API est arrêtée : page HTML ou réponse brute pour un client JSON)
+  est à trancher au lot 32.
+
 ### Parcours de fumée du front (BF-15)
 
 `pnpm stack:up` construit l'API et l'image de génération, migre et seede, génère le front contre l'API saine,
@@ -354,11 +372,12 @@ production : `stack:up` les reconstruit à chaque lancement (le cache de couches
 rien n'a changé). Elles peuvent rester sur le poste après `stack:down` ; `docker image rm siteperso-api:prod
 siteperso-web-build:prod` les supprime.
 
-## Protection de develop
+## Protection des branches et des étiquettes
 
 Décisions de Julien du 21 nov. 2026 : flux par pull requests vers `develop`, revue automatisée de chaque PR
-(job `Revue PR (Claude)` de `.github/workflows/ci.yml`, depuis le lot 22) et `develop` protégée. Les hooks des
-agents refusent `gh api` en écriture : c'est Julien qui pose ces réglages, une fois.
+(job `Revue PR (Claude)` de `.github/workflows/ci.yml`, depuis le lot 22) et `develop` protégée ; le 25 nov. 2026,
+`main` et les étiquettes de version le sont aussi. Les hooks des agents refusent `gh api` en écriture : c'est
+Julien qui pose ces réglages. Ils sont versionnés dans `docs/github/rulesets/` (section « Rulesets » plus bas).
 
 ### Déclencheurs de la CI (lot 22)
 
@@ -403,98 +422,77 @@ Suivi de la consommation : chaque run écrit coût équivalent, tours, durée et
 « Consommation de la revue ») ; pour plusieurs runs, passer leurs résultats JSON à
 `node scripts/ci/review-usage.mjs` (fichier ou entrée standard, rien n'est appelé par le script).
 
-### Règles à poser
+### Rulesets
 
-- Pull request obligatoire pour modifier `develop` (pas de push direct), sans approbation humaine exigée
-  (0 approbation : l'auteur ne peut pas approuver sa propre PR, la « revue requise » est le contrôle
-  automatisé ci-dessous).
-- Contrôles requis (noms exacts des jobs, à l'identique de `ci.yml`, quinze contrôles depuis le lot 22) :
-  - `Qualité (format, lint, typecheck, build, tests)`
-  - `Garde-fous (intégrité des tests, hooks des agents)`
-  - `Tests e2e et couverture 100 % (PostgreSQL 16)`
-  - `Front (lint, typecheck, couverture 100 %)`
-  - `Front parcours Playwright + axe (mobile-390)`
-  - `Front parcours Playwright + axe (tablette-834)`
-  - `Front parcours Playwright + axe (portable-1024)`
-  - `Front parcours Playwright + axe (desktop-1280)`
-  - `Front parcours Playwright + axe (grand-1440)`
-  - `Front parcours Playwright + axe (fullhd-1920)`
-  - `Front parcours Playwright + axe (ultra-3440)`
-  - `Analyse statique (actionlint des workflows, shellcheck des scripts)`
-  - `Image Docker de l'API (build sans push)`
-  - `Pile locale complète (Caddy, API, PostgreSQL) et scénarios de production`
-  - `Revue PR (Claude)`
-- La mutation (`Test par mutation (contrats|API|front)`) n'est PAS requise : elle reste informative.
-- Une PR issue d'un fork ou en brouillon ne saute pas « Revue PR (Claude) » (un job sauté compte comme réussi) : le job échoue avec un message clair, sans lancer l'action ni utiliser le secret.
-- Push forcé et suppression de `develop` interdits.
+Les quatre rulesets du dépôt sont versionnés, au format d'import et d'export de GitHub, dans
+`docs/github/rulesets/`. Ils font foi : un changement passe d'abord par ces fichiers (pull request), puis Julien le
+reporte sur GitHub.
 
-### Forme 1 : ruleset par `gh api` (recommandée)
+| Fichier | Nom sur GitHub | Type | Cible | Contournement |
+|---|---|---|---|---|
+| `develop.json` | Protection de develop | ruleset de branche | `refs/heads/develop` | aucun, administrateurs compris |
+| `main.json` | Protection de main | ruleset de branche | `refs/heads/main` | rôle Admin (`bypass_mode: always`) : push direct d'un correctif urgent par Julien |
+| `main-integrite.json` | Intégrité de main | ruleset de branche | `refs/heads/main` | aucun, administrateurs compris |
+| `tags-version.json` | Protection des étiquettes de version | ruleset d'étiquettes | `refs/tags/v*` | aucun |
 
-`bypass_actors` est vide : la règle s'applique aussi aux administrateurs (voir la question plus bas). Pour que
-les administrateurs puissent la contourner, remplacer `[]` par
-`[{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}]` (rôle Admin).
+`main` porte deux rulesets (GitHub applique l'union des règles). Raison (revue de la PR #21) : `bypass_mode: always`
+lève **toutes** les règles du ruleset pour le rôle Admin, et tout jeton d'API au nom de Julien en hérite, y compris
+celui de la session principale. « Protection de main » ne garde donc que ce qu'un correctif urgent doit pouvoir
+contourner (PR obligatoire et contrôles requis) ; « Intégrité de main », sans contournement, interdit à tous la
+suppression et le push forcé. Le push direct d'un correctif reste permis : c'est une avance rapide. Un administrateur
+peut encore pousser ou fusionner sur `main` sans PR ni CI : contre la session principale, seuls les hooks l'arrêtent
+(push de `main`, `gh pr merge --admin`).
 
-```sh
-gh api --method POST repos/julien-Lachaux/personnalWebsite_V3/rulesets --input - <<'JSON'
-{
-  "name": "Protection de develop",
-  "target": "branch",
-  "enforcement": "active",
-  "conditions": { "ref_name": { "include": ["refs/heads/develop"], "exclude": [] } },
-  "bypass_actors": [],
-  "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    {
-      "type": "pull_request",
-      "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": false,
-        "require_code_owner_review": false,
-        "require_last_push_approval": false,
-        "required_review_thread_resolution": false
-      }
-    },
-    {
-      "type": "required_status_checks",
-      "parameters": {
-        "strict_required_status_checks_policy": false,
-        "required_status_checks": [
-          { "context": "Qualité (format, lint, typecheck, build, tests)" },
-          { "context": "Garde-fous (intégrité des tests, hooks des agents)" },
-          { "context": "Tests e2e et couverture 100 % (PostgreSQL 16)" },
-          { "context": "Front (lint, typecheck, couverture 100 %)" },
-          { "context": "Front parcours Playwright + axe (mobile-390)" },
-          { "context": "Front parcours Playwright + axe (tablette-834)" },
-          { "context": "Front parcours Playwright + axe (portable-1024)" },
-          { "context": "Front parcours Playwright + axe (desktop-1280)" },
-          { "context": "Front parcours Playwright + axe (grand-1440)" },
-          { "context": "Front parcours Playwright + axe (fullhd-1920)" },
-          { "context": "Front parcours Playwright + axe (ultra-3440)" },
-          { "context": "Analyse statique (actionlint des workflows, shellcheck des scripts)" },
-          { "context": "Image Docker de l'API (build sans push)" },
-          { "context": "Pile locale complète (Caddy, API, PostgreSQL) et scénarios de production" },
-          { "context": "Revue PR (Claude)" }
-        ]
-      }
-    }
-  ]
-}
-JSON
-```
+Règles des rulesets de branche :
 
-Variante : la protection de branche classique (`PUT repos/julien-Lachaux/personnalWebsite_V3/branches/develop/protection`)
-offre les mêmes réglages (`required_pull_request_reviews`, `required_status_checks.contexts`,
-`allow_force_pushes: false`, `allow_deletions: false`, `enforce_admins: true`), mais un ruleset se liste, se teste
-(`enforcement: evaluate`) et se modifie plus facilement.
+- suppression et push forcé interdits (`deletion`, `non_fast_forward`) : dans `develop.json` et
+  `main-integrite.json` ;
+- pull request obligatoire, 0 approbation (l'auteur ne peut pas approuver sa propre PR : la « revue requise » est
+  le contrôle automatisé), fusion par commit de merge seulement (`allowed_merge_methods: ["merge"]`, ni squash ni
+  rebase) ;
+- contrôles requis, noms exacts des jobs (une matrice donne un contrôle par valeur), sans exiger une branche à
+  jour (`strict_required_status_checks_policy: false`) :
+  - communs aux deux branches, quatorze : `Qualité (format, lint, typecheck, build, tests)`,
+    `Garde-fous (intégrité des tests, hooks des agents)`, `Tests e2e et couverture 100 % (PostgreSQL 16)`,
+    `Front (lint, typecheck, couverture 100 %)`, les sept `Front parcours Playwright + axe (<projet>)` (mobile-390,
+    tablette-834, portable-1024, desktop-1280, grand-1440, fullhd-1920, ultra-3440),
+    `Analyse statique (actionlint des workflows, shellcheck des scripts)`, `Image Docker de l'API (build sans push)`,
+    `Pile locale complète (Caddy, API, front, PostgreSQL) et scénarios de production` ;
+  - `develop` ajoute `Revue PR (Claude)` (le job ne tourne que vers `develop`) ;
+  - `main` ajoute `Contrôle de la release` (`release.yml` ; ignoré, donc vert, hors branche `release/*`).
+- Jamais requis : `Test par mutation (contrats|API|front)` (informatif) et `Arrêt au premier échec` (il annule le
+  run au premier échec mais se termine toujours en succès : le requérir ne protégerait rien).
+- Une PR issue d'un fork ou en brouillon ne saute pas « Revue PR (Claude) » (un job sauté compte comme réussi) : le
+  job échoue avec un message clair, sans lancer l'action ni utiliser le secret.
 
-### Forme 2 : interface GitHub
+Ruleset d'étiquettes : une étiquette `v*` ne peut être ni supprimée ni déplacée (`deletion`, `update`). Sa création
+reste libre : `release.yml` la pose avec le `GITHUB_TOKEN`, et les hooks refusent déjà toute étiquette aux sessions.
 
-_Settings > Rules > Rulesets > New ruleset > New branch ruleset_ : nom « Protection de develop », _Enforcement
-status_ Active, _Bypass list_ vide, _Target branches_ > _Add target_ > _Include by pattern_ `develop`. Cocher
-_Restrict deletions_, _Block force pushes_, _Require a pull request before merging_ (0 approbation requise),
-_Require status checks to pass_ (ajouter les quinze noms ci-dessus ; un nom n'est proposé qu'après avoir tourné au
-moins une fois sur une PR), laisser _Require branches to be up to date_ décoché. _Create_.
+Un job renommé dans `ci.yml` ou `release.yml` impose de mettre à jour ces fichiers dans la même pull request, et le
+ruleset en ligne dans un ordre précis. Mis à jour trop tard, le contrôle requis attend un job qui n'existe plus et la
+PR du renommage reste bloquée ; trop tôt, ce sont les autres PR ouvertes (encore sur l'ancien nom) qui bloquent.
+Donc : la PR du renommage passe la CI (ses nouveaux contrôles tournent), puis Julien met le ruleset à jour juste
+avant de la fusionner, et les autres PR ouvertes sont remises à jour sur `develop`.
+
+Poser ou mettre à jour (Julien) :
+
+1. _Settings > Rules > Rulesets > New ruleset > Import a ruleset_, un fichier à la fois, relire, _Create_. Pour
+   mettre à jour un ruleset existant, le supprimer puis réimporter le fichier, ou reporter la différence à la main.
+   En ligne de commande, l'équivalent est
+   `gh api --method POST repos/julien-Lachaux/personnalWebsite_V3/rulesets --input docs/github/rulesets/<fichier>`.
+2. Ne pas garder de protection de branche classique (_Settings > Branches_) à côté des rulesets : une seule source.
+3. Un nom de contrôle qui n'a jamais tourné est accepté à l'import ; il n'est vérifié qu'à la première PR qui le
+   produit (cas de `Contrôle de la release` avant la première release).
+
+À l'import, GitHub complète la règle `pull_request` de deux champs absents des fichiers : `required_reviewers: []`
+(sans effet) et `require_extra_approval_for_unattributed_changes: true`. Ce dernier n'a pas été observé à l'œuvre :
+si une fusion est refusée faute d'approbation alors que la CI est verte, c'est lui qu'il faut décocher.
+
+Vérification (lecture seule) : `gh api repos/julien-Lachaux/personnalWebsite_V3/rulesets` liste les rulesets ;
+`gh api repos/julien-Lachaux/personnalWebsite_V3/rulesets/<id>` donne le détail à comparer au fichier. Constaté le
+25 nov. 2026 : les quatre rulesets sont actifs et conformes aux fichiers, aux deux champs ajoutés près, et `main` n'a
+plus de protection classique. `gh api repos/julien-Lachaux/personnalWebsite_V3/rules/branches/main` montre chaque
+règle appliquée à `main` avec le ruleset qui la porte (`deletion` et `non_fast_forward` par « Intégrité de main »).
 
 ### Décisions de Julien (21 nov. 2026)
 
@@ -504,6 +502,37 @@ moins une fois sur une PR), laisser _Require branches to be up to date_ décoch�
 - Quinze contrôles requis (lot 22) : les jobs de `ci.yml` hors mutation (dont les e2e de l'API, le job front de qualité et les sept parcours Playwright, un par taille d'écran) et `Revue PR (Claude)`.
 - « Revue requise » = le contrôle `Revue PR (Claude)`, sans approbation humaine (un compte ne peut pas approuver
   sa propre PR).
+
+### Décisions de Julien (25 nov. 2026)
+
+- `main` est protégée aux mêmes règles que `develop`, réparties en deux rulesets : PR obligatoire et contrôles
+  requis contournables par le rôle Admin, qui garde le push direct d'un correctif urgent ; suppression et push forcé
+  interdits à tous, sans contournement (revue de la PR #21).
+- Les étiquettes `v*` sont protégées contre la suppression et le déplacement.
+- Les rulesets sont versionnés dans `docs/github/rulesets/` : rien de secret dans ces fichiers (noms de jobs,
+  règles, rôle Admin par son identifiant générique 5).
+- Les contributions externes restent permises (pas de limite d'interaction : GitHub ne les propose que pour 6 mois
+  au plus, c'est un outil de modération temporaire). Une pull request externe ne peut rien sans Julien : ses
+  workflows attendent son approbation, la fusion exige la CI verte et seul un compte avec droit d'écriture (Julien)
+  fusionne. Pas d'approbation requise dans les rulesets : elle bloquerait les PR de lot, ouvertes sous le compte de
+  Julien.
+
+### Réglages de sécurité du dépôt (RSP-1)
+
+Posés ou constatés le 25 nov. 2026 (revue `docs/revues/securite-pre-publication-2026-11-19.md`, RSP-1). Ils ne sont
+pas versionnables : les relire par `gh api` (lecture seule) après tout changement de réglage.
+
+| Réglage | Valeur | Où | Lecture |
+|---|---|---|---|
+| Approbation des workflows de PR de fork | tous les contributeurs externes | _Settings > Actions > General_ | `gh api repos/julien-Lachaux/personnalWebsite_V3/actions/permissions/fork-pr-contributor-approval` → `all_external_contributors` |
+| Permissions par défaut du `GITHUB_TOKEN` | lecture ; Actions ne crée ni n'approuve de PR | _Settings > Actions > General_ | `…/actions/permissions/workflow` → `read`, `false` |
+| Secret scanning et push protection | activés | _Settings > Advanced Security_ | `gh api repos/julien-Lachaux/personnalWebsite_V3 --jq .security_and_analysis` |
+| Signalement privé de vulnérabilités | activé (canal indiqué par `SECURITY.md`) | _Settings > Advanced Security_ | `…/private-vulnerability-reporting` → `enabled: true` |
+| Limites d'interaction | aucune (décision ci-dessus) | _Settings > Moderation_ | — |
+| Double authentification du compte de Julien | active (confirmée par Julien) | paramètres du compte | — |
+
+La règle de relecture des PR externes (chemins dont le code s'exécute sur le poste ou au déploiement, SQL relu ligne
+à ligne) est dans `SECURITY.md`, à la racine.
 
 ### Premier run du test par mutation (informatif)
 

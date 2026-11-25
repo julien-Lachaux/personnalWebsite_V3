@@ -1,0 +1,51 @@
+{
+  "name": "Protection de main",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/heads/main"],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [
+    { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }
+  ],
+  "rules": [
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false,
+        "allowed_merge_methods": ["merge"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          { "context": "Qualité (format, lint, typecheck, build, tests)" },
+          { "context": "Garde-fous (intégrité des tests, hooks des agents)" },
+          { "context": "Tests e2e et couverture 100 % (PostgreSQL 16)" },
+          { "context": "Front (lint, typecheck, couverture 100 %)" },
+          { "context": "Front parcours Playwright + axe (mobile-390)" },
+          { "context": "Front parcours Playwright + axe (tablette-834)" },
+          { "context": "Front parcours Playwright + axe (portable-1024)" },
+          { "context": "Front parcours Playwright + axe (desktop-1280)" },
+          { "context": "Front parcours Playwright + axe (grand-1440)" },
+          { "context": "Front parcours Playwright + axe (fullhd-1920)" },
+          { "context": "Front parcours Playwright + axe (ultra-3440)" },
+          { "context": "Analyse statique (actionlint des workflows, shellcheck des scripts)" },
+          { "context": "Image Docker de l'API (build sans push)" },
+          { "context": "Pile locale complète (Caddy, API, front, PostgreSQL) et scénarios de production" },
+          { "context": "Contrôle de la release" }
+        ]
+      }
+    }
+  ]
+}

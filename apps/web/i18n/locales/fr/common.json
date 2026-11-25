@@ -76,5 +76,11 @@
     "text": "La page n’a pas pu s’afficher. Réessayez dans un instant, ou revenez à l’accueil.",
     "status": "Code de l’erreur : {status}",
     "back": "Retour à l’accueil"
+  },
+  "serverError": {
+    "title": "Site indisponible pour l’instant",
+    "text": "Le serveur n’a pas pu répondre à votre demande. Le problème est temporaire : réessayez dans quelques instants.",
+    "retry": "Réessayer",
+    "back": "Retour à l’accueil"
   }
 }
