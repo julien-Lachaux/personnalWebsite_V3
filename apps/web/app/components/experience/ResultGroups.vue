@@ -147,11 +147,17 @@ function partialLabel(matched: readonly string[]): string | undefined {
 .result-groups__message {
   margin: 0;
   color: var(--muted);
-  font-size: var(--font-size-body-mobile);
+  font-size: var(--font-size-lead);
   line-height: 1.5;
 }
 
 .result-groups__after {
   margin: 0.375rem 0 0.625rem;
+}
+
+@media (min-width: 1024px) {
+  .result-groups__message {
+    font-size: var(--font-size-body-mobile);
+  }
 }
 </style>

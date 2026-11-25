@@ -26,13 +26,14 @@ describe('ActionBar', () => {
       props: { hidden: false, cvPath: '/cv/exemple.pdf' },
     });
 
-    const [contact, cv] = wrapper.findAll('a');
-    expect(contact!.text()).toBe('Lancer l’entretien');
-    expect(contact!.attributes('href')).toBe(MAILTO);
-    expect(contact!.classes()).toContain('base-button--md');
-    expect(cv!.text()).toBe('CV PDF');
-    expect(cv!.attributes('href')).toBe('/cv/exemple.pdf');
-    expect(cv!.classes()).toContain('base-button--md');
+    const contact = wrapper.get('a.base-button');
+    const cv = wrapper.get('button');
+    expect(contact.text()).toBe('Lancer l’entretien');
+    expect(contact.attributes('href')).toBe(MAILTO);
+    expect(contact.classes()).toContain('base-button--md');
+    expect(cv.text()).toBe('CV PDF');
+    expect(cv.attributes('aria-expanded')).toBe('false');
+    expect(cv.classes()).toContain('base-button--md');
   });
 
   it('est affichée et atteignable quand elle n’est pas masquée', async () => {
@@ -78,7 +79,7 @@ describe('ActionBar', () => {
       props: { hidden: false, cvPath: '/cv/exemple.pdf' },
     });
 
-    expect(wrapper.findAll('a').map((link) => link.text())).toEqual([
+    expect(wrapper.findAll('a.base-button, button').map((control) => control.text())).toEqual([
       'Start the interview',
       'CV PDF',
     ]);
@@ -92,6 +93,8 @@ describe('ActionBar', () => {
       props: { hidden: false, cvPath: '/cv/exemple.pdf' },
     });
 
-    expect(wrapper.findAll('a').map((link) => link.text())).toEqual(['CV PDF']);
+    expect(wrapper.findAll('a.base-button, button').map((control) => control.text())).toEqual([
+      'CV PDF',
+    ]);
   });
 });

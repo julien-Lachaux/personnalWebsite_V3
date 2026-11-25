@@ -78,14 +78,22 @@ const { t } = useI18n();
 <style scoped src="./shell.css"></style>
 <style scoped>
 .top-bar {
+  /* Espacements de la barre ; resserrés de 1024 à 1279 px (voir plus bas, F12-BARRE). */
+  --top-bar-gap: 1rem;
+  --top-bar-tab-padding: 0.875rem;
+  --top-bar-inset-start: 1.5rem;
+
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem 1rem;
+  gap: 0.25rem var(--top-bar-gap);
   min-height: var(--desktop-header);
   /* Contenu aligné sur la zone de 1440 px : marges de 24 px à gauche, 16 px à droite (maquette). */
   padding-block: 0;
-  padding-inline-start: max(1.5rem, calc((100% - var(--page-max)) / 2 + 1.5rem));
+  padding-inline-start: max(
+    var(--top-bar-inset-start),
+    calc((100% - var(--page-max)) / 2 + var(--top-bar-inset-start))
+  );
   padding-inline-end: max(1rem, calc((100% - var(--page-max)) / 2 + 1rem));
   border-bottom: var(--border-strong);
   background-color: var(--top);
@@ -113,7 +121,7 @@ const { t } = useI18n();
 
 .top-bar__tab {
   height: var(--desktop-control);
-  padding: 0 0.875rem;
+  padding: 0 var(--top-bar-tab-padding);
   border: 0;
   border-radius: var(--radius-control);
   background-color: transparent;
@@ -146,5 +154,17 @@ const { t } = useI18n();
   display: flex;
   flex-shrink: 0;
   gap: 0.5rem;
+}
+
+/* De 1024 à 1279 px, « Start the interview » dépasse son équivalent français : sans resserrement, la
+   barre risque de passer sur deux lignes en anglais (onglet « AI » replié, F12-BARRE). Intervalles entre
+   blocs 8 px, marges internes des onglets 8 px, marge gauche 16 px ; les cibles restent à 40 px de haut
+   et au moins 24 px de large (D17). Vérifié par `test/top-bar-height.e2e.ts`. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .top-bar {
+    --top-bar-gap: 0.5rem;
+    --top-bar-tab-padding: 0.5rem;
+    --top-bar-inset-start: 1rem;
+  }
 }
 </style>

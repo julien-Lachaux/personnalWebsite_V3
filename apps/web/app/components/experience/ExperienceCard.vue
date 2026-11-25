@@ -130,12 +130,18 @@ const toggleLabel = computed(() =>
 .experience-card__details li {
   display: flex;
   gap: 0.625rem;
-  font-size: var(--font-size-body-mobile);
+  font-size: var(--font-size-lead);
   line-height: 1.5;
 }
 
 .experience-card__dash {
   flex-shrink: 0;
   color: var(--accent);
+}
+
+@media (min-width: 1024px) {
+  .experience-card__details li {
+    font-size: var(--font-size-body-mobile);
+  }
 }
 </style>

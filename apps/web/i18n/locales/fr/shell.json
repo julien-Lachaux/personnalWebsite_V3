@@ -13,7 +13,11 @@
     "actions": {
       "interview": "Lancer l’entretien",
       "cv": "CV PDF",
-      "cvInFrench": "(en français)",
+      "cvMenu": {
+        "fr": "Version française",
+        "en": "Version anglaise",
+        "soon": "(bientôt)"
+      },
       "subject": "Prise de contact depuis votre site"
     },
     "theme": {

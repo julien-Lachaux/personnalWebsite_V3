@@ -41,7 +41,13 @@ defineProps<{
 }
 
 .card-intro__summary {
-  font-size: var(--font-size-body-mobile);
+  font-size: var(--font-size-lead);
   line-height: 1.5;
+}
+
+@media (min-width: 1024px) {
+  .card-intro__summary {
+    font-size: var(--font-size-body-mobile);
+  }
 }
 </style>

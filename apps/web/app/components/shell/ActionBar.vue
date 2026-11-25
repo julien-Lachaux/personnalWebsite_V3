@@ -20,7 +20,7 @@ defineProps<{
     <div class="action-bar__clip">
       <div class="action-bar__buttons">
         <ContactButton class="action-bar__contact" size="md" />
-        <CvButton class="action-bar__cv" :href="cvPath" size="md" />
+        <CvButton class="action-bar__cv" :href="cvPath" size="md" placement="up" />
       </div>
     </div>
   </div>
@@ -68,11 +68,20 @@ defineProps<{
   flex: 1 1 auto;
 }
 
-/* Texte agrandi (WCAG 1.4.4, 1.4.10) : le libellé du CV (« CV PDF (in French) ») passe à la ligne et le
-   bouton peut rétrécir, au lieu de sortir de l'écran (`white-space: nowrap` de base-button.css) ; un
-   mot trop large se coupe plutôt que de sortir du bouton (`overflow-wrap: anywhere`). */
-.action-bar__cv.base-button {
+/* Menu du CV (D44) : la liste s'ouvre au-dessus du bouton, hors de la bande rognée (`overflow: hidden`
+   sert au repli animé) tant que le menu est ouvert. Texte agrandi (WCAG 1.4.4, 1.4.10) : le libellé du
+   bouton passe à la ligne et le bouton peut rétrécir, au lieu de sortir de l'écran (`white-space:
+   nowrap` de base-button.css) ; un mot trop large se coupe (`overflow-wrap: anywhere`). */
+.action-bar__clip:has([aria-expanded='true']) {
+  overflow: visible;
+}
+
+.action-bar__cv {
   flex: 0 1 auto;
+  min-width: 0;
+}
+
+.action-bar__cv :deep(.cv-menu__trigger) {
   min-width: 0;
   overflow-wrap: anywhere;
   white-space: normal;

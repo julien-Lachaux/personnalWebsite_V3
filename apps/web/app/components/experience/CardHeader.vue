@@ -35,7 +35,7 @@ defineProps<{
 
 .card-header__title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: var(--font-size-h3-tile);
   font-weight: var(--font-weight-bold);
   line-height: 1.2;
   letter-spacing: -0.01em;

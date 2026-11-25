@@ -35,6 +35,8 @@ export const TABLET_COLUMN_WIDTH = 640;
 export const BREAKPOINTS = { tablet: 768, portable: 1024, desktop: 1200 } as const;
 /** Bordures (largeur) et barre de titre avec bordures (hauteur) autour du contenu d'une tuile. */
 export const TILE_CHROME = { width: 3, height: 48 } as const;
+/** Hauteur d'une tuile repliée sur sa barre de titre : décor réel de 48,5 px, arrondi au pixel (D42). */
+export const FOLDED_HEIGHT = 49;
 
 /** Largeur du Profil en mosaïque, selon le nombre de colonnes (SPEC § 3.3 et § 3.4). */
 const PROFILE_WIDTH = { 2: 360, 3: 420 } as const;
@@ -183,8 +185,14 @@ function expandedTiles(context: MosaicContext, target: TileId): Record<TileId, T
   const stacked = stackedPartner();
 
   const others = TILE_ORDER.filter((id) => id !== target && id !== stacked?.id);
-  const sideTotal = innerHeight - GAP * (others.length - 1);
   const sideX = left + tileWidth + GAP;
+  // D42 : une seule tuile reste ouverte en haut de la colonne latérale, sur toute la hauteur libérée :
+  // XP, ou le Profil quand XP est elle-même agrandie. Les autres se replient en dessous, sur leur
+  // barre de titre.
+  const sideTop: TileId = target === 'experience' ? 'profile' : 'experience';
+  const folded = others.filter((id) => id !== sideTop);
+  const foldedBlock = folded.length * (FOLDED_HEIGHT + GAP);
+  const sideTopHeight = Math.max(0, innerHeight - foldedBlock);
 
   const layoutOf = (id: TileId): TileLayout => {
     if (id === target) {
@@ -201,15 +209,17 @@ function expandedTiles(context: MosaicContext, target: TileId): Record<TileId, T
       return { id, rect, visible: true, placement: 'stacked', push: null };
     }
     if (hasSide) {
-      const index = others.indexOf(id);
-      const slice = equalSlice(sideTotal, others.length, index);
+      if (id === sideTop) {
+        const rect = { x: sideX, y: GAP, width: sideWidth, height: sideTopHeight };
+        return { id, rect, visible: true, placement: 'side', push: null };
+      }
       const rect = {
         x: sideX,
-        y: GAP + slice.offset + GAP * index,
+        y: GAP + sideTopHeight + GAP + folded.indexOf(id) * (FOLDED_HEIGHT + GAP),
         width: sideWidth,
-        height: slice.size,
+        height: FOLDED_HEIGHT,
       };
-      return { id, rect, visible: true, placement: 'side', push: null };
+      return { id, rect, visible: true, placement: 'folded', push: null };
     }
     const direction = pushDirection(mosaic[id], mosaic[target]);
     return {
@@ -225,7 +235,7 @@ function expandedTiles(context: MosaicContext, target: TileId): Record<TileId, T
 }
 
 function mosaicLayout(input: LayoutInput): MosaicLayout {
-  const { zone, expanded, textEnlarged, contentHeight } = input;
+  const { zone, expanded, contentHeight } = input;
   const columns = zone.width >= BREAKPOINTS.desktop ? 3 : 2;
   const areaWidth = Math.min(zone.width, PAGE_MAX_WIDTH);
   const area: Rect = {
@@ -259,19 +269,7 @@ function mosaicLayout(input: LayoutInput): MosaicLayout {
         }))
       : expandedTiles(context, expanded);
 
-  const profile = tiles.profile;
-  return {
-    mode: 'mosaic',
-    columns,
-    area,
-    expanded,
-    tiles,
-    profile: {
-      mode: textEnlarged || profile.placement === 'side' ? 'scrolling' : 'reduced',
-      contentWidth: profile.rect.width - TILE_CHROME.width,
-      availableHeight: profile.rect.height - TILE_CHROME.height,
-    },
-  };
+  return { mode: 'mosaic', columns, area, expanded, tiles };
 }
 
 /**

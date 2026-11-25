@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Les trois contrôles communs aux barres du haut (bureau et mobile) : accessibilité, langue, thème.
+// Les trois contrôles communs aux barres du haut (bureau et mobile) : langue, puis accessibilité et thème (D43).
 import AccessibilityPanel from './AccessibilityPanel.vue';
 import LanguageSwitch from './LanguageSwitch.vue';
 import ThemeToggle from './ThemeToggle.vue';
@@ -9,8 +9,8 @@ defineProps<{ declarationUrl: string }>();
 
 <template>
   <div class="header-controls">
-    <AccessibilityPanel :declaration-url="declarationUrl" />
     <LanguageSwitch />
+    <AccessibilityPanel :declaration-url="declarationUrl" />
     <ThemeToggle />
   </div>
 </template>
