@@ -121,6 +121,8 @@ export default defineNuxtConfig({
     customRoutes: 'config',
     pages: {
       accessibilite: { en: '/accessibility' },
+      // Page « travaux en cours » (lot 31) : chemins stables, servis par le proxy pendant les travaux.
+      travaux: { en: '/work-in-progress' },
     },
   },
 
@@ -134,17 +136,22 @@ export default defineNuxtConfig({
     // Gabarit des pages annexes (en-tête du site, layouts/annex.vue), lot F7.
     '/accessibilite': { appLayout: 'annex' },
     '/en/accessibility': { appLayout: 'annex' },
+    '/travaux': { appLayout: 'annex' },
+    '/en/work-in-progress': { appLayout: 'annex' },
   },
 
   nitro: {
     prerender: {
       // Pages 404 des autres langues (`/en/404.html`) en plus de celles qu'atteint le robot (lot F7) ;
-      // pages d'erreur serveur `/50x.html` et `/en/50x.html` (lot 30).
+      // pages d'erreur serveur `/50x.html` et `/en/50x.html` (lot 30) ; page « travaux en cours » (lot 31),
+      // vers laquelle aucun lien ne mène.
       routes: [
         '/',
         '/en',
         '/fr',
         '/fr/accessibilite',
+        '/travaux',
+        '/en/work-in-progress',
         ...LOCALIZED_ERROR_PAGES,
         ...SERVER_ERROR_PAGES,
       ],

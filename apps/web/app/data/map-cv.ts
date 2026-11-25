@@ -77,6 +77,21 @@ export function mapLinks(socialLinks: readonly SocialLink[]): LinksView {
   };
 }
 
+/**
+ * URL du lien social `linkedin`, seule donnée du CV que lit la page « travaux en cours » (lot 31) ;
+ * absent, lève : la génération échoue plutôt que d'afficher un bouton mort.
+ */
+export function linkedinUrl(cv: Pick<Cv, 'socialLinks'>): string {
+  const link = linkView(cv.socialLinks, LINKEDIN);
+  if (link === null) {
+    throw new Error(
+      'Lien LinkedIn absent du CV : la page « travaux en cours » attend un lien social de slug ' +
+        '« linkedin » (social_links).',
+    );
+  }
+  return link.url;
+}
+
 /** Puces de la pile : les technos affichées ; pour une pause, la seule puce `stackLabel`. */
 function stackChips(experience: Experience): StackChipView[] {
   if (experience.kind === 'break') {

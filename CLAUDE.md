@@ -134,9 +134,11 @@ apps/web/
     composables/          pont entre domain et composants (état, URL, préférences) ;
                           sous-dossier par section importé explicitement ; use-cv.ts (partagé) :
                           seul lien entre data/ et useAsyncData ; seo/useSeo.ts (partagé) :
-                          useSiteSeo (défauts de la langue), usePageSeo (titre, description)
+                          useSiteSeo (défauts de la langue), usePageSeo (titre, description),
+                          useUnindexedPage (page hors index, lue par app.vue : useIndexedPage)
     pages/                index, accessibilite (`/accessibilite`, `/en/accessibility` par
-                          `i18n.pages` de nuxt.config.ts) ; fichiers partagés
+                          `i18n.pages` de nuxt.config.ts), travaux (`/travaux`,
+                          `/en/work-in-progress`, lot 31, hors index) ; fichiers partagés
     assets/css/           fonts.css (@font-face), tokens.css (tokens du handoff, thèmes, interface
                           des préférences), control-tokens.css (tokens ajoutés par décision :
                           bordure des contrôles D12, cible minimale D17), base.css (reset, focus,
@@ -179,7 +181,9 @@ apps/web/
   titre (`%s`), `og:url` et `og:locale` viennent de `useLocaleHead` ; pas d'`og:image`. `sitemap.xml`
   et `robots.txt` sont écrits à la fin du prérendu (`nuxt.config.ts`) depuis les canoniques et
   hreflang des pages générées (`domain/sitemap.ts`) : une page sans canonique (redirection, erreur)
-  n'y entre pas, aucune liste de routes à tenir. Pages 404 : `/404.html` (Nuxt,
+  n'y entre pas, aucune liste de routes à tenir. Une page hors index (page « travaux en cours »,
+  lot 31) appelle `useUnindexedPage` : `noindex`, et app.vue n'y pose ni canonique, ni hreflang, ni
+  `og:url`, ni `og:locale` ; une page qu'aucun lien n'atteint s'ajoute à `nitro.prerender.routes`. Pages 404 : `/404.html` (Nuxt,
   `experimental.prerenderErrorPages`) et `/en/404.html` (`domain/error-pages.ts`), servies par le
   proxy avec le statut 404 (le `sirv` des parcours répond 404 sans corps ; `page.route` reproduit le
   proxy). Pages d'erreur serveur (lot 30) : `/50x.html` et `/en/50x.html` (`domain/server-error-page.ts`),
