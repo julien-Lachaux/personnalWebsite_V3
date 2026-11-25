@@ -72,7 +72,7 @@ const prefix = useId();
   margin: 0;
   color: var(--violet);
   font-family: var(--font-mono);
-  font-size: var(--font-size-meta);
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-bold);
 }
 

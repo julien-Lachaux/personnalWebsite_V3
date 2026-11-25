@@ -112,7 +112,13 @@ function pick(suggestion: Suggestion): void {
   margin: 0;
   padding: 0.875rem;
   color: var(--muted);
-  font-size: var(--font-size-body);
+  font-size: var(--font-size-lead);
   line-height: 1.45;
+}
+
+@media (min-width: 1024px) {
+  .suggestions__none {
+    font-size: var(--font-size-body-mobile);
+  }
 }
 </style>

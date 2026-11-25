@@ -93,7 +93,7 @@ function delay(seconds: number): Record<string, string> {
   padding: 1.125rem;
   background-color: var(--bg);
   font-family: var(--font-mono);
-  font-size: var(--font-size-meta);
+  font-size: var(--font-size-small);
   line-height: 1.7;
 }
 

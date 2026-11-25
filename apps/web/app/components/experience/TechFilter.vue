@@ -221,7 +221,7 @@ defineExpose({ closeOnScroll });
 .tech-filter__label {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: var(--font-size-meta);
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-bold);
 }
 
