@@ -4,22 +4,24 @@
 // (`usePreferencesSync`, lot F3b : système, stockage, attributs de <html>) ; lien d'évitement « Aller au
 // contenu », premier élément focalisable de chaque page, vers `#contenu` (le <main> de la coquille).
 // Méta de référencement par défaut de la langue (`useSiteSeo`, lot F7) ; gabarit de la page
-// (`<NuxtLayout>` : aucun pour l'accueil, `annex` pour les pages annexes, lot F7). Le script de thème
+// (`<NuxtLayout>` : aucun pour l'accueil, `annex` pour les pages annexes, lot F7). Une page hors index
+// (`useUnindexedPage`, lot 31) n'a ni canonique, ni hreflang, ni `og:url`, ni `og:locale`. Le script de thème
 // sans flash (D5) est posé en tête par nuxt.config.ts. En cas d'erreur, Nuxt rend error.vue à la place
 // de ce fichier. Fichier partagé, réservé au lead-architecte.
-import { useSiteSeo } from './composables/seo/useSeo.js';
+import { useIndexedPage, useSiteSeo } from './composables/seo/useSeo.js';
 import { usePreferencesSync } from './composables/shell/usePreferencesSync.js';
 
 const head = useLocaleHead();
 const { t } = useI18n();
+const indexed = useIndexedPage();
 
 usePreferencesSync();
 useSiteSeo();
 
 useHead(() => ({
   htmlAttrs: { lang: head.value.htmlAttrs.lang },
-  link: [...head.value.link],
-  meta: [...head.value.meta],
+  link: indexed.value ? [...head.value.link] : [],
+  meta: indexed.value ? [...head.value.meta] : [],
 }));
 </script>
 
