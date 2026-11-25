@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Corps d'une page annexe (lot F7 : déclaration d'accessibilité, pages d'erreur) : le contenu principal
-// `<main id="contenu">` (cible du lien d'évitement), un lien de retour à l'accueil en tête, puis une
+// `<main id="contenu">` (cible du lien d'évitement), un lien de retour à l'accueil en tête (sauf sans
+// `back` : page « travaux en cours », qui tient lieu d'accueil, lot 31), puis une
 // fenêtre « terminal » (barre lilas `>_ fichier`, ombre verte décalée, SPEC § 1) qui porte le contenu
 // en slot : le `h1` et les sections de la page. L'en-tête du site est celui du gabarit
 // `layouts/annex.vue`.
@@ -10,8 +11,8 @@
 defineProps<{
   /** Nom de fichier de la barre de titre, sans le `>_` (ne se traduit pas). */
   file: string;
-  /** Libellé du lien de retour à l'accueil, déjà traduit. */
-  back: string;
+  /** Libellé du lien de retour à l'accueil, déjà traduit ; absent, pas de lien de retour. */
+  back?: string | undefined;
 }>();
 
 const localePath = useLocalePath();
@@ -19,7 +20,7 @@ const localePath = useLocalePath();
 
 <template>
   <main id="contenu" class="annex-page" tabindex="-1">
-    <p class="annex-page__back">
+    <p v-if="back" class="annex-page__back">
       <NuxtLink :to="localePath('/')" class="annex-page__back-link">{{ back }}</NuxtLink>
     </p>
     <div class="annex-page__window">
