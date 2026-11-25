@@ -1,6 +1,6 @@
 {
   "name": "siteperso-v3",
-  "version": "0.0.0",
+  "version": "3.0.0",
   "private": true,
   "description": "Site perso V3 : monorepo (API NestJS/Fastify, front Nuxt statique, contrats Zod/OpenAPI, SQL)",
   "type": "module",
