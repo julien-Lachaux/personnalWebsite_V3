@@ -416,6 +416,13 @@ reporte sur GitHub.
 | `main.json` | ruleset de branche | `refs/heads/main` | rôle Admin (`bypass_mode: always`) : push direct d'un correctif urgent par Julien |
 | `tags-version.json` | ruleset d'étiquettes | `refs/tags/v*` | aucun |
 
+Portée du contournement de `main` : `bypass_mode: always` lève **toutes** les règles du ruleset pour le rôle Admin,
+pas seulement la PR obligatoire : un administrateur peut aussi forcer un push, supprimer `main` et fusionner sans
+les contrôles requis. Tout jeton d'API au nom de Julien en hérite, y compris celui de la session principale s'il a
+le droit d'écriture sur le contenu : seuls les hooks l'arrêtent alors (push de `main`, push forcé, `gh pr merge
+--admin`). Variante plus stricte, non retenue à ce jour : sortir `deletion` et `non_fast_forward` dans un ruleset
+séparé sans contournement (le push direct d'un correctif reste une avance rapide, donc permis).
+
 Règles des deux rulesets de branche :
 
 - suppression et push forcé interdits (`deletion`, `non_fast_forward`) ;
@@ -440,8 +447,11 @@ Règles des deux rulesets de branche :
 Ruleset d'étiquettes : une étiquette `v*` ne peut être ni supprimée ni déplacée (`deletion`, `update`). Sa création
 reste libre : `release.yml` la pose avec le `GITHUB_TOKEN`, et les hooks refusent déjà toute étiquette aux sessions.
 
-Un job renommé dans `ci.yml` ou `release.yml` impose de mettre à jour ces fichiers et le ruleset en ligne dans la
-même pull request : sinon le contrôle requis attend un job qui n'existe plus et bloque toute fusion.
+Un job renommé dans `ci.yml` ou `release.yml` impose de mettre à jour ces fichiers dans la même pull request, et le
+ruleset en ligne dans un ordre précis. Mis à jour trop tard, le contrôle requis attend un job qui n'existe plus et la
+PR du renommage reste bloquée ; trop tôt, ce sont les autres PR ouvertes (encore sur l'ancien nom) qui bloquent.
+Donc : la PR du renommage passe la CI (ses nouveaux contrôles tournent), puis Julien met le ruleset à jour juste
+avant de la fusionner, et les autres PR ouvertes sont remises à jour sur `develop`.
 
 Poser ou mettre à jour (Julien) :
 
