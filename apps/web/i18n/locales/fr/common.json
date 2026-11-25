@@ -40,8 +40,12 @@
       "title": "Contenus non accessibles",
       "none": "Aucun défaut d’accessibilité n’est recensé à ce jour. Cette liste sera établie par l’audit.",
       "items": [
-        "Le CV au format PDF (bouton « CV PDF ») n’est pas balisé : il n’a ni structure (titres, listes), ni langue déclarée, ni titre de document, ce qui le rend difficile à lire avec un lecteur d’écran. Il est rédigé en français, y compris depuis la version anglaise du site. Alternative : le contenu du CV est présenté dans la page elle-même, et je peux le transmettre sous une autre forme sur demande."
-      ]
+        "Le CV au format PDF (menu « CV PDF ») n’est pas balisé : il n’a ni structure (titres, listes), ni langue déclarée, ni titre de document, ce qui le rend difficile à lire avec un lecteur d’écran. {language} Alternative : le contenu du CV est présenté dans la page elle-même, et je peux le transmettre sous une autre forme sur demande."
+      ],
+      "cvLanguage": {
+        "frenchOnly": "Il est rédigé en français, y compris depuis la version anglaise du site.",
+        "both": "Il existe en français et en anglais, et les deux versions sont dans ce cas."
+      }
     },
     "contact": {
       "title": "Retour d’information et contact",

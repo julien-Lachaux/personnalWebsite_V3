@@ -21,6 +21,7 @@ import { computed } from 'vue';
 import AnnexPage from '../components/annex/AnnexPage.vue';
 import { usePageSeo } from '../composables/seo/useSeo.js';
 import { mailtoHref } from '../composables/shell/useContactLink.js';
+import { hasEnglishCv } from '../domain/cv-link.js';
 
 /** Voies de recours du modèle de déclaration du RGAA (pages du Défenseur des droits, en français). */
 const DEFENSEUR_MESSAGE = 'https://www.defenseurdesdroits.fr/nous-contacter-355';
@@ -43,8 +44,15 @@ const site = config.public.i18n.baseUrl;
 type CompiledMessage = Parameters<typeof i18n.rt>[0];
 /** Contenus non accessibles recensés (vide avant l'audit). */
 const issues = computed(() => {
+  // D47 : la phrase sur la langue du CV (`{language}` des libellés) suit les CV présents au build,
+  // la même liste que le menu du CV (D44).
+  const language = t(
+    hasEnglishCv(config.public.cvFiles)
+      ? 'declaration.issues.cvLanguage.both'
+      : 'declaration.issues.cvLanguage.frenchOnly',
+  );
   const items: unknown = i18n.tm('declaration.issues.items');
-  return (items as CompiledMessage[]).map((item) => i18n.rt(item));
+  return (items as CompiledMessage[]).map((item) => i18n.rt(item, { language }));
 });
 
 usePageSeo(() => ({ title: t('declaration.title'), description: t('declaration.description') }));
