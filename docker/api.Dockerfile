@@ -1,21 +1,21 @@
 # Image de production de l'API : build multi-étape, runtime sans pnpm ni sources TypeScript.
-# Même version de Node que `.npmrc` (use-node-version). Dans l'image, `.npmrc` n'est pas copié :
-# pas de téléchargement de Node par pnpm. Node 26 n'embarque plus corepack : pnpm est installé
-# via npm, à la version du champ packageManager.
+# Même version de Node que `devEngines.runtime` du package.json racine. Dans l'image, Node vient de
+# l'image de base : `pnpm install --no-runtime` ne télécharge pas ce runtime. Node 26 n'embarque plus
+# corepack : pnpm est installé via npm, à la version du champ packageManager.
 
 # Image de base épinglée par digest (reproductible, insensible à un tag déplacé). La version doit rester
-# celle de `.npmrc` (use-node-version) ; la mise à jour du tag et du digest se fait par un lot (Dependabot est désactivé).
+# celle de `devEngines.runtime` (package.json racine) ; la mise à jour du tag et du digest se fait par un lot (Dependabot est désactivé).
 ARG NODE_IMAGE=docker.io/library/node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
 
 # --- deps : dépendances du monorepo (lockfile figé) ---------------------------------------
 FROM ${NODE_IMAGE} AS deps
 ENV CI=true
 WORKDIR /repo
-RUN npm install --global pnpm@10.34.9 --no-fund --no-audit
+RUN npm install --global pnpm@12.23.0 --no-fund --no-audit
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm install --frozen-lockfile --ignore-scripts --no-runtime
 
 # --- build : compile les contrats puis l'API ----------------------------------------------
 FROM deps AS build

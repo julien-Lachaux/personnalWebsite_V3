@@ -4,10 +4,17 @@
   "private": true,
   "description": "Site perso V3 : monorepo (API NestJS/Fastify, front Nuxt statique, contrats Zod/OpenAPI, SQL)",
   "type": "module",
-  "packageManager": "pnpm@10.34.9",
+  "packageManager": "pnpm@12.23.0",
   "engines": {
     "node": ">=26 <27",
-    "pnpm": ">=10.34.5"
+    "pnpm": ">=12.23.0"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "26.13.1",
+      "onFail": "download"
+    }
   },
   "scripts": {
     "build": "turbo run build",
