@@ -38,4 +38,21 @@ open | closed) ;;
   ;;
 esac
 
+# WIP_STATUS et WIP_RETRY_AFTER sont injectés tels quels dans la configuration (docker/wip.caddy) : un
+# statut HTTP à trois chiffres et un nombre de secondes, rien d'autre (ni guillemet ni saut de ligne).
+# Absents ou vides : leurs valeurs par défaut (503, 3600).
+case "${WIP_STATUS:-503}" in
+[1-5][0-9][0-9]) ;;
+*)
+  echo "ERREUR : WIP_STATUS vaut « ${WIP_STATUS} » : attendu un statut HTTP à trois chiffres (ex. 503)." >&2
+  exit 1
+  ;;
+esac
+case "${WIP_RETRY_AFTER:-3600}" in
+*[!0-9]*)
+  echo "ERREUR : WIP_RETRY_AFTER vaut « ${WIP_RETRY_AFTER} » : attendu un nombre de secondes (ex. 3600)." >&2
+  exit 1
+  ;;
+esac
+
 exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile

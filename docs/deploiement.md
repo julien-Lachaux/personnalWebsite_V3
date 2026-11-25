@@ -259,6 +259,10 @@ dossier 700 de l'appli), mise à jour à chaque déploiement. Bloc à ajouter au
 			root * /srv/site-perso-errors
 			header Cache-Control "no-cache"
 			header X-Robots-Tag "noindex"
+			# CSP du front relue comme simple VALEUR d'en-tête (placeholder `{file.…}`), jamais par `import` :
+			# le fichier est écrit par le compte de l'appli, qui ne doit pas pouvoir modifier la configuration
+			# du Caddy de l'hôte.
+			header Content-Security-Policy "{file./srv/site-perso-errors/csp.txt}"
 			@en vars_regexp en {http.request.orig_uri.path} ^/en(?:/|$)
 			rewrite * /50x.html
 			rewrite @en /en/50x.html
@@ -269,8 +273,11 @@ dossier 700 de l'appli), mise à jour à chaque déploiement. Bloc à ajouter au
 	}
 ```
 
-Le bloc `log` remplace celui de l'hôte s'il existe déjà (il ajoute seulement le filtre de la clé). Pas de CSP posée
-par l'hôte : la page est servie sans, et le script de thème en ligne s'exécute.
+Le bloc `log` remplace celui de l'hôte s'il existe déjà (il ajoute seulement le filtre de la clé). La page 50x de
+l'hôte reçoit la CSP du front de la version publiée (`csp.caddy`, empreinte du script de thème comprise) : seule la
+valeur de l'en-tête est copiée, dans `csp.txt`, et l'hôte la relit comme une chaîne. Ne jamais importer `csp.caddy`
+dans le Caddyfile de l'hôte : ce fichier, écrit par le compte de l'appli, pourrait alors porter n'importe quelle
+directive dans la configuration de l'hôte.
 Copie, à ajouter à `update.sh` côté hôte (ou à lancer après chaque `update.sh`, dossier créé une fois en 0755 par
 l'administrateur et appartenant à l'appli) :
 
@@ -278,6 +285,11 @@ l'administrateur et appartenant à l'appli) :
 docker-compose -f docker/compose.prod.yml -f docker/compose.vps.yml --env-file .env.prod exec -T caddy \
   tar -C /srv/web/current/public -cf - 50x.html en/50x.html _nuxt fonts \
   | tar -C /srv/site-perso-errors -xf -
+# Valeur seule de la CSP (une ligne, sans saut de ligne final) ; vide = copie refusée.
+docker-compose -f docker/compose.prod.yml -f docker/compose.vps.yml --env-file .env.prod exec -T caddy \
+  cat /srv/web/current/csp.caddy \
+  | sed -n 's/^header Content-Security-Policy "\([^"]*\)"$/\1/p' | tr -d '\n' > /srv/site-perso-errors/csp.txt
+test -s /srv/site-perso-errors/csp.txt || { echo "CSP introuvable dans csp.caddy" >&2; exit 1; }
 chmod -R a+rX /srv/site-perso-errors
 ```
 
