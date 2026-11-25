@@ -53,6 +53,6 @@ const label = computed(() =>
 /* Même apparence que le compteur de `TechChip` (`count`), pleine opacité (RA-6, WCAG 1.4.3). */
 .tech-option__count {
   font-family: var(--font-mono);
-  font-size: var(--font-size-meta);
+  font-size: var(--font-size-small);
 }
 </style>
