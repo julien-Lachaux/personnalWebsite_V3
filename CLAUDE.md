@@ -575,4 +575,8 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
 - Aucun écart fonctionnel entre développement et production (décision du 19 nov. 2026) : un
   comportement visible d'un client (code HTTP, en-têtes, format d'erreur, limites) est produit par
   l'API elle-même, pas seulement par le proxy ; Caddy ne fait que doubler ce que l'API fait déjà.
+  Seule exception, la production tout statique (décision de Julien du 25 nov. 2026, lot 33) : le VPS
+  ne sert que le site généré (`scripts/deploy/deploy-static.sh`, `docker/compose.vps-static.yml`),
+  sans API ni base ; `/api/*` y répond 410 problem+json. L'API reste l'outil de génération du site
+  (CI de la release, développement) et la pile complète (`stack:*`, `compose.vps.yml`) reste testée.
 - Chaque agent termine par un compte rendu court : fait, non fait, décisions, points ouverts.

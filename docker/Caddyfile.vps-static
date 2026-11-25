@@ -3,8 +3,11 @@
 # par apps/api/test/prod-static.e2e-spec.ts.
 # Variante VPS (Podman sans privilèges) : le Caddy de l'HÔTE tient 80/443, le TLS et la redirection
 # HTTP vers HTTPS, puis relaie vers le socket Unix de ce Caddy (`reverse_proxy unix//run/prod/site-perso/web.sock`).
-# Cette pile ne publie aucun port et ne fait aucun TLS. Le corps du site (à partir de `encode`) est
-# identique à celui de docker/Caddyfile (vérifié par apps/api/test/prod-vps.e2e-spec.ts).
+# Cette pile ne publie aucun port et ne fait aucun TLS.
+# À lire avec cet écart : le corps qui suit (commentaires compris) est comparé octet pour octet à celui de
+# docker/Caddyfile.vps, hors bloc /api/*. Ses commentaires décrivent donc la pile avec API : ici, le lien
+# `current` est basculé par scripts/deploy/deploy-static.sh (et non web-generate.sh), Caddy est rechargé par
+# ce même script, et aucun 502 « API arrêtée » ne peut survenir (plus d'amont).
 {
 	# Sans cette option, les X-Forwarded-* du frontal seraient écrasés et l'API verrait un seul client.
 	# `trusted_proxies_unix` : tout pair du socket Unix est le Caddy de l'hôte (Caddy 2.11 ou plus).
