@@ -108,6 +108,12 @@ Aucun finding « bloquant avant push ». **Aucun secret ni aucune donnée person
      ligne à ligne ; un `CODEOWNERS` sur ces chemins rend la relecture explicite.
   4. Activer secret scanning, push protection et le signalement privé de vulnérabilités ; ajouter un
      `SECURITY.md` qui indique ce canal.
+- **Suivi (25 nov. 2026) : traité.** Points 1 à 4 en place : rulesets de `develop`, `main` et des étiquettes
+  `v*` (`docs/github/rulesets/`), double authentification confirmée par Julien, approbation des workflows pour
+  tous les contributeurs externes, `GITHUB_TOKEN` en lecture, secret scanning, push protection et signalement
+  privé activés, règle de relecture écrite dans `SECURITY.md` (choisie plutôt qu'un `CODEOWNERS`, sans effet
+  bloquant pour un mainteneur seul). Détail et commandes de vérification : `docs/deploiement.md`, « Réglages de
+  sécurité du dépôt (RSP-1) ».
   5. Durcissement possible plus tard : un rôle propriétaire non superutilisateur pour `migrate` (le
      superutilisateur de l'image ne servant qu'à créer ce rôle et la base).
 

@@ -478,6 +478,28 @@ plus de protection classique.
 - Les étiquettes `v*` sont protégées contre la suppression et le déplacement.
 - Les rulesets sont versionnés dans `docs/github/rulesets/` : rien de secret dans ces fichiers (noms de jobs,
   règles, rôle Admin par son identifiant générique 5).
+- Les contributions externes restent permises (pas de limite d'interaction : GitHub ne les propose que pour 6 mois
+  au plus, c'est un outil de modération temporaire). Une pull request externe ne peut rien sans Julien : ses
+  workflows attendent son approbation, la fusion exige la CI verte et seul un compte avec droit d'écriture (Julien)
+  fusionne. Pas d'approbation requise dans les rulesets : elle bloquerait les PR de lot, ouvertes sous le compte de
+  Julien.
+
+### Réglages de sécurité du dépôt (RSP-1)
+
+Posés ou constatés le 25 nov. 2026 (revue `docs/revues/securite-pre-publication-2026-11-19.md`, RSP-1). Ils ne sont
+pas versionnables : les relire par `gh api` (lecture seule) après tout changement de réglage.
+
+| Réglage | Valeur | Où | Lecture |
+|---|---|---|---|
+| Approbation des workflows de PR de fork | tous les contributeurs externes | _Settings > Actions > General_ | `gh api repos/julien-Lachaux/personnalWebsite_V3/actions/permissions/fork-pr-contributor-approval` → `all_external_contributors` |
+| Permissions par défaut du `GITHUB_TOKEN` | lecture ; Actions ne crée ni n'approuve de PR | _Settings > Actions > General_ | `…/actions/permissions/workflow` → `read`, `false` |
+| Secret scanning et push protection | activés | _Settings > Advanced Security_ | `gh api repos/julien-Lachaux/personnalWebsite_V3 --jq .security_and_analysis` |
+| Signalement privé de vulnérabilités | activé (canal indiqué par `SECURITY.md`) | _Settings > Advanced Security_ | `…/private-vulnerability-reporting` → `enabled: true` |
+| Limites d'interaction | aucune (décision ci-dessus) | _Settings > Moderation_ | — |
+| Double authentification du compte de Julien | active (confirmée par Julien) | paramètres du compte | — |
+
+La règle de relecture des PR externes (chemins dont le code s'exécute sur le poste ou au déploiement, SQL relu ligne
+à ligne) est dans `SECURITY.md`, à la racine.
 
 ### Premier run du test par mutation (informatif)
 
