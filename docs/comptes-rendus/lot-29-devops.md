@@ -26,6 +26,6 @@
 - `local-stack.sh` inchangé (son moteur vient déjà de `container-engine.sh`).
 
 ## Points ouverts
-- À lancer par Julien sur le VPS sous `app-site-perso` : exporter les variables (doc), `bash scripts/deploy/first-install.sh`, puis `update.sh` ; vérifier `https://julien-lachaux.fr/api/v1/health`, `curl -4`/`curl -6`, le journal de l'hôte, `exec` sous Podman 5.4.2 et la syntaxe `!reset`/`!override` sous Compose 2.26 (non testée ici, Compose 5.8 local).
+- À lancer par Julien sur le VPS sous `app-site-perso` : exporter les variables (doc), `bash scripts/deploy/first-install.sh`, puis `update.sh` ; vérifier `https://<domaine>/api/v1/health`, `curl -4`/`curl -6`, le journal de l'hôte, `exec` sous Podman 5.4.2 et la syntaxe `!reset`/`!override` sous Compose 2.26 (non testée ici, Compose 5.8 local).
 - Branchement CI de `vps-stack` (`ci.yml`, autorisation requise) : `vps-stack.sh up`, `vitest run --project e2e vps-stack` avec `VPS_STACK_REQUIRED=1`, `down`.
 - Sous Docker (CI), la pile d'essai n'a pas été jouée ici.
