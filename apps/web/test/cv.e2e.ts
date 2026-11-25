@@ -89,7 +89,7 @@ for (const { code, path, labels, soon } of LOCALES) {
     await trigger.click();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
 
-    // Coin bas-gauche de la fenêtre, loin du menu, hors des barres : aucune cible focalisable.
+    // Marge gauche de la fenêtre, à mi-hauteur, loin du menu et hors des barres : aucune cible focalisable.
     const viewport = page.viewportSize()!;
     await page.mouse.click(2, viewport.height / 2);
 
