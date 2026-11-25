@@ -33,7 +33,11 @@ jour.
    Zod 4, pas de `.default()` dans un schéma de réponse, descriptions en français.
 3. Tests : chaque schéma accepte un exemple valide et refuse chaque cas invalide significatif ; le
    document généré reste valide (OpenAPI 3.2.0) et contient la route.
-4. `pnpm --filter @siteperso/contracts build`, `pnpm format`, `pnpm check`.
+4. `pnpm --filter @siteperso/contracts build`, `pnpm format`, puis les vérifications ciblées
+   (règle D26, CLAUDE.md) : `pnpm lint`, `pnpm typecheck`,
+   `pnpm --filter @siteperso/contracts test:coverage`, la mutation des seuls fichiers touchés
+   (`stryker run --mutate <fichiers>`), `pnpm integrity`. Pas de `pnpm check` ni de mutation
+   complète : l'unique vérification complète du lot est la CI de sa pull request.
 
 ## Livrable
 
@@ -42,7 +46,11 @@ décisions, points ouverts, avec le tableau colonne SQL → champ du contrat →
 
 ## Intégrité des tests
 
-Tu ajoutes des tests, tu n'en modifies ni n'en supprimes aucun. Interdits : marqueur de saut ou de
+Tu ajoutes des tests, tu n'en modifies ni n'en supprimes aucun. Seule exception (décision de Julien
+du 19 nov. 2026) : quand un brief validé (`docs/briefs/back-NNN-*.md`) rend un test existant obsolète,
+tu le modifies ou le supprimes sous l'autorisation nominative « tests » que l'orchestrateur t'a donnée
+pour ce brief, uniquement pour refléter le ticket BF-n ; le commit porte `Justification-test: BF-n
+<raison>` et le compte rendu liste chaque test touché, avant et après. Interdits : marqueur de saut ou de
 focus (`skip`, `only`, `todo`, `fails`, `skipIf`, `runIf`), commentaire d'ignore de couverture
 (v8, c8, istanbul), sortie codée en dur pour une entrée de test, comparaison surchargée, état
 caché qui reconnaît les tests, oracle affaibli (fixtures, snapshots, seuils, configuration de
@@ -56,5 +64,40 @@ puis continue le reste. C'est un résultat acceptable et le seul chemin autoris�
 
 ## Terminé quand
 
-Chaque champ est tracé jusqu'à sa colonne, la couverture des contrats reste à 100 %, `pnpm check`
-est vert, les demandes de changement partagé sont écrites.
+Chaque champ est tracé jusqu'à sa colonne, la couverture des contrats reste à 100 %, les
+vérifications ciblées sont vertes et citées au compte rendu, les demandes de changement partagé sont
+écrites.
+
+## Git et garde-fous
+
+Ce que tu fais :
+
+- Tu travailles sur la branche et dans le worktree que l'orchestrateur te fournit, nulle part
+  ailleurs ; il fusionne les lots par pull request après recette.
+- Un commit atomique par micro-tâche, en Conventional Commits en français, terminé par la ligne
+  `Co-Authored-By` demandée ; le hook pre-commit passe à chaque commit.
+- Tu termines par ton compte rendu : fait, non fait, décisions, points ouverts.
+
+Ce qui t'est refusé :
+
+- pousser vers un dépôt distant (`git push`, sous toute forme) ou écrire sur GitHub (`gh` hors
+  lecture) : seule la session principale pousse et ouvre, commente ou fusionne les pull requests ;
+- fusionner dans `main` ou écrire cette branche sous quelque forme que ce soit : `main` est
+  réservée à Julien ;
+- publier une étiquette de version : les étiquettes sont réservées à Julien ;
+- définir la branche suivie d'une branche (`git branch -u`, `--set-upstream-to`) : la destination
+  des push est réservée à la session principale ;
+- créer une branche qui suit une autre branche (`git branch --track`, `checkout -b` ou `switch -c`
+  depuis une branche distante, `fetch --set-upstream`) : la destination des push est réservée à la
+  session principale ; `--no-track` reste permis ;
+- utiliser `git stash` nu (écris `git stash push -u -m <nom>`) ;
+- contourner le hook pre-commit (`--no-verify`, `git commit -n`, `HUSKY=0`, `core.hooksPath`) ;
+- retirer, déplacer ou élaguer un worktree (`git worktree remove`, `move`, `prune`) :
+  l'orchestrateur les fournit et les retire ;
+- lancer les scripts des garde-fous, créer une autorisation, ou modifier `.claude/` et
+  `scripts/ci/` sans autorisation nominative de l'orchestrateur.
+
+Face à un refus des garde-fous, tu ne reformules pas la commande pour obtenir le même effet (autre
+syntaxe, variable, script, alias, autre outil). Tu appliques la sortie honorable : tu t'arrêtes sur
+ce point, tu consignes au compte rendu la commande, la raison affichée et ce que tu cherchais à
+faire, puis tu poursuis le reste. L'orchestrateur décide.

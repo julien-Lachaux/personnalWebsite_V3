@@ -1,0 +1,21 @@
+# Surcharge de docker/compose.prod.yml pour la pile locale sous Podman seulement
+# (scripts/deploy/local-stack.sh l'ajoute quand le moteur est podman ; jamais en production).
+# Sous Podman sans privilèges, via `podman compose` (fournisseur docker-compose), un conteneur créé
+# sans oom_score_adj explicite refuse tout `exec` (« crun: write to /proc/self/oom_score_adj:
+# Permission denied ») : healthcheck de postgres, `exec caddy caddy reload` de site.sh. Une valeur
+# haute se pose sans privilège ; en production, la base ne doit pas devenir la cible de l'OOM killer,
+# d'où ce fichier à part.
+# Caddy monte aussi ./Caddyfile depuis le dépôt : sous Podman avec SELinux (Fedora), le conteneur ne
+# peut pas le lire (« open /etc/caddy/Caddyfile: permission denied », redémarrage en boucle) tant
+# que l'étiquetage n'est pas levé ; `label=disable` le lève sans réétiqueter le fichier de l'hôte.
+# no-new-privileges est repris, que compose fusionne ou remplace la liste de compose.prod.yml.
+services:
+  caddy:
+    oom_score_adj: 500
+    security_opt:
+      - no-new-privileges:true
+      - label=disable
+  api:
+    oom_score_adj: 500
+  postgres:
+    oom_score_adj: 500

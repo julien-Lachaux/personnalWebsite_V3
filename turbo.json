@@ -1,6 +1,8 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "stream",
+  "cacheDir": ".turbo/cache",
+  "globalDependencies": ["tsconfig.base.json", "eslint.config.js", ".npmrc", "pnpm-workspace.yaml"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -13,22 +15,41 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "passThroughEnv": ["TEST_MAX_WORKERS"]
     },
     "test:e2e": {
       "dependsOn": ["^build"],
       "cache": false,
-      "env": ["DATABASE_URL", "PORT", "HOST", "CORS_ORIGIN", "NODE_ENV"]
+      "env": ["DATABASE_URL", "PORT", "HOST", "CORS_ORIGIN", "NODE_ENV"],
+      "passThroughEnv": ["TEST_MAX_WORKERS"]
     },
     "test:coverage": {
       "dependsOn": ["^build"],
       "cache": false,
       "env": ["DATABASE_URL", "PORT", "HOST", "CORS_ORIGIN", "NODE_ENV"],
+      "passThroughEnv": ["TEST_MAX_WORKERS"],
       "outputs": ["coverage/**"]
     },
     "test:mutation": {
       "dependsOn": ["^build"],
       "cache": false
+    },
+    "@siteperso/web#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".output/**"],
+      "inputs": ["$TURBO_DEFAULT$", ".env"],
+      "env": ["NUXT_PUBLIC_*"]
+    },
+    "@siteperso/web#test": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env.test"],
+      "passThroughEnv": ["TEST_MAX_WORKERS"]
+    },
+    "@siteperso/web#test:e2e": {
+      "dependsOn": ["^build", "lint", "typecheck", "test:coverage"],
+      "cache": false,
+      "env": ["NUXT_PUBLIC_*", "PLAYWRIGHT_PORT", "WEB_E2E_PORT", "CI"]
     }
   }
 }

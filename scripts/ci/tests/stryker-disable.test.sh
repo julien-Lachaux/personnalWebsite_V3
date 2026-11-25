@@ -3,7 +3,7 @@
 # MUT-2) : une directive retire des mutants du score de mutation ; elle exige une ligne
 # Justification-test dans un commit qui touche le fichier et doit citer l'identifiant d'un mutant
 # équivalent déclaré dans un stryker.equivalents.json. Chaque cas crée un dépôt git temporaire avec
-# une branche d'intégration « v3/backend », dérive une branche et vérifie le code de sortie.
+# une branche d'intégration « develop », dérive une branche et vérifie le code de sortie.
 # Lancé par `pnpm integrity:test` (donc par pnpm check) et par la CI.
 #
 # Les directives sont construites à l'exécution : ce fichier n'en contient aucune littéralement.
@@ -25,7 +25,7 @@ new_repo() {
   local repo="$WORK/$1"
   mkdir -p "$repo/apps/api/src"
   cd "$repo"
-  git init -q -b v3/backend
+  git init -q -b develop
   git config user.name 'Test'
   git config user.email 'ci@noreply.invalid'
   git config commit.gpgsign false
@@ -42,7 +42,7 @@ commit() {
 
 expect() {
   local expected="$1" name="$2" pattern="${3:-}" code=0
-  bash "$SCRIPT" v3/backend >"$WORK/out.txt" 2>&1 || code=$?
+  bash "$SCRIPT" develop >"$WORK/out.txt" 2>&1 || code=$?
   if [ "$code" -eq "$expected" ] && { [ -z "$pattern" ] || grep -q -- "$pattern" "$WORK/out.txt"; }; then
     passed=$((passed + 1))
     printf 'ok      %s\n' "$name"
@@ -61,9 +61,10 @@ commit 'refactor: commentaire'
 expect 1 'directive ajoutée sans Justification-test' 'ajoutée sans Justification-test : apps/api/src/app.ts'
 
 new_repo declaree
-printf '%s\n' "$EQUIVALENTS" >apps/api/stryker.equivalents.json
+# L14-02 : l'équivalent déclare son mutateur, la justification cite son identifiant.
+printf '%s\n' '{ "equivalents": [{ "id": "API-EQ-01", "file": "src/app.ts", "line": 2, "mutator": "StringLiteral" }] }' >apps/api/stryker.equivalents.json
 printf "%s: API-EQ-01 raison\nexport const mode = 'false';\n" "$DIRECTIVE" >apps/api/src/app.ts
-commit "$JUSTIFIED"
+commit "$(printf 'chore(mutation): équivalent\n\nJustification-test: MUT-9 API-EQ-01 mutant équivalent vérifié')"
 expect 0 'directive justifiée qui cite un équivalent déclaré'
 
 new_repo sans-identifiant
@@ -97,7 +98,7 @@ expect 0 'directive citée en prose hors code'
 
 new_repo heritee
 printf "%s: API-EQ-09 raison\nexport const mode = 'false';\n" "$DIRECTIVE" >apps/api/src/app.ts
-git checkout -q v3/backend
+git checkout -q develop
 git add -A
 git commit -q -m "$JUSTIFIED"
 git checkout -q -b lot/suivant

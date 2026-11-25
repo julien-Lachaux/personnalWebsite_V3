@@ -100,9 +100,15 @@ const profile = {
   location: 'Ville',
   picture: { path: '/images/profile.webp', alt: 'Portrait' },
   title: 'Titre',
-  headline: 'Accroche',
-  bio: 'Présentation.',
-  availability: 'Disponible',
+  titleBadge: 'senior',
+  taglines: ['Accroche'],
+  intro: 'Introduction.',
+  mission: 'Mission.',
+  currentActivity: 'Activité du moment.',
+  seekingFormat: 'Temps partiel',
+  seekingLocation: 'Paris',
+  seekingAvailability: 'Immédiate',
+  cvPath: '/cv/cv-fr.pdf',
 };
 
 describe('ProfileController', () => {
@@ -135,6 +141,8 @@ describe('CvController', () => {
     certifications: [],
     education: [],
     languages: [],
+    recommendations: [],
+    aiOverview: null,
   };
 
   it('renvoie le CV validé dans la langue demandée', async () => {

@@ -1,19 +1,21 @@
-# Site perso V3 : back-end
+# Site perso V3
 
 Monorepo pnpm + Turborepo : API NestJS/Fastify en architecture hexagonale (`apps/api`),
-contrats Zod + OpenAPI 3.2.0 (`packages/contracts`), schéma et contenu en SQL (`db/`).
+front Nuxt 4 en génération statique FR/EN (`apps/web`), contrats Zod + OpenAPI 3.2.0
+(`packages/contracts`), schéma et contenu en SQL (`db/`).
 Décisions et modèle de données : `docs/`. Conventions pour les agents : `CLAUDE.md`.
 Agents spécialisés et garde-fous contre le contournement des tests : `.claude/agents/`,
 `.claude/hooks/` et `scripts/ci/check-tests-integrity.sh` (lancés par `pnpm check` et la CI).
 
 ## Lancer en 4 commandes
 
-Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 10 (>= 10.34.5 : les versions 9.x sont visées par des avis de sécurité sans correctif). Node 26 (dernière ligne
-stable) est téléchargé par pnpm (`.npmrc`, `use-node-version`), rien d'autre à installer.
+Prérequis sur l'hôte : Podman (avec un fournisseur compose) ou Docker (avec `docker compose`), et pnpm 12 (>= 12.23.0). Node 26 (dernière ligne
+stable) est téléchargé par pnpm (`devEngines.runtime` du `package.json`), rien d'autre à installer.
 
 ```sh
 pnpm install                       # 1. dépendances + hook pre-commit
 cp .env.example apps/api/.env      # 2. configuration locale de l'API (jamais commitée)
+cp apps/web/.env.example apps/web/.env   # 2 bis. configuration locale du front (jamais commitée)
 pnpm db:up                         # 3. PostgreSQL 16 de dev (docker compose)
 pnpm db:migrate && pnpm db:seed    # 3 bis. schéma et contenu du CV (SQL de db/, rejouables)
 pnpm dev                           # 4. compile les contrats puis API en watch : http://localhost:3000/api/v1
@@ -27,13 +29,17 @@ Vérifier :
 ```sh
 curl -s http://localhost:3000/api/v1/health      # 200 {"status":"ok","checks":{"database":"up"}}
 curl -s http://localhost:3000/api/v1/docs.json   # 200 contrat OpenAPI 3.2.0 ("openapi":"3.2.0")
-curl -s http://localhost:3000/api/v1/profile     # 501 application/problem+json jusqu'au lot 3
+curl -s http://localhost:3000/api/v1/profile     # 200 profil du CV (contenu du seed)
 curl -s http://localhost:3000/api/v1/inconnue    # 404 application/problem+json
 curl -si http://localhost:3000/api/v1/health | grep -i x-ratelimit   # quota par IP (défaut 100/min), 429 au-delà
 ```
 
-`pnpm build` compile les contrats puis l'API dans `dist/` ; `pnpm start` lance la version
-compilée.
+`pnpm build` compile les contrats puis l'API dans `dist/` et génère les pages statiques du front
+dans `apps/web/.output/public` ; `pnpm start` lance la version compilée de l'API.
+
+Front : `pnpm dev:web` sert le site en watch sur http://localhost:3001 (`/` en français, `/en` en
+anglais) ; `pnpm e2e:browsers:up` démarre les navigateurs Playwright (Docker) pour
+`pnpm --filter @siteperso/web test:e2e`. Conventions et commandes : `CLAUDE.md`, « Front ».
 
 Pile locale complète identique à la production (Caddy, API, PostgreSQL, même compose et même image) pour
 reproduire un problème de prod : `pnpm stack:up` puis `curl -k https://localhost:8443/api/v1/health` (voir

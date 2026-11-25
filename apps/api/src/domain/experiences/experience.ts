@@ -4,6 +4,11 @@ export type ExperienceKind = 'employment' | 'freelance' | 'break' | 'mentoring';
 export type ContractType = 'cdi' | 'freelance' | 'none';
 export type WorkMode = 'onsite' | 'hybrid' | 'remote';
 
+/** Compétence liée à une expérience : `shownInStack` à `false` pour un mot-clé caché (filtre du front). */
+export interface ExperienceSkill extends Skill {
+  readonly shownInStack: boolean;
+}
+
 /**
  * Expérience professionnelle (ou pause, mentorat), déjà traduite dans la langue demandée.
  * Les dates sont au format `YYYY-MM-DD` (premier jour du mois).
@@ -26,6 +31,8 @@ export interface Experience {
   readonly summary: string;
   readonly achievements: readonly string[];
   readonly stackLabel: string | null;
-  /** Compétences publiées mobilisées, dans l'ordre de `experience_skills.sort_order`. */
-  readonly skills: readonly Skill[];
+  /**
+   * Compétences publiées liées, affichées ou cachées, dans l'ordre de `experience_skills.sort_order`.
+   */
+  readonly skills: readonly ExperienceSkill[];
 }

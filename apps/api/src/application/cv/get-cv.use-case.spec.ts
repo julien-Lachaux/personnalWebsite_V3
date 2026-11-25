@@ -10,6 +10,7 @@ const skill = {
   icon: 'typescript',
   iconPath: null,
   groupSlug: 'langages',
+  mainStackOrder: 1,
 };
 
 /** Contenu fictif valide pour `CvSchema` (jamais de donnée réelle). */
@@ -19,10 +20,16 @@ const data: Omit<Cv, 'locale'> = {
     lastName: 'Nom',
     location: 'Melun, Île-de-France',
     picture: { path: '/images/profile.webp', alt: 'Portrait de profil' },
-    title: 'Développeur full-stack TypeScript senior',
-    headline: 'Accroche',
-    bio: 'Présentation.',
-    availability: 'Disponible pour des missions',
+    title: 'Développeur full-stack',
+    titleBadge: 'senior',
+    taglines: ['Accroche'],
+    intro: 'Introduction.',
+    mission: 'Mission.',
+    currentActivity: 'Activité du moment.',
+    seekingFormat: 'Temps partiel',
+    seekingLocation: 'Paris',
+    seekingAvailability: 'Immédiate',
+    cvPath: '/cv/cv-fr.pdf',
   },
   socialLinks: [
     { slug: 'github', kind: 'github', url: 'https://github.com/example', label: 'GitHub' },
@@ -46,7 +53,7 @@ const data: Omit<Cv, 'locale'> = {
       summary: 'Résumé.',
       achievements: ['Une réalisation'],
       stackLabel: 'Huile de coude',
-      skills: [skill],
+      skills: [{ ...skill, shownInStack: true }],
     },
   ],
   projects: [
@@ -99,6 +106,25 @@ const data: Omit<Cv, 'locale'> = {
   languages: [
     { slug: 'fr', code: 'fr', cefrLevel: null, name: 'Français', levelLabel: 'langue maternelle' },
   ],
+  recommendations: [
+    {
+      slug: 'prenom-nom',
+      authorName: 'Prénom Nom',
+      authorRole: 'CTO',
+      relationship: 'Responsable direct',
+      recommendedOn: '2025-12-08',
+      paragraphs: ['Paragraphe.'],
+      locale: 'fr',
+    },
+  ],
+  aiOverview: {
+    title: 'L’IA',
+    inProductLabel: 'dans le produit',
+    inProductItems: ['Usage'],
+    dailyLabel: 'au quotidien',
+    dailyText: 'Texte.',
+    skills: [skill],
+  },
 };
 
 type Key = keyof typeof data;
@@ -144,6 +170,8 @@ function build(overrides: Partial<Record<Key, Stub<unknown>>> = {}): {
     stubs.certifications,
     stubs.education,
     stubs.languages,
+    stubs.recommendations,
+    stubs.aiOverview,
   );
   return { stubs, useCase };
 }
@@ -168,7 +196,7 @@ describe('GetCvUseCase', () => {
     }
   });
 
-  it('lance les 10 cas d’usage en parallèle (Promise.all)', async () => {
+  it('lance les 12 cas d’usage en parallèle (Promise.all)', async () => {
     const { stubs, useCase } = build();
     let release: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {

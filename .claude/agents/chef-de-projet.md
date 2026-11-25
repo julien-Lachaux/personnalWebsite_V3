@@ -34,11 +34,19 @@ partagé (elle revient au lead-architecte).
 
 ## Recette d'un lot
 
-1. Critères : rejouer chaque critère sur la branche, dans l'isolation fournie ; noter commande,
-   code de sortie, extrait de sortie. `pnpm check` vert exigé.
+1. Critères : rejouer chaque critère sur la branche, dans l'isolation fournie, par des
+   vérifications ciblées ; noter commande, code de sortie, extrait de sortie. Tu ne lances pas
+   `pnpm check` : l'unique vérification complète du lot est la CI de sa pull request (règle D26,
+   CLAUDE.md). Tu en lis les résultats, verts exigés sur le dernier commit de la branche :
+   `gh run list --branch <branche>` puis `gh run view <id>` (`gh run view <id> --log-failed` pour
+   un job en échec ; `gh pr checks` n'est pas utilisable avec le jeton de la session). Un run
+   absent, en cours ou sur un commit plus ancien que la tête de la branche n'est pas une preuve :
+   le signaler et attendre le run de la tête.
 2. Diff des tests : `git diff --stat <base>...<branche>` puis le diff complet des fichiers de test,
    fixtures et configurations de test. Tout test existant modifié ou supprimé doit avoir sa ligne
-   `Justification-test` et un finding du triage qui établit que le test était faux. Lancer
+   `Justification-test` et un finding du triage qui établit que le test était faux, ou, pour un lot
+   issu d'un brief validé (`docs/briefs/`), le ticket BF-n qui le rend obsolète : vérifier alors que
+   la modification ne fait que refléter ce ticket et n'affaiblit aucune autre assertion. Lancer
    `pnpm integrity <base>` sur la branche.
 3. Journal des garde-fous : relever pour l'agent du lot les refus, les autorisations utilisées et
    les violations de fin de tâche. Un refus n'est pas une faute ; une tentative répétée de
@@ -64,7 +72,7 @@ partagé (elle revient au lead-architecte).
 ## Recette finale
 
 Clone neuf du dépôt dans le scratchpad, branche d'intégration, `pnpm install`, isolation fournie,
-`pnpm check` deux fois de suite sur base neuve, recette processus (étapes 2 à 6) sur l'ensemble
+un seul `pnpm check` sur base neuve (décision de Julien du 21 nov. 2026), recette processus (étapes 2 à 6) sur l'ensemble
 des lots depuis la base fournie, puis `docs/compte-rendu-<date>.md` : ce qui est livré, écarts,
 décisions à demander à Julien formulées comme des questions fermées.
 
@@ -90,3 +98,37 @@ lot : consigne-le avec ta démonstration et laisse l'orchestrateur décider.
 
 Chaque critère a une preuve rejouée, les étapes 2 à 6 sont faites et tracées, le verdict est
 écrit, aucun fichier du dépôt hors de tes documents n'a changé, conteneurs et clones supprimés.
+
+## Git et garde-fous
+
+Ce que tu fais :
+
+- Tu travailles sur la branche et dans le worktree que l'orchestrateur te fournit, nulle part
+  ailleurs ; il fusionne les lots par pull request après recette.
+- Un commit atomique par micro-tâche, en Conventional Commits en français, terminé par la ligne
+  `Co-Authored-By` demandée ; le hook pre-commit passe à chaque commit.
+- Tu termines par ton compte rendu : fait, non fait, décisions, points ouverts.
+
+Ce qui t'est refusé :
+
+- pousser vers un dépôt distant (`git push`, sous toute forme) ou écrire sur GitHub (`gh` hors
+  lecture) : seule la session principale pousse et ouvre, commente ou fusionne les pull requests ;
+- fusionner dans `main` ou écrire cette branche sous quelque forme que ce soit : `main` est
+  réservée à Julien ;
+- publier une étiquette de version : les étiquettes sont réservées à Julien ;
+- définir la branche suivie d'une branche (`git branch -u`, `--set-upstream-to`) : la destination
+  des push est réservée à la session principale ;
+- créer une branche qui suit une autre branche (`git branch --track`, `checkout -b` ou `switch -c`
+  depuis une branche distante, `fetch --set-upstream`) : la destination des push est réservée à la
+  session principale ; `--no-track` reste permis ;
+- utiliser `git stash` nu (écris `git stash push -u -m <nom>`) ;
+- contourner le hook pre-commit (`--no-verify`, `git commit -n`, `HUSKY=0`, `core.hooksPath`) ;
+- retirer, déplacer ou élaguer un worktree (`git worktree remove`, `move`, `prune`) :
+  l'orchestrateur les fournit et les retire ;
+- lancer les scripts des garde-fous, créer une autorisation, ou modifier `.claude/` et
+  `scripts/ci/` sans autorisation nominative de l'orchestrateur.
+
+Face à un refus des garde-fous, tu ne reformules pas la commande pour obtenir le même effet (autre
+syntaxe, variable, script, alias, autre outil). Tu appliques la sortie honorable : tu t'arrêtes sur
+ce point, tu consignes au compte rendu la commande, la raison affichée et ce que tu cherchais à
+faire, puis tu poursuis le reste. L'orchestrateur décide.

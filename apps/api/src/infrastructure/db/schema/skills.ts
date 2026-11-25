@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -7,6 +8,7 @@ import {
   smallint,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 import { localeCode } from './enums.js';
@@ -49,9 +51,14 @@ export const skills = pgTable(
     iconPath: text('icon_path'),
     sortOrder: integer('sort_order').notNull().default(0),
     published: boolean('published').notNull().default(true),
+    // Rang dans la stack principale (BF-3) : null = hors stack principale ; unique et > 0 quand renseigné.
+    mainStackOrder: smallint('main_stack_order'),
     deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
   },
   (table) => [
+    uniqueIndex('skills_main_stack_order_idx')
+      .on(table.mainStackOrder)
+      .where(sql`${table.mainStackOrder} is not null`),
     index('skills_group_published_sort_order_idx').on(
       table.groupId,
       table.published,

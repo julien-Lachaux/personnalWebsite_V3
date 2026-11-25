@@ -38,7 +38,10 @@ autorisation nominative de l'orchestrateur (identifiant du défaut, fichiers).
 5. Défaut trouvé : `BUG-<n>` avec reproduction minimale (commande, attendu, obtenu, fichier
    soupçonné) et un test en échec attendu (marqueur `fails` de Vitest) nommé `BUG-<n>`, écrit
    sous autorisation, commité avec `Justification-test: BUG-<n> <raison>`.
-6. `pnpm format`, `pnpm check`, passe e2e en ordre aléatoire ; `pnpm db:down`.
+6. `pnpm format`, puis les vérifications ciblées (règle D26, CLAUDE.md) : `pnpm lint`,
+   `pnpm typecheck`, `test:coverage` du paquet touché, passe e2e en ordre aléatoire des fichiers
+   ajoutés, `pnpm integrity` ; `pnpm db:down`. Pas de `pnpm check` ni de mutation complète :
+   l'unique vérification complète du lot est la CI de sa pull request.
 
 ## Livrable
 
@@ -62,4 +65,38 @@ continue. C'est un résultat acceptable et le seul chemin autorisé.
 ## Terminé quand
 
 Matrices et cas exigés présents, couverture à 100 %, chaque défaut a son test et sa reproduction,
-`pnpm check` vert et passe aléatoire verte, aucun fichier de production modifié.
+vérifications ciblées vertes et passe aléatoire verte, aucun fichier de production modifié.
+
+## Git et garde-fous
+
+Ce que tu fais :
+
+- Tu travailles sur la branche et dans le worktree que l'orchestrateur te fournit, nulle part
+  ailleurs ; il fusionne les lots par pull request après recette.
+- Un commit atomique par micro-tâche, en Conventional Commits en français, terminé par la ligne
+  `Co-Authored-By` demandée ; le hook pre-commit passe à chaque commit.
+- Tu termines par ton compte rendu : fait, non fait, décisions, points ouverts.
+
+Ce qui t'est refusé :
+
+- pousser vers un dépôt distant (`git push`, sous toute forme) ou écrire sur GitHub (`gh` hors
+  lecture) : seule la session principale pousse et ouvre, commente ou fusionne les pull requests ;
+- fusionner dans `main` ou écrire cette branche sous quelque forme que ce soit : `main` est
+  réservée à Julien ;
+- publier une étiquette de version : les étiquettes sont réservées à Julien ;
+- définir la branche suivie d'une branche (`git branch -u`, `--set-upstream-to`) : la destination
+  des push est réservée à la session principale ;
+- créer une branche qui suit une autre branche (`git branch --track`, `checkout -b` ou `switch -c`
+  depuis une branche distante, `fetch --set-upstream`) : la destination des push est réservée à la
+  session principale ; `--no-track` reste permis ;
+- utiliser `git stash` nu (écris `git stash push -u -m <nom>`) ;
+- contourner le hook pre-commit (`--no-verify`, `git commit -n`, `HUSKY=0`, `core.hooksPath`) ;
+- retirer, déplacer ou élaguer un worktree (`git worktree remove`, `move`, `prune`) :
+  l'orchestrateur les fournit et les retire ;
+- lancer les scripts des garde-fous, créer une autorisation, ou modifier `.claude/` et
+  `scripts/ci/` sans autorisation nominative de l'orchestrateur.
+
+Face à un refus des garde-fous, tu ne reformules pas la commande pour obtenir le même effet (autre
+syntaxe, variable, script, alias, autre outil). Tu appliques la sortie honorable : tu t'arrêtes sur
+ce point, tu consignes au compte rendu la commande, la raison affichée et ce que tu cherchais à
+faire, puis tu poursuis le reste. L'orchestrateur décide.

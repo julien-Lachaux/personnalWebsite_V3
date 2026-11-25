@@ -1,0 +1,74 @@
+{
+  "shell": {
+    "nav": {
+      "label": "Sections",
+      "overview": "Overview"
+    },
+    "sections": {
+      "profile": "Profile",
+      "experience": "XP",
+      "recommendations": "Recs",
+      "ai": "AI"
+    },
+    "actions": {
+      "interview": "Start the interview",
+      "cv": "CV PDF",
+      "cvMenu": {
+        "fr": "French version",
+        "en": "English version",
+        "soon": "(coming soon)"
+      },
+      "subject": "Getting in touch from your website"
+    },
+    "theme": {
+      "toLight": "Dark theme, switch to light theme",
+      "toDark": "Light theme, switch to dark theme"
+    },
+    "scrollHint": {
+      "label": "Scroll down"
+    },
+    "accessibility": {
+      "open": "Accessibility options",
+      "close": "Close accessibility options",
+      "panelLabel": "Accessibility settings",
+      "textSize": {
+        "label": "text size",
+        "normal": "Normal text size",
+        "large": "Large text size",
+        "larger": "Largest text size"
+      },
+      "display": "Display preferences",
+      "highContrast": {
+        "label": "Enhanced contrast",
+        "description": "Stronger text and borders."
+      },
+      "readableFont": {
+        "label": "More readable font",
+        "description": "Atkinson Hyperlegible, designed for low vision."
+      },
+      "textSpacing": {
+        "label": "Text spacing",
+        "description": "More space between lines, letters and words (WCAG 1.4.12)."
+      },
+      "underlineLinks": {
+        "label": "Underline links",
+        "description": "Spot links without relying on colour."
+      },
+      "reduceMotion": {
+        "label": "Reduce animations",
+        "description": "Turns off transitions and slides."
+      },
+      "reset": "Reset",
+      "resetDone": "Settings reset: the site follows your system preferences again.",
+      "declaration": "Accessibility statement",
+      "status": "Settings are saved on this device. RGAA 4.1 conformance: {pending}.",
+      "pending": "[to be completed after the audit]"
+    },
+    "headings": {
+      "profile": "Profile",
+      "experience": "Experience",
+      "recommendations": "Recommendations",
+      "ai": "AI"
+    }
+  }
+}

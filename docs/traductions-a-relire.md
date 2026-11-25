@@ -8,11 +8,17 @@ puis retire la ligne et le commentaire correspondants. Aucune traduction n'est d
 
 | Fichier | Table | Slug | Champ | Texte FR | Texte EN proposé |
 |---|---|---|---|---|---|
-| 0001_profile.sql | profile_translations | profile (id 1) | title | Développeur full-stack TypeScript senior | Senior full-stack TypeScript developer |
-| 0001_profile.sql | profile_translations | profile (id 1) | headline | NestJS, Vue.js — données, ETL et analytics — IA agentique et IA au quotidien | NestJS, Vue.js — data, ETL and analytics — agentic AI and everyday AI |
-| 0001_profile.sql | profile_translations | profile (id 1) | bio | Développeur full-stack depuis 2017, je conçois des API, des interfaces et des flux de données fiables, principalement en TypeScript. Mon fil rouge : faire circuler la donnée entre des systèmes qui ne se parlent pas, de l'ETL aux intégrations d'outils d'analytics.<br><br>Autonome du cadrage à la production, je souhaite mettre ce savoir-faire au service de structures utiles : associations, ONG, économie sociale et solidaire, écologie, service public. | Full-stack developer since 2017, I design APIs, interfaces and reliable data flows, mainly in TypeScript. My common thread: making data flow between systems that do not talk to each other, from ETL to analytics tool integrations.<br><br>Autonomous from scoping to production, I want to put this expertise at the service of useful organizations: non-profits, NGOs, the social and solidarity economy, ecology, public service. |
-| 0001_profile.sql | profile_translations | profile (id 1) | availability | Disponible pour des missions | Available for missions |
+| 0001_profile.sql | profile_translations | profile (id 1) | title | Développeur full-stack | Full-stack developer |
 | 0001_profile.sql | profile_translations | profile (id 1) | picture_alt | Portrait de Julien Lachaux | Portrait of Julien Lachaux |
+| 0001_profile.sql | profile_translations | profile (id 1) | taglines[1] | NestJS, Vue.js — données, ETL et analytics | NestJS, Vue.js — data, ETL and analytics |
+| 0001_profile.sql | profile_translations | profile (id 1) | taglines[2] | Développement assisté par IA et agentique | AI-assisted and agentic development |
+| 0001_profile.sql | profile_translations | profile (id 1) | intro | Depuis 2017, je conçois des API, des interfaces et des flux de données fiables. Mon fil rouge : faire circuler la donnée entre des systèmes qui ne se parlent pas. | Since 2017, I have been designing APIs, interfaces and reliable data flows. My common thread: making data flow between systems that do not talk to each other. |
+| 0001_profile.sql | profile_translations | profile (id 1) | mission | Je souhaite mettre ce savoir-faire au service de structures utiles : associations, ONG, économie sociale et solidaire, écologie, service public. | I want to put this expertise at the service of useful organizations: non-profits, NGOs, the social and solidarity economy, ecology, public service. |
+| 0001_profile.sql | profile_translations | profile (id 1) | current_activity | Bénévole 2 jours par semaine : je développe un outil d’aide au parcours de soins en milieu psychiatrique | Volunteering two days a week: I am developing a tool that supports care pathways in psychiatric settings |
+| 0001_profile.sql | profile_translations | profile (id 1) | seeking_format | Temps partiel (3 jours par semaine) ou missions freelance courtes | Part-time (3 days a week) or short freelance assignments |
+| 0001_profile.sql | profile_translations | profile (id 1) | seeking_location | Paris, Île-de-France · hybride ou à distance | Paris, Île-de-France · hybrid or remote |
+| 0001_profile.sql | profile_translations | profile (id 1) | seeking_availability | Immédiate | Immediate |
+| 0002_social_links.sql | social_links_translations | linkedin-recommendations | label | Recommandations publiées sur LinkedIn | Recommendations published on LinkedIn |
 | 0003_skills.sql | skill_groups_translations | languages-frameworks | name | Langages et frameworks | Languages and frameworks |
 | 0003_skills.sql | skill_groups_translations | data-messaging | name | Données et messagerie | Data and messaging |
 | 0003_skills.sql | skill_groups_translations | integration-etl | name | Intégration et ETL | Integration and ETL |
@@ -24,9 +30,9 @@ puis retire la ligne et le commentaire correspondants. Aucune traduction n'est d
 | 0003_skills.sql | skills_translations | ai-features | name | Intégration de fonctionnalités d'IA | AI feature integration |
 | 0003_skills.sql | skills_translations | agentic-development | name | Développement agentique | Agentic development |
 | 0003_skills.sql | skills_translations | ai-daily-use | name | Usage quotidien de l'IA en développement | Daily use of AI in development |
-| 0003_skills.sql | skills_translations | managed-cloud-deployment | name | Déploiement en environnement cloud managé | Deployment on managed cloud environments |
+| 0003_skills.sql | skills_translations | managed-cloud-deployment | name | Cloud managé | Managed cloud |
 | 0003_skills.sql | skills_translations | agile | name | Méthodes agiles | Agile methods |
-| 0003_skills.sql | skills_translations | production-operations | name | Exploitation et diagnostic en production | Production operations and diagnosis |
+| 0003_skills.sql | skills_translations | production-operations | name | Diagnostic en production | Production diagnosis |
 | 0004_experiences.sql | experiences_translations | nopillo | summary | Intégration de fonctionnalités d'IA dans le produit. | Integration of AI features into the product. |
 | 0004_experiences.sql | experiences_translations | nopillo | achievements[1] | Développement d'un système d'OCR pour les tickets de caisse et les factures | Development of an OCR system for receipts and invoices |
 | 0004_experiences.sql | experiences_translations | nopillo | achievements[2] | Développement du remplissage automatique des déclarations fiscales | Development of automatic filling of tax returns |
@@ -62,7 +68,6 @@ puis retire la ligne et le commentaire correspondants. Aucune traduction n'est d
 | 0004_experiences.sql | experiences_translations | afluens | achievements[3] | Exploitation : maintien du service, administration du serveur, gestion des incidents, support de niveau 2 | Operations: keeping the service running, server administration, incident management, level 2 support |
 | 0004_experiences.sql | experiences_translations | afluens | logo_alt | Logo de Afluens | Afluens logo |
 | 0004_experiences.sql | experiences_translations | openclassrooms-mentor | job_title | Mentor en développement web | Web development mentor |
-| 0004_experiences.sql | experiences_translations | openclassrooms-mentor | location | À distance | Remote |
 | 0004_experiences.sql | experiences_translations | openclassrooms-mentor | summary | Mentorat d'étudiants en développement web, avec cours individuels en visioconférence. | Mentoring web development students, with one-to-one video lessons. |
 | 0004_experiences.sql | experiences_translations | openclassrooms-mentor | logo_alt | Logo de OpenClassrooms | OpenClassrooms logo |
 | 0005_certifications_education_languages.sql | certifications_translations | ef-set-plus-62 | name | EF SET Plus 62, anglais C1 | EF SET Plus 62, English C1 |
@@ -76,3 +81,10 @@ puis retire la ligne et le commentaire correspondants. Aucune traduction n'est d
 | 0005_certifications_education_languages.sql | languages_translations | french | level_label | langue maternelle | native language |
 | 0005_certifications_education_languages.sql | languages_translations | english | name | Anglais | English |
 | 0005_certifications_education_languages.sql | languages_translations | english | level_label | professionnel | professional |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | title | L’IA, dans le produit et au quotidien | AI, in the product and day to day |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | in_product_label | dans le produit · Nopillo, 2026 | in the product · Nopillo, 2026 |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | in_product_items[1] | OCR pour les tickets de caisse et les factures | OCR for receipts and invoices |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | in_product_items[2] | Remplissage automatique des déclarations fiscales | Automatic filling of tax returns |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | in_product_items[3] | Cadrage et premiers développements d’une IA agentique de recommandation fiscale | Scoping and first developments of an agentic AI for tax recommendations |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | daily_label | au quotidien | day to day |
+| 0007_ai_overview.sql | ai_overview_translations | ai-overview (id 1) | daily_text | Usage quotidien de l’IA dans ma pratique de développement, développement agentique avec Mastra, veille technique active. | Daily use of AI in my development practice, agentic development with Mastra, active technology watch. |

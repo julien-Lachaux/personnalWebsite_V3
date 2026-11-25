@@ -1,0 +1,14 @@
+# Simulation du Caddy de l'HÔTE (VPS) pour l'essai de la variante VPS : il relaie vers le socket Unix
+# du Caddy de la pile, comme `reverse_proxy unix//run/prod/site-perso/web.sock` sur le serveur.
+# Les clients de l'essai sont des conteneurs du réseau `front` : chacun a sa propre adresse, que ce
+# Caddy transmet à la pile par X-Forwarded-For (jamais un en-tête fourni par le client : il n'est pas
+# de confiance ici, comme sur l'hôte).
+# Essai seulement : jamais en production (docker/compose.vps-frontal.yml).
+{
+	admin off
+	auto_https off
+}
+
+http://:8080 {
+	reverse_proxy unix//run/prod/web.sock
+}

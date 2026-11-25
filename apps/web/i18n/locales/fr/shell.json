@@ -1,0 +1,74 @@
+{
+  "shell": {
+    "nav": {
+      "label": "Sections",
+      "overview": "Vue d’ensemble"
+    },
+    "sections": {
+      "profile": "Profil",
+      "experience": "XP",
+      "recommendations": "Recos",
+      "ai": "IA"
+    },
+    "actions": {
+      "interview": "Lancer l’entretien",
+      "cv": "CV PDF",
+      "cvMenu": {
+        "fr": "Version française",
+        "en": "Version anglaise",
+        "soon": "(bientôt)"
+      },
+      "subject": "Prise de contact depuis votre site"
+    },
+    "theme": {
+      "toLight": "Thème sombre, passer en thème clair",
+      "toDark": "Thème clair, passer en thème sombre"
+    },
+    "scrollHint": {
+      "label": "Faire défiler vers le bas"
+    },
+    "accessibility": {
+      "open": "Options d’accessibilité",
+      "close": "Fermer les options d’accessibilité",
+      "panelLabel": "Réglages d’accessibilité",
+      "textSize": {
+        "label": "taille du texte",
+        "normal": "Taille de texte normale",
+        "large": "Grande taille de texte",
+        "larger": "Très grande taille de texte"
+      },
+      "display": "Préférences d’affichage",
+      "highContrast": {
+        "label": "Contraste renforcé",
+        "description": "Textes et bordures plus marqués."
+      },
+      "readableFont": {
+        "label": "Police plus lisible",
+        "description": "Atkinson Hyperlegible, conçue pour la basse vision."
+      },
+      "textSpacing": {
+        "label": "Espacement du texte",
+        "description": "Lignes, lettres et mots plus espacés (WCAG 1.4.12)."
+      },
+      "underlineLinks": {
+        "label": "Souligner les liens",
+        "description": "Repérer les liens sans se fier à la couleur."
+      },
+      "reduceMotion": {
+        "label": "Réduire les animations",
+        "description": "Coupe les transitions et les glissements."
+      },
+      "reset": "Réinitialiser",
+      "resetDone": "Réglages réinitialisés : le site suit de nouveau les préférences de votre système.",
+      "declaration": "Déclaration d’accessibilité",
+      "status": "Réglages mémorisés sur cet appareil. Conformité RGAA 4.1 : {pending}.",
+      "pending": "[à compléter après audit]"
+    },
+    "headings": {
+      "profile": "Profil",
+      "experience": "Expérience",
+      "recommendations": "Recommandations",
+      "ai": "IA"
+    }
+  }
+}

@@ -29,6 +29,18 @@ implémentées dans l'API ; Caddy ne fait que les doubler en première ligne (en
 l'API ne l'a pas fait, écritures transmises à l'API qui répond elle-même 405). Écarts résiduels connus,
 consignés dans `docs/deploiement.md` : les réponses produites par Caddy lui-même avant l'API (URL mal
 encodée 400, corps trop grand 413, API injoignable 502) sortent en `text/plain`, pas en problem+json.
+
+### Plus d'API en production (décision du 25 nov. 2026, lot 33)
+Le site affiché n'appelle jamais l'API : les données sont figées dans les pages et leurs `_payload.json` à la
+génération, et le contenu vient de `db/seeds/`. En production il n'y a donc **ni API, ni PostgreSQL, ni
+génération** : seul Caddy sert l'archive du site produite par la CI à chaque release. L'API reste l'outil de
+FABRICATION du site (génération en CI contre une base migrée et seedée), et l'environnement de développement,
+de test et de la pile locale. La parité ci-dessus reste vraie entre développement et pile locale ; en production,
+`/api/*` répond 410 en problem+json (sans amont). Ce qu'on perd : l'API `/api/v1` consultable publiquement en
+ligne (documentation OpenAPI, `health`), le contenu ne se met plus à jour sans nouvelle release, et la surface
+d'attaque et les sauvegardes de base disparaissent du serveur. Détail : `docs/deploiement.md`, « Production tout
+statique ».
+
 ## Règles « Rust-friendly »
 - Architecture hexagonale : `domain` (types, règles, aucune dépendance Nest), `application`
   (cas d'usage), `infrastructure` (Drizzle, HTTP). Nest n'apparaît que dans `infrastructure/http`.
@@ -39,23 +51,26 @@ encodée 400, corps trop grand 413, API injoignable 502) sortent en `text/plain`
 - Sécurité dès le départ : en-têtes HTTP (helmet), CORS restreint au domaine du front,
   rate limiting global léger, 404 propres, aucune donnée personnelle dans les réponses.
 
-## Front (stack validée, développement différé au design)
+## Front (stack validée ; décisions D1 à D8 de `docs/05`, validées par Julien le 19 nov. 2026)
 | Brique | Choix |
 |---|---|
-| Framework | Nuxt 3 (Vue 3, TypeScript) en rendu hybride : pages générées à partir de `GET /cv`, hydratation légère |
-| i18n | `@nuxtjs/i18n`, FR par défaut, EN, URLs préfixées (`/en/...`) |
-| Styles | à définir avec le design (CSS moderne avec tokens de design system ; pas de framework utilitaire imposé) |
-| Accessibilité | WCAG 2.1 AA minimum : sémantique, `<h1>` par vue, focus visible, `prefers-reduced-motion`, contrastes vérifiés automatiquement, tests axe en CI |
-| Tests | Vitest + Vue Test Utils, Playwright + axe pour l'e2e accessibilité |
+| Framework | Nuxt 4 (Vue 3, TypeScript strict), dernière majeure (D1 : Nuxt 4.6.4 et `@nuxtjs/i18n` 10.6.0 au 19 nov. 2026) ; génération statique (`nuxt generate`) à partir de `GET /cv` pour fr et en, aucun serveur Node du front en production (D2) |
+| i18n | `@nuxtjs/i18n`, FR par défaut sans préfixe, EN, URLs préfixées (`/en/...`), `lang` et `hreflang` |
+| Styles | CSS natif et variables (`tokens.css` du handoff v6), base en `rem` ; polices auto-hébergées (D6) ; pas de framework utilitaire |
+| Accessibilité | WCAG **2.2** AA (inclut le 2.1 AA initial, D4) : sémantique, `<h1>` par vue, focus visible, `prefers-reduced-motion`, contrastes vérifiés, axe dans les e2e sur chaque section, deux thèmes et contraste renforcé |
+| Tests | Vitest (unitaires et composants avec `@nuxt/test-utils` et Vue Test Utils), couverture 100 % sur `apps/web/app` sans exclusion (D3) ; mutation Stryker sur `app/domain` et `app/data` ; Playwright + axe pour les parcours, navigateurs dans l'image Docker officielle de Playwright (rien d'installé sur l'hôte) |
+| Statistiques | aucune pour l'instant (D8) |
 
 ## Hébergement
-VPS, Docker Compose, Caddy en frontal (TLS automatique), aucun port base de données exposé.
+VPS, Docker Compose, Caddy en frontal (TLS automatique), aucun port base de données exposé. Depuis le 25 nov.
+2026 la production est entièrement statique : un seul conteneur Caddy sert l'archive du site de la release, sans
+API ni base sur le serveur (voir « Plus d'API en production »).
 
 ## Monorepo
 ```
 personnalWebsite_V3/
   apps/api/            NestJS
-  apps/web/            Nuxt (plus tard)
+  apps/web/            Nuxt 4 (génération statique)
   packages/contracts/  schémas Zod + types partagés + OpenAPI exporté
   db/migrations/       SQL manuel
   db/seeds/            contenu SQL idempotent

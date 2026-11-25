@@ -7,3 +7,10 @@ coverage
 pnpm-lock.yaml
 # Documents de décision validés : on ne les reformate pas automatiquement.
 docs/
+# Front : sorties de Nuxt et de Playwright (Prettier ne lit que le .gitignore racine).
+.nuxt
+.output
+test-results
+playwright-report
+# Handoff de design v6 versionné tel quel (référence du front, D7 de docs/05) : jamais reformaté.
+apps/web/design/

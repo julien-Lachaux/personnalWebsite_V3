@@ -1,6 +1,9 @@
 # Caddy obtient et renouvelle seul le certificat TLS de {$SITE_DOMAIN}.
 # (`SITE_DOMAIN=localhost` donne un certificat interne auto-signé pour l'essai local.)
 
+# Mode travaux : extraits (wip-on, wip-off…) importés dans le bloc du site (docker/wip.caddy).
+import /etc/caddy/wip.caddy
+
 # Redirection HTTP vers HTTPS écrite à la main (et non l'automatique de Caddy) pour pouvoir retirer
 # l'en-tête `Server`, qui annonce le logiciel. PUBLIC_HTTPS_PORT : port HTTPS publié (443 en prod).
 http://{$SITE_DOMAIN:localhost} {
@@ -14,9 +17,18 @@ http://{$SITE_DOMAIN:localhost} {
 	# Journal d'accès (JSON, sortie standard) : sert à vérifier l'IP réelle des clients, surtout IPv6
 	# (voir docs/deploiement.md, « IP des clients et rate limiting »). Contient des adresses IP :
 	# rotation et durée de conservation limitées (compose.prod.yml, `logging`).
+	# La clé du mode travaux (`?acces=`, docker/wip.caddy) n'est jamais journalisée : le paramètre est retiré
+	# de l'URI de chaque entrée.
 	log {
 		output stdout
-		format json
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					delete acces
+				}
+			}
+		}
 	}
 
 	header {
@@ -26,6 +38,9 @@ http://{$SITE_DOMAIN:localhost} {
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server
 	}
+
+	# Mode travaux (WIP_MODE, docker/wip.caddy) : sans effet tant que WIP_MODE vaut off.
+	import wip-{$WIP_MODE:off}
 
 	# API en lecture seule : l'API répond elle-même aux méthodes d'écriture (405 problem+json avec
 	# `Allow` sur une route existante, 404 sinon) et pose ses propres en-têtes de sécurité : ce qu'elle
@@ -48,18 +63,99 @@ http://{$SITE_DOMAIN:localhost} {
 		reverse_proxy api:3000
 	}
 
-	# Tant que le front n'existe pas : page statique minimale (aucune ressource externe).
+	# Front statique (BF-14) : /srv/web/current est le lien du volume du site, basculé atomiquement par
+	# web-generate.sh vers releases/<id>/ qui contient public/ (pages, _nuxt/, fonts/, cv/) et csp.caddy
+	# (CSP et empreintes de cette génération, relevées par csp-hashes.mjs). Le rechargement de Caddy
+	# (site.sh) relit csp.caddy après chaque publication. L'importation par motif n'échoue pas si aucune
+	# version n'est encore publiée (première installation) : le site répond alors 404 sans CSP.
+
+	# D15 : la langue par défaut n'a pas de préfixe ; `/fr` et `/fr/*` redirigent (301) vers le même
+	# chemin sans préfixe (doublure de la page `meta refresh` que Nuxt génère, en 200). Une suite
+	# mal formée (`/fr//hote`, `/fr/%09/hote`…) donnerait `//hote` après nettoyage par le navigateur : une
+	# redirection hors du site, refusée par la liste blanche ci-dessous (404).
+	#
+	# Le matcher `path` nettoie le chemin (docs Caddy : « multiple slashes are merged ») : `/fr//hote`
+	# y devient `/fr/hote` et la garde ci-dessous ne le voit plus (constaté : 301 au lieu de 404).
+	# Le chemin d'origine, non nettoyé, est lu par `vars_regexp` sur `{http.request.orig_uri.path}` :
+	# `/fr/` suivi de `/` ou `\` donne une erreur 404 (page 404 du front) avant la redirection.
+	# Liste blanche : seul un chemin d'origine `/fr/` suivi d'un premier caractère de [A-Za-z0-9._~-] puis
+	# d'aucun caractère de contrôle, espace, `\` ni `//` est redirigé ; tout autre chemin sous `/fr/` donne
+	# une 404. Le chemin d'origine est lu décodé : `%09`, `%0d`, `%0a`, `%20`, `%2F`, `%5C` sont refusés
+	# comme leurs caractères, `%252F` (devenu `%2F`) parce que `%` n'est pas dans la liste.
+	@frbad {
+		vars_regexp frbad {http.request.orig_uri.path} ^/fr/
+		not vars_regexp frok {http.request.orig_uri.path} ^/fr/(?:[A-Za-z0-9._~-][^\x00-\x20\x7f\\]*)?$
+	}
+	handle @frbad {
+		error 404
+	}
+	@frdbl vars_regexp frdbl {http.request.orig_uri.path} ^/fr/.*//
+	handle @frdbl {
+		error 404
+	}
+
+	@fr path_regexp fr ^/fr(?:/([A-Za-z0-9._~-][^\x00-\x20\x7f\\]*)?)?$
+	handle @fr {
+		redir * /{re.fr.1} permanent
+	}
+
 	handle {
-		header Content-Security-Policy "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
-		header X-Frame-Options "SAMEORIGIN"
-		root * /srv/placeholder
+		import /srv/web/current/csp.*
+		header X-Frame-Options "DENY"
+		# Fichiers à empreinte de Nuxt : le nom change avec le contenu, jamais de revalidation. Polices
+		# (noms de version fixes, jamais modifiées sur place) : une semaine. Pages et PDF : revalidation
+		# (ETag) à chaque visite, la nouvelle version est servie dès sa publication.
+		@immutable path /_nuxt/*
+		@fonts path /fonts/*
+		@revalidate not path /_nuxt/* /fonts/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		header @fonts Cache-Control "public, max-age=604800"
+		header @revalidate Cache-Control "no-cache"
+
+		root * /srv/web/current/public
+		# `/en` sert en/index.html sans redirection vers `/en/`.
+		try_files {path} {path}/index.html
 		file_server
 	}
 
 	# Erreurs produites par Caddy (413 du plafond de corps, 502 si l'API est arrêtée…) : sans `Server`.
+	# Une route inconnue du front (404 du file_server) sert la vraie page 404 du front, avec son statut.
+	# Une erreur serveur (500, 502, 503, 504) sert la page autonome 50x du front (lot 30) : par réécriture
+	# (jamais de redirection : « Réessayer » recharge l'adresse affichée), avec le statut de l'erreur, la CSP
+	# du front et `no-cache`. Sous /api/*, rien ne change : réponse texte brute de la dernière branche
+	# (réponse HTML ou JSON de l'API en erreur : ticket séparé).
 	handle_errors {
 		header -Server
 		header X-Frame-Options "DENY"
-		respond "{err.status_code} {err.status_text}" {err.status_code}
+		# Pages d'erreur du front (404 partout, 50x hors /api/*) : CSP du front importée une seule fois.
+		@fronterr expression {err.status_code} == 404 || (!path('/api/*') && {err.status_code} in [500, 502, 503, 504])
+		handle @fronterr {
+			import /srv/web/current/csp.*
+			header Cache-Control "no-cache"
+			root * /srv/web/current/public
+			@front404 expression {err.status_code} == 404
+			handle @front404 {
+				# Pages 404 prérendues : en anglais sous /en, en français ailleurs.
+				# La réécriture française d'abord, puis l'anglaise, décidée sur le chemin d'origine (le chemin
+				# courant est déjà réécrit).
+				@en404 vars_regexp en404 {http.request.orig_uri.path} ^/en(?:/|$)
+				rewrite * /404.html
+				rewrite @en404 /en/404.html
+				file_server {
+					status 404
+				}
+			}
+			handle {
+				@en50x vars_regexp en50x {http.request.orig_uri.path} ^/en(?:/|$)
+				rewrite * /50x.html
+				rewrite @en50x /en/50x.html
+				file_server {
+					status {err.status_code}
+				}
+			}
+		}
+		handle {
+			respond "{err.status_code} {err.status_text}" {err.status_code}
+		}
 	}
 }

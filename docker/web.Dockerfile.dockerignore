@@ -1,0 +1,30 @@
+# Contexte de build de docker/web.Dockerfile : front, contrats et scripts de génération seulement.
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+# Dossiers parents réinclus explicitement (eux seuls, sans leur contenu) : Buildah (podman build) ne
+# descend pas dans un dossier exclu par `**` pour y trouver les `!…/**` ; Docker n'en a pas besoin.
+!apps
+!apps/web
+!apps/web/**
+!packages
+!packages/contracts
+!packages/contracts/**
+!scripts
+!scripts/deploy
+!scripts/deploy/web-generate.sh
+!scripts/deploy/csp-hashes.mjs
+apps/web/design
+apps/web/test
+apps/web/.nuxt
+apps/web/.output
+apps/web/.data
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/*.tsbuildinfo
+**/.turbo
+**/coverage

@@ -1,0 +1,276 @@
+/*
+ * Design tokens du front V3 (ticket F1-01), repris du handoff v6 : `design/handoff-v6/tokens.css` et
+ * `design-tokens.json`. Fichier partagé, réservé au lead-architecte. Les couleurs sont celles du
+ * handoff, à l'identique (vérifié par tokens.spec.ts, avec les contrastes) ; on ne les retouche pas
+ * ici sans décision.
+ *
+ * INTERFACE PRÉFÉRENCES → CSS : les attributs de la racine <html>, et eux seuls.
+ * Le code (script de thème sans flash D5, composable `preferences` F2b, panneau F3) pose ces
+ * attributs ; la CSS n'en lit pas d'autre et aucun composant ne recalcule une couleur en JS.
+ *
+ *   attribut          valeurs            absent (ou autre valeur)
+ *   data-theme        sombre | clair     suit `prefers-color-scheme` (repli sans JavaScript)
+ *   data-contrast     renforce           contraste normal ; n'agit qu'avec data-theme posé
+ *   data-text-size    100 | 115 | 130    100 : taille racine = 100 % de la taille du navigateur
+ *   data-font         lisible            Space Grotesk et JetBrains Mono ; `lisible` = Atkinson
+ *                                        Hyperlegible partout (seul cas où elle est téléchargée)
+ *   data-spacing      augmente           espacement normal ; `augmente` = WCAG 1.4.12 (SPEC § 10.1) :
+ *                                        interligne 1,5, lettres 0,12 em, mots 0,16 em
+ *   data-links        soulignes          soulignement propre à chaque composant ; `soulignes` =
+ *                                        tous les liens soulignés
+ *   data-motion       reduit | normal    suit `prefers-reduced-motion` ; `reduit` coupe les
+ *                                        animations, `normal` les garde même si le système demande
+ *                                        de les réduire (choix explicite de l'utilisateur)
+ *
+ * Le script de thème pose toujours `data-theme` (valeur mémorisée, sinon celle du système) : le
+ * repli sur `prefers-color-scheme` ne sert que sans JavaScript, avant lui, ou s'il échoue.
+ *
+ * Variables exposées aux composants : couleurs (`--bg`, `--text`, `--accent`…, rôles dans
+ * design-tokens.json), polices (`--font-sans`, `--font-mono`, `--font-readable`), graisses, tailles
+ * du texte en rem (`--font-size-*`), rayons, bordures, espacements et tailles du handoff, durées
+ * (`--dur-*`) et courbes (`--ease-*`) d'animation. Toute taille de texte est en rem : 1rem suit le
+ * réglage `data-text-size` et la taille choisie dans le navigateur ; aucune taille de texte en px.
+ * Toute transition ou animation utilise une durée `--dur-*` : elles valent 0,01 ms quand le
+ * mouvement est réduit (et non 0, pour que `transitionend` et `animationend` arrivent toujours).
+ */
+
+:root {
+  /* Polices (fonts.css) et graisses. */
+  --font-sans: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-readable: 'Atkinson Hyperlegible', Verdana, sans-serif;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Tailles du texte : valeurs du handoff divisées par 16 (1rem = 16 px à 100 %). */
+  --font-size-meta: 0.8125rem; /* 13 px */
+  --font-size-small: 0.875rem; /* 14 px */
+  --font-size-body: 0.9375rem; /* 15 px */
+  --font-size-body-mobile: 1rem; /* 16 px */
+  --font-size-lead: 1.0625rem; /* 17 px */
+  --font-size-lead-mobile: 1.125rem; /* 18 px */
+  --font-size-h2-section: 1.875rem; /* 30 px */
+  --font-size-h1-desktop: 3.125rem; /* 50 px */
+  --font-size-h1-portable: 2.5rem; /* 40 px */
+  --font-size-h1-mobile: 2.875rem; /* 46 px */
+  --font-size-h1-tablet: 3.75rem; /* 60 px */
+  /* Ajout du lot F5c, hors design-tokens.json : titre d'une tuile du bureau (titre de l'IA, 22 px des
+     maquettes desktop). */
+  --font-size-h3-tile: 1.375rem; /* 22 px */
+
+  /* Facteur de la taille racine (réglage « taille du texte », SPEC § 10.1), lu par base.css. */
+  --text-scale: 1;
+
+  /* Rayons, bordures. */
+  --radius-chip: 6px;
+  --radius-control: 8px;
+  --radius-button: 10px;
+  --radius-window: 12px;
+  --radius-pill: 999px;
+  --border-width: 1.5px;
+  --border-strong: var(--border-width) solid var(--line);
+  --border-thin: var(--border-width) solid var(--hair);
+  --border-dashed: var(--border-width) dashed var(--line);
+
+  /* Espacements et largeurs de mise en page. */
+  --tile-gap: 12px;
+  --tile-padding: 24px;
+  --mobile-gutter: 20px;
+  --tablet-column: 640px;
+  --content-max: 820px;
+  --tile-max-expanded: 868px;
+  --page-max: 1440px;
+  --side-column-min: 340px;
+
+  /* Tailles des éléments d'interface. */
+  --touch-target: 44px;
+  --desktop-control: 40px;
+  --mobile-header: 52.5px;
+  --desktop-header: 56px;
+  --mobile-nav: 64px;
+  --mobile-cta-bar: 66px;
+  --tile-title-bar: 44px;
+
+  /* Mouvement (ticket F1-06) : durées réduites plus bas, distance du glissement entre onglets. */
+  --ease-tile: cubic-bezier(0.4, 0, 0.15, 1);
+  --ease-ui: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-press: cubic-bezier(0.3, 0.7, 0.4, 1);
+  --dur-tile: 550ms;
+  --dur-accordion: 320ms;
+  --dur-drawer: 280ms;
+  --dur-cta-bar: 260ms;
+  --dur-press: 160ms;
+  --slide-distance: 64px;
+}
+
+/* Taille du texte : 115 % et 130 % de la taille de base (100 % par défaut). */
+:root[data-text-size='115'] {
+  --text-scale: 1.15;
+}
+
+:root[data-text-size='130'] {
+  --text-scale: 1.3;
+}
+
+/* Police plus lisible : Atkinson Hyperlegible remplace les deux familles. Les composants utilisent
+   `var(--font-sans)` et `var(--font-mono)`, jamais un nom de police écrit en dur. */
+:root[data-font='lisible'] {
+  --font-sans: var(--font-readable);
+  --font-mono: var(--font-readable);
+}
+
+/* Mouvement réduit : réglage explicite, ou système sauf choix contraire (`data-motion="normal"`). */
+:root[data-motion='reduit'] {
+  --dur-tile: 0.01ms;
+  --dur-accordion: 0.01ms;
+  --dur-drawer: 0.01ms;
+  --dur-cta-bar: 0.01ms;
+  --dur-press: 0.01ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='normal']) {
+    --dur-tile: 0.01ms;
+    --dur-accordion: 0.01ms;
+    --dur-drawer: 0.01ms;
+    --dur-cta-bar: 0.01ms;
+    --dur-press: 0.01ms;
+  }
+}
+
+/* Thème clair : valeur de `data-theme="clair"`, et repli sans attribut quand le système n'est pas
+   en sombre. */
+:root:not([data-theme]),
+:root[data-theme='clair'] {
+  color-scheme: light;
+  --bg: #e6ebe5;
+  --card: #ffffff;
+  --line: #14262b;
+  --text: #14262b;
+  --muted: #4f5b5e;
+  --bar: #dad2ee;
+  --top: #f3f6f1;
+  --accent: #1f5c4d;
+  --on: #ffffff;
+  --violet: #5546b5;
+  --hair: #dde3da;
+  --field: #ffffff;
+  --neon: #1f5c4d;
+  --neon-bg: rgba(31, 92, 77, 0.1);
+  --neon-glow: rgba(10, 107, 79, 0);
+  --neon-in: rgba(10, 107, 79, 0);
+  --neon-txt: rgba(10, 107, 79, 0);
+  --violet-bg: rgba(85, 70, 181, 0.08);
+  --accent-bg: rgba(31, 92, 77, 0.16);
+  --press: rgba(20, 38, 43, 0.12);
+  --scrim: rgba(20, 38, 43, 0.45);
+  --shadow: 4px 4px 0 #1f5c4d;
+  --hov: brightness(0.94);
+  --hov-a: brightness(0.86);
+  --li: #0a5ea8;
+  --li-bg: rgba(10, 94, 168, 0.08);
+  --sen-fg: #ffffff;
+  --sen-bg: #1f5c4d;
+  --sen-sh: 2px 2px 0 #14262b;
+}
+
+/* Thème sombre. Le bloc de repli (système en sombre, sans attribut) qui suit en est la copie
+   exacte, vérifiée par tokens.spec.ts : la CSS ne sait pas appliquer un même bloc sous un sélecteur
+   et sous une requête média à la fois. */
+:root[data-theme='sombre'] {
+  color-scheme: dark;
+  --bar: #2a2547;
+  --top: #1b2a34;
+  --bg: #101a21;
+  --card: #17242d;
+  --line: #3a4b57;
+  --text: #e9eee8;
+  --muted: #a9b6be;
+  --accent: #7fd1b5;
+  --on: #101a21;
+  --violet: #bdb0f2;
+  --hair: #24343f;
+  --field: #101a21;
+  --neon: #4dffb4;
+  --neon-bg: rgba(77, 255, 180, 0.08);
+  --neon-glow: rgba(77, 255, 180, 0.5);
+  --neon-in: rgba(77, 255, 180, 0.18);
+  --neon-txt: rgba(77, 255, 180, 0.6);
+  --violet-bg: rgba(189, 176, 242, 0.08);
+  --accent-bg: rgba(127, 209, 181, 0.12);
+  --press: rgba(255, 255, 255, 0.14);
+  --scrim: rgba(6, 11, 15, 0.66);
+  --shadow: 4px 4px 0 #1f5c4d;
+  --hov: brightness(1.15);
+  --hov-a: brightness(0.9);
+  --li: #79b8ff;
+  --li-bg: rgba(121, 184, 255, 0.1);
+  --sen-fg: var(--neon);
+  --sen-bg: var(--neon-bg);
+  --sen-sh: 0 0 14px var(--neon-glow), inset 0 0 8px var(--neon-in);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bar: #2a2547;
+    --top: #1b2a34;
+    --bg: #101a21;
+    --card: #17242d;
+    --line: #3a4b57;
+    --text: #e9eee8;
+    --muted: #a9b6be;
+    --accent: #7fd1b5;
+    --on: #101a21;
+    --violet: #bdb0f2;
+    --hair: #24343f;
+    --field: #101a21;
+    --neon: #4dffb4;
+    --neon-bg: rgba(77, 255, 180, 0.08);
+    --neon-glow: rgba(77, 255, 180, 0.5);
+    --neon-in: rgba(77, 255, 180, 0.18);
+    --neon-txt: rgba(77, 255, 180, 0.6);
+    --violet-bg: rgba(189, 176, 242, 0.08);
+    --accent-bg: rgba(127, 209, 181, 0.12);
+    --press: rgba(255, 255, 255, 0.14);
+    --scrim: rgba(6, 11, 15, 0.66);
+    --shadow: 4px 4px 0 #1f5c4d;
+    --hov: brightness(1.15);
+    --hov-a: brightness(0.9);
+    --li: #79b8ff;
+    --li-bg: rgba(121, 184, 255, 0.1);
+    --sen-fg: var(--neon);
+    --sen-bg: var(--neon-bg);
+    --sen-sh: 0 0 14px var(--neon-glow), inset 0 0 8px var(--neon-in);
+  }
+}
+
+/* Contraste renforcé (palette `highContrast` du handoff) : surcharge le thème posé. */
+:root[data-theme='sombre'][data-contrast='renforce'] {
+  --bg: #0a1116;
+  --card: #0e181f;
+  --top: #14212a;
+  --bar: #2e2852;
+  --text: #ffffff;
+  --muted: #e9eee8;
+  --line: #a9bcc7;
+  --hair: #6e8390;
+  --accent: #9bebd0;
+  --violet: #dcd3ff;
+  --li: #a6d0ff;
+}
+
+:root[data-theme='clair'][data-contrast='renforce'] {
+  --bg: #ffffff;
+  --card: #ffffff;
+  --top: #ffffff;
+  --text: #000000;
+  --muted: #14262b;
+  --line: #000000;
+  --hair: #14262b;
+  --accent: #123f34;
+  --violet: #3b2a99;
+  --li: #07467e;
+}

@@ -118,8 +118,8 @@ describe('schéma Drizzle et base migrée', () => {
     expect(drizzleForeignKeys()).toEqual(actual);
   });
 
-  it('déclare les 24 tables du schéma', () => {
+  it('déclare les 29 tables du schéma', () => {
     const tables = Object.values(schema).filter((value) => is(value, PgTable));
-    expect(tables).toHaveLength(24);
+    expect(tables).toHaveLength(29);
   });
 });

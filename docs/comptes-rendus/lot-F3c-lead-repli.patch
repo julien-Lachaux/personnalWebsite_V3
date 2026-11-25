@@ -1,0 +1,120 @@
+diff --git a/apps/web/app/components/shell/CvButton-repli.spec.ts b/apps/web/app/components/shell/CvButton-repli.spec.ts
+new file mode 100644
+index 0000000..3e37921
+--- /dev/null
++++ b/apps/web/app/components/shell/CvButton-repli.spec.ts
+@@ -0,0 +1,50 @@
++import { mountSuspended } from '@nuxt/test-utils/runtime';
++import { afterEach, beforeEach, describe, expect, it } from 'vitest';
++import { useRuntimeConfig } from '#imports';
++
++import CvButton from './CvButton.vue';
++
++// Repli du CV (D22) : la liste des CV présents est posée par chaque test (configuration publique de
++// l'application de test), pour ne pas dépendre du contenu de public/cv/.
++let original: string[] = [];
++
++beforeEach(() => {
++  original = useRuntimeConfig().public.cvFiles;
++});
++
++afterEach(() => {
++  useRuntimeConfig().public.cvFiles = original;
++});
++
++describe('CvButton, repli vers le CV français (D22)', () => {
++  it('sans CV anglais : lien vers le CV français, « (in French) » dans le nom, hreflang fr', async () => {
++    useRuntimeConfig().public.cvFiles = ['cv-fr.pdf'];
++
++    const wrapper = await mountSuspended(CvButton, {
++      route: '/en',
++      props: { href: '/cv/cv-en.pdf' },
++    });
++
++    const link = wrapper.get('a');
++    expect(link.attributes()).toMatchObject({
++      href: '/cv/cv-fr.pdf',
++      hreflang: 'fr',
++      type: 'application/pdf',
++    });
++    expect(link.text()).toBe('CV PDF (in French)');
++  });
++
++  it('avec le CV anglais : lien vers lui, sans mention ni hreflang', async () => {
++    useRuntimeConfig().public.cvFiles = ['cv-en.pdf', 'cv-fr.pdf'];
++
++    const wrapper = await mountSuspended(CvButton, {
++      route: '/en',
++      props: { href: '/cv/cv-en.pdf' },
++    });
++
++    const link = wrapper.get('a');
++    expect(link.attributes('href')).toBe('/cv/cv-en.pdf');
++    expect(link.attributes()).not.toHaveProperty('hreflang');
++    expect(link.text()).toBe('CV PDF');
++  });
++});
+diff --git a/apps/web/app/components/shell/CvButton.vue b/apps/web/app/components/shell/CvButton.vue
+index 93eff89..d0b71ae 100644
+--- a/apps/web/app/components/shell/CvButton.vue
++++ b/apps/web/app/components/shell/CvButton.vue
+@@ -1,18 +1,30 @@
+ <script setup lang="ts">
+ // « CV PDF » (F3-05) : lien vers le fichier du CV (`href`, fourni par la page : il viendra de l'API),
+ // téléchargé (`download`), annoncé comme PDF (`type`, D22), avec l'icône de téléchargement du handoff.
+-// La classe et les attributs reçus vont sur le lien.
++// Le CV de la langue absent, le lien mène au CV français, mention « (in French) » au libellé et
++// `hreflang` (useCvLink, D22). La classe et les attributs reçus vont sur le lien.
+ import { useI18n } from '#imports';
+ 
+ import LinkButton from '../base/LinkButton.vue';
++import { useCvLink } from '../../composables/shell/useCvLink.js';
+ 
+-withDefaults(defineProps<{ href: string; size?: 'sm' | 'md' | 'lg' }>(), { size: 'sm' });
++const props = withDefaults(defineProps<{ href: string; size?: 'sm' | 'md' | 'lg' }>(), {
++  size: 'sm',
++});
+ 
+ const { t } = useI18n();
++const link = useCvLink(() => props.href);
+ </script>
+ 
+ <template>
+-  <LinkButton :href="href" variant="outline" :size="size" type="application/pdf" download>
++  <LinkButton
++    :href="link.href"
++    :hreflang="link.hreflang"
++    variant="outline"
++    :size="size"
++    type="application/pdf"
++    download
++  >
+     <template #icon>
+       <svg
+         focusable="false"
+@@ -28,6 +40,6 @@ const { t } = useI18n();
+         <path d="M12 4v11M7 11l5 5 5-5M5 20h14" />
+       </svg>
+     </template>
+-    {{ t('shell.actions.cv') }}
++    {{ link.mention ? `${t('shell.actions.cv')} ${link.mention}` : t('shell.actions.cv') }}
+   </LinkButton>
+ </template>
+diff --git a/apps/web/test/cv.e2e.ts b/apps/web/test/cv.e2e.ts
+index d025ad0..64b9acf 100644
+--- a/apps/web/test/cv.e2e.ts
++++ b/apps/web/test/cv.e2e.ts
+@@ -11,9 +11,10 @@ import { expect, test } from '@playwright/test';
+ 
+ const cvDirectory = join(import.meta.dirname, '../public/cv');
+ 
+-// L'anglais s'ajoute avec le branchement du repli dans CvButton (compte rendu du lot F3c) : sans lui,
+-// le lien anglais mène à /cv/cv-en.pdf, absent.
+-const LOCALES = [{ code: 'fr', path: '/', fallbackName: 'CV PDF (en français)' }] as const;
++const LOCALES = [
++  { code: 'fr', path: '/', fallbackName: 'CV PDF (en français)' },
++  { code: 'en', path: '/en', fallbackName: 'CV PDF (in French)' },
++] as const;
+ 
+ for (const { code, path, fallbackName } of LOCALES) {
+   test(`${code} (${path}) : le lien « CV PDF » mène à un PDF servi`, async ({ page }) => {

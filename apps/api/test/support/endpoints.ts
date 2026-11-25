@@ -1,4 +1,5 @@
 import {
+  AiOverviewSchema,
   CertificationSchema,
   CvSchema,
   EducationSchema,
@@ -6,6 +7,7 @@ import {
   LanguageSchema,
   ProfileSchema,
   ProjectSchema,
+  RecommendationSchema,
   ResourceSchema,
   SkillGroupSchema,
   SkillSchema,
@@ -27,7 +29,7 @@ export interface Endpoint {
   seededCount: number | null;
 }
 
-/** Les 12 routes de contenu en lecture seule, sous `/api/v1`. */
+/** Les 14 routes de contenu en lecture seule, sous `/api/v1`. */
 export const ENDPOINTS: readonly Endpoint[] = [
   {
     name: 'profile',
@@ -41,7 +43,7 @@ export const ENDPOINTS: readonly Endpoint[] = [
     path: '/api/v1/social-links',
     schema: z.array(SocialLinkSchema),
     shape: 'list',
-    seededCount: 1,
+    seededCount: 2,
   },
   {
     name: 'skillGroups',
@@ -106,6 +108,20 @@ export const ENDPOINTS: readonly Endpoint[] = [
     shape: 'list',
     seededCount: 2,
   },
+  {
+    name: 'recommendations',
+    path: '/api/v1/recommendations',
+    schema: z.array(RecommendationSchema),
+    shape: 'list',
+    seededCount: 3,
+  },
+  {
+    name: 'aiOverview',
+    path: '/api/v1/ai-overview',
+    schema: AiOverviewSchema,
+    shape: 'object',
+    seededCount: null,
+  },
   { name: 'cv', path: '/api/v1/cv', schema: CvSchema, shape: 'object', seededCount: null },
 ];
 
@@ -122,6 +138,8 @@ export const TRANSLATION_TABLES = [
   'certifications_translations',
   'education_translations',
   'languages_translations',
+  'recommendations_translations',
+  'ai_overview_translations',
 ] as const;
 
 export function withLang(path: string, lang?: string): string {

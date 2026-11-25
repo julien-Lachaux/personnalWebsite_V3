@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Pile locale complète : docker/compose.prod.yml + docker/Caddyfile + image de l'API, sans rien dupliquer.
+# Pile locale complète : docker/compose.prod.yml + docker/Caddyfile + images de l'API et du front, sans rien dupliquer.
 # Seules les variables de docker/.env.local (copie ignorée par git de docker/.env.local.example) changent.
 #
 # Usage : local-stack.sh up | logs [service…] | ps | down [--volumes]
 #
 # Variables d'environnement reconnues :
 #   STACK_ENV_FILE      fichier d'environnement (défaut docker/.env.local, créé depuis le modèle s'il manque)
-#   DRY_RUN=1           affiche les commandes docker qui modifient l'état au lieu de les exécuter
-#   STACK_WAIT_SECONDS  délai d'attente de /api/v1/health via Caddy (défaut 180)
+#   DRY_RUN=1           affiche les commandes compose qui modifient l'état au lieu de les exécuter
+#   CONTAINER_ENGINE    podman ou docker (défaut : docker s'il est installé, sinon podman ; scripts/container-engine.sh)
+#   STACK_WAIT_SECONDS  délai d'attente de /api/v1/health puis de la page d'accueil via Caddy (défaut 180)
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -15,6 +16,8 @@ COMPOSE_FILE="${REPO_DIR}/docker/compose.prod.yml"
 EXAMPLE_FILE="${REPO_DIR}/docker/.env.local.example"
 ENV_FILE="${STACK_ENV_FILE:-${REPO_DIR}/docker/.env.local}"
 DRY_RUN="${DRY_RUN:-0}"
+# shellcheck source=scripts/container-engine.sh
+source "${REPO_DIR}/scripts/container-engine.sh"
 WAIT_SECONDS="${STACK_WAIT_SECONDS:-180}"
 
 log() { printf '[stack] %s\n' "$*"; }
@@ -35,11 +38,31 @@ init_compose() {
   if [ -f "${ENV_FILE}" ]; then
     name="$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' "${ENV_FILE}" | tail -n 1)"
   fi
-  COMPOSE=(docker compose)
+  COMPOSE=("${ENGINE}" compose)
   if [ -n "${name}" ]; then
     COMPOSE+=(-p "${name}")
   fi
-  COMPOSE+=(-f "${COMPOSE_FILE}" --env-file "${ENV_FILE}")
+  COMPOSE+=(-f "${COMPOSE_FILE}")
+  if [ "${ENGINE}" = podman ]; then
+    COMPOSE+=(-f "${REPO_DIR}/docker/compose.podman.yml")
+  fi
+  COMPOSE+=(--env-file "${ENV_FILE}")
+}
+
+# Fonctions attendues par site.sh (publication du front, partagée avec le déploiement).
+# Sous podman, docker-compose construit sans BuildKit : il ignore docker/web.Dockerfile.dockerignore
+# et prendrait le .dockerignore racine (celui de l'API), sans le front. L'image du front est alors
+# construite par `podman build`, avec son propre fichier d'exclusion et le nom attendu par compose.
+compose() {
+  if [ "${ENGINE}" = podman ] && [ "$*" = "build web-build" ]; then
+    podman build \
+      --file "${REPO_DIR}/docker/web.Dockerfile" \
+      --ignorefile "${REPO_DIR}/docker/web.Dockerfile.dockerignore" \
+      --tag siteperso-web-build:prod \
+      "${REPO_DIR}"
+    return
+  fi
+  "${COMPOSE[@]}" "$@"
 }
 
 run() {
@@ -99,6 +122,25 @@ wait_for_health() {
   log "pile prête : ${url} (certificat interne : curl -k)"
 }
 
+# shellcheck source=scripts/deploy/site.sh
+. "$(dirname "${BASH_SOURCE[0]}")/site.sh"
+
+# Le front est généré contre l'API (donc après sa santé) puis servi par Caddy : la page d'accueil répond 200.
+wait_for_front() {
+  local port url deadline
+  port="$(env_value HTTPS_PORT)"
+  url="https://localhost:${port:-8443}/"
+  deadline=$((SECONDS + WAIT_SECONDS))
+  until curl -sk --max-time 3 -o /dev/null -f "${url}"; do
+    if [ "${SECONDS}" -ge "${deadline}" ]; then
+      "${COMPOSE[@]}" ps --all >&2 || true
+      die "le front ne répond pas après ${WAIT_SECONDS} s (voir : pnpm stack:logs)"
+    fi
+    sleep 2
+  done
+  log "front prêt : ${url}"
+}
+
 command="${1:-}"
 if [ "$#" -gt 0 ]; then
   shift
@@ -117,8 +159,12 @@ if [ "${command}" = "down" ] && [ "$#" -gt 0 ] && [ "$*" != "--volumes" ]; then
   die "option inconnue pour down : $* (seule --volumes est acceptée)"
 fi
 
-command -v docker >/dev/null 2>&1 || die "docker est introuvable"
-docker compose version >/dev/null 2>&1 || die "le plugin « docker compose » est introuvable"
+ENGINE="$(container_engine)" || die "aucun moteur de conteneurs utilisable"
+if [ "${ENGINE}" = podman ]; then
+  # Bandeau « Executing external compose provider » de `podman compose` coupé.
+  export PODMAN_COMPOSE_WARNING_LOGS=false
+fi
+"${ENGINE}" compose version >/dev/null 2>&1 || die "« ${ENGINE} compose » est introuvable"
 
 ensure_env_file
 init_compose
@@ -130,6 +176,10 @@ up)
     log "(dry-run) attendrait /api/v1/health via Caddy"
   else
     wait_for_health
+  fi
+  publish_site
+  if [ "${DRY_RUN}" != "1" ]; then
+    wait_for_front
   fi
   ;;
 logs) "${COMPOSE[@]}" logs --follow --tail 100 "$@" ;;

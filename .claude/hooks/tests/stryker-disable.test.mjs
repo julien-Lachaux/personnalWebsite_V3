@@ -55,14 +55,14 @@ function write(rel, content) {
 }
 
 function integrity() {
-  const res = spawnSync('bash', [INTEGRITY, 'v3/backend'], { cwd: repo, encoding: 'utf8' });
+  const res = spawnSync('bash', [INTEGRITY, 'develop'], { cwd: repo, encoding: 'utf8' });
   return { code: res.status, out: `${res.stdout}${res.stderr}` };
 }
 
 beforeEach(() => {
   repo = mkdtempSync(join(tmpdir(), 'directives-stryker-'));
   temps.push(repo);
-  sh(repo, 'git', ['init', '-q', '-b', 'v3/backend']);
+  sh(repo, 'git', ['init', '-q', '-b', 'develop']);
   write('apps/api/src/app.ts', "export const mode = 'false';\n");
   commitAll('base');
   sh(repo, 'git', ['checkout', '-q', '-b', 'lot/essai']);
@@ -91,9 +91,15 @@ describe('Intégrité (CI) : directives Stryker disable', () => {
   });
 
   it('accepte une directive justifiée qui cite un mutant équivalent déclaré', () => {
-    write('apps/api/stryker.equivalents.json', EQUIVALENTS);
+    // L14-02 : l'équivalent déclare son mutateur, la justification cite son identifiant.
+    write(
+      'apps/api/stryker.equivalents.json',
+      '{ "equivalents": [{ "id": "API-EQ-01", "file": "src/app.ts", "line": 2, "mutator": "StringLiteral" }] }\n',
+    );
     write('apps/api/src/app.ts', `${DIRECTIVE}: API-EQ-01 raison\nexport const mode = 'false';\n`);
-    commitAll(JUSTIFIED);
+    commitAll(
+      'chore(mutation): équivalent\n\nJustification-test: MUT-9 API-EQ-01 mutant équivalent vérifié un à un',
+    );
     const r = integrity();
     assert.equal(r.code, 0, r.out);
   });

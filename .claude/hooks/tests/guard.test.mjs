@@ -314,6 +314,9 @@ describe('PreToolUse : shell', () => {
   });
 
   it('accepte les commandes ordinaires', () => {
+    // L14-06 : un agent travaille sur sa branche, jamais sur main (refusée à l'écriture).
+    sh(repo, 'git', ['branch', '-m', 'develop']);
+    assert.equal(sh(repo, 'git', ['symbolic-ref', '--short', 'HEAD']).trim(), 'develop');
     for (const command of [
       'pnpm check',
       'git status && git diff --stat',
@@ -455,7 +458,7 @@ describe('Exception contrôlée et auditée', () => {
       authorize([
         'grant',
         '--agent',
-        'dev-api',
+        'dev-devops',
         '--scope',
         'tests',
         '--ticket',

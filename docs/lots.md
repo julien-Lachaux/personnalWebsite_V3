@@ -2,9 +2,12 @@
 
 Synthèse, lot par lot, de ce qui a été fait depuis le 18 novembre 2026. Chaque lot a sa branche
 `lot/N-nom`, un worktree isolé, un agent (ou deux) qui livre, une recette du chef de projet, puis une
-fusion `--no-ff` dans `v3/backend` par l'orchestrateur. Le détail de chaque lot est dans
+fusion `--no-ff` dans la branche d'intégration par l'orchestrateur : `v3/backend` jusqu'au lot 12,
+`develop` depuis le lot 13 (git flow). Le détail de chaque lot est dans
 `docs/comptes-rendus/lot-N-*.md` ; les tickets et critères dans `docs/backlog.md` ; les décisions de
-référence dans `docs/01` à `docs/03`. Rien n'est poussé sur GitHub à ce jour.
+référence dans `docs/01` à `docs/03`. Premier push sur GitHub (dépôt privé) le 19 novembre 2026 au soir,
+après la revue de sécurité de pré-publication (`docs/revues/securite-pre-publication-2026-11-19.md`) :
+`main` (avance rapide depuis l'intégration) et l'ancienne `v3/backend`, renommée `develop` au lot 13.
 
 | Lot | Nom | Agent(s), modèle | Fusionné | Tests après fusion |
 | --- | --- | --- | --- | --- |
@@ -24,6 +27,14 @@ référence dans `docs/01` à `docs/03`. Rien n'est poussé sur GitHub à ce jou
 | 10 | Pile locale complète avec Caddy | dev-devops (agent du dépôt), Sonnet | ecb6d7f | 561 e2e avec la pile, 100 % |
 | 11 | Test par mutation, phase 1 | lead-architecte (agent du dépôt), Opus | dc0d9d4 | score de référence 32 % (contrats et API) |
 | 12 | Test par mutation, phase 2 : la règle | qa Sonnet, lead-architecte Opus, chef-de-projet Sonnet | 5ee5690 | 133 + 389 unitaires, 552 e2e, mutation 100 % / 40,87 % |
+| 13 | Git flow : `develop`, push de la session principale | lead-architecte Opus, chef-de-projet Sonnet | 802360b | 115 tests hooks, 133 + 391 unitaires, 552 e2e, 100 % |
+| 13 bis | Durcissement des refus de push et de l'analyseur | lead-architecte Opus, chef-de-projet Sonnet | fb31042 | 527 tests hooks, 133 + 391 unitaires, 552 e2e, 100 % |
+| 14 | Garde-fous, CI, e2e de l'API en parallèle, `pnpm check` en une passe (L14-01 à 03, 06 à 17) | dev-api Sonnet, lead-architecte Opus (×3), dev-devops Sonnet, chef-de-projet Sonnet | e7607a4 | 768 tests hooks, 13 husky, 220 + 430 unitaires, 764 e2e de l'API (20 s au lieu de 254 s), 100 %, mutation API seuil 41 |
+| 15 | Brief back-001 du front (BF-1 à BF-7) | dev-sql Sonnet, dev-api Sonnet, chef-de-projet Sonnet | baa259d | 220 + 430 unitaires, 705 e2e, 100 %, mutation 100 % / 42,03 % |
+| 16 | Briefs back-002 et back-003 : intégrité des tests, instantanés des hooks (BF-8 à BF-11) | lead-architecte Opus, chef-de-projet Sonnet | c382bae | 569 tests hooks (20 ajoutés), scripts d'intégrité verts, 100 % |
+| 17 | Brief back-004 : lieu nul de l'expérience OpenClassrooms (BF-12) | dev-sql Sonnet, chef-de-projet Sonnet | d5f2097 | 1 e2e ajouté (5 cas), 100 % |
+| 18 | Suites du lot 14 : lecture de `core.hooksPath`, branche suivie refusée aux agents (L18-01, 02) | lead-architecte Opus, chef-de-projet Sonnet | fef4db5 | 798 tests hooks, `pnpm check` vert sans cache (400 s), 100 % |
+| 19 | Main par options collées, `core.hooksPath` par l'environnement, `TEST_MAX_WORKERS`, règle D26 (L19-01 à 04) | lead-architecte Opus, chef-de-projet Sonnet | f408999 | 842 tests hooks, `pnpm check` vert (386 s), 100 % |
 
 ## Lot 0 : fondations
 
@@ -224,6 +235,126 @@ référence dans `docs/01` à `docs/03`. Rien n'est poussé sur GitHub à ce jou
   d'intégrité le fait) ; le contrôle Justification-test des directives est par fichier, pas par
   ligne ; durée réelle du job CI inconnue avant le premier push ; défaut latent `detailOf` sur une
   réponse `null`. Phase 3 (e2e sous Stryker) à cadrer.
+
+## Lot 13 : git flow
+
+- **Décision de Julien (19 nov. 2026, après le premier push)** : git flow. `develop` remplace
+  `v3/backend` comme branche d'intégration ; la session principale, et elle seule, pousse `develop` ;
+  les onze agents ne poussent jamais ; toute fusion dans `main` (`release/*`, `hotfix/*`), les
+  étiquettes, le push de `main` et le déploiement sont réservés à Julien.
+- **Livré** : le hook n'accepte plus que `git push [-u] origin develop` (avec `-C <chemin>`), pour la
+  session principale ; tout le reste est refusé avec son motif (agents, force, suppression, `main`,
+  étiquettes, refspec absente ou multiple, redéfinition de destination, alias). `.claude/settings.json`
+  remplace le refus de tout push par des refus ciblés. Base du script d'intégrité et de la CI :
+  `develop` ; CI déclenchée sur `develop`, `main`, `release/**`, `hotfix/**`, `lot/**` et les PR. Les
+  scripts de déploiement refusent toute branche autre que `main`, sans surcharge possible. 69 tests de
+  push ajoutés (115 tests de hooks).
+- **Recette** : acceptée avec réserves, environ 115 formes de push rejouées. Trous hérités de
+  l'analyseur de commandes, non introduits par le lot : push enveloppé dans un bloc (`{ }`, `if`, `for`,
+  `!`, fonction), plomberie `send-pack` et `http-push`, redéfinition d'`origin` par `git remote set-url`
+  ou `git config`, option `-c` collée, commandes `gh` qui fusionnent ou étiquettent côté GitHub. Plus un
+  défaut de l'outil d'autorisation hors session (option `--path-format` inconnue du git 2.30 de l'hôte).
+  Durcissement confié au lot suivant.
+
+## Lot 13 bis : durcissement des refus de push et de l'analyseur de commandes
+
+- **Livré** : l'analyseur de commandes des hooks devient récursif (blocs, `if`, boucles, `case`, `!`,
+  fonctions, `coproc`, substitutions de processus, documents en ligne) et lit bash comme zsh ; principe
+  « illisible donc refusé » sur toutes les règles (syntaxe incomplète, nom de commande ou cible d'écriture
+  calculés, sous-commande git inconnue, script écrit et exécuté par la même commande). Refusés à tous les
+  rôles : plomberie de push (`send-pack`, `http-push`, `git svn dcommit`, `git p4 submit`), redéfinition
+  de la destination (`git remote set-url|add|rename|remove`, écritures `git config` sur `remote.*`,
+  `url.*`, `push.*`, `include*`, édition des fichiers de configuration git), option `-c` collée et
+  options globales non listées avec `git push`, commandes `gh` qui fusionnent, étiquettent, publient ou
+  suppriment. Alias git résolus et analysés. Racine d'état corrigée pour le git 2.30 de l'hôte.
+- **Mesure** : sur les 130 commandes de la recette du lot 13, 64 verdicts passent de permis à refusé ;
+  un agent n'a plus aucune forme de push permise. 527 tests de hooks (115 avant), aucun test existant
+  modifié.
+- **Recette** : acceptée ; 88 commandes courantes de l'orchestrateur rejouées, toutes permises. Effet à
+  connaître : une variable shell dans un chemin d'écriture est désormais refusée, les chemins s'écrivent
+  en clair.
+- **Décisions de Julien du même jour** : étiquette locale et déplacement local de `develop` restent
+  permis ; toute écriture de la branche locale `main` sera refusée (lot 14, L14-06).
+
+## Lot 15 : brief back-001 de la session front
+
+- **Livré** (BF-1 à BF-7, un commit par ticket) : profil restructuré selon le design v6 (neuf champs
+  `not null` et non vides, `headline`, `bio`, `availability` supprimés), `shownInStack` sur les
+  compétences d'une expérience, `mainStackOrder` sur les compétences, lien des recommandations LinkedIn
+  (lien social), ressources `/recommendations` et `/ai-overview` avec leurs clés dans `/cv`, contrat
+  OpenAPI à 15 chemins. Migrations 0011 à 0016, docs/01 et README des contrats à jour.
+- **Organisation** : trois étapes sur une seule branche (ajouts SQL, puis contrat et API par ticket, puis
+  état final du profil), l'ordre « contrat d'abord, fusionné seul » du brief étant impossible avec le
+  pre-commit. Première application de la portée « tests » des dev-* sous brief validé : 27 fichiers de
+  test existants modifiés, chacun sous `Justification-test: BF-n`, aucune assertion affaiblie.
+- **Mutation** : contrats 100 %, API 42,03 % (seuil 40, référence `develop` 40,77 %). Le 46,37 % mesuré
+  en fin d'étape 2 n'est pas reproductible (35 timeouts comptés comme tués selon la charge) ; mesure
+  rejouée 42,89 %.
+- **Recette** : acceptée ; 36 scénarios de réserve joués contre l'API, aucun échec de l'API.
+- **Écarts au brief** : BF-4 `published = true` (décision de Julien du 19 nov.), `cvPath` restreint à un
+  chemin relatif au site, `mainStackOrder` aussi dans les compétences imbriquées de `/projects`, slugs des
+  recommandations, libellés EN à relire (`docs/traductions-a-relire.md`).
+
+## Lot 16 : briefs back-002 et back-003 (intégrité des tests, instantanés des hooks)
+
+- **Livré** : BF-10, un fichier devenu oracle en cours de session (par une fusion) et resté identique au
+  `head` de l'instantané n'est plus pris pour une création ; BF-11, l'instantané d'un worktree retiré est
+  ignoré et supprimé, même si des fichiers générés recréent son dossier ; BF-8, chemins non ASCII et
+  particuliers dans le script d'intégrité (`core.quotePath=false`, `-z`, `--literal-pathspecs`) ; BF-9,
+  marqueur d'échec attendu reconnu sur les seules méthodes de l'API de test de Vitest, enchaînements
+  multiples compris.
+- **Trou corrigé** : avant BF-8, une configuration protégée ou un test au nom accentué se modifiait sans
+  `Justification-test`.
+- **Écart au brief** (BF-11) : un worktree encore listé par `git worktree list` garde son instantané et
+  donne une violation unique ; retirer son `.git` ne suffit pas à couper la vérification de fin de tâche.
+- **Recette** : acceptée ; sonde de 42 formes (ancien script contre nouveau), aucune forme refusée avant
+  n'est acceptée. Points ouverts : saut enchaîné sur deux méthodes non détecté, fichier devenu test en
+  cours de session éditable sans autorisation (`checkFileTool`), `git worktree prune` et `remove --force`
+  non refusés aux agents.
+
+## Lot 17 : brief back-004, lieu de l'expérience OpenClassrooms
+
+- **Livré** (BF-12) : `location` nul pour `openclassrooms-mentor` en `fr` et en `en` (le mode de travail
+  `remote` suffit, le front n'affiche plus « À distance, à distance ») ; ligne retirée de
+  `docs/traductions-a-relire.md`. Recette acceptée : le nouveau test passe au rouge si le seed revient à
+  « À distance ».
+
+## Lot 14 : garde-fous, CI et optimisation des tests
+
+- **Livré** (fusion e7607a4, recette acceptée avec réserves, `docs/comptes-rendus/lot-14-recette.md`) :
+  e2e de l'API sur une base modèle recopiée et une base par processus, fichiers en parallèle (254 s →
+  environ 20 s) ; `pnpm check` en une seule passe des tests, avec `format:check`, `husky:test`,
+  actionlint et shellcheck par Docker (images épinglées par digest) ; Prettier au pre-commit sur les
+  fichiers indexés ; mutation incrémentale sur `develop`, complète sur les étiquettes `v*` ; seuil de
+  l'API relevé de 40 à 41 ; hooks : directives Stryker contrôlées dès l'écriture et à la ligne
+  (identifiant cité, mutateur), `main` locale non inscriptible, marqueurs enchaînés, fichier devenu test,
+  worktrees et branche suivie refusés aux agents ; section commune « Git et garde-fous » des quatorze
+  fichiers d'agents.
+- **Exécution** : deux branches en parallèle (`lot/14-garde-fous-ci`, `lot/14-hooks`), réunies avant
+  recette ; F3a (front) fusionné dans la branche avant recette, conflit de `ci.yml` résolu.
+- **Suites** : lot 18 (lecture de `core.hooksPath`, suivi de branche distante refusé aux agents) ;
+  vérifications au premier run CI (cache de l'incrément, déclencheur `v*`, images, parallélisme) ;
+  chemin critique de `pnpm check` côté front (F11).
+
+## Lot 18 : suites de la recette du lot 14
+
+- **Livré** (fusion fef4db5, recette acceptée avec réserves, `docs/comptes-rendus/lot-18-recette.md`) :
+  lectures `git config --get` permises, `core.hooksPath` compris (écritures toujours refusées) ; création
+  d'une branche qui suit une branche distante refusée aux agents (`--track`, suivi automatique, branche
+  devinée, `fetch`/`pull --set-upstream`), écriture de `branch.autoSetup*` refusée à tous ; puce
+  correspondante dans la section des quatorze fichiers d'agents. 798 tests des hooks.
+- **Suites** : lot 19 (création de `main` par options collées, `core.hooksPath` par l'environnement,
+  borne du nombre de processus des e2e).
+
+## Lot 19 : trous confirmés par la recette du lot 18, charge machine, règle D26
+
+- **Livré** (fusion f408999, recette acceptée, `docs/comptes-rendus/lot-19-recette.md`) : création ou
+  écriture de `main` par options collées refusée à toutes les sessions ; `core.hooksPath` passé par
+  l'environnement de git refusé ; `TEST_MAX_WORKERS` borne le nombre de processus Vitest de l'API (sans
+  valeur, rien ne change, CI comprise) ; règle D26 (une seule vérification complète par lot, par la
+  recette) dans `CLAUDE.md` et les fichiers d'agents. 842 tests des hooks ; `pnpm check` rejoué vert à
+  charge calme.
+- **Suites** : L19-05 et L19-06 au backlog ; borne du front à porter par la session front.
 
 ## Transverse
 

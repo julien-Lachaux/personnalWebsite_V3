@@ -1,3 +1,4 @@
+export * from './ai-overview.js';
 export * from './certifications.js';
 export * from './education.js';
 export * from './enums.js';
@@ -5,6 +6,7 @@ export * from './experiences.js';
 export * from './languages.js';
 export * from './profile.js';
 export * from './projects.js';
+export * from './recommendations.js';
 export * from './resources.js';
 export * from './skills.js';
 export * from './social-links.js';

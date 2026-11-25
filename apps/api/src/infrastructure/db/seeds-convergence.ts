@@ -1,4 +1,4 @@
-import { type TransactionSql } from 'postgres';
+import { type Sql, type TransactionSql } from 'postgres';
 
 import { type LogFn } from './migrations-runner.js';
 
@@ -6,14 +6,21 @@ import { type LogFn } from './migrations-runner.js';
 type Dependent = readonly [string, string];
 
 /** Table de contenu seedée, avec sa table de traductions, ses liaisons éventuelles et leur clé. */
-export interface SeededEntity {
+export type SeededEntity = {
   table: string;
   /** Table de traductions (chaque entité en a une) : contrôle `fr` et convergence. */
   translations: Dependent;
   /** Autres tables dépendantes (liaisons compétences) : convergence seule. */
   links: readonly Dependent[];
-  /** `false` pour `profile` : ligne unique sans slug. */
-  hasSlug: boolean;
+} & (
+  | { hasSlug: true }
+  /** Ligne unique sans slug (`profile`, `ai_overview`) : `label` la nomme dans les messages. */
+  | { hasSlug: false; label: string }
+);
+
+/** Fragment SQL qui nomme la ligne `p` de l'entité dans les messages : son slug, ou son libellé fixe. */
+export function entityLabel(sql: Sql | TransactionSql, entity: SeededEntity) {
+  return entity.hasSlug ? sql`p.slug` : sql`${entity.label}`;
 }
 
 /** Tables de contenu dont les seeds sont la source de vérité (docs/01). */
@@ -23,6 +30,7 @@ export const SEEDED_ENTITIES: readonly SeededEntity[] = [
     translations: ['profile_translations', 'profile_id'],
     links: [],
     hasSlug: false,
+    label: 'profil',
   },
   {
     table: 'social_links',
@@ -74,6 +82,19 @@ export const SEEDED_ENTITIES: readonly SeededEntity[] = [
     links: [],
     hasSlug: true,
   },
+  {
+    table: 'recommendations',
+    translations: ['recommendations_translations', 'recommendation_id'],
+    links: [],
+    hasSlug: true,
+  },
+  {
+    table: 'ai_overview',
+    translations: ['ai_overview_translations', 'ai_overview_id'],
+    links: [['ai_overview_skills', 'ai_overview_id']],
+    hasSlug: false,
+    label: 'ai-overview',
+  },
 ];
 
 /**
@@ -95,7 +116,7 @@ export const SEEDED_ENTITIES: readonly SeededEntity[] = [
  */
 export async function convergeToSeeds(tx: TransactionSql, log: LogFn): Promise<void> {
   for (const entity of SEEDED_ENTITIES) {
-    const label = entity.hasSlug ? tx`p.slug` : tx`'profil'`;
+    const label = entityLabel(tx, entity);
 
     const restored = await tx<{ label: string }[]>`
       update ${tx(entity.table)} p set deleted_at = null
@@ -150,7 +171,7 @@ export async function assertFrenchTranslations(tx: TransactionSql): Promise<void
   for (const entity of SEEDED_ENTITIES) {
     const [translationTable, foreignKey] = entity.translations;
     const rows = await tx<{ label: string }[]>`
-      select ${entity.hasSlug ? tx`p.slug` : tx`'profil'`}::text as label
+      select ${entityLabel(tx, entity)}::text as label
       from ${tx(entity.table)} p
       where ${entity.hasSlug ? tx`p.published` : tx`true`}
         and p.deleted_at is null
@@ -180,7 +201,7 @@ export async function assertEnglishTranslations(tx: TransactionSql): Promise<voi
   for (const entity of SEEDED_ENTITIES) {
     const [translationTable, foreignKey] = entity.translations;
     const rows = await tx<{ label: string; fields: string[] }[]>`
-      select ${entity.hasSlug ? tx`p.slug` : tx`'profil'`}::text as label,
+      select ${entityLabel(tx, entity)}::text as label,
              array_agg(f.key order by f.key) as fields
       from ${tx(entity.table)} p
       join ${tx(translationTable)} fr on fr.${tx(foreignKey)} = p.id and fr.locale = 'fr'

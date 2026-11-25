@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Mosaïque v6 — Full HD 1920 × 1080</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+[data-theme="clair"]{--bg:#E6EBE5;--card:#FFFFFF;--line:#14262B;--text:#14262B;--muted:#4F5B5E;--bar:#DAD2EE;--top:#F3F6F1;--accent:#1F5C4D;--on:#FFFFFF;--violet:#5546B5;--hair:#DDE3DA;--field:#FFFFFF;--neon:#0A6B4F;--neon-bg:rgba(10,107,79,0.09);--neon-glow:rgba(10,107,79,0.0);--neon-in:rgba(10,107,79,0.0);--neon-txt:rgba(10,107,79,0.0);--violet-bg:rgba(85,70,181,0.08);--accent-bg:rgba(31,92,77,0.16);--press:rgba(20,38,43,.12);--scrim:rgba(20,38,43,0.45);--shadow:4px 4px 0 #1F5C4D;--hov:brightness(.94);--hov-a:brightness(.86);--li:#0A5EA8;--li-bg:rgba(10,94,168,0.08)}
+[data-theme="sombre"]{--bar:transparent;--top:transparent;--bg:#101A21;--card:#17242D;--line:#3A4B57;--text:#E9EEE8;--muted:#A9B6BE;--accent:#7FD1B5;--on:#101A21;--violet:#BDB0F2;--hair:#24343F;--field:#101A21;--neon:#4DFFB4;--neon-bg:rgba(77,255,180,0.08);--neon-glow:rgba(77,255,180,0.5);--neon-in:rgba(77,255,180,0.18);--neon-txt:rgba(77,255,180,0.6);--violet-bg:rgba(189,176,242,0.08);--accent-bg:rgba(127,209,181,0.12);--press:rgba(255,255,255,.14);--scrim:rgba(6,11,15,0.66);--shadow:none;--hov:brightness(1.15);--hov-a:brightness(.9);--li:#79B8FF;--li-bg:rgba(121,184,255,0.1)}
+[data-theme="clair"]{--neon:#1F5C4D;--neon-bg:rgba(31,92,77,0.10);--sen-fg:#FFFFFF;--sen-bg:#1F5C4D;--sen-sh:2px 2px 0 #14262B}
+[data-theme="sombre"]{--bar:#2A2547;--top:#1B2A34;--shadow:4px 4px 0 #1F5C4D;--sen-fg:var(--neon);--sen-bg:var(--neon-bg);--sen-sh:0 0 14px var(--neon-glow),inset 0 0 8px var(--neon-in)}
+@media (prefers-reduced-motion:reduce){[data-drawer]{transition:none!important}}
+@media (prefers-reduced-motion:reduce){[data-fit] > div{transition:none!important}}
+[data-a11y-sw]{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 4px;border:0;border-bottom:1.5px solid var(--hair);background:transparent;color:var(--text);text-align:left}
+[data-a11y-sw] [data-track]{flex-shrink:0;position:relative;width:42px;height:24px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);transition:background-color .2s,border-color .2s}
+[data-a11y-sw] [data-knob]{position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--muted);transition:transform .2s,background-color .2s}
+[data-a11y-sw][aria-checked="true"] [data-track]{background:var(--accent);border-color:var(--accent)}
+[data-a11y-sw][aria-checked="true"] [data-knob]{transform:translateX(18px);background:var(--on)}
+[data-ts-btn]{flex:1;min-height:44px;border:1.5px solid var(--line);border-radius:8px;background:transparent;color:var(--text);font-weight:700}
+[data-ts-btn][aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on)}
+[data-contrast="on"][data-theme="sombre"]{--bg:#0A1116;--card:#0E181F;--top:#14212A;--bar:#2E2852;--text:#FFFFFF;--muted:#E9EEE8;--line:#A9BCC7;--hair:#6E8390;--accent:#9BEBD0;--violet:#DCD3FF;--li:#A6D0FF}
+[data-contrast="on"][data-theme="clair"]{--bg:#FFFFFF;--card:#FFFFFF;--top:#FFFFFF;--text:#000000;--muted:#14262B;--line:#000000;--hair:#14262B;--accent:#123F34;--violet:#3B2A99;--li:#07467E}
+[data-font="lisible"],[data-font="lisible"] *{font-family:'Atkinson Hyperlegible',Verdana,sans-serif!important}
+[data-spacing="on"] :is(p,li,dd,dt,span,a,button,label,h1,h2,h3,blockquote,input){line-height:1.5!important;letter-spacing:.12em!important;word-spacing:.16em!important}
+[data-links="on"] a{text-decoration:underline!important;text-underline-offset:3px}
+[data-motion="reduce"] *,[data-motion="reduce"] *::before,[data-motion="reduce"] *::after{transition-duration:.01ms!important;transition-delay:0s!important;animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}
+[data-ts="lg"] [data-zoomable],[data-ts="lg"] section[data-tile] > div:not(:first-child){zoom:1.15}
+[data-ts="xl"] [data-zoomable],[data-ts="xl"] section[data-tile] > div:not(:first-child){zoom:1.3}
+[data-ts="lg"] [data-fit],[data-ts="xl"] [data-fit]{overflow-y:auto!important}
+[data-ts="lg"] [data-fit] > div,[data-ts="xl"] [data-fit] > div{transform:none!important;width:auto!important;max-width:820px!important}
+[data-skip]{position:absolute;left:12px;top:-80px;z-index:200;padding:12px 16px;border-radius:8px;background:var(--accent);color:var(--on)!important;font-weight:700;text-decoration:none}
+[data-skip]:focus{top:12px}
+@media (prefers-reduced-motion:reduce){[data-cta]{transition:none!important}}
+[data-theme] a{color:var(--accent)}
+[data-theme] a:hover{color:var(--text)}
+[data-social]{transition:transform .14s ease-out,box-shadow .14s ease-out,background-color .14s ease-out}
+[data-social]:hover{box-shadow:0 0 16px currentColor}
+[data-social]:active{transform:scale(.96);background-color:var(--press)}
+[data-theme] a[data-social]:hover{color:inherit}
+[data-topnav] button{color:var(--muted);font-weight:500}
+[data-topnav] button:hover{color:var(--text)}
+[data-topnav] button[aria-current="true"]{color:var(--accent);font-weight:700;background:var(--accent-bg);box-shadow:inset 0 -3px 0 var(--accent)}
+@media (prefers-reduced-motion:reduce){[data-social]{transition:none}[data-social]:active{transform:none}}
+
+:where(button,a[href],[role=button]){cursor:pointer;transition:transform .16s cubic-bezier(.3,.7,.4,1),filter .16s,box-shadow .16s,background-color .16s,border-color .16s,color .16s}
+:where(button,a[href]):hover{transform:translateY(-1px);filter:var(--hov)}
+:where(button,a[href]):active{transform:scale(.95);filter:var(--hov-a)}
+:where(button,a[href]):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[data-scrim]{transform:none!important;filter:none!important;cursor:default!important}
+@media (prefers-reduced-motion:reduce){:where(button,a[href]){transition:none}:where(button,a[href]):hover,:where(button,a[href]):active{transform:none}}
+@media (prefers-reduced-motion:reduce){[data-tile]{transition:none!important}}
+[data-chip]{font-family:inherit;font-size:14px;font-weight:500;color:var(--text);border:1.5px solid var(--line);border-radius:6px;background:transparent;padding:4px 8px}
+[data-chip]:hover{font-weight:500;color:var(--neon);border-color:var(--neon);background:var(--neon-bg);box-shadow:0 0 14px var(--neon-glow),inset 0 0 8px var(--neon-in);text-shadow:0 0 8px var(--neon-txt)}
+[data-chip][aria-disabled="true"],button[aria-disabled="true"]{cursor:not-allowed}
+[data-chip][aria-disabled="true"]:hover{color:var(--text);border-color:var(--line);background:transparent;box-shadow:none;text-shadow:none;transform:none}
+[data-chip][aria-pressed="true"]{color:var(--neon);border-color:var(--neon);background:var(--neon-bg)}
+@keyframes eggLine{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes eggBar{from{width:0}to{width:100%}}
+@media (prefers-reduced-motion:reduce){[data-egg-line]{animation:none!important;opacity:1!important}[data-egg-bar]{animation:none!important;width:100%!important}}
+</style>
+</helmet>
+<div data-theme="{{theme}}" data-ts="{{dTs}}" data-contrast="{{dContrast}}" data-font="{{dFont}}" data-spacing="{{dSpacing}}" data-links="{{dLinks}}" data-motion="{{dMotion}}" style="position: relative; width: 1920px; height: 1080px; box-sizing: border-box; display: flex; flex-direction: column; background: var(--bg); font-family: 'Space Grotesk', sans-serif; color: var(--text); overflow: hidden">
+<a href="#contenu" data-skip="1">Aller au contenu</a>
+
+<header style="height: 56px; flex-shrink: 0; display: flex; align-items: center; gap: 16px; padding: 0 max(16px, calc((100% - 1440px) / 2 + 16px)) 0 max(24px, calc((100% - 1440px) / 2 + 24px)); background: var(--top); border-bottom: 1.5px solid var(--line)">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; white-space: nowrap"><span style="color: var(--accent)">&gt;_</span> julien-lachaux</span>
+<nav data-topnav="1" aria-label="Sections" style="flex: 1; display: flex; align-items: center; gap: 4px">
+<button onClick="{{overview}}" aria-current="{{cur.overview}}" aria-label="Vue d’ensemble" style="width: 40px; height: 40px; padding: 0; border: 0; border-radius: 8px; background: transparent; display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1.5"></rect><rect x="14" y="3" width="7" height="8" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+</button>
+<button onClick="{{goProfil}}" aria-current="{{cur.profil}}" style="height: 40px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; font-size: 15px">Profil</button>
+<button onClick="{{goXp}}" aria-current="{{cur.xp}}" style="height: 40px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; font-size: 15px">XP</button>
+<button onClick="{{goRecos}}" aria-current="{{cur.recos}}" style="height: 40px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; font-size: 15px">Recos</button>
+<button onClick="{{goIa}}" aria-current="{{cur.ia}}" style="height: 40px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; font-size: 15px">IA</button>
+</nav>
+<div style="display: flex; gap: 8px; flex-shrink: 0">
+<button onClick="{{openContact}}" style="height: 40px; padding: 0 16px; border: 0; border-radius: 8px; background: var(--accent); color: var(--on); font-size: 15px; font-weight: 700; white-space: nowrap">Lancer l’entretien</button>
+<a href="#cv" style="height: 40px; box-sizing: border-box; padding: 0 14px; display: flex; align-items: center; gap: 6px; border-radius: 8px; border: 1.5px solid var(--text); color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"></path></svg>CV PDF</a>
+</div>
+<button id="a11y-btn" onClick="{{toggleA11y}}" aria-label="Options d’accessibilité" aria-haspopup="dialog" aria-expanded="{{a11yAria}}" aria-controls="a11y-panel" style="width: 40px; height: 40px; border: 0; background: transparent; color: var(--text); display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="7" r="1.4" fill="currentColor"></circle><path d="M7 9.5l5 1.2 5-1.2M12 10.7v3.6M12 14.3l-2.6 4.4M12 14.3l2.6 4.4"></path></svg>
+</button>
+<button aria-label="Changer de langue, actuellement français" style="width: 40px; height: 40px; border: 0; background: transparent; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700">FR</button>
+<button onClick="{{toggleTheme}}" aria-label="{{themeLabel}}" style="width: 40px; height: 40px; border: 0; background: transparent; color: var(--text); display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"></path></svg>
+</button>
+</header>
+
+<main id="contenu" tabindex="-1" style="position: relative; flex: 1; min-height: 0; width: 100%; max-width: 1440px; margin: 0 auto; overflow: hidden; outline: none">
+<section data-tile="1" onPointerDown="{{wProfil.focus}}" aria-label="Profil" aria-hidden="{{wProfil.hidden}}" style="position: absolute; box-sizing: border-box; display: flex; flex-direction: column; left: {{wProfil.l}}; top: {{wProfil.t}}; width: {{wProfil.w}}; height: {{wProfil.h}}; z-index: {{wProfil.z}}; visibility: {{wProfil.vis}}; transition: {{wProfil.trans}}; background: var(--card); border: 1.5px solid var(--line); border-color: {{wProfil.border}}; border-radius: 12px; box-shadow: var(--shadow); overflow: hidden">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; padding-left: 16px; background: var(--bar); border-bottom: 1.5px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 13px">
+<span style="color: var(--accent); font-weight: 700; margin-right: 8px">&gt;_</span>
+<span style="flex: 1; font-weight: 700">profil.cv</span>
+<button onClick="{{wProfil.toggle}}" aria-label="{{wProfil.toggleLabel}}" style="cursor: {{wProfil.cursor}}; width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center">
+<sc-if value="{{wProfil.isMax}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10h-6V4M4 14h6v6M14 10l6-6M10 14l-6 6"></path></svg></sc-if>
+<sc-if value="{{wProfil.notMax}}" hint-placeholder-val="{{true}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"></path></svg></sc-if>
+</button>
+</div>
+<div data-fit="profil" style="flex: 1; min-height: 0; overflow-x: hidden; overflow-y: {{pOverflow}}; scrollbar-width: thin; scrollbar-color: var(--line) transparent">
+<div style="transform: scale({{pScale}}); transform-origin: top left; width: {{pWidth}}; max-width: {{pMaxW}}; transition: transform .55s cubic-bezier(.4, 0, .15, 1), width .55s cubic-bezier(.4, 0, .15, 1), max-width .55s cubic-bezier(.4, 0, .15, 1); margin: 0 auto; box-sizing: border-box; padding: 24px 24px 12px; display: flex; flex-direction: column; gap: 16px">
+<h1 style="margin: 0; display: flex; flex-direction: column; font-size: 50px; line-height: 1.04; letter-spacing: -0.02em">
+<span style="font-weight: 700; white-space: nowrap">Développeur</span>
+<span style="display: flex; align-items: center; gap: 14px; white-space: nowrap"><span style="font-weight: 400; color: var(--accent)">full-stack</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 1; font-weight: 700; letter-spacing: 0; color: var(--sen-fg); border: 1.5px solid var(--neon); border-radius: 6px; padding: 7px 10px; background: var(--sen-bg); box-shadow: var(--sen-sh); text-shadow: 0 0 8px var(--neon-txt)">senior</span></span>
+</h1>
+<div style="display: flex; flex-direction: column; gap: 4px; font-size: 16px; line-height: 1.4; font-weight: 500; letter-spacing: -0.01em; color: var(--violet)">
+<p style="margin: 0">NestJS, Vue.js — données, ETL et analytics</p>
+<p style="margin: 0">Développement assisté par IA et agentique</p>
+</div>
+<p style="margin: 0; font-size: 17px; line-height: 1.5; font-weight: 600">Je souhaite mettre ce savoir-faire au service de structures utiles : associations, ONG, économie sociale et solidaire, écologie, service public.</p>
+<p style="margin: 0; font-size: 17px; line-height: 1.5">Depuis 2017, je conçois des API, des interfaces et des flux de données fiables. Mon fil rouge : faire circuler la donnée entre des systèmes qui ne se parlent pas.</p>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 10px">
+<div role="group" aria-labelledby="pf-moment" style="display: flex; flex-direction: column; gap: 4px">
+<h2 id="pf-moment" style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: var(--violet)">en ce moment</h2>
+<p style="margin: 0; font-size: 15px; line-height: 1.4; font-weight: 600">Bénévole 2 jours par semaine : je développe un outil d’aide au parcours de soins en milieu psychiatrique</p>
+</div>
+<div role="group" aria-labelledby="pf-cherche" style="display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1.5px dashed var(--line)">
+<h2 id="pf-cherche" style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: var(--violet)">ce que je recherche</h2>
+<dl style="margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 18px">
+<div><dt style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; color: var(--muted)">format</dt><dd style="margin: 2px 0 0; font-size: 15px; line-height: 1.4; font-weight: 600">Temps partiel (3 jours par semaine) ou missions freelance courtes</dd></div>
+<div><dt style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; color: var(--muted)">lieu</dt><dd style="margin: 2px 0 0; font-size: 15px; line-height: 1.4; font-weight: 600">Paris, Île-de-France · hybride ou à distance</dd></div>
+<div><dt style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; color: var(--muted)">disponibilité</dt><dd style="margin: 2px 0 0; font-size: 15px; line-height: 1.4; font-weight: 600">Immédiate</dd></div>
+</dl>
+</div>
+</div>
+<nav aria-label="Réseaux" style="display: flex; gap: 10px">
+<a data-social="1" href="#github" style="flex: 1; height: 52px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1.5px solid var(--neon); border-radius: 10px; background: var(--neon-bg); color: var(--neon); font-size: 16px; font-weight: 700; text-decoration: none">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14"></path></svg>
+GitHub
+</a>
+<a data-social="1" href="https://linkedin.com/in/julien-lachaux" style="flex: 1; height: 52px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1.5px solid var(--li); border-radius: 10px; background: var(--li-bg); color: var(--li); font-size: 16px; font-weight: 700; text-decoration: none">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.6c1.9.9 3 2.8 3 5.4"></path></svg>
+LinkedIn
+</a>
+</nav>
+</div>
+</div>
+</section>
+<section data-tile="1" onPointerDown="{{wXp.focus}}" aria-label="Expérience" aria-hidden="{{wXp.hidden}}" style="position: absolute; box-sizing: border-box; display: flex; flex-direction: column; left: {{wXp.l}}; top: {{wXp.t}}; width: {{wXp.w}}; height: {{wXp.h}}; z-index: {{wXp.z}}; visibility: {{wXp.vis}}; transition: {{wXp.trans}}; background: var(--card); border: 1.5px solid var(--line); border-color: {{wXp.border}}; border-radius: 12px; box-shadow: var(--shadow); overflow: hidden">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; padding-left: 16px; background: var(--bar); border-bottom: 1.5px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 13px">
+<span style="color: var(--accent); font-weight: 700; margin-right: 8px">&gt;_</span>
+<span style="flex-shrink: 0; font-weight: 700">experience.log</span><span style="flex: 1"></span>
+<button onClick="{{wXp.toggle}}" aria-label="{{wXp.toggleLabel}}" style="cursor: {{wXp.cursor}}; width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center">
+<sc-if value="{{wXp.isMax}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10h-6V4M4 14h6v6M14 10l6-6M10 14l-6 6"></path></svg></sc-if>
+<sc-if value="{{wXp.notMax}}" hint-placeholder-val="{{true}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"></path></svg></sc-if>
+</button>
+</div>
+<div style="flex-shrink: 0; padding: 12px 0; border-bottom: 1.5px solid var(--hair)">
+<div style="max-width: 820px; margin: 0 auto; box-sizing: border-box; padding: 0 24px; display: flex; flex-direction: column; gap: 6px">
+<label for="xp-filter" style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; margin: 0">filtrer par techno</label>
+<div role="search" aria-label="Filtrer les expériences" style="position: relative; z-index: 3; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 50px; box-sizing: border-box; padding: 6px 6px 6px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--field)">
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="flex-shrink: 0; color: var(--muted)"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+<sc-for list="{{filters}}" as="fl" hint-placeholder-count="1">
+<button onClick="{{fl.remove}}" aria-label="{{fl.aria}}" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border: 1.5px solid var(--neon); border-radius: 6px; background: var(--neon-bg); color: var(--neon); font-size: 15px; font-weight: 700">{{fl.label}}<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</sc-for>
+<input id="xp-filter" type="search" value="{{fq}}" onInput="{{onFq}}" onKeyDown="{{onFqKey}}" onFocus="{{openDrawer}}" onClick="{{openDrawer}}" aria-expanded="{{drawerAria}}" placeholder="{{fqPlaceholder}}" autocomplete="off" aria-controls="xp-drawer xp-sugg" style="flex: 1; min-width: 150px; height: 36px; border: 0; outline: none; background: transparent; color: var(--text); font: inherit; font-size: 16px">
+<sc-if value="{{hasFilter}}" hint-placeholder-val="{{false}}"><button onClick="{{clearAll}}" style="height: 36px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px">Effacer</button></sc-if>
+</div>
+<sc-if value="{{suggOpen}}" hint-placeholder-val="{{false}}">
+<div id="xp-sugg" style="border: 1.5px solid var(--line); border-radius: 10px; background: var(--card); overflow: hidden; box-shadow: var(--shadow)">
+<sc-for list="{{sugg}}" as="s" hint-placeholder-count="3">
+<button onClick="{{s.pick}}" aria-label="{{s.aria}}" aria-disabled="{{s.deadAttr}}" style="opacity: {{s.op}}; width: 100%; height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border: 0; border-bottom: 1.5px solid var(--hair); background: transparent; color: var(--text); font-size: 16px; text-align: left"><span style="flex: 1">{{s.label}}</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--muted)">{{s.count}}</span></button>
+</sc-for>
+<sc-if value="{{noSugg}}" hint-placeholder-val="{{false}}"><p style="margin: 0; padding: 14px; font-size: 15px; line-height: 1.45; color: var(--muted)">{{noSuggMsg}} <button onClick="{{showAllTechs}}" style="border: 0; background: none; padding: 0; color: var(--accent); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px">Voir toutes les technos</button></p></sc-if>
+</div>
+</sc-if>
+</div>
+<div data-drawer="1" id="xp-drawer" style="display: grid; grid-template-rows: {{drawerRows}}; opacity: {{drawerOp}}; visibility: {{drawerVis}}; transition: grid-template-rows .28s cubic-bezier(.4,0,.2,1), opacity .22s ease, visibility 0s linear {{drawerDelay}}">
+<div style="min-height: 0; overflow: hidden">
+<div style="max-height: 360px; overflow-y: auto; scrollbar-width: thin; padding: 10px 2px 2px">
+<sc-if value="{{showQuick}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px">
+<sc-if value="{{quickVisible}}" hint-placeholder-val="{{true}}">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: var(--violet); margin-right: 4px">stack principale</span>
+<sc-for list="{{quick}}" as="q" hint-placeholder-count="6">
+<button data-chip="1" onClick="{{q.pick}}" aria-pressed="{{q.pressed}}" aria-disabled="{{q.deadAttr}}" aria-label="{{q.aria}}" style="opacity: {{q.op}}; display: flex; align-items: center; gap: 6px; min-height: 40px">{{q.label}}<span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; opacity: .75">{{q.count}}</span></button>
+</sc-for>
+</sc-if>
+<button onClick="{{toggleAll}}" aria-expanded="{{allAria}}" aria-controls="xp-all" style="display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--accent); font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 4px">{{allLabel}}<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform: {{allChev}}; transition: transform .25s"><path d="M6 9l6 6 6-6"></path></svg></button>
+</div>
+<sc-if value="{{allOpen}}" hint-placeholder-val="{{false}}">
+<div id="xp-all" style="display: flex; flex-direction: column; gap: 14px; margin: 0 0 16px; padding: 14px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--card)">
+<p style="margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted)">Toutes mes technos, par domaine. Le chiffre indique le nombre d’expériences ; en pointillé, celles sans expérience détaillée.</p>
+<sc-for list="{{allGroups}}" as="g" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: var(--violet)">{{g.label}}</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{g.items}}" as="t" hint-placeholder-count="4">
+<sc-if value="{{t.linked}}" hint-placeholder-val="{{true}}"><button data-chip="1" onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" aria-disabled="{{t.deadAttr}}" aria-label="{{t.aria}}" style="opacity: {{t.op}}; display: flex; align-items: center; gap: 6px; min-height: 40px">{{t.label}}<span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; opacity: .75">{{t.count}}</span></button></sc-if>
+<sc-if value="{{t.plain}}" hint-placeholder-val="{{false}}"><span title="Pas d’expérience détaillée" style="display: flex; align-items: center; min-height: 40px; box-sizing: border-box; padding: 4px 8px; border: 1.5px dashed var(--line); border-radius: 6px; font-size: 14px; color: var(--muted)">{{t.label}}</span></sc-if>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</sc-if>
+<button onClick="{{closeDrawer}}" style="display: flex; align-items: center; gap: 6px; min-height: 40px; margin-left: auto; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 14px; font-weight: 600">Fermer<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"></path></svg></button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div onScroll="{{closeOnScroll}}" style="flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent">
+<div style="max-width: 820px; margin: 0 auto; box-sizing: border-box; padding: 14px 24px 0; display: flex; flex-direction: column; gap: 0px">
+<p aria-live="polite" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0">{{liveMsg}}</p>
+<sc-if value="{{noFull}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 6px 0 18px">
+<p style="margin: 0; font-size: 16px; line-height: 1.5; color: var(--muted)">Aucune expérience ne combine toutes ces technos. Retirez-en une, ou consultez les autres expériences.</p>
+<button onClick="{{toggleRestTop}}" aria-expanded="{{restAriaTop}}" style="min-height: 44px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: 8px; background: transparent; color: var(--text); font-size: 15px; font-weight: 600">{{restLabelTop}}</button>
+</div>
+</sc-if>
+<sc-for list="{{xp}}" as="x" hint-placeholder-count="5">
+<sc-if value="{{x.showHead}}" hint-placeholder-val="{{false}}"><p style="margin: 14px 0 4px; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--violet)">{{x.head}}</p></sc-if>
+<article style="opacity: {{x.dimOp}}; transition: opacity .2s; padding: 20px 0; border-bottom: 1.5px solid var(--hair); display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px">
+<div style="min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<h3 style="margin: 0; font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em">{{x.role}}</h3>
+<span style="font-size: 15px; font-weight: 700; color: var(--accent)">{{x.orgLabel}}</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; color: var(--violet)">{{x.date}}</span>
+</div>
+<sc-if value="{{x.hasDetail}}" hint-placeholder-val="{{true}}">
+<button onClick="{{x.toggle}}" aria-expanded="{{x.expanded}}" aria-controls="{{x.panelId}}" aria-label="{{x.toggleAria}}" style="flex-shrink: 0; width: 44px; height: 44px; margin: -10px -8px -10px 0; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--text); display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform: {{x.chev}}; transition: transform .3s cubic-bezier(.4, 0, .2, 1)"><path d="M6 9l6 6 6-6"></path></svg>
+</button>
+</sc-if>
+</div>
+<sc-if value="{{x.hasWhere}}" hint-placeholder-val="{{true}}"><div style="font-size: 14px; color: var(--muted)">{{x.where}}</div></sc-if>
+<sc-if value="{{x.hasMatch}}" hint-placeholder-val="{{false}}"><div style="font-size: 14px; font-weight: 700; color: var(--accent)">{{x.match}}</div></sc-if>
+<sc-if value="{{x.hasIntro}}" hint-placeholder-val="{{true}}"><p style="margin: 0; font-size: 16px; line-height: 1.5">{{x.text}}</p></sc-if>
+<sc-if value="{{x.hasDetail}}" hint-placeholder-val="{{true}}">
+<div id="{{x.panelId}}" style="display: grid; grid-template-rows: {{x.rows}}; visibility: {{x.vis}}; transition: {{x.vtrans}}">
+<ul style="min-height: 0; overflow: hidden; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{x.points}}" as="p" hint-placeholder-count="3">
+<li style="display: flex; gap: 10px; font-size: 16px; line-height: 1.5"><span aria-hidden="true" style="flex-shrink: 0; color: var(--accent)">—</span><span>{{p}}</span></li>
+</sc-for>
+</ul>
+</div>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px">
+<sc-for list="{{x.badges}}" as="b" hint-placeholder-count="5">
+<button data-chip="1" onClick="{{b.pick}}" aria-pressed="{{b.pressed}}" aria-label="{{b.aria}}">{{b.label}}</button>
+</sc-for>
+</div>
+</article>
+<sc-if value="{{x.toggleAfter}}" hint-placeholder-val="{{false}}"><button onClick="{{x.toggleRest}}" aria-expanded="{{x.restAria}}" style="align-self: flex-start; min-height: 44px; margin: 6px 0 10px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: 8px; background: transparent; color: var(--text); font-size: 15px; font-weight: 600">{{x.restLabel}}</button></sc-if>
+</sc-for>
+<div aria-hidden="true" style="position: sticky; bottom: 0; flex-shrink: 0; height: 24px; margin-top: -20px; pointer-events: none; background: linear-gradient(to bottom, transparent, var(--card))"></div>
+</div>
+</div>
+</section>
+<section data-tile="1" onPointerDown="{{wIa.focus}}" aria-label="IA" aria-hidden="{{wIa.hidden}}" style="position: absolute; box-sizing: border-box; display: flex; flex-direction: column; left: {{wIa.l}}; top: {{wIa.t}}; width: {{wIa.w}}; height: {{wIa.h}}; z-index: {{wIa.z}}; visibility: {{wIa.vis}}; transition: {{wIa.trans}}; background: var(--card); border: 1.5px solid var(--line); border-color: {{wIa.border}}; border-radius: 12px; box-shadow: var(--shadow); overflow: hidden">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; padding-left: 16px; background: var(--bar); border-bottom: 1.5px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 13px">
+<span style="color: var(--accent); font-weight: 700; margin-right: 8px">&gt;_</span>
+<span style="flex: 1; font-weight: 700">ia.md</span>
+<button onClick="{{wIa.toggle}}" aria-label="{{wIa.toggleLabel}}" style="cursor: {{wIa.cursor}}; width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center">
+<sc-if value="{{wIa.isMax}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10h-6V4M4 14h6v6M14 10l6-6M10 14l-6 6"></path></svg></sc-if>
+<sc-if value="{{wIa.notMax}}" hint-placeholder-val="{{true}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"></path></svg></sc-if>
+</button>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent">
+<div style="max-width: 820px; margin: 0 auto; box-sizing: border-box; padding: 20px 24px 0; display: flex; flex-direction: column; gap: 18px">
+<h2 style="margin: 0; font-size: 22px; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em">L’IA, dans le produit <span style="font-weight: 400; color: var(--accent)">et au quotidien</span></h2>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--violet)">dans le produit · Nopillo, 2026</div>
+<ul style="margin: 0; padding-left: 18px; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 6px">
+<li>OCR pour les tickets de caisse et les factures</li>
+<li>Remplissage automatique des déclarations fiscales</li>
+<li>Cadrage et premiers développements d’une IA agentique de recommandation fiscale</li>
+</ul>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--violet)">au quotidien</div>
+<p style="margin: 0; font-size: 16px; line-height: 1.5">Usage quotidien de l’IA dans ma pratique de développement, développement agentique avec Mastra, veille technique active.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<span style="border: 1.5px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 15px; font-weight: 500">OCR</span>
+<span style="border: 1.5px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 15px; font-weight: 500">Mastra</span>
+<span style="border: 1.5px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 15px; font-weight: 500">Développement agentique</span>
+</div>
+<div style="border: 1.5px dashed var(--line); border-radius: 8px; padding: 12px 14px; font-size: 14px; line-height: 1.5; color: var(--muted)">[À COMPLÉTER : outils utilisés, méthode de travail, exemples concrets]</div>
+<div aria-hidden="true" style="position: sticky; bottom: 0; flex-shrink: 0; height: 24px; margin-top: -18px; pointer-events: none; background: linear-gradient(to bottom, transparent, var(--card))"></div>
+</div>
+</div>
+</section>
+<section data-tile="1" onPointerDown="{{wRecos.focus}}" aria-label="Recommandations" aria-hidden="{{wRecos.hidden}}" style="position: absolute; box-sizing: border-box; display: flex; flex-direction: column; left: {{wRecos.l}}; top: {{wRecos.t}}; width: {{wRecos.w}}; height: {{wRecos.h}}; z-index: {{wRecos.z}}; visibility: {{wRecos.vis}}; transition: {{wRecos.trans}}; background: var(--card); border: 1.5px solid var(--line); border-color: {{wRecos.border}}; border-radius: 12px; box-shadow: var(--shadow); overflow: hidden">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; padding-left: 16px; background: var(--bar); border-bottom: 1.5px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 13px">
+<span style="color: var(--accent); font-weight: 700; margin-right: 8px">&gt;_</span>
+<span style="flex-shrink: 0; font-weight: 700">recommandations.md</span><span style="flex: 1"></span>
+<button onClick="{{wRecos.toggle}}" aria-label="{{wRecos.toggleLabel}}" style="cursor: {{wRecos.cursor}}; width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center">
+<sc-if value="{{wRecos.isMax}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10h-6V4M4 14h6v6M14 10l6-6M10 14l-6 6"></path></svg></sc-if>
+<sc-if value="{{wRecos.notMax}}" hint-placeholder-val="{{true}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"></path></svg></sc-if>
+</button>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent">
+<div style="max-width: 820px; margin: 0 auto; box-sizing: border-box; padding: 20px 24px 0; display: flex; flex-direction: column; gap: 14px">
+<a href="https://www.linkedin.com/in/julien-lachaux/details/recommendations/" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; font-size: 14px; font-weight: 600; color: var(--li); text-decoration: underline; text-underline-offset: 3px">Recommandations publiées sur LinkedIn<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg></a>
+<sc-for list="{{recoList}}" as="r" hint-placeholder-count="3">
+<figure style="margin: 0; padding: 16px; background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; gap: 10px">
+<svg aria-hidden="true" width="24" height="19" viewBox="0 0 28 22" fill="currentColor" style="color: var(--accent)"><path d="M0 22V12C0 5 4 1 11 0v4C8 5 6 7 6 10h5v12H0zm16 0V12c0-7 4-11 11-12v4c-3 1-5 3-5 6h5v12H16z"></path></svg>
+<blockquote style="margin: 0; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 8px"><sc-for list="{{r.paras}}" as="pp" hint-placeholder-count="3"><p style="margin: 0">{{pp}}</p></sc-for></blockquote>
+<figcaption style="display: flex; flex-direction: column; gap: 3px; padding-top: 10px; border-top: 1.5px solid var(--hair)">
+<span style="font-size: 16px; font-weight: 700">{{r.name}}</span>
+<span style="font-size: 14px; color: var(--muted)">{{r.role}}</span>
+<span style="font-size: 14px; color: var(--violet)">{{r.link}}</span>
+</figcaption>
+</figure>
+</sc-for>
+<a data-social="1" href="https://www.linkedin.com/in/julien-lachaux/details/recommendations/" style="height: 48px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1.5px solid var(--li); border-radius: 10px; background: var(--li-bg); color: var(--li); font-size: 16px; font-weight: 700; text-decoration: none"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.6c1.9.9 3 2.8 3 5.4"></path></svg>Voir sur LinkedIn</a>
+<div aria-hidden="true" style="position: sticky; bottom: 0; flex-shrink: 0; height: 24px; margin-top: -14px; pointer-events: none; background: linear-gradient(to bottom, transparent, var(--card))"></div>
+</div>
+</div>
+</section>
+</main>
+
+
+<sc-if value="{{contactOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; z-index: 50">
+<button onClick="{{closeContact}}" aria-label="Fermer le formulaire" data-scrim="1" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 0; background: var(--scrim)"></button>
+<section aria-label="Lancer l’entretien" style="position: absolute; left: 50%; margin-left: -240px; top: 110px; width: 480px; background: var(--card); border: 1.5px solid var(--accent); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; padding-left: 16px; background: var(--bar); border-bottom: 1.5px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 13px">
+<span style="font-weight: 700; color: var(--accent); margin-right: 8px">&gt;_</span>
+<span style="flex: 1; font-weight: 700">contact.sh</span>
+<button onClick="{{closeContact}}" aria-label="Fermer le formulaire" style="width: 44px; height: 44px; border: 0; border-left: 1.5px solid var(--line); background: transparent; color: var(--text); font-size: 18px; font-weight: 700">×</button>
+</div>
+<form style="margin: 0; padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em">Lancer l’entretien</h2>
+<p style="margin: 0; font-size: 16px; line-height: 1.45; color: var(--muted)">Un message suffit, pas de visio ni de test à ce stade. Dites-moi qui vous êtes et ce que vous cherchez (poste, mission, coup de main) : je réponds sous 48 h ouvrées.</p>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label for="d-nom" style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700">nom</label>
+<input id="d-nom" type="text" autocomplete="name" style="height: 48px; box-sizing: border-box; border: 1.5px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); padding: 0 12px; font: inherit; font-size: 16px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label for="d-org" style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700">structure <span style="font-weight: 400; color: var(--muted)">(facultatif)</span></label>
+<input id="d-org" type="text" autocomplete="organization" style="height: 48px; box-sizing: border-box; border: 1.5px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); padding: 0 12px; font: inherit; font-size: 16px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label for="d-mail" style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700">e-mail</label>
+<input id="d-mail" type="email" autocomplete="email" style="height: 48px; box-sizing: border-box; border: 1.5px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); padding: 0 12px; font: inherit; font-size: 16px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label for="d-msg" style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700">message</label>
+<textarea id="d-msg" rows="4" style="box-sizing: border-box; border: 1.5px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); padding: 10px 12px; font: inherit; font-size: 16px; resize: none"></textarea>
+</div>
+<button type="button" style="height: 52px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on); font-size: 16px; font-weight: 700">Envoyer</button>
+<a href="https://linkedin.com/in/julien-lachaux" style="font-family: 'JetBrains Mono', monospace; font-size: 14px; text-align: center">linkedin.com/in/julien-lachaux</a>
+</form>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{eggOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; z-index: 60">
+<button onClick="{{closeEgg}}" aria-label="Fermer" data-scrim="1" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 0; background: var(--scrim)"></button>
+<section role="dialog" aria-label="huile-de-coude.sh" style="position: absolute; left: 50%; margin-left: -260px; width: 520px; top: 130px; background: var(--card); border: 1.5px solid var(--neon); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 0 24px var(--neon-glow)">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; padding-left: 14px; border-bottom: 1.5px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 13px">
+<span style="font-weight: 700; color: var(--accent); margin-right: 8px">&gt;_</span>
+<span style="flex: 1; font-weight: 700">huile-de-coude.sh</span>
+<button onClick="{{closeEgg}}" aria-label="Fermer" style="width: 44px; height: 44px; border: 0; border-left: 1.5px solid var(--line); background: transparent; color: var(--text); font-size: 18px; font-weight: 700">×</button>
+</div>
+<div style="padding: 18px; background: var(--bg); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; display: flex; flex-direction: column; gap: 2px">
+<div data-egg-line="1" style="opacity: 0; animation: eggLine .35s ease-out forwards; animation-delay: 0.2s"><span style="color: var(--accent)">$</span> npm install huile-de-coude</div>
+<div data-egg-line="1" style="opacity: 0; animation: eggLine .35s ease-out forwards; animation-delay: 0.9s"><span style="color: var(--muted)">1 paquet ajouté, 0 dépendance, en 21 mois</span></div>
+<div data-egg-line="1" style="opacity: 0; animation: eggLine .35s ease-out forwards; animation-delay: 1.5s"><span style="color: var(--neon)">[ok]</span> muscles</div>
+<div data-egg-line="1" style="opacity: 0; animation: eggLine .35s ease-out forwards; animation-delay: 1.9s"><span style="color: var(--neon)">[ok]</span> patience</div>
+<div data-egg-line="1" style="opacity: 0; animation: eggLine .35s ease-out forwards; animation-delay: 2.3s"><span style="color: var(--neon)">[ok]</span> tests en conditions réelles</div>
+<div data-egg-line="1" style="opacity: 0; animation: eggLine .35s ease-out forwards; animation-delay: 2.7s; display: flex; flex-direction: column; gap: 6px; padding: 6px 0"><span style="color: var(--muted)">build projet-immobilier</span><div style="height: 8px; border: 1.5px solid var(--line); border-radius: 4px; overflow: hidden"><div data-egg-bar="1" style="width: 0; height: 100%; background: var(--neon); animation: eggBar 1.4s linear forwards; animation-delay: 2.9s"></div></div></div>
+<div data-egg-line="1" style="opacity: 0; animation: eggLine .35s ease-out forwards; animation-delay: 4.4s"><span style="color: var(--neon)">Terminé. 0 vulnérabilité (sauf le dos).</span></div>
+</div>
+<div style="padding: 14px 18px 18px; border-top: 1.5px solid var(--line)">
+<button onClick="{{closeEgg}}" style="width: 100%; height: 48px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on); font-size: 16px; font-weight: 700">Retour au CV</button>
+</div>
+</section>
+</div>
+</sc-if>
+<sc-if value="{{a11yOpen}}" hint-placeholder-val="{{false}}">
+<div id="a11y-panel" role="dialog" aria-modal="false" aria-labelledby="a11y-title" onKeyDown="{{a11yKey}}" style="position: absolute; right: max(12px, calc((100% - 1440px) / 2 + 12px)); top: 62px; width: 360px; max-height: calc(100% - 80px); z-index: 60; display: flex; flex-direction: column; background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; box-shadow: var(--shadow), 0 16px 40px rgba(0,0,0,0.28); overflow: hidden">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; padding-left: 14px; background: var(--bar); border-bottom: 1.5px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 13px">
+<span aria-hidden="true" style="font-weight: 700; color: var(--accent); margin-right: 8px">&gt;_</span>
+<h2 id="a11y-title" style="flex: 1; margin: 0; font-size: 13px; font-weight: 700">accessibilite.cfg</h2>
+<button onClick="{{closeA11y}}" aria-label="Fermer les options d’accessibilité" style="width: 44px; height: 44px; border: 0; border-left: 1.5px solid var(--line); background: transparent; color: var(--text); font-size: 18px; font-weight: 700">×</button>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 14px">
+<div role="group" aria-labelledby="a11y-ts-label" style="display: flex; flex-direction: column; gap: 8px">
+<span id="a11y-ts-label" style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: var(--violet)">taille du texte</span>
+<div style="display: flex; gap: 8px">
+<button id="a11y-first" data-ts-btn="1" onClick="{{tsMd}}" aria-pressed="{{tsMdP}}" aria-label="Taille de texte normale" style="font-size: 15px">A</button>
+<button data-ts-btn="1" onClick="{{tsLg}}" aria-pressed="{{tsLgP}}" aria-label="Grande taille de texte" style="font-size: 19px">A</button>
+<button data-ts-btn="1" onClick="{{tsXl}}" aria-pressed="{{tsXlP}}" aria-label="Très grande taille de texte" style="font-size: 23px">A</button>
+</div>
+</div>
+<div role="group" aria-label="Préférences d’affichage" style="display: flex; flex-direction: column">
+<sc-for list="{{a11ySw}}" as="o" hint-placeholder-count="5">
+<button data-a11y-sw="1" role="switch" aria-checked="{{o.checked}}" onClick="{{o.toggle}}"><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">{{o.label}}</span><span style="font-size: 13px; line-height: 1.35; color: var(--muted)">{{o.desc}}</span></span><span data-track="1" aria-hidden="true"><span data-knob="1"></span></span></button>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px">
+<button onClick="{{resetA11y}}" style="min-height: 44px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: 8px; background: transparent; color: var(--text); font-size: 14px; font-weight: 700">Réinitialiser</button>
+<a href="#accessibilite" style="font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px">Déclaration d’accessibilité</a>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted)">Réglages mémorisés sur cet appareil. Conformité RGAA 4.1 : <span style="font-style: italic">[à compléter après audit]</span>.</p>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1920,"height":1080}}'>
+const A11Y_MOTION = (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+class Component extends DCLogic {
+state = { a11yOpen: false, a11yFocus: false, a11yReturn: false, ts: 'md', contrast: false, lisible: false, spacing: false, links: false, motion: A11Y_MOTION, theme: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'clair' : 'sombre', drawerOpen: false, allOpen: false, fq: '', restOpen: false, focusFilter: false, refocus: false, draft: [], eggOpen: false, openXp: {}, max: null, focus: 'profil', query: '', searchOpen: false, contactOpen: false, xpFilters: [] };
+focusA11y() {
+try {
+if (this.state.a11yFocus) { const el = document.getElementById('a11y-first'); if (el) { el.focus(); this.setState({ a11yFocus: false }); } }
+else if (this.state.a11yReturn) { const b = document.getElementById('a11y-btn'); if (b) b.focus(); this.setState({ a11yReturn: false }); }
+} catch (err) {}
+}
+focusFilter() {
+this.focusA11y();
+if (!this.state.focusFilter && !this.state.refocus) return;
+try { const el = document.getElementById('xp-filter'); if (el) { this._progFocus = true; try { el.focus(); } finally { this._progFocus = false; } this.setState({ focusFilter: false, refocus: false }); } } catch (err) {}
+}
+measureTiles() {
+try {
+const main = document.getElementById('contenu'); if (!main) return;
+const upd = {};
+const mw = Math.round(main.clientWidth); if (mw && Math.abs(mw - (this.state.mainW || 0)) > 1) upd.mainW = mw;
+const nat = Object.assign({}, this.state.natH || {}); let ch = false;
+[['profil', 'Profil'], ['ia', 'IA'], ['recos', 'Recommandations']].forEach((p) => {
+const sec = main.querySelector('section[aria-label="' + p[1] + '"]'); if (!sec || !sec.children[1]) return;
+const inner = sec.children[1].firstElementChild; if (!inner) return;
+const hh = Math.ceil(inner.getBoundingClientRect().height + sec.children[0].getBoundingClientRect().height + 3);
+if (hh > 60 && Math.abs((nat[p[0]] || 0) - hh) > 2) { nat[p[0]] = hh; ch = true; }
+});
+if (ch) upd.natH = nat;
+const natP = Object.assign({}, this.state.natP || {}); let cp = false;
+const psec = main.querySelector('section[aria-label="Profil"]');
+const pin = psec && psec.querySelector('[data-fit="profil"]') ? psec.querySelector('[data-fit="profil"]').firstElementChild : null;
+if (pin) (this._profWidths || []).forEach((w) => {
+if (!w || w < 120) return;
+const c = pin.cloneNode(true);
+c.style.position = 'absolute'; c.style.visibility = 'hidden'; c.style.left = '-99999px'; c.style.top = '0'; c.style.transform = 'none'; c.style.transition = 'none'; c.style.width = (w - 3) + 'px'; c.style.marginLeft = '0';
+main.appendChild(c); const hh = Math.ceil(c.getBoundingClientRect().height); c.remove();
+if (hh > 60 && Math.abs((natP[w] || 0) - hh) > 1) { natP[w] = hh; cp = true; }
+});
+if (cp) upd.natP = natP;
+const pS = cp ? {} : Object.assign({}, this.state.pS || {}); let cs = cp;
+if (pin) (this._profTargets || []).forEach((tg) => {
+const w = tg[0], av = tg[1];
+if (!w || w < 120 || !av || av < 40) return;
+const key = w + 'x' + Math.round(av);
+if (pS[key]) return;
+const c = pin.cloneNode(true);
+c.style.position = 'absolute'; c.style.visibility = 'hidden'; c.style.left = '-99999px'; c.style.top = '0'; c.style.transform = 'none'; c.style.transition = 'none'; c.style.marginLeft = '0';
+main.appendChild(c);
+const hAt = (S) => { c.style.width = ((w - 3) / S) + 'px'; c.style.maxWidth = (820 / S) + 'px'; return c.getBoundingClientRect().height * S; };
+let S = 1;
+if (hAt(1) > av + 0.5) { let lo = 0.6, hi = 1; for (let k = 0; k < 10; k++) { const m = (lo + hi) / 2; if (hAt(m) <= av) lo = m; else hi = m; } S = lo; }
+c.remove(); pS[key] = Math.floor(S * 1000) / 1000; cs = true;
+});
+if (cs) upd.pS = pS;
+
+const mh = Math.round(main.clientHeight); if (mh && Math.abs(mh - (this.state.mainH || 0)) > 1) upd.mainH = mh;
+const natW = Object.assign({}, this.state.natW || {}); let cw = false;
+[['profil', 'Profil'], ['ia', 'IA']].forEach((p) => {
+const sec = main.querySelector('section[aria-label="' + p[1] + '"]'); if (!sec || !sec.children[1]) return;
+const inner = sec.children[1].firstElementChild; if (!inner) return;
+const c = inner.cloneNode(true); c.removeAttribute('id');
+c.style.position = 'absolute'; c.style.visibility = 'hidden'; c.style.left = '-99999px'; c.style.top = '0'; c.style.width = '868px'; c.style.maxWidth = '868px'; c.style.zoom = '1';
+main.appendChild(c); const hw = Math.ceil(c.getBoundingClientRect().height + sec.children[0].getBoundingClientRect().height + 3); c.remove();
+if (hw > 60 && Math.abs((natW[p[0]] || 0) - hw) > 2) { natW[p[0]] = hw; cw = true; }
+});
+if (cw) upd.natW = natW;
+if (Object.keys(upd).length) this.setState(upd);
+if (!this._tileRO && window.ResizeObserver) { this._tileRO = new ResizeObserver(() => this.measureTiles()); this._tileRO.observe(main); main.querySelectorAll('section[data-tile]').forEach((s) => { const i = s.children[1] && s.children[1].firstElementChild; if (i) this._tileRO.observe(i); }); }
+} catch (err) {}
+}
+componentWillUnmount() { try { if (this._tileRO) this._tileRO.disconnect(); if (this._fitRO) this._fitRO.disconnect(); } catch (err) {} }
+componentDidMount() { this.focusFilter(); this.measureTiles(); try { document.fonts.ready.then(() => this.measureTiles()); } catch (err) {} }
+componentDidUpdate() { this.focusFilter(); this.measureTiles(); }
+renderVals() {
+const st = this.state;
+const ids = ['profil', 'xp', 'recos', 'ia'];
+const names = { profil: 'Profil', xp: 'XP', skills: 'Skills', recos: 'Recos', ia: 'IA' };
+const keys = { profil: 'wProfil', xp: 'wXp', recos: 'wRecos', ia: 'wIa' };
+const closed = { searchOpen: false, contactOpen: false, query: '', draft: [] };
+const go = (id) => () => this.setState(Object.assign({ max: id, focus: id }, closed));
+const openContact = () => this.setState({ contactOpen: true, searchOpen: false, query: '' });
+const ORDER = ['typescript', 'javascript', 'node.js', 'nestjs', 'elysia.js', 'vue.js', 'solid.js', 'php', 'php 7', 'php (symfony)', 'html5', 'css', 'postgresql', 'mysql', 'mongodb', 'redis', 'apache kafka', 'rabbitmq', 'streamsets', 'api rest', 'magento', 'posthog', 'google analytics', 'adobe analytics', 'ocr', 'mastra', 'développement agentique', 'docker', 'cloud managé', 'méthodes agiles', 'git', 'diagnostic en production'];
+const rank = (l) => { const i = ORDER.indexOf(l.toLowerCase().replace(' (2 et 3)', '')); return i < 0 ? 999 : i; };
+const sortT = (a) => a.slice().sort((p, q) => rank(p) - rank(q) || p.localeCompare(q));
+const groups = [
+{ label: 'langages et frameworks', items: ['TypeScript', 'JavaScript', 'Node.js', 'NestJS', 'Vue.js (2 et 3)', 'PHP (Symfony)'] },
+{ label: 'données et messagerie', items: ['PostgreSQL', 'MySQL', 'Redis', 'Apache Kafka', 'RabbitMQ'] },
+{ label: 'intégration et ETL', items: ['StreamSets', 'API REST', 'Magento'] },
+{ label: 'analytics', items: ['PostHog', 'Google Analytics', 'Adobe Analytics'] },
+{ label: 'IA appliquée', items: ['OCR', 'Mastra', 'Développement agentique'] },
+{ label: 'devops', items: ['Docker', 'Cloud managé'] },
+{ label: 'pratiques', items: ['Méthodes agiles', 'Git', 'Diagnostic en production'] }
+];
+groups.forEach((g) => { g.items = sortT(g.items); });
+const xpAll = [
+{ id: 'nopillo', date: 'janv. 2026 – mai 2026', role: 'Senior Software Engineer', sep: '@', org: 'Nopillo', where: 'Paris, hybride · CDI', text: 'Intégration de fonctionnalités d’IA dans le produit.', points: ['Développement d’un système d’OCR pour les tickets de caisse et les factures', 'Développement du remplissage automatique des déclarations fiscales', 'Participation au cadrage et aux premiers développements d’une IA agentique de recommandation fiscale', 'Participation au développement des bases du projet en full-stack (front et back, principalement back-end)'], stack: 'TypeScript, Elysia.js, Solid.js, Mastra, PostHog, Docker', more: 'ocr, développement agentique' },
+{ id: 'pause', date: 'avr. 2024 – déc. 2025', role: 'Pause professionnelle', sep: '›', org: 'Projet personnel', where: '', text: 'Pause consacrée à un projet immobilier personnel. En parallèle, veille technique active, avec un usage quotidien de l’IA dans ma pratique de développement.', points: [], stack: 'Huile de coude', more: '' },
+{ id: 'contentsquare', date: 'mars 2021 – mars 2024', role: 'Software Engineer', sep: '@', org: 'Contentsquare', where: 'Paris, hybride · CDI', text: '', points: ['Pendant deux ans, analyse et diagnostic des écarts de collecte de données entre outils d’analytics (Contentsquare, Google Analytics, Adobe Analytics)', 'Conception d’outils internes pour faciliter ce diagnostic au support technique', 'Puis développeur full-stack dans l’équipe Intégrations : back-end TypeScript (NestJS, Kafka, Redis, PostgreSQL), front-end Vue 2 et Vue 3'], stack: 'TypeScript, NestJS, Vue.js, PostgreSQL, Apache Kafka, Redis, Docker', more: 'google analytics, adobe analytics, diagnostic en production' },
+{ id: 'wynd-run', date: 'juil. 2020 – févr. 2021', role: 'Expert Intégration SI & Flux', sep: '@', org: 'Wynd', where: 'Paris, hybride · CDI', text: 'Équipe RUN, en charge de la production et de la maintenance applicative.', points: ['Cadrage et réalisation de chantiers d’intégration du produit : API, front e-commerce (Magento), flux ETL avec le SI des clients', 'Diagnostic et correction de bugs en production sur toute la stack', 'Référent StreamSets pour l’entreprise'], stack: 'PHP (Symfony), StreamSets, RabbitMQ, MySQL, Magento, Docker', more: 'api rest, diagnostic en production' },
+{ id: 'wynd-etl', date: 'mars 2019 – juil. 2020', role: 'Head of Chapter ETL', sep: '@', org: 'Wynd', where: 'Paris, hybride · CDI', text: 'Responsable de StreamSets, l’ETL open source utilisé par l’entreprise.', points: ['Définition et diffusion des bonnes pratiques', 'Accompagnement des équipes sur la conception, le déploiement et l’amélioration des flux d’intégration, pour le produit comme pour les projets clients', 'Industrialisation de l’usage de StreamSets dans l’entreprise'], stack: 'StreamSets, Apache Kafka, RabbitMQ, MySQL, Docker', more: '' },
+{ id: 'leboncoin', date: 'oct. 2018 – nov. 2018', role: 'Développeur web freelance', sep: '@', org: 'leboncoin', where: 'Paris, hybride · Freelance', text: 'Mission back-end en PHP 7 : nouvelles fonctionnalités pour le back-office et le CRM.', points: [], stack: 'PHP 7, JavaScript', more: '' },
+{ id: 'afluens', date: 'août 2017 – juin 2018', role: 'Développeur full-stack', sep: '@', org: 'Afluens', where: 'Saint-Cloud, hybride · CDI', text: 'Développement de l’outil collaboratif de l’entreprise, de la conception à la production.', points: ['Nouvelles fonctionnalités et nouveaux écrans, connexions avec des API externes (ERP, routeur e-mail et SMS), exports Excel', 'Refactoring en PHP orienté objet ; monitoring et optimisation du système de fichiers cloud (Node.js)', 'Exploitation : maintien du service, administration du serveur, gestion des incidents, support de niveau 2'], stack: 'PHP, JavaScript, Node.js, MongoDB, HTML5, CSS', more: 'api rest' },
+{ id: 'openclassrooms', date: 'mai 2015 – nov. 2015', role: 'Mentor en développement web', sep: '@', org: 'OpenClassrooms', where: 'Remote', text: 'Mentorat d’étudiants en développement web, avec cours individuels en visioconférence.', points: [], stack: 'PHP, JavaScript, HTML5, CSS', more: '' }
+];
+const keyOf = (label) => label.replace(/\s*\(.*\)/, '').replace('Apache ', '').toLowerCase();
+const matches = (key) => xpAll.filter((x) => (x.stack + ', ' + x.more).toLowerCase().split(', ').some((t) => t.replace(/\s*\(.*\)/, '').replace('apache ', '').replace(/ 7$/, '') === key));
+const matchAll = (ks) => (ks.length ? ks.map(matches).reduce((a, b) => a.filter((x) => b.includes(x))) : xpAll);
+const draft = this.state.draft || [];
+const dkeys = draft.map(keyOf);
+const toggleD = (label) => this.setState({ draft: dkeys.includes(keyOf(label)) ? draft.filter((k) => keyOf(k) !== keyOf(label)) : draft.concat([label]) });
+const applySearch = () => this.setState(Object.assign({ max: 'xp', focus: 'xp', xpFilters: draft }, closed));
+const index = [];
+groups.forEach((g) => g.items.forEach((label) => {
+const alone = matches(keyOf(label)).length;
+const sel = dkeys.includes(keyOf(label));
+const withIt = sel ? matchAll(dkeys).length : matchAll(dkeys.concat([keyOf(label)])).length;
+const dead = alone > 0 && !sel && withIt === 0;
+index.push({
+label: label,
+selected: sel ? 'true' : 'false',
+deadAttr: dead ? 'true' : 'false',
+opacity: dead ? '0.4' : '1',
+boxBorder: sel ? 'var(--neon)' : 'var(--line)',
+boxBg: sel ? 'var(--neon)' : 'transparent',
+checkOpacity: sel ? '1' : '0',
+boxVis: alone > 0 ? 'visible' : 'hidden',
+where: alone ? withIt + ' XP' : 'skills',
+pick: alone ? () => { if (!dead) toggleD(label); } : go('skills')
+});
+}));
+const q = this.state.query.trim().toLowerCase();
+const filtered = q ? index.filter((e) => e.label.toLowerCase().includes(q)) : index;
+const results = filtered.slice(0, 7);
+const fl = st.xpFilters || []; const fkeys = fl.map(keyOf); const addF = (l) => (fkeys.includes(keyOf(l)) ? fl : fl.concat([l]));
+const fq = this.state.fq || '';
+const fqL = fq.trim().toLowerCase();
+const countOf = (label) => matches(keyOf(label)).length;
+const allTech = []; groups.forEach((g) => g.items.forEach((l) => allTech.push(l)));
+const cnt = (l) => { const k = keyOf(l); return fkeys.includes(k) ? matchAll(fkeys).length : matchAll(fkeys.concat([k])).length; };
+const live = (l) => { const on = fkeys.includes(keyOf(l)); const n = cnt(l); const dead = !on && n === 0; return { on: on, n: n, dead: dead, deadAttr: dead ? 'true' : 'false', op: dead ? '0.4' : '1' }; };
+const togF = (label) => this.setState({ xpFilters: fkeys.includes(keyOf(label)) ? fl.filter((k) => keyOf(k) !== keyOf(label)) : fl.concat([label]), restOpen: false });
+const addFromQuery = (label) => this.setState({ xpFilters: fkeys.includes(keyOf(label)) ? fl : fl.concat([label]), fq: '', restOpen: false, refocus: true });
+const sugg = fqL ? allTech.filter((l) => l.toLowerCase().includes(fqL) && !fkeys.includes(keyOf(l))).sort((a, b) => countOf(b) - countOf(a) || rank(a) - rank(b)).slice(0, 6).map((l) => { const tot = countOf(l); const v = live(l); return { label: l, count: tot ? v.n + ' XP' : 'sans XP détaillée', op: tot ? v.op : '0.55', deadAttr: tot ? v.deadAttr : 'true', pick: tot && !v.dead ? () => addFromQuery(l) : () => {}, aria: tot ? (v.dead ? l + ' : aucune expérience avec les filtres en cours' : 'Ajouter ' + l + ', ' + v.n + (v.n > 1 ? ' expériences' : ' expérience')) : l + ' : pas d’expérience détaillée' }; }) : [];
+const quick = ['TypeScript', 'Node.js', 'NestJS', 'Vue.js (2 et 3)', 'PostgreSQL', 'Apache Kafka', 'Docker'].filter((l) => allTech.includes(l) && countOf(l) > 0).map((l) => { const v = live(l); return { label: l.replace(' (2 et 3)', ''), count: String(v.n), op: v.op, deadAttr: v.deadAttr, pressed: v.on ? 'true' : 'false', aria: v.dead ? l + ' : aucune expérience avec les filtres en cours' : (v.on ? 'Retirer le filtre ' : 'Ajouter ') + l + ', ' + v.n + (v.n > 1 ? ' expériences' : ' expérience'), pick: v.dead ? () => {} : () => togF(l) }; });
+const scoreOf = (x) => fkeys.filter((k) => matches(k).includes(x)).length;
+const matchedLabels = (x) => fl.filter((l) => matches(keyOf(l)).includes(x));
+let fullL = [], partL = [], restL = [];
+if (fkeys.length) { xpAll.forEach((x) => { const sc = scoreOf(x); if (sc === fkeys.length) fullL.push(x); else restL.push(x); }); } else { fullL = xpAll.slice(); }
+const restOpen = !!this.state.restOpen;
+const allOpen = !!this.state.allOpen;
+const allGroups = groups.map((g) => ({ label: g.label, items: g.items.map((l) => { const tot = countOf(l); const v = live(l); return { label: l, count: String(v.n), op: v.op, deadAttr: v.deadAttr, linked: tot > 0, plain: tot === 0, pressed: v.on ? 'true' : 'false', aria: v.dead ? l + ' : aucune expérience avec les filtres en cours' : (v.on ? 'Retirer le filtre ' : 'Ajouter ') + l + ', ' + v.n + (v.n > 1 ? ' expériences' : ' expérience'), pick: v.dead ? () => {} : () => togF(l) }; }) }));
+const xpList = [];
+fullL.forEach((x, i) => xpList.push({ x: x, head: fkeys.length && i === 0 ? (fkeys.length > 1 ? 'Avec toutes ces technos · ' + fullL.length : 'Avec ' + fl[0] + ' · ' + fullL.length) : '', match: '', dim: false }));
+partL.forEach((x, i) => xpList.push({ x: x, head: i === 0 ? (fullL.length ? 'En partie · ' + partL.length : 'Aucune ne combine tout · en partie · ' + partL.length) : '', match: 'Correspond : ' + matchedLabels(x).join(', '), dim: false }));
+if (restL.length && xpList.length) xpList[xpList.length - 1].toggleAfter = true;
+const noFull = fkeys.length > 0 && fullL.length === 0;
+if (restOpen) restL.forEach((x, i) => { const part = matchedLabels(x); xpList.push({ x: x, head: i === 0 ? 'Les autres expériences · ' + restL.length : '', match: part.length ? 'En partie : ' + part.join(', ') : '', dim: true }); });
+const restLabel = (restOpen ? 'Masquer les ' : 'Voir les ') + restL.length + (fullL.length ? (restL.length > 1 ? ' autres expériences' : ' autre expérience') : ' expériences');
+const toggleRest = () => this.setState({ restOpen: !restOpen });
+const goSkillXp = (l) => () => this.setState(Object.assign({ max: 'xp', focus: 'xp', xpFilters: [l], restOpen: false, fq: '' }, closed));
+const skillGroups = groups.map((g) => ({ label: g.label, items: g.items.map((l) => { const n = countOf(l); return { label: l, count: n + ' XP', linked: n > 0, plain: n === 0, aria: 'Voir ' + (n > 1 ? 'les ' + n + ' expériences' : 'l’expérience') + ' avec ' + l, go: goSkillXp(l) }; }) }));
+const out = {};
+const A = '(100% - 48px)';
+const MAXW = 868, SIDE_MIN = 340;
+const mw = Math.min(st.mainW || 1440, 1440);
+const AW = mw - 24;
+const tileW = Math.min(AW, MAXW);
+const sideW = AW - tileW - 12;
+const natH = st.natH || {};
+const capH = (id) => (natH[id] ? 'min(100% - 24px, ' + natH[id] + 'px)' : '100% - 24px');
+const natW = st.natW || {};
+const natP = st.natP || {};
+const natMax = (id) => (id === 'profil' ? (natP[tileW] ? natP[tileW] + 48 : natW.profil) : natW[id]);
+const AH = (st.mainH || 1024) - 24;
+const pair = { profil: 'ia', ia: 'profil' };
+const below = st.max && pair[st.max] && natMax(st.max) && natMax(pair[st.max]) && natMax(st.max) + 12 + natMax(pair[st.max]) <= AH ? pair[st.max] : null;
+const others = st.max ? ids.filter((k) => k !== st.max && k !== below) : [];
+const sideOK = !!st.max && sideW >= SIDE_MIN;
+const maxL = sideOK ? 12 : 12 + Math.round((AW - tileW) / 2);
+const MOSW = 420;
+const profW = st.max === 'profil' || below === 'profil' ? tileW : (st.max && sideOK ? sideW : MOSW);
+this._profWidths = [MOSW, tileW, sideW >= SIDE_MIN ? sideW : 0];
+const pNat = natP[profW];
+let profTileH;
+if (st.max === 'profil') profTileH = pNat ? Math.min(AH, pNat + 48) : AH;
+else if (below === 'profil') profTileH = pNat + 48;
+else if (st.max && sideOK) { const n = others.length; profTileH = (AH + 24 - 12 * (n + 1)) / n; }
+else profTileH = pNat ? Math.min(AH, pNat + 48) : AH;
+const avIn = profTileH - 48;
+const mosAv = (natP[MOSW] ? Math.min(AH, natP[MOSW] + 48) : AH) - 48;
+const maxAv = (natP[tileW] ? Math.min(AH, natP[tileW] + 48) : AH) - 48;
+const sideAv = (AH + 24 - 48) / 3 - 48;
+this._profTargets = [[MOSW, mosAv], [tileW, maxAv], [profW, avIn]];
+const pSm = st.pS || {};
+const profInSide = !!st.max && sideOK && st.max !== 'profil' && below !== 'profil';
+const pScale = profInSide ? 1 : (pSm[profW + 'x' + Math.round(avIn)] || (pNat ? Math.max(0.6, Math.min(1, avIn / pNat)) : 1));
+const R = {
+profil: { c: 0, r: 1, l: '12px', t: '12px', w: '420px', h: natP[420] ? 'min(100% - 24px, ' + (natP[420] + 48) + 'px)' : '100% - 24px' },
+xp: { c: 1, r: 1, l: '444px', t: '12px', w: '100% - 848px', h: '100% - 24px' },
+ia: { c: 2, r: 0, l: '100% - 392px', t: '12px', w: '380px', h: '(100% - 36px) / 2' },
+recos: { c: 2, r: 1, l: '100% - 392px', t: '24px + (100% - 36px) / 2', w: '380px', h: '(100% - 36px) / 2' }
+};
+const EASE = 'cubic-bezier(.4, 0, .15, 1)';
+const D = '.55s';
+ids.forEach((id) => {
+const isMax = st.max === id;
+const inSide = sideOK && !isMax && id !== below;
+const hidden = !!st.max && !isMax && !inSide && id !== below;
+let l = R[id].l, t = R[id].t, w = R[id].w, h = R[id].h;
+if (isMax) { w = tileW + 'px'; t = '12px'; h = id === 'xp' ? '100% - 24px' : (natMax(id) ? 'min(100% - 24px, ' + natMax(id) + 'px)' : capH(id)); l = maxL + 'px'; }
+else if (id === below) { w = tileW + 'px'; l = maxL + 'px'; t = (24 + natMax(st.max)) + 'px'; h = natMax(id) + 'px'; }
+else if (inSide) { const n = others.length, i = others.indexOf(id), G = '(100% - ' + (12 * (n + 1)) + 'px) / ' + n; l = (24 + tileW) + 'px'; w = sideW + 'px'; h = G; t = (12 + 12 * i) + 'px + ' + G + ' * ' + i; }
+else if (hidden) {
+const dx = R[id].c - R[st.max].c, dy = R[id].r - R[st.max].r;
+if (dx !== 0) l = l + ' + ' + (dx > 0 ? 1400 : -1400) + 'px';
+else t = t + ' + ' + (dy > 0 ? 1100 : -1100) + 'px';
+}
+const geo = ['left', 'top', 'width', 'height'].map((k) => k + ' ' + D + ' ' + EASE).join(', ');
+out[keys[id]] = {
+l: 'calc(' + l + ')', t: 'calc(' + t + ')', w: 'calc(' + w + ')', h: 'calc(' + h + ')',
+z: isMax ? 2 : 1,
+vis: hidden ? 'hidden' : 'visible',
+hidden: hidden ? 'true' : 'false',
+trans: geo + ', border-color .2s, visibility 0s linear ' + (hidden ? D : '0s'),
+cursor: isMax ? 'zoom-out' : 'zoom-in',
+border: isMax || st.focus === id ? 'var(--accent)' : 'var(--line)',
+isMax: isMax, notMax: !isMax,
+toggleLabel: (isMax ? 'Réduire ' : 'Agrandir ') + names[id],
+focus: () => { if (st.focus !== id) this.setState({ focus: id }); },
+toggle: () => this.setState(isMax ? { max: null } : { max: id, focus: id })
+};
+});
+const cur = { overview: st.max ? 'false' : 'true' };
+ids.forEach((id) => { cur[id] = st.max === id ? 'true' : 'false'; });
+return Object.assign(out, {
+theme: this.state.theme, toggleTheme: () => this.setState({ theme: this.state.theme === 'sombre' ? 'clair' : 'sombre' }), themeLabel: this.state.theme === 'sombre' ? 'Passer en thème clair' : 'Passer en thème sombre',
+cur: cur,
+overview: () => this.setState({ max: null }),
+fq: fq, onFq: (e) => this.setState({ fq: e.target.value }),
+onFqKey: (e) => { if (e.key === 'Enter') { e.preventDefault(); const first = sugg.find((s) => s.deadAttr !== 'true'); if (first) first.pick(); } else if (e.key === 'Escape') { if (fq) this.setState({ fq: '' }); else this.setState({ drawerOpen: false }); } else if (e.key === 'Backspace' && !fq && fl.length) { this.setState({ xpFilters: fl.slice(0, -1), restOpen: false }); } },
+suggOpen: fqL.length > 0, sugg: sugg, noSugg: fqL.length > 0 && sugg.length === 0, noSuggMsg: 'Aucune techno ne correspond à « ' + fq.trim() + ' ».',
+allOpen: allOpen, quickVisible: !allOpen, allGroups: allGroups, allAria: allOpen ? 'true' : 'false', allChev: allOpen ? 'rotate(180deg)' : 'none', allLabel: allOpen ? 'Masquer la liste' : 'Toutes les technos (' + allTech.length + ')', toggleAll: () => this.setState({ allOpen: !allOpen }),
+showQuick: !fqL, quick: quick, skillGroups: skillGroups,
+fqPlaceholder: fl.length ? 'Ajouter une techno…' : 'Ex. Kafka, Docker… (' + allTech.length + ' technos)',
+liveMsg: fkeys.length ? (fullL.length ? fullL.length + (fullL.length > 1 ? ' expériences' : ' expérience') + ' avec toutes les technos choisies' : 'Aucune expérience ne combine toutes ces technos') : '',
+noFull: noFull, restLabelTop: restLabel, restAriaTop: restOpen ? 'true' : 'false', toggleRestTop: toggleRest,
+clearAll: () => this.setState({ xpFilters: [], fq: '', restOpen: false, refocus: true }),
+openFinder: () => this.setState(Object.assign({ max: 'xp', focus: 'xp', focusFilter: true }, closed)),
+openDrawer: (e) => { const isClick = !!(e && e.type === 'click'); if (!isClick && (this._progFocus || Date.now() - (this._closedAt || 0) < 500)) return; if (!this.state.drawerOpen) { this._drawerSince = Date.now(); this.setState({ drawerOpen: true }); } },
+closeDrawer: () => { this._closedAt = Date.now(); this.setState({ drawerOpen: false, refocus: true }); },
+drawerAria: this.state.drawerOpen ? 'true' : 'false', drawerRows: this.state.drawerOpen && !fqL ? '1fr' : '0fr', drawerOp: this.state.drawerOpen && !fqL ? '1' : '0', drawerVis: this.state.drawerOpen && !fqL ? 'visible' : 'hidden', drawerDelay: this.state.drawerOpen && !fqL ? '0s' : '.28s',
+closeOnScroll: () => { if (this.state.drawerOpen && Date.now() - (this._drawerSince || 0) > 450) this.setState({ drawerOpen: false }); },
+showAllTechs: () => this.setState({ fq: '', allOpen: true, drawerOpen: true, refocus: false }),
+pScale: String(pScale), pWidth: 'calc(100% / ' + pScale + ')', pMaxW: (820 / pScale).toFixed(1) + 'px', pOverflow: profInSide || pScale <= 0.601 ? 'auto' : 'hidden',
+a11yOpen: !!this.state.a11yOpen, a11yAria: this.state.a11yOpen ? 'true' : 'false',
+toggleA11y: () => this.setState(this.state.a11yOpen ? { a11yOpen: false } : { a11yOpen: true, a11yFocus: true }),
+closeA11y: () => this.setState({ a11yOpen: false, a11yReturn: true }),
+a11yKey: (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.setState({ a11yOpen: false, a11yReturn: true }); } },
+tsMd: () => this.setState({ ts: 'md' }), tsLg: () => this.setState({ ts: 'lg' }), tsXl: () => this.setState({ ts: 'xl' }),
+tsMdP: (this.state.ts || 'md') === 'md' ? 'true' : 'false', tsLgP: this.state.ts === 'lg' ? 'true' : 'false', tsXlP: this.state.ts === 'xl' ? 'true' : 'false',
+a11ySw: [
+{ k: 'contrast', label: 'Contraste renforcé', desc: 'Textes et bordures plus marqués.' },
+{ k: 'lisible', label: 'Police plus lisible', desc: 'Atkinson Hyperlegible, conçue pour la basse vision.' },
+{ k: 'spacing', label: 'Espacement du texte', desc: 'Lignes, lettres et mots plus espacés (WCAG 1.4.12).' },
+{ k: 'links', label: 'Souligner les liens', desc: 'Repérer les liens sans se fier à la couleur.' },
+{ k: 'motion', label: 'Réduire les animations', desc: 'Coupe les transitions et les glissements.' }
+].map((o) => ({ label: o.label, desc: o.desc, checked: this.state[o.k] ? 'true' : 'false', toggle: () => this.setState({ [o.k]: !this.state[o.k] }) })),
+resetA11y: () => this.setState({ ts: 'md', contrast: false, lisible: false, spacing: false, links: false, motion: A11Y_MOTION }),
+dTs: this.state.ts || 'md', dContrast: this.state.contrast ? 'on' : 'off', dFont: this.state.lisible ? 'lisible' : 'base', dSpacing: this.state.spacing ? 'on' : 'off', dLinks: this.state.links ? 'on' : 'off', dMotion: this.state.motion ? 'reduce' : 'auto',
+goProfil: go('profil'), goXp: go('xp'), goSkills: go('skills'), goRecos: go('recos'), goIa: go('ia'),
+openContact: openContact,
+closeContact: () => this.setState({ contactOpen: false }),
+eggOpen: this.state.eggOpen, closeEgg: () => this.setState({ eggOpen: false }),
+contactOpen: st.contactOpen,
+openSearch: () => this.setState({ searchOpen: true, contactOpen: false, draft: (this.state.xpFilters || []).slice() }),
+closeSearch: () => this.setState({ searchOpen: false, query: '', draft: [] }),
+searchOpen: st.searchOpen,
+query: st.query,
+onQuery: (e) => this.setState({ query: e.target.value }),
+results: results, noResult: q.length > 0 && results.length === 0, hasResults: results.length > 0, listTitle: q ? filtered.length + (filtered.length > 1 ? ' résultats' : ' résultat') : 'Suggestions', hasMore: filtered.length > results.length, moreHint: '+ ' + (filtered.length - results.length) + (q ? ' autres résultats : précisez votre recherche' : ' autres technos : saisissez un nom pour chercher'), placeholder: 'Chercher parmi ' + index.length + ' technos…', hasDraft: draft.length > 0, draftChips: draft.map((l) => ({ label: l, aria: 'Retirer ' + l, remove: () => toggleD(l) })), showApply: draft.length > 0 || fl.length > 0, applySearch: applySearch, applyLabel: draft.length ? 'Voir ' + matchAll(dkeys).length + (matchAll(dkeys).length > 1 ? ' expériences' : ' expérience') : 'Voir toutes les expériences',
+hasFilter: fl.length > 0, many: fl.length > 1, noXp: fl.length > 0 && matchAll(fkeys).length === 0, filters: fl.map((l) => ({ label: l, aria: 'Retirer le filtre ' + l, remove: () => this.setState({ xpFilters: fl.filter((k) => k !== l), restOpen: false, refocus: true }) })),
+clearFilter: () => this.setState({ xpFilters: [] }),
+xp: xpList.map((it) => { const x = it.x; const open = !!(st.openXp && st.openXp[x.id]); return Object.assign({}, x, { showHead: !!it.head, head: it.head, hasMatch: !!it.match, match: it.match, dimOp: it.dim ? '0.6' : '1', toggleAfter: !!it.toggleAfter, restLabel: restLabel, restAria: restOpen ? 'true' : 'false', toggleRest: toggleRest, orgLabel: x.sep + ' ' + x.org, hasIntro: x.text.length > 0, hasWhere: x.where.length > 0, hasDetail: x.points.length > 0, panelId: 'xp-' + x.id, expanded: open ? 'true' : 'false', rows: open ? '1fr' : '0fr', vis: open ? 'visible' : 'hidden', vtrans: 'grid-template-rows .32s cubic-bezier(.4, 0, .2, 1), visibility 0s linear ' + (open ? '0s' : '.32s'), chev: open ? 'rotate(180deg)' : 'none', toggleLabel: open ? 'Masquer le détail' : 'Voir le détail', toggleAria: (open ? 'Masquer le détail de ' : 'Voir le détail de ') + x.role + ' chez ' + x.org, toggle: () => this.setState({ openXp: Object.assign({}, st.openXp || {}, { [x.id]: !open }) }), badges: sortT(x.stack.split(', ')).map((label) => { const on = fkeys.includes(keyOf(label)); return { label: label, pressed: on ? 'true' : 'false', aria: label === 'Huile de coude' ? label : (on ? 'Retirer le filtre ' : 'Filtrer par ') + label, pick: (e) => { if (label === 'Huile de coude') { this.setState({ eggOpen: true }); return; } const sc = e && e.currentTarget ? e.currentTarget.closest('div[style*="overflow-y: auto"]') : null; this.setState({ xpFilters: on ? fl.filter((k) => keyOf(k) !== keyOf(label)) : fl.concat([label]) }); setTimeout(() => { try { if (sc) sc.scrollTop = 0; } catch (err) {} }, 0); } }; }) }); }),
+groups: groups,
+recoList: [
+{"paras": ["Julien a été recruté chez Contentsquare pour un poste de liaison entre l'équipe support et l'équipe tech.", "Il s'agissait d'investiguer nos problèmes les plus complexes, impliquant différentes équipes (Data, App et des solutions tierces) avec de fortes volumétries et sur lesquelles on avait beaucoup de mal à avancer.", "C'était un poste inconfortable car unique chez Contentsquare, très transverse et donc sans appui managérial évident.", "Julien a su très vite s'approprier la forte complexité technique des différentes stack (Clickhouse, nodejs, kubernetes, adobe et google analytics), nouer une relation professionnelle forte avec l'ensemble des équipes.", "Il a su par la suite créer des outils pour systématiser sa méthode d'investigation pour que l'équipe support puisse être autonome.", "Cette mission a été un gros succès pour Contentsquare."], "name": "Alexis Coudeyras", "role": "CTO", "link": "Responsable direct de Julien · 8 décembre 2025"},
+{"paras": ["Julien, malgré son manque d'expérience lors de son arrivée dans mon équipe, a été extrêmement rapide à s'intégrer et à appréhender nos technologies.", "Il a sur faire preuve de sérieux, d'investissement et a été curieux et intéressé même par les aspects les moins excitants de ses responsabilités.", "Il a montré une extraordinaire qualité d'adaptation et d'apprentissage, et n'a jamais eu peur du moindre challenge. Il se donne toujours à fond dans ce qu'il produit, et j'ai toujours été extrêmement satisfait de la qualité de nos échanges, et du travail fournis.", "Pour conclure, je recommanderais fortement Julien, surtout qu'il sait être autonome et être force de proposition, et est très efficace en télétravail, ce qui est une vrai force et une qualité indéniable de nos jours."], "name": "Steeve Chevry", "role": "CTO de transition & CTO as a service", "link": "Responsable direct de Julien · 4 novembre 2020"},
+{"paras": ["Pendant le temps que j'ai eu Julien dans mon équipe, j'ai été systématiquement impressionné par sa capacité à prendre en main des sujets qui lui sont étrangers. Il a par exemple su devenir notre expert Streamsets en quelques mois d'utilisation de la plateforme, ou travailler efficacement avec du legacy iOS en une journée alors qu'il n'y connaissait rien. Via ce talent d'adaptabilité, de montée en compétence express, et de debug de l'impossible, il a sauvé plus d'une fois la peau de notre équipe TMA, qui devait régulièrement prendre dans son scope sans avertissement préalable de nouveaux sujets complexes sur lesquels nous n'avions pas encore eu le temps de monter en expertise."], "name": "Eric Bisceglia", "role": "Consulting technique", "link": "Responsable direct de Julien · 25 septembre 2020"}
+]
+});
+}
+}
+</script>
+</body>
+</html>

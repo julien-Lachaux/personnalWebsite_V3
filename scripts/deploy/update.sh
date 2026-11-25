@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Mise à jour d'un déploiement existant : sauvegarde, git pull, rebuild, migrations, redémarrage.
+# Mise à jour d'un déploiement existant : sauvegarde, git pull de main, rebuild, migrations,
+# redémarrage, génération du front puis bascule de Caddy sur la nouvelle version (BF-13). Refuse un dépôt qui n'est pas sur main (git flow : develop ne se déploie jamais).
 # Variables : SKIP_BACKUP=1 saute la sauvegarde préalable (déconseillé : les migrations et les seeds
 # modifient la base).
 # Codes de sortie : 0 terminé ; 1 erreur (dont l'échec de la sauvegarde : rien n'est alors modifié).
@@ -7,8 +8,11 @@ set -euo pipefail
 
 # shellcheck source=scripts/deploy/common.sh
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+# shellcheck source=scripts/deploy/site.sh
+. "$(dirname "${BASH_SOURCE[0]}")/site.sh"
 
 require_docker
+require_deploy_branch
 require_env_file
 ensure_api_db_password
 
@@ -19,8 +23,8 @@ else
   "$(dirname "${BASH_SOURCE[0]}")/backup.sh"
 fi
 
-log "Mise à jour du code (fast-forward uniquement)"
-run git -C "${REPO_DIR}" pull --ff-only
+log "Mise à jour du code depuis origin/${DEPLOY_BRANCH} (fast-forward uniquement)"
+run git -C "${REPO_DIR}" pull --ff-only origin "${DEPLOY_BRANCH}"
 
 log "Reconstruction de l'image"
 run compose build api
@@ -30,6 +34,11 @@ run compose run --rm migrate
 
 log "Redémarrage de la pile"
 run compose up -d
+
+# Ordre BF-13 : base, migrations et seeds, API saine, génération du front, bascule de Caddy. Un échec de
+# la génération arrête le script ici (set -e) : le site précédent reste servi.
+wait_for_api_health
+publish_site
 
 log "État de la pile"
 run compose ps

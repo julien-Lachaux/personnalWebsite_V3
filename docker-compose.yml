@@ -1,16 +1,24 @@
-# Environnement de développement : deux PostgreSQL 16 séparés.
+# Environnement de développement : deux PostgreSQL 16 séparés et les navigateurs des e2e du front.
 # - postgres      : base de dev `siteperso`, données persistées dans un volume nommé.
 # - postgres-test : base `siteperso_test` pour les tests e2e, en tmpfs (jetable, rapide).
 # - api           : essai local de l'image de production (profil `api`, voir docker/api.Dockerfile).
+# - playwright    : serveur de navigateurs des e2e du front (`pnpm e2e:browsers:up`).
 # Identifiants de dev uniquement : jamais exposés hors de la machine locale.
 # Worktrees en parallèle : un `.env` racine avec COMPOSE_PROJECT_NAME, POSTGRES_PORT et
-# POSTGRES_TEST_PORT distincts isole conteneurs et ports (lu par compose et par vitest.e2e).
+# POSTGRES_TEST_PORT distincts isole conteneurs et ports (lu par compose et par vitest.e2e) ; de même
+# PLAYWRIGHT_PORT et WEB_E2E_PORT pour les e2e du front (lus aussi par apps/web/playwright.config.ts).
 
 name: ${COMPOSE_PROJECT_NAME:-siteperso-v3}
 
+# oom_score_adj explicite sur les services à healthcheck : sous Podman sans privilèges, via
+# `podman compose` (fournisseur docker-compose), un conteneur créé sans cette valeur refuse tout
+# `exec`, healthcheck compris (« crun: write to /proc/self/oom_score_adj: Permission denied »), et
+# `up --wait` le voit « unhealthy ». Une valeur haute peut toujours être posée sans privilège ;
+# elle n'a pas d'autre effet qu'une priorité de l'OOM killer sur ces conteneurs de développement.
 services:
   postgres:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
+    oom_score_adj: 500
     restart: unless-stopped
     environment:
       POSTGRES_DB: siteperso
@@ -27,7 +35,8 @@ services:
       retries: 15
 
   postgres-test:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
+    oom_score_adj: 500
     environment:
       POSTGRES_DB: siteperso_test
       POSTGRES_USER: siteperso
@@ -42,7 +51,7 @@ services:
       timeout: 3s
       retries: 15
 
-  # Essai local de l'image de production : `docker compose --profile api up -d --build api`.
+  # Essai local de l'image de production : `bash scripts/compose.sh --profile api up -d --build api`.
   # Hors profil, `pnpm db:up` ne le démarre pas.
   api:
     profiles: ['api']
@@ -58,6 +67,33 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Navigateurs des e2e du front (Playwright), sans rien installer sur l'hôte : le lanceur
+  # `playwright test` tourne sur l'hôte (Node de pnpm) et pilote ce serveur par WebSocket
+  # (`connectOptions` de apps/web/playwright.config.ts) ; le site statique servi sur l'hôte est
+  # joint par `exposeNetwork: '<loopback>'`. Image officielle épinglée par digest, version alignée
+  # sur `@playwright/test` (apps/web/package.json) : les deux se mettent à jour ensemble.
+  # `pnpm e2e:browsers:up` (appelé par `pnpm check`) ; `pnpm db:down` l'arrête avec le reste.
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579
+    oom_score_adj: 500
+    init: true
+    user: pwuser
+    working_dir: /home/pwuser
+    command: ['/bin/sh', '-c', 'npx -y playwright@1.65.1 run-server --port 3000 --host 0.0.0.0']
+    ports:
+      - '127.0.0.1:${PLAYWRIGHT_PORT:-3100}:3000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('net').connect(3000, '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 60
 
 volumes:
   siteperso_pgdata:

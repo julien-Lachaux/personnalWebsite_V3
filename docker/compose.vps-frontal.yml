@@ -1,0 +1,40 @@
+# Essai de la variante VPS (docker/compose.vps.yml) : simule le Caddy de l'hôte et deux clients de
+# réseaux distincts. À ajouter APRÈS compose.vps.yml par scripts/deploy/vps-stack.sh ; jamais en production.
+# `frontal` partage avec le Caddy de la pile le dossier du socket (PROD_RUN_DIR, `/run/prod/site-perso` sur
+# le serveur). `client-a` et `client-b` sont deux conteneurs du réseau `front` : deux adresses sources
+# distinctes, sans passer par rootlesskit (qui masque l'IP source des clients de l'hôte, d'où le Caddy
+# de l'hôte en production).
+services:
+  frontal:
+    image: docker.io/library/caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
+    restart: 'no'
+    volumes:
+      - ./Caddyfile.frontal-test:/etc/caddy/Caddyfile:ro
+      - ${PROD_RUN_DIR:?PROD_RUN_DIR requis}:/run/prod
+    networks:
+      - front
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /config
+      - /data
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - label=disable
+    oom_score_adj: 500
+  client-a: &client
+    image: docker.io/library/caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
+    entrypoint: ['sleep', '3600']
+    restart: 'no'
+    networks:
+      - front
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    oom_score_adj: 500
+  client-b: *client
+
+networks:
+  front:

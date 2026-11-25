@@ -16,15 +16,19 @@
 // la session principale, sans agent_type, a le rôle « main ».
 
 import { existsSync, readFileSync } from 'node:fs';
-import { isAbsolute, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import {
   classify,
   countMarkers,
+  countUndeclaredDirectives,
+  declaredEquivalentIds,
   hasMarker,
   hasTestSegment,
   roleMayWrite,
   scopeFor,
   startReminder,
+  STRYKER_CODE_FILE,
+  STRYKER_EQUIVALENTS_FILE,
 } from './lib/policy.mjs';
 import {
   analyzeCommand,
@@ -34,17 +38,25 @@ import {
 } from './lib/shell.mjs';
 import {
   audit,
+  carryCreatedTests,
   clearViolations,
+  dropSnapshot,
   dropSnapshots,
   ensureSnapshot,
+  existedAtSnapshot,
   findAuthorization,
   globToRegExp,
+  listFiles,
   listSnapshots,
   markReported,
   normalize,
   pendingViolations,
+  pruneState,
+  recordAuthorizedWrite,
   recordViolations,
   relativeTo,
+  sha256,
+  snapshotRootStatus,
   stateRoot,
   toplevelOf,
   verifySnapshot,
@@ -92,7 +104,7 @@ function contextOf(input) {
     typeof input.scratchpad_dir === 'string' && isAbsolute(input.scratchpad_dir)
       ? normalize(input.scratchpad_dir)
       : null;
-  return { input, role, key, cwd, scratch, root: stateRoot(cwd), used: [] };
+  return { input, role, key, cwd, scratch, root: stateRoot(cwd), used: [], writes: [] };
 }
 
 /** Le dossier temporaire de session est jetable : rien n'y est protégé. */
@@ -171,12 +183,52 @@ function simulateEdit(tool, ti, before) {
 
 const CODE_FILE = /\.(c|m)?[jt]sx?$|\.(sh|bash|zsh|py|rb|pl)$/;
 const STATE_HINT = /\.claude\/hooks\/state|authorizations\.json|\.claude\/hooks\/audit\.log/;
+/** Mention de la configuration git dans un code opaque. */
+const GIT_CONFIG_HINT =
+  /(^|[^\w.])\.git\/(\S+\/)?config\b|\.gitconfig\b|\.config\/git\/config\b|\/etc\/gitconfig\b/;
+const GIT_CONFIG = 'la configuration git';
+const GIT_CONFIG_MOTIF =
+  'elle peut redéfinir la destination des push (remote, url, branche suivie) : réservé à Julien';
+
+/**
+ * Fichier de configuration git (T3 du lot 13 bis) : .git/config, config.worktree (dépôt, worktree,
+ * sous-module), ~/.gitconfig, $XDG_CONFIG_HOME/git/config, /etc/gitconfig. Personne ne l'édite.
+ */
+function isGitConfigFile(abs) {
+  if (/(^|\/)\.git\/(.+\/)?config(\.worktree)?$/.test(abs)) return true;
+  const home = process.env.HOME;
+  const xdg = process.env.XDG_CONFIG_HOME || (home ? join(home, '.config') : null);
+  return [home && join(home, '.gitconfig'), xdg && join(xdg, 'git', 'config'), '/etc/gitconfig']
+    .filter(Boolean)
+    .some((file) => abs === file || abs === normalize(file));
+}
+
+/** Identifiants des mutants équivalents déclarés dans les stryker.equivalents.json d'un dépôt. */
+function declaredEquivalents(top) {
+  const ids = new Set();
+  for (const rel of listFiles(top)) {
+    if (!STRYKER_EQUIVALENTS_FILE.test(rel)) continue;
+    try {
+      for (const id of declaredEquivalentIds(readFileSync(join(top, rel), 'utf8'))) ids.add(id);
+    } catch {
+      // Fichier illisible : ses identifiants ne comptent pas comme déclarés.
+    }
+  }
+  return ids;
+}
+
+const DIRECTIVE_MOTIF =
+  'une directive Stryker disable cite l’identifiant (<PAQUET>-EQ-<n>) d’un mutant équivalent déjà ' +
+  'déclaré dans un stryker.equivalents.json, sous autorisation et Justification-test (CLAUDE.md, ' +
+  '« Conventions de code »)';
 
 function checkFileTool(ctx, tool, ti) {
   const filePath = ti.file_path ?? ti.notebook_path;
   if (typeof filePath !== 'string' || filePath === '')
     throw new InputError(`${tool} sans file_path`);
   const abs = normalize(isAbsolute(filePath) ? filePath : resolve(ctx.cwd, filePath));
+  if (isGitConfigFile(abs))
+    deny(ctx, `la configuration git (${abs}) ne s'édite pas : ${GIT_CONFIG_MOTIF}`, { path: abs });
   if (inScratch(ctx, abs)) return;
 
   const before = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
@@ -201,6 +253,19 @@ function checkFileTool(ctx, tool, ti) {
     requireAuthorization(ctx, 'fails', rel, 'test en échec attendu (marqueur fails)');
   }
   if (rel === null) return;
+  // L14-01 : une directive Stryker disable qui ne cite pas un équivalent déclaré est refusée dès
+  // l'écriture, comme un marqueur de saut (le script d'intégrité la refuse au commit et en CI).
+  if (STRYKER_CODE_FILE.test(rel) && /Stryker\s+disable/.test(after)) {
+    const declared = declaredEquivalents(top);
+    if (countUndeclaredDirectives(after, declared) > countUndeclaredDirectives(before, declared))
+      deny(
+        ctx,
+        `directive Stryker disable sans équivalent déclaré dans ${rel} : ${DIRECTIVE_MOTIF}`,
+        {
+          path: rel,
+        },
+      );
+  }
 
   const kind = classify(rel);
   if (kind === 'state')
@@ -213,7 +278,9 @@ function checkFileTool(ctx, tool, ti) {
   if (kind === 'guard' || kind === 'config') {
     requireAuthorization(ctx, 'config', rel, 'configuration de test, de CI ou garde-fou');
   } else if (kind === 'test') {
-    const existing = snapshot ? rel in snapshot.oracles : existsSync(abs);
+    // L14-12 : un fichier devenu test en cours de session (politique élargie depuis l'instantané)
+    // est un test existant s'il existait à l'instantané, même hors de ses oracles.
+    const existing = snapshot ? existedAtSnapshot(snapshot, rel) : existsSync(abs);
     if (existing) requireAuthorization(ctx, 'tests', rel, 'modification d’un test existant');
   }
   if (
@@ -226,6 +293,36 @@ function checkFileTool(ctx, tool, ti) {
       path: rel,
     });
   }
+  // L25-04 : empreinte exacte du contenu que l'écriture autorisée produira, pour que la fin de
+  // tâche d'une autre clé qui a photographié ce dépôt ne la lui attribue pas.
+  const exact = exactContent(tool, ti, before);
+  if (exact !== null) {
+    for (const use of ctx.used.filter((u) => u.path === rel))
+      ctx.writes.push({ top, rel, sha256: sha256(exact), grant: use.grant, scope: use.scope });
+  }
+}
+
+/**
+ * Contenu que l'outil écrira, s'il est exactement connu : Write ; Edit et MultiEdit dont chaque
+ * texte remplacé est présent (une seule fois sans replace_all). Sinon null : l'outil échouera ou
+ * normalisera, et rien n'est relevé.
+ */
+function exactContent(tool, ti, before) {
+  if (tool === 'Write') return typeof ti.content === 'string' ? ti.content : null;
+  if (tool !== 'Edit' && tool !== 'MultiEdit') return null;
+  const edits = tool === 'MultiEdit' ? ti.edits : [ti];
+  if (!Array.isArray(edits)) return null;
+  let text = before;
+  for (const e of edits) {
+    if (!e || typeof e.old_string !== 'string' || typeof e.new_string !== 'string') return null;
+    if (e.old_string === '') return null;
+    const count = text.split(e.old_string).length - 1;
+    if (count === 0 || (count > 1 && !e.replace_all)) return null;
+    text = e.replace_all
+      ? text.split(e.old_string).join(e.new_string)
+      : text.replace(e.old_string, () => e.new_string);
+  }
+  return text;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -233,6 +330,10 @@ function checkFileTool(ctx, tool, ti) {
 
 /** Classe une cible d'écriture shell et applique la règle correspondante. */
 function checkShellTarget(ctx, abs, raw) {
+  if (isGitConfigFile(abs))
+    deny(ctx, `écriture shell de la configuration git (${raw}) : ${GIT_CONFIG_MOTIF}`, {
+      path: abs,
+    });
   if (inScratch(ctx, abs)) return;
   const top = toplevelOf(abs);
   if (!top) return;
@@ -277,13 +378,14 @@ function checkShellTarget(ctx, abs, raw) {
       rel,
       'écriture shell sur une configuration de test ou un garde-fou',
     );
-  if (scope === 'tests' && rel in snapshot.oracles) {
+  if (scope === 'tests' && existedAtSnapshot(snapshot, rel)) {
     requireAuthorization(ctx, 'tests', rel, 'écriture shell sur un test existant');
   }
 }
 
 /** Recherche, dans un code opaque, un chemin qui désigne un oracle ou l'état des garde-fous. */
 function opaqueHit(ctx, text, base) {
+  if (GIT_CONFIG_HINT.test(text)) return GIT_CONFIG;
   if (ctx.role !== 'main' && STATE_HINT.test(text)) return "l'état des garde-fous";
   const tops = [toplevelOf(base), toplevelOf(ctx.cwd)].filter(Boolean);
   for (const cand of pathCandidates(text)) {
@@ -312,7 +414,7 @@ function checkShell(ctx, ti) {
   if (typeof command !== 'string') throw new InputError('commande shell absente');
   let analysis;
   try {
-    analysis = analyzeCommand(command, ctx.cwd);
+    analysis = analyzeCommand(command, ctx.cwd, ctx.role, { scratch: ctx.scratch });
   } catch (error) {
     if (error instanceof ShellParseError) deny(ctx, `commande illisible (${error.message})`);
     throw error;
@@ -327,6 +429,21 @@ function checkShell(ctx, ti) {
       ctx,
       "écriture shell d'un marqueur de saut, de focus ou d'un commentaire d'ignore : utilise l'outil Write, qui le refusera aussi sauf autorisation",
     );
+  }
+  // L14-01 : directive Stryker disable écrite par le shell dans un fichier de code (ou par une
+  // écriture opaque, dont la cible n'est pas lisible) sans équivalent déclaré.
+  if (
+    analysis.writes &&
+    /Stryker\s+disable/.test(command) &&
+    (analysis.opaque.length > 0 ||
+      [...analysis.targets, ...analysis.repoTargets].some((t) => STRYKER_CODE_FILE.test(t.path)))
+  ) {
+    const declared = cwdTop ? declaredEquivalents(cwdTop) : new Set();
+    if (countUndeclaredDirectives(command, declared, { loose: true }) > 0)
+      deny(
+        ctx,
+        `écriture shell d'une directive Stryker disable sans équivalent déclaré : ${DIRECTIVE_MOTIF}`,
+      );
   }
 
   let guardScript = false;
@@ -357,6 +474,11 @@ function checkShell(ctx, ti) {
         o.what.startsWith('xargs') || ['find', 'patch', 'git apply', 'git am'].includes(o.what);
       if (!always && !hasWritePrimitive(o.text)) continue;
       const hit = opaqueHit(ctx, o.text, o.base);
+      if (hit === GIT_CONFIG)
+        deny(
+          ctx,
+          `écriture opaque (${o.what}) qui vise la configuration git : ${GIT_CONFIG_MOTIF}`,
+        );
       if (hit) {
         deny(
           ctx,
@@ -381,6 +503,8 @@ function preToolUse(ctx) {
   if (FILE_TOOLS.has(tool)) checkFileTool(ctx, tool, ti);
   else if (SHELL_TOOLS.has(tool) || typeof ti.command === 'string') checkShell(ctx, ti);
   journalUses(ctx);
+  for (const w of ctx.writes)
+    recordAuthorizedWrite(ctx.root, { ...w, key: ctx.key, role: ctx.role });
 }
 
 function snapshotCwd(ctx) {
@@ -388,14 +512,51 @@ function snapshotCwd(ctx) {
   if (top) ensureSnapshot(ctx.root, ctx.key, top);
 }
 
+/**
+ * L26-05 : élagage des écritures autorisées et des reports devenus inutiles, après la vérification.
+ * Jamais bloquant : une erreur est journalisée et la fin de tâche garde son résultat.
+ */
+function prune(ctx) {
+  try {
+    const removed = pruneState(ctx.root);
+    if (Object.keys(removed.writes).length + Object.keys(removed.carry).length > 0)
+      audit(ctx.root, { event: 'pruned', role: ctx.role, key: ctx.key, ...removed });
+  } catch (error) {
+    audit(ctx.root, {
+      event: 'error',
+      mode: 'prune',
+      role: ctx.role,
+      key: ctx.key,
+      message: error?.message ?? String(error),
+    });
+  }
+}
+
 function verify(ctx) {
-  const violations = listSnapshots(ctx.root, ctx.key).flatMap((s) =>
+  const code = verifySnapshots(ctx);
+  prune(ctx);
+  return code;
+}
+
+function verifySnapshots(ctx) {
+  // BF-11 : l'instantané d'une racine disparue ou d'un worktree retiré (dossier recréé par un outil,
+  // qui n'est plus ce dépôt) est ignoré et supprimé, sans attendre que les autres soient propres.
+  const snapshots = listSnapshots(ctx.root, ctx.key).filter((s) => {
+    const status = snapshotRootStatus(ctx.root, s);
+    if (status !== 'absent' && status !== 'retired') return true;
+    dropSnapshot(ctx.root, ctx.key, s.top);
+    return false;
+  });
+  const violations = snapshots.flatMap((s) =>
     verifySnapshot(ctx.root, s, { role: ctx.role, key: ctx.key }).map((v) => ({
       ...v,
       top: s.top,
     })),
   );
   if (violations.length === 0) {
+    // L25-03 : les tests créés pendant la tâche restent libres si la même clé reprend (agent
+    // relancé par un message, nouveau tour de la session principale).
+    for (const s of snapshots) carryCreatedTests(ctx.root, ctx.key, s);
     dropSnapshots(ctx.root, ctx.key);
     clearViolations(ctx.root, ctx.key);
     return 0;

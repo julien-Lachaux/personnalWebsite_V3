@@ -31,7 +31,7 @@ async function withEnv<T>(
   }
 }
 
-/** Les 12 routes de contenu, la santé et le contrat OpenAPI. */
+/** Les 14 routes de contenu, la santé et le contrat OpenAPI. */
 const ALL_PATHS = [
   ...ENDPOINTS.map((endpoint) => endpoint.path),
   '/api/v1/health',

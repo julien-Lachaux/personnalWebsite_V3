@@ -28,7 +28,7 @@ describe('GET /api/v1/profile', () => {
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toContain('application/json');
     const profile = ProfileSchema.parse(response.json());
-    expect(profile.title).toBe('Développeur full-stack TypeScript senior');
+    expect(profile.title).toBe('Développeur full-stack');
     expect(profile.picture.alt).not.toBe('');
   });
 

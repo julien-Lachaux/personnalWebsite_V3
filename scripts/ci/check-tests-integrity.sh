@@ -4,28 +4,41 @@
 # Compare la branche courante à son point de divergence avec la branche d'intégration et échoue si :
 #   1. un fichier de test existant est modifié ou supprimé sans qu'un commit qui le touche porte une
 #      ligne « Justification-test: <identifiant du finding> <raison> » ;
-#   2. une configuration protégée (Vitest, couverture, Stryker et mutants équivalents, turbo.json,
-#      pnpm-workspace.yaml, .husky, .github/workflows, scripts/ci, .claude/settings.json,
+#   2. une configuration protégée (Vitest, couverture, Stryker et mutants équivalents, Playwright,
+#      turbo.json, pnpm-workspace.yaml, .husky, .github/workflows, scripts/ci, .claude/settings.json,
 #      .claude/hooks) ou un script de test d'un package.json change sans la même justification ;
 #   3. une ligne ajoutée (commitée, modifiée ou non suivie) contient un marqueur de saut ou de focus
-#      de Vitest ou un commentaire d'ignore de couverture ; le marqueur d'échec attendu (fails) est
-#      admis seulement si un commit qui touche le fichier porte une ligne Justification-test ;
+#      de Vitest (ou fixme, slow de Playwright) ou un commentaire d'ignore de couverture ; le
+#      marqueur d'échec attendu (fails de Vitest, fail de Playwright) est admis seulement si un
+#      commit qui touche le fichier porte une ligne Justification-test ;
 #   4. un fichier de code suivi contient l'un de ces marqueurs ou commentaires (tout l'arbre) ;
 #   5. une directive « Stryker disable » (commentaire qui retire des mutants du score) est ajoutée
 #      dans un fichier JS/TS sans qu'un commit qui le touche porte une ligne Justification-test ;
+#      à la ligne (L14-02), le commit qui ajoute la directive porte lui-même cette ligne, qui cite
+#      l'identifiant de chaque équivalent de la directive, et chaque équivalent déclaré qu'elle cite
+#      désigne la ligne et le mutateur (obligatoire) qu'elle retire du score ;
 #   6. une directive « Stryker disable » d'un fichier JS/TS suivi (tout l'arbre) ne cite pas
 #      l'identifiant (<PAQUET>-EQ-<n>) d'un mutant équivalent déclaré dans un stryker.equivalents.json.
 #
 # Usage : check-tests-integrity.sh [référence de base]
-#         (défaut : origin/v3/backend, sinon v3/backend). Code 0 : intègre ; 1 : écart ; 2 : usage.
+#         (défaut : origin/develop, sinon develop : la branche d'intégration de git flow, décision
+#         de Julien du 19 nov. 2026). Code 0 : intègre ; 1 : écart ; 2 : usage.
 #
 # Ce script ne contient volontairement aucun marqueur littéral (motifs écrits en alternatives).
 
 set -euo pipefail
 
+# BF-8 : chemins non ASCII en clair. Avec core.quotePath (défaut), git cite un chemin accentué
+# ("apps/web/test/cass\303\251.e2e.ts") : il échappait aux motifs ci-dessous et `git log -- <chemin
+# cité>` ne retrouvait pas sa Justification-test. Les listes de chemins sont lues en `-z` (aucune
+# citation) ; core.quotePath=false couvre les sorties qui n'ont pas de `-z` (git grep).
+git() {
+  command git -c core.quotePath=false "$@"
+}
+
 base_ref="${1:-}"
 if [ -z "$base_ref" ]; then
-  for candidate in origin/v3/backend v3/backend; do
+  for candidate in origin/develop develop; do
     if git rev-parse --verify -q "${candidate}^{commit}" >/dev/null; then
       base_ref="$candidate"
       break
@@ -33,17 +46,30 @@ if [ -z "$base_ref" ]; then
   done
 fi
 if [ -z "$base_ref" ] || ! git rev-parse --verify -q "${base_ref}^{commit}" >/dev/null; then
-  echo "Intégrité des tests : base « ${base_ref:-origin/v3/backend} » introuvable (git fetch ?)." >&2
+  echo "Intégrité des tests : base « ${base_ref:-origin/develop ou develop} » introuvable (git fetch ?)." >&2
   exit 2
 fi
 merge_base="$(git merge-base HEAD "$base_ref")"
 
 # Motifs (expressions régulières étendues, chemins relatifs à la racine du dépôt).
-TEST_RE='(^|/)[^/]+\.(spec|e2e-spec|test)\.[cm]?[jt]sx?$|(^|/)[^/]+\.test\.sh$|(^|/)[^/]+\.fixtures?\.[cm]?[jt]sx?$|(^|/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__)/|\.snap$'
-CONFIG_RE='(^|/)vitest(\.[A-Za-z0-9_-]+)*\.(config|workspace)\.[cm]?[jt]s$|(^|/)vite\.config\.[cm]?[jt]s$|(^|/)\.(c8rc|nycrc)(\.json|\.ya?ml)?$|(^|/)(\.|tsconfig\.)?stryker(\.[A-Za-z0-9_-]+)*\.(json|[cm]?[jt]s)$|^turbo\.json$|^pnpm-workspace\.yaml$|^\.husky/|^\.github/workflows/|^scripts/ci/|^\.claude/settings\.json$|^\.claude/hooks/'
+# Front (lot F0) : parcours Playwright `*.e2e.ts`, captures attendues `<test>-snapshots/`, captures
+# de référence du handoff de design ; configuration Playwright et turbo.json de paquet.
+TEST_RE='(^|/)[^/]+\.(spec|e2e-spec|test|e2e)\.[cm]?[jt]sx?$|(^|/)[^/]+\.test\.sh$|(^|/)[^/]+\.fixtures?\.[cm]?[jt]sx?$|(^|/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__)/|\.snap$|(^|/)[^/]+-snapshots/|^apps/web/design/handoff-v6/design/reference/'
+CONFIG_RE='(^|/)vitest(\.[A-Za-z0-9_-]+)*\.(config|workspace)\.[cm]?[jt]s$|(^|/)vite\.config\.[cm]?[jt]s$|(^|/)\.(c8rc|nycrc)(\.json|\.ya?ml)?$|(^|/)(\.|tsconfig\.)?stryker(\.[A-Za-z0-9_-]+)*\.(json|[cm]?[jt]s)$|(^|/)playwright(\.[A-Za-z0-9_-]+)*\.config\.[cm]?[jt]s$|(^|/)turbo\.json$|^pnpm-workspace\.yaml$|^\.husky/|^\.github/workflows/|^scripts/ci/|^\.claude/settings\.json$|^\.claude/hooks/'
 SCRIPT_RE='^[-+][[:space:]]*"(test|test:[^"]*|check|hooks:test|integrity|integrity:[^"]*|pretest|posttest|prepare)"[[:space:]]*:'
-FORBIDDEN_RE='\.(skip|only|todo|skipIf|runIf)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])|(v8|c8|istanbul)[[:space:]]+ignore|node:coverage[[:space:]]+(ignore|disable)'
-FAILS_RE='\.(fails)([[:space:]]*\(|\.[A-Za-z]+[[:space:]]*[(`])'
+# Playwright (front) : fixme et slow après `test` ou `test.describe` sont interdits, fail y vaut
+# l'échec attendu fails de Vitest (mêmes formes que lib/policy.mjs).
+PW_PREFIX='(^|[^A-Za-z0-9_$.])test(\.describe)?(\.(serial|parallel))?'
+# Méthodes de l'API de test de Vitest 5 (mêmes méthodes que MARKER_RE de lib/policy.mjs).
+VITEST_CHAIN='(each|for|concurrent|sequential|shuffle|skip|only|todo|fails|skipIf|runIf|extend|scoped|override)'
+# L14-11 : un marqueur interdit est reconnu avant une parenthèse, ou avant une méthode quelconque
+# suivie d'une parenthèse ou d'un gabarit, elle-même précédée d'autant de méthodes de l'API de test
+# qu'on veut (un saut, puis concurrent, puis each…).
+FORBIDDEN_RE='\.(skip|only|todo|skipIf|runIf)([[:space:]]*\(|(\.'"${VITEST_CHAIN}"')*\.[A-Za-z]+[[:space:]]*[(`])|(v8|c8|istanbul)[[:space:]]+ignore|node:coverage[[:space:]]+(ignore|disable)|'"${PW_PREFIX}"'\.(fixme|slow)[[:space:]]*\('
+# BF-9 : l'échec attendu de Vitest n'est reconnu, avant la parenthèse ou le gabarit, qu'après une ou
+# plusieurs méthodes de son API de test, plus après n'importe quel appel : la portée d'échec attendu
+# de GRANTABLE suivie d'includes n'est pas un marqueur.
+FAILS_RE='\.(fails)([[:space:]]*\(|(\.'"${VITEST_CHAIN}"')+[[:space:]]*[(`])|'"${PW_PREFIX}"'\.fail[[:space:]]*\('
 # Directive de Stryker qui ignore des mutants (https://stryker-mutator.io/docs/stryker-js/disable-mutants/),
 # dans un commentaire // ou /* … */ d'un fichier JS/TS ; identifiant d'équivalent déclaré cité.
 STRYKER_DISABLE_RE='(//|/\*|^[[:space:]]*\*)[[:space:]]*Stryker[[:space:]]+disable'
@@ -59,16 +85,28 @@ fail() {
 
 # Vrai si un commit de la branche qui touche ce chemin porte une ligne Justification-test.
 # (sortie capturée d'abord : avec pipefail, grep -q fermerait le tube et ferait échouer git log.)
+# Chemin pris littéralement : un nom qui contient `*`, `?` ou `[` ne vise pas d'autres fichiers.
 justified() {
   local messages
-  messages="$(git log --format='%B' "${merge_base}..HEAD" -- "$1")"
+  messages="$(git --literal-pathspecs log --format='%B' "${merge_base}..HEAD" -- "$1")"
   grep -Eq "$JUSTIFICATION_RE" <<<"$messages"
 }
 
 echo "Intégrité des tests : HEAD comparé à ${base_ref} (point de divergence ${merge_base:0:12})"
 
+# 0. Les lignes ajoutées sont lues « chemin<TAB>ligne » : un chemin changé ou non suivi qui contient
+#    une tabulation ou un saut de ligne serait mal attribué. Refusé plutôt que lu de travers.
+while IFS= read -r -d '' path; do
+  if [[ "$path" == *$'\t'* || "$path" == *$'\n'* ]]; then
+    fail "chemin avec tabulation ou saut de ligne, illisible donc refusé : ${path@Q}"
+  fi
+done < <(
+  git diff --name-only -z --no-renames "$merge_base"
+  git ls-files -z -o --exclude-standard
+)
+
 # 1 et 2. Tests existants et configurations protégées.
-while IFS=$'\t' read -r status path; do
+while IFS= read -r -d '' status && IFS= read -r -d '' path; do
   [ -n "$path" ] || continue
   if [[ "$status" != A && "$path" =~ $TEST_RE ]] && ! justified "$path"; then
     case "$status" in
@@ -79,36 +117,45 @@ while IFS=$'\t' read -r status path; do
   if [[ "$path" =~ $CONFIG_RE && ! "$path" =~ $TEST_RE ]] && ! justified "$path"; then
     fail "configuration protégée modifiée sans Justification-test ($status) : $path"
   fi
-done < <(git diff --name-status --no-renames "$merge_base" HEAD)
+done < <(git diff --name-status -z --no-renames "$merge_base" HEAD)
 
 # 2 bis. Scripts de test des package.json.
-while IFS= read -r pkg; do
+while IFS= read -r -d '' pkg; do
   changes="$(git diff -U0 "$merge_base" HEAD -- "$pkg" | grep -Ev '^(\+\+\+|---)' || true)"
   if grep -Eq "$SCRIPT_RE" <<<"$changes"; then
     justified "$pkg" || fail "script de test modifié sans Justification-test : $pkg"
   fi
-done < <(git diff --name-only "$merge_base" HEAD -- 'package.json' '**/package.json')
+done < <(git diff --name-only -z "$merge_base" HEAD -- 'package.json' '**/package.json')
 
 # 3. Marqueurs dans les lignes ajoutées depuis le point de divergence (arbre de travail compris),
-#    puis dans les fichiers non suivis.
+#    puis dans les fichiers non suivis. Un diff par fichier (liste en `-z`) : le chemin vient de la
+#    liste, jamais de l'en-tête du diff (cité pour certains noms) ; seules les lignes des sections
+#    @@ comptent, si bien qu'une ligne ajoutée qui commence par « ++ » n'est pas prise pour un en-tête.
+#    Sortie « chemin<TAB>numéro<TAB>ligne » : numéro de la ligne dans le fichier de l'arbre de travail
+#    (L14-02, contrôle des directives Stryker disable à la ligne), lu dans l'en-tête « +c,d » de
+#    chaque section (diff sans contexte : seules les lignes ajoutées avancent le compteur).
 added_lines() {
-  git diff -U0 --no-color --no-ext-diff "$merge_base" -- . |
-    awk '/^\+\+\+ /{ file = substr($0, 5); sub(/^b\//, "", file); next } /^\+/{ print file "\t" substr($0, 2) }'
+  local f
+  git diff --name-only -z --no-renames "$merge_base" -- . | while IFS= read -r -d '' f; do
+    git --literal-pathspecs diff -U0 --no-color --no-ext-diff --no-renames "$merge_base" -- "$f" |
+      F="$f" awk '/^@@/{ split($3, a, ","); n = substr(a[1], 2) + 0; body = 1; next } body && /^\+/{ print ENVIRON["F"] "\t" n "\t" substr($0, 2); n++ }'
+  done
   git ls-files -z -o --exclude-standard | while IFS= read -r -d '' f; do
     if [ -f "$f" ] && [ "$(wc -c <"$f")" -lt 2097152 ] && grep -Iq . "$f"; then
-      awk -v file="$f" '{ print file "\t" $0 }' "$f"
+      F="$f" awk '{ print ENVIRON["F"] "\t" NR "\t" $0 }' "$f"
     fi
   done
 }
+added="$(added_lines)"
 declare -A reported=()
-while IFS=$'\t' read -r file line; do
+while IFS=$'\t' read -r file _ line; do
   if [[ "$line" =~ $FORBIDDEN_RE ]]; then
     fail "marqueur de saut, de focus ou commentaire d'ignore ajouté : $file : ${line:0:120}"
   elif [[ "$line" =~ $FAILS_RE && -z "${reported[$file]:-}" ]]; then
     reported[$file]=1
     justified "$file" || fail "test en échec attendu ajouté sans Justification-test : $file"
   fi
-done < <(added_lines)
+done <<<"$added"
 
 # 4. Tout l'arbre suivi : aucun marqueur interdit dans un fichier de code.
 while IFS= read -r hit; do
@@ -118,12 +165,67 @@ done < <(git grep -nIE "$FORBIDDEN_RE" -- '*.ts' '*.tsx' '*.mts' '*.cts' '*.js' 
 # 5. Directives Stryker disable ajoutées (lignes commitées, modifiées ou non suivies) : comme une
 #    configuration protégée, elles retirent des mutants du score et exigent une Justification-test.
 declare -A stryker_reported=()
-while IFS=$'\t' read -r file line; do
-  if [[ "$file" =~ $CODE_FILE_RE && "$line" =~ $STRYKER_DISABLE_RE && -z "${stryker_reported[$file]:-}" ]]; then
-    stryker_reported[$file]=1
-    justified "$file" || fail "directive Stryker disable ajoutée sans Justification-test : $file"
+directives=""
+while IFS=$'\t' read -r file number line; do
+  if [[ "$file" =~ $CODE_FILE_RE && "$line" =~ $STRYKER_DISABLE_RE ]]; then
+    directives+="${file}"$'\t'"${number}"$'\n'
+    if [ -z "${stryker_reported[$file]:-}" ]; then
+      stryker_reported[$file]=1
+      justified "$file" || fail "directive Stryker disable ajoutée sans Justification-test : $file"
+    fi
   fi
-done < <(added_lines)
+done <<<"$added"
+
+# 5 bis. L14-02 : le contrôle passe du fichier à la ligne. Chaque directive ajoutée dans un fichier
+#    suivi vient d'un commit (git blame) qui porte lui-même une ligne Justification-test, et cette
+#    ligne cite chaque identifiant d'équivalent de la directive : une directive glissée dans un
+#    fichier qu'un autre commit justifié touche déjà est refusée, comme une directive pas encore
+#    commitée. Une ligne que blame attribue à un commit de la base n'est pas
+#    ajoutée par la branche (contenu déplacé). Puis chaque équivalent déclaré qu'elle cite désigne la
+#    ligne et le mutateur qu'elle retire du score (scripts/ci/stryker-directives.mjs).
+while IFS=$'\t' read -r file number; do
+  [ -n "$file" ] || continue
+  git --literal-pathspecs ls-files --error-unmatch -- "$file" >/dev/null 2>&1 || continue
+  blame="$(git --literal-pathspecs blame --porcelain -L "${number},${number}" -- "$file" 2>/dev/null || true)"
+  sha="${blame%% *}"
+  if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+    fail "directive Stryker disable dont l'origine est illisible (git blame) : ${file}:${number}"
+  elif [[ "$sha" =~ ^0+$ ]]; then
+    fail "directive Stryker disable non commitée : ${file}:${number} (le commit qui l'ajoute porte une Justification-test)"
+  elif ! git merge-base --is-ancestor "$sha" "$merge_base"; then
+    message="$(git log -1 --format='%B' "$sha")"
+    if ! grep -Eq "$JUSTIFICATION_RE" <<<"$message"; then
+      fail "directive Stryker disable ajoutée par un commit sans Justification-test (${sha:0:12}) : ${file}:${number}"
+    else
+      # Décision de Julien du 20 nov. 2026 : les lignes Justification-test de ce commit citent
+      # chaque identifiant d'équivalent de la directive (mot entier : API-EQ-1 n'est pas API-EQ-10).
+      justification="$(grep -E "$JUSTIFICATION_RE" <<<"$message")"
+      text="${blame##*$'\n'$'\t'}"
+      while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        grep -Eq "(^|[^A-Za-z0-9-])${id}([^0-9]|$)" <<<"$justification" ||
+          fail "directive Stryker disable dont la Justification-test ne cite pas ${id} (${sha:0:12}) : ${file}:${number}"
+      done < <(grep -oE "$EQUIVALENT_ID_RE" <<<"$text" | sort -u || true)
+    fi
+  fi
+done <<<"$directives"
+if [ -n "$directives" ]; then
+  equivalents=()
+  while IFS= read -r -d '' f; do equivalents+=("$f"); done < <(git ls-files -z -- '*stryker.equivalents.json')
+  if ! command -v node >/dev/null 2>&1; then
+    fail "node introuvable : le contrôle à la ligne des directives Stryker disable est impossible"
+  else
+    code=0
+    report="$(node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/stryker-directives.mjs" "${equivalents[@]}" <<<"$directives" 2>&1)" || code=$?
+    if [ "$code" -ne 0 ]; then
+      fail "contrôle des directives Stryker disable impossible : ${report:0:200}"
+    else
+      while IFS= read -r gap; do
+        [ -n "$gap" ] && fail "directive Stryker disable : $gap"
+      done <<<"$report"
+    fi
+  fi
+fi
 
 # 6. Tout l'arbre suivi : chaque directive Stryker disable cite un mutant équivalent déclaré (champ
 #    « id » d'un stryker.equivalents.json suivi).

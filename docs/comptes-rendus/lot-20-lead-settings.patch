@@ -1,0 +1,20 @@
+diff --git a/.claude/settings.json b/.claude/settings.json
+index fc43dbb..daa48b6 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -38,7 +38,14 @@
+       "Bash(git remote rename*)",
+       "Bash(git remote remove*)",
+       "Bash(git remote rm*)",
+-      "Bash(gh pr merge*)",
++      "Bash(gh pr merge*--squash*)",
++      "Bash(gh pr merge*--rebase*)",
++      "Bash(gh pr merge*--admin*)",
++      "Bash(gh pr merge*--delete-branch*)",
++      "Bash(gh pr merge*--auto*)",
++      "Bash(gh pr merge* -s*)",
++      "Bash(gh pr merge* -r*)",
++      "Bash(gh pr merge* -d*)",
+       "Bash(gh release create*)",
+       "Bash(gh release delete*)",
+       "Bash(gh release edit*)",

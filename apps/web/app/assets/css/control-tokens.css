@@ -1,0 +1,40 @@
+/*
+ * Bordure des contrôles (décision D12 du 20 nov. 2026, docs/05), en plus des tokens du handoff.
+ * Fichier partagé, réservé au lead-architecte ; chargé après tokens.css (nuxt.config.ts).
+ *
+ * `--line` du handoff est une bordure décorative : en thème sombre (#3a4b57) elle n'atteint pas 3:1
+ * sur les fonds (1,6 à 2:1). Une bordure qui identifie un contrôle (WCAG 2.2, 1.4.11 : piste d'un
+ * interrupteur, contour d'une puce cliquable, segment, bouton secondaire, cadre d'un panneau
+ * superposé) prend `--line-control`, qui atteint 3:1 sur chaque fond opaque de chaque palette
+ * (control-tokens.spec.ts). Les séparateurs, cadres de tuiles et éléments non interactifs gardent
+ * `--line`, inchangé : tokens.css reste le handoff à l'identique.
+ *
+ *   palette                     --line-control
+ *   sombre (posé ou système)    #66798a (3,2 à 3,9:1 sur bg, card, top, bar, field)
+ *   sombre, contraste renforcé  var(--line) (#a9bcc7, déjà plus fort)
+ *   clair, et renforcé          var(--line) (#14262b, #000000 : 10:1 et plus)
+ *
+ * `--target-min` : taille minimale d'une cible de pointeur plus petite que les 44 px tactiles
+ * (WCAG 2.2, 2.5.8 : 24 × 24 px CSS), en px car le critère ne suit pas la taille du texte. Les puces
+ * de techno gardent la hauteur de la maquette sur mobile et tablette (décision D17).
+ */
+
+:root {
+  --line-control: var(--line);
+  --border-control: var(--border-width) solid var(--line-control);
+  --target-min: 24px;
+}
+
+:root[data-theme='sombre'] {
+  --line-control: #66798a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --line-control: #66798a;
+  }
+}
+
+:root[data-theme='sombre'][data-contrast='renforce'] {
+  --line-control: var(--line);
+}

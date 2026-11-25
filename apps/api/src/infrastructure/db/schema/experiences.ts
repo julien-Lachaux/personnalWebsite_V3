@@ -61,6 +61,7 @@ export const experienceSkills = pgTable(
       .notNull()
       .references(() => skills.id, { onDelete: 'cascade' }),
     sortOrder: integer('sort_order').notNull().default(0),
+    shownInStack: boolean('shown_in_stack').notNull().default(true),
   },
   (table) => [
     primaryKey({ columns: [table.experienceId, table.skillId] }),

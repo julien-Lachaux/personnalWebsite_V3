@@ -9,12 +9,22 @@
 
 /** Fichiers de test : un fichier EXISTANT de cette catégorie ne se modifie pas. */
 const TEST_PATTERNS = [
-  /(^|\/)[^/]+\.(spec|e2e-spec|test)\.[cm]?[jt]sx?$/,
+  // `.e2e` : parcours Playwright du front (apps/web/test/**/*.e2e.ts, lot F0).
+  /(^|\/)[^/]+\.(spec|e2e-spec|test|e2e)\.[cm]?[jt]sx?$/,
   /(^|\/)[^/]+\.test\.sh$/,
   /(^|\/)[^/]+\.fixtures?\.[cm]?[jt]sx?$/,
   /(^|\/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__)\//,
   /\.snap$/,
+  // Captures attendues de Playwright (`toHaveScreenshot`, dossier `<fichier de test>-snapshots/`).
+  /(^|\/)[^/]+-snapshots\//,
 ];
+
+/**
+ * Captures de référence du handoff de design (régression visuelle du front, D7 de docs/05) : un
+ * oracle de la classe « test », que personne ne crée ni ne retouche sans autorisation (elles
+ * viennent du design, pas des tests : hors des chemins d'écriture de la qa).
+ */
+const REFERENCE_CAPTURES = [/^apps\/web\/design\/handoff-v6\/design\/reference\//];
 
 /** Configurations qui décident de ce qui est testé et du seuil : jamais modifiées sans autorisation. */
 const CONFIG_PATTERNS = [
@@ -27,7 +37,11 @@ const CONFIG_PATTERNS = [
   // les mutants classés « CompileError », donc le score) et fichier des mutants équivalents
   // déclarés (stryker.equivalents.json, phase 2) ; le motif couvre toute variante stryker.<x>.<ext>.
   /(^|\/)(\.|tsconfig\.)?stryker(\.[\w-]+)*\.(json|[cm]?[jt]s)$/,
-  /^turbo\.json$/,
+  // Parcours navigateur du front : projets (tailles d'écran), délais, reprises, serveur testé.
+  /(^|\/)playwright(\.[\w-]+)*\.config\.[cm]?[jt]s$/,
+  // turbo.json racine et configurations de paquet (apps/web/turbo.json…), qui redéfiniraient
+  // les tâches de test d'un paquet.
+  /(^|\/)turbo\.json$/,
   /^pnpm-workspace\.yaml$/,
   /^\.husky\//,
   /^\.github\/workflows\//,
@@ -53,6 +67,7 @@ export function classify(rel) {
   if (GUARD_PATTERNS.some((re) => re.test(rel))) return 'guard';
   if (CONFIG_PATTERNS.some((re) => re.test(rel))) return 'config';
   if (TEST_PATTERNS.some((re) => re.test(rel))) return 'test';
+  if (REFERENCE_CAPTURES.some((re) => re.test(rel))) return 'test';
   return null;
 }
 
@@ -64,7 +79,9 @@ export function isOracle(rel) {
 
 /** Segment de chemin qui désigne une zone de tests, même si le dossier n'existe pas encore. */
 export function hasTestSegment(rel) {
-  return /(^|\/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__)(\/|$)/.test(rel);
+  return /(^|\/)(test|tests|__tests__|fixtures|__fixtures__|__snapshots__|[^/]+-snapshots)(\/|$)/.test(
+    rel,
+  );
 }
 
 // Marqueurs de Vitest qui sautent, isolent ou inversent un test : skip, only, todo, skipIf et
@@ -72,7 +89,21 @@ export function hasTestSegment(rel) {
 // test en échec attendu. Repérés quand ils suivent un point et précèdent une parenthèse
 // directement ou après un enchaînement (each, concurrent…) ; « it.fails » cité en prose ne
 // compte pas.
-const MARKER_RE = /\.(skip|only|todo|fails|skipIf|runIf)(?=\s*\(|\.\w+\s*[(`])/g;
+// BF-9 : l'échec attendu n'est reconnu, avant la parenthèse ou le gabarit, qu'après une ou
+// plusieurs méthodes de l'API de test de Vitest 5 (clés de createChainable et méthodes qui
+// déclarent un test : each, for, extend…), plus après n'importe quel appel : la portée d'échec
+// attendu de GRANTABLE suivie d'includes ou de map n'est pas un marqueur. Les marqueurs interdits
+// gardent l'enchaînement libre (détection plus large, sans autorisation possible) : une méthode
+// quelconque avant la parenthèse ou le gabarit, précédée (L14-11) d'autant de méthodes de l'API de
+// test qu'on veut (un saut, puis concurrent, puis each…).
+const MARKER_RE =
+  /\.(?:(skip|only|todo|skipIf|runIf)(?=\s*\(|(?:\.(?:each|for|concurrent|sequential|shuffle|skip|only|todo|fails|skipIf|runIf|extend|scoped|override))*\.\w+\s*[(`])|(fails)(?=\s*\(|(?:\.(?:each|for|concurrent|sequential|shuffle|skip|only|todo|fails|skipIf|runIf|extend|scoped|override))+\s*[(`]))/g;
+// Playwright (front, lot F0) : skip et only sont déjà couverts ci-dessus ; fixme saute un test et
+// slow triple son délai (toujours interdits), fail inverse le résultat (échec attendu, comme fails
+// de Vitest). Repérés seulement après `test` (ou `test.describe`) pour ne pas confondre avec
+// l'appel `expect` du même nom, qui fait échouer un test.
+const PLAYWRIGHT_MARKER_RE =
+  /(?<![\w$.])test(?:\.describe)?(?:\.(?:serial|parallel))?\.(fixme|slow|fail)(?=\s*\()/g;
 // Commentaires qui retirent du code de la mesure de couverture.
 const IGNORE_RE = /\b(?:v8|c8|istanbul)\s+ignore\b|node:coverage\s+(?:ignore|disable)/g;
 
@@ -81,9 +112,14 @@ export function countMarkers(text) {
   const result = { forbidden: 0, fails: 0, kinds: new Set() };
   if (typeof text !== 'string' || text.length === 0) return result;
   for (const m of text.matchAll(MARKER_RE)) {
-    if (m[1] === 'fails') result.fails += 1;
+    if (m[2] === undefined) result.forbidden += 1;
+    else result.fails += 1;
+    result.kinds.add(`.${m[1] ?? m[2]}`);
+  }
+  for (const m of text.matchAll(PLAYWRIGHT_MARKER_RE)) {
+    if (m[1] === 'fail') result.fails += 1;
     else result.forbidden += 1;
-    result.kinds.add(`.${m[1]}`);
+    result.kinds.add(`test.${m[1]}`);
   }
   for (const m of text.matchAll(IGNORE_RE)) {
     result.forbidden += 1;
@@ -98,6 +134,40 @@ export function hasMarker(text) {
   return c.forbidden + c.fails > 0;
 }
 
+// Directives de Stryker qui retirent des mutants du score (lot 12, MUT-2 ; L14-01, dès l'écriture) :
+// dans un commentaire // ou /* … */ d'un fichier JS/TS, chacune cite l'identifiant
+// (<PAQUET>-EQ-<n>) d'un mutant équivalent déclaré dans un stryker.equivalents.json, comme l'exige
+// scripts/ci/check-tests-integrity.sh. Le shell est lu plus largement (tout « Stryker disable »
+// d'une ligne), son texte pouvant échapper les barres obliques.
+const STRYKER_DIRECTIVE_RE = /(?:\/\/|\/\*|^\s*\*)\s*Stryker\s+disable/;
+const STRYKER_LOOSE_RE = /Stryker\s+disable/;
+const EQUIVALENT_ID_RE = /[A-Z]+-EQ-[0-9]+/g;
+/** Fichiers où une directive compte (mêmes extensions que le script d'intégrité). */
+export const STRYKER_CODE_FILE = /\.[cm]?[jt]sx?$/;
+/** Fichier des mutants équivalents déclarés d'un paquet. */
+export const STRYKER_EQUIVALENTS_FILE = /(^|\/)stryker\.equivalents\.json$/;
+
+/** Identifiants déclarés dans le texte d'un stryker.equivalents.json (champ « id »). */
+export function declaredEquivalentIds(text) {
+  return [...String(text).matchAll(/"id"\s*:\s*"([A-Z]+-EQ-[0-9]+)"/g)].map((m) => m[1]);
+}
+
+/**
+ * Nombre de directives d'un texte qui ne citent aucun identifiant d'équivalent, ou en citent un
+ * absent de `declared` (Set). `loose` : lecture large, pour le texte d'une commande shell.
+ */
+export function countUndeclaredDirectives(text, declared, { loose = false } = {}) {
+  if (typeof text !== 'string' || text.length === 0) return 0;
+  const re = loose ? STRYKER_LOOSE_RE : STRYKER_DIRECTIVE_RE;
+  let count = 0;
+  for (const line of text.split('\n')) {
+    if (!re.test(line)) continue;
+    const ids = line.match(EQUIVALENT_ID_RE) ?? [];
+    if (ids.length === 0 || ids.some((id) => !declared.has(id))) count += 1;
+  }
+  return count;
+}
+
 /**
  * Portées d'autorisation et rôles qui peuvent les recevoir. « main » est la session principale
  * (l'orchestrateur ou Julien) : elle n'a pas d'agent_type.
@@ -107,8 +177,11 @@ export function hasMarker(text) {
  * Les autres marqueurs et les commentaires d'ignore ne sont autorisables par personne.
  */
 export const GRANTABLE = {
-  tests: ['correcteur', 'qa', 'main'],
-  fails: ['qa', 'correcteur', 'main'],
+  // dev-contrats, dev-sql, dev-api : seulement quand un brief validé par Julien rend un test existant
+  // obsolète (décision du 19 nov. 2026), avec Justification-test BF-n.
+  // qa-front : mêmes portées que qa, pour les tests du front (lot F0).
+  tests: ['correcteur', 'qa', 'qa-front', 'main', 'dev-contrats', 'dev-sql', 'dev-api'],
+  fails: ['qa', 'qa-front', 'correcteur', 'main'],
   config: ['lead-architecte', 'dev-devops', 'main'],
 };
 
@@ -130,9 +203,14 @@ const REVIEW_DOCS = [/^docs\/revues\//];
  */
 export const ROLE_WRITE_SCOPES = {
   qa: [...TEST_WRITES, /^docs\/comptes-rendus\//, ...ENV_FILES],
+  'qa-front': [...TEST_WRITES, /^docs\/comptes-rendus\//, ...ENV_FILES],
   'revue-code': [...REVIEW_DOCS, ...ENV_FILES],
   'revue-securite': [...REVIEW_DOCS, ...ENV_FILES],
+  'revue-a11y': [...REVIEW_DOCS, ...ENV_FILES],
   triage: [...REVIEW_DOCS, ...ENV_FILES],
+  // L20-02 : revue d'une pull request en lecture seule ; sa revue part par le workflow, rien dans le
+  // dépôt (le dossier temporaire de session reste libre).
+  'revue-pr': [],
   'chef-de-projet': [
     /^docs\/backlog\.md$/,
     /^docs\/comptes-rendus\//,
@@ -158,6 +236,8 @@ export function startReminder(role) {
     '.husky, .github/workflows, scripts/ci, .claude ; écrire un marqueur de saut ou de focus de ' +
     "Vitest ou un commentaire d'ignore de couverture. Créer un nouveau fichier de test est permis." +
     limits +
+    ' Aucun git push ni écriture sur GitHub par gh (lectures seules) : seule la session principale' +
+    ' pousse et gère les pull requests.' +
     ' Un refus ne se contourne pas : si un test paraît impossible, contradictoire ou faux, applique ' +
     'la sortie honorable (CLAUDE.md, « Agents et garde-fous »). Les oracles sont comparés à un ' +
     'instantané à la fin de ta tâche.'

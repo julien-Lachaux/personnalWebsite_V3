@@ -1,0 +1,1237 @@
+diff --git a/apps/web/app/components/home/HomePage-sections.spec.ts b/apps/web/app/components/home/HomePage-sections.spec.ts
+new file mode 100644
+index 0000000..82bcea4
+--- /dev/null
++++ b/apps/web/app/components/home/HomePage-sections.spec.ts
+@@ -0,0 +1,141 @@
++import { mountSuspended } from '@nuxt/test-utils/runtime';
++import type { VueWrapper } from '@vue/test-utils';
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { nextTick } from 'vue';
++import { clearNuxtData, useRuntimeConfig } from '#imports';
++
++import { MOSAIC_QUERY } from '../../composables/shell/useShellMode.js';
++import { cvEn } from '../../data/fixtures/cv.en.js';
++import { cvFr } from '../../data/fixtures/cv.fr.js';
++import HomePage from './HomePage.vue';
++
++// Page d'accueil, lot F5c : les quatre sections branchées dans les slots de la coquille (Profil,
++// Expérience, Recommandations, IA) avec leur morceau de la vue, un seul `h1` (celui de la coquille, le
++// titre visible du profil n'est pas un titre de balise), et la liste de la section Expérience donnée à
++// la coquille comme zone qui défile de l'onglet XP.
++
++// Adresse de test : un placeholder, jamais une vraie adresse (SPEC § 11).
++const PLACEHOLDER = 'contact@example.org';
++
++interface Saved {
++  contactEmail: string;
++  cvSource: string;
++  apiBaseUrl: string;
++}
++
++let saved: Saved;
++const mounted: VueWrapper[] = [];
++
++function width(mosaic: boolean): void {
++  vi.spyOn(window, 'matchMedia').mockImplementation(
++    (query: string) =>
++      ({
++        matches: query === MOSAIC_QUERY ? mosaic : false,
++        addEventListener: () => undefined,
++        removeEventListener: () => undefined,
++      }) as unknown as MediaQueryList,
++  );
++}
++
++async function mountPage(route: string): Promise<VueWrapper> {
++  const wrapper = await mountSuspended(HomePage, { route, attachTo: document.body });
++  mounted.push(wrapper);
++  await nextTick();
++  return wrapper;
++}
++
++beforeEach(() => {
++  const config = useRuntimeConfig();
++  saved = {
++    contactEmail: config.public.contactEmail,
++    cvSource: config.cvSource,
++    apiBaseUrl: config.apiBaseUrl,
++  };
++  config.public.contactEmail = PLACEHOLDER;
++  config.cvSource = 'fixtures';
++  config.apiBaseUrl = '';
++  clearNuxtData();
++  Object.defineProperty(document, 'fonts', {
++    configurable: true,
++    value: { ready: Promise.resolve() },
++  });
++});
++
++afterEach(() => {
++  for (const wrapper of mounted.splice(0)) wrapper.unmount();
++  const config = useRuntimeConfig();
++  config.public.contactEmail = saved.contactEmail;
++  config.cvSource = saved.cvSource;
++  config.apiBaseUrl = saved.apiBaseUrl;
++  clearNuxtData();
++  vi.restoreAllMocks();
++});
++
++describe('page d’accueil : sections branchées (bureau)', () => {
++  it('en français : profil, expériences, recommandations et IA de la fixture', async () => {
++    width(true);
++    const wrapper = await mountPage('/');
++
++    const profile = wrapper.get('#section-profile');
++    expect(profile.get('.profile-title__first').text()).toBe('Développeur');
++    expect(profile.get('.profile-title__accent').text()).toBe('full-stack');
++    expect(profile.get('.profile-title .senior-badge').text()).toBe('senior');
++    expect(profile.get('.profile-title').element.tagName).toBe('DIV');
++    expect(profile.text()).toContain('Depuis 2017, je conçois des API');
++    const experience = wrapper.get('#section-experience');
++    expect(experience.findAll('article')).toHaveLength(cvFr.experiences.length);
++    expect(experience.get('.experience-section__filter').text()).toContain('filtrer par techno');
++    expect(wrapper.get('#section-recommendations').findAll('figure')).toHaveLength(
++      cvFr.recommendations.length,
++    );
++    expect(wrapper.get('#section-ai h3').text()).toBe(cvFr.aiOverview?.title);
++  });
++
++  it('en anglais : contenu de la fixture anglaise et libellés anglais', async () => {
++    width(true);
++    const wrapper = await mountPage('/en');
++
++    expect(wrapper.get('#section-profile .profile-title__first').text()).toBe('Full-stack');
++    expect(wrapper.get('#section-profile .profile-title__accent').text()).toBe('developer');
++    const experience = wrapper.get('#section-experience');
++    expect(experience.findAll('article')).toHaveLength(cvEn.experiences.length);
++    expect(experience.get('.experience-section__filter').text()).toContain('filter by tech');
++    expect(wrapper.get('#section-ai h3').text()).toBe(cvEn.aiOverview?.title);
++  });
++
++  it('un seul h1 : celui de la coquille, masqué visuellement ; aucun contenu provisoire', async () => {
++    width(true);
++    const wrapper = await mountPage('/');
++
++    const headings = wrapper.findAll('h1');
++    expect(headings).toHaveLength(1);
++    expect(headings[0]!.text()).toBe('Développeur full-stack');
++    expect(headings[0]!.classes()).toContain('visually-hidden');
++    // Plus de paragraphe provisoire « 8 expériences », « 3 recommandations » ni titre IA en `p`.
++    const paragraphs = wrapper.findAll('main p').map((paragraph) => paragraph.text());
++    expect(paragraphs).not.toContain('8 expériences');
++    expect(paragraphs).not.toContain('3 recommandations');
++    expect(paragraphs).not.toContain(cvFr.aiOverview?.title);
++  });
++});
++
++describe('page d’accueil : onglet XP (mobile et tablette)', () => {
++  it('la section Expérience remplit l’onglet et sa liste est la zone lue par la barre d’actions', async () => {
++    width(false);
++    const wrapper = await mountPage('/');
++    expect(wrapper.get('.experience-section').classes()).toContain('home-page__experience');
++
++    await wrapper.findAll('.bottom-nav button')[1]!.trigger('click');
++    await nextTick();
++
++    expect(wrapper.get('main').classes()).toContain('app-shell__main--self-scrolling');
++    expect(wrapper.get('#section-experience').classes()).toContain(
++      'app-shell__section--self-scrolling',
++    );
++    const list = wrapper.get('.experience-section__list').element;
++    list.scrollTop = 300;
++    list.dispatchEvent(new Event('scroll'));
++    await nextTick();
++    expect(wrapper.get('.action-bar').classes()).toContain('action-bar--hidden');
++  });
++});
+diff --git a/apps/web/app/components/home/HomePage.vue b/apps/web/app/components/home/HomePage.vue
+index ee4e95b..9bd59ec 100644
+--- a/apps/web/app/components/home/HomePage.vue
++++ b/apps/web/app/components/home/HomePage.vue
+@@ -1,17 +1,25 @@
+ <script setup lang="ts">
+-// Page d'accueil réelle (lot F3a) : le CV de la langue courante, lu au build par `useCv` (API ou
+-// fixtures selon NUXT_CV_SOURCE), mis en forme par `mapCv` (docs/04), affiché dans la coquille.
+-// Composant partagé, réservé au lead-architecte ; `pages/index.vue` le rend.
++// Page d'accueil réelle (lot F3a, sections branchées au lot F5c) : le CV de la langue courante, lu au
++// build par `useCv` (API ou fixtures selon NUXT_CV_SOURCE), mis en forme par `mapCv` (docs/04),
++// affiché dans la coquille. Composant partagé, réservé au lead-architecte ; `pages/index.vue` le rend.
+ //
+-// Contenu PROVISOIRE et minimal de chaque section, tiré des données, en attendant les sections du
+-// lot F5 (profil, expériences, recommandations, IA) : chaque slot recevra alors le composant de sa
+-// section avec son morceau de `view` (jamais le contrat).
+-import { computed } from 'vue';
++// Chaque slot d'`AppShell` reçoit le composant de sa section avec son morceau de `view` (jamais le
++// contrat) :
++// - Profil : le grand titre visible est celui de `ProfileTitle` (balise `div`) ; le `h1` de la page est
++//   celui de la coquille, masqué visuellement (un seul `h1`).
++// - Expérience : la section a sa propre zone qui défile (la liste sous le filtre) ; elle est donnée à la
++//   coquille (`scrollers`) pour la barre d'actions et la flèche, et la section remplit l'onglet XP.
++//   Marges et fondu du bas suivent la mise en page de l'onglet (variables de la section).
++// - IA : rien quand l'API ne sert pas de section IA.
++import { computed, useTemplateRef } from 'vue';
+ import { useHead, useI18n, useLocalePath } from '#imports';
+ 
+ import { useCv } from '../../composables/use-cv.js';
+ import { mapCv } from '../../data/map-cv.js';
+-import SeniorBadge from '../base/SeniorBadge.vue';
++import AiSection from '../ai/AiSection.vue';
++import ExperienceSection from '../experience/ExperienceSection.vue';
++import ProfileSection from '../profile/ProfileSection.vue';
++import RecommendationsSection from '../recommendations/RecommendationsSection.vue';
+ import AppShell from '../shell/AppShell.vue';
+ 
+ const { locale, t } = useI18n();
+@@ -27,6 +35,15 @@ const view = computed(() =>
+   }),
+ );
+ 
++/** Ce que la section Expérience expose (`defineExpose`). */
++interface ExperienceSectionExposed {
++  scroller: HTMLElement | null;
++}
++
++const experience = useTemplateRef<ExperienceSectionExposed>('experience');
++/** Zone qui défile de la section Expérience (nulle avant le montage). */
++const scrollers = computed(() => ({ experience: experience.value?.scroller ?? null }));
++
+ useHead(() => ({
+   title: `${cv.profile.firstName} ${cv.profile.lastName} · ${view.value.profile.title}`,
+ }));
+@@ -37,24 +54,44 @@ useHead(() => ({
+     :heading="view.profile.title"
+     :cv-path="view.profile.cvPath"
+     :declaration-url="localePath('/accessibilite')"
++    :scrollers="scrollers"
+   >
+     <template #profile>
+-      <p>
+-        <SeniorBadge>{{ view.profile.badge }}</SeniorBadge>
+-      </p>
+-      <ul>
+-        <li v-for="tagline in view.profile.taglines" :key="tagline">{{ tagline }}</li>
+-      </ul>
+-      <p>{{ view.profile.intro }}</p>
++      <ProfileSection :profile="view.profile" :links="view.links" />
+     </template>
+     <template #experience>
+-      <p>{{ t('experience.provisional.count', view.experiences.length) }}</p>
++      <ExperienceSection
++        ref="experience"
++        class="home-page__experience"
++        :experiences="view.experiences"
++        :techs="view.techs"
++      />
+     </template>
+     <template #recommendations>
+-      <p>{{ t('recommendations.provisional.count', view.recommendations.length) }}</p>
++      <RecommendationsSection
++        :recommendations="view.recommendations"
++        :source="view.links.linkedinRecommendations"
++      />
+     </template>
+     <template #ai>
+-      <p v-if="view.ai">{{ view.ai.title }}</p>
++      <AiSection v-if="view.ai" :ai="view.ai" />
+     </template>
+   </AppShell>
+ </template>
++
++<style scoped>
++/* Onglet XP (mobile et tablette) : marges de la colonne de l'onglet, fondu sur le fond de la page.
++   Au-delà, celles de la tuile (défauts de la section). */
++@media (max-width: 1023px) {
++  .home-page__experience {
++    --experience-gutter: var(--mobile-gutter);
++    --experience-bg: var(--bg);
++  }
++}
++
++@media (min-width: 768px) and (max-width: 1023px) {
++  .home-page__experience {
++    --experience-gutter: max(2rem, (100% - 40rem) / 2);
++  }
++}
++</style>
+diff --git a/apps/web/i18n/locales/en/experience.json b/apps/web/i18n/locales/en/experience.json
+index 1a31cb5..1e2d0d5 100644
+--- a/apps/web/i18n/locales/en/experience.json
++++ b/apps/web/i18n/locales/en/experience.json
+@@ -11,9 +11,6 @@
+       "cdi": "Permanent",
+       "freelance": "Freelance"
+     },
+-    "provisional": {
+-      "count": "no experience | {n} experience | {n} experiences"
+-    },
+     "filter": {
+       "label": "filter by tech",
+       "searchLabel": "Filter experiences",
+diff --git a/apps/web/i18n/locales/en/recommendations.json b/apps/web/i18n/locales/en/recommendations.json
+index 74b1154..15de9df 100644
+--- a/apps/web/i18n/locales/en/recommendations.json
++++ b/apps/web/i18n/locales/en/recommendations.json
+@@ -1,8 +1,5 @@
+ {
+   "recommendations": {
+-    "provisional": {
+-      "count": "no recommendation | {n} recommendation | {n} recommendations"
+-    },
+     "seeOnLinkedIn": "See on LinkedIn",
+     "empty": "No recommendation published yet."
+   }
+diff --git a/apps/web/i18n/locales/fr/experience.json b/apps/web/i18n/locales/fr/experience.json
+index e9450e3..bd9537a 100644
+--- a/apps/web/i18n/locales/fr/experience.json
++++ b/apps/web/i18n/locales/fr/experience.json
+@@ -11,9 +11,6 @@
+       "cdi": "CDI",
+       "freelance": "Freelance"
+     },
+-    "provisional": {
+-      "count": "aucune expérience | {n} expérience | {n} expériences"
+-    },
+     "filter": {
+       "label": "filtrer par techno",
+       "searchLabel": "Filtrer les expériences",
+diff --git a/apps/web/i18n/locales/fr/recommendations.json b/apps/web/i18n/locales/fr/recommendations.json
+index 87b7a18..20c51c2 100644
+--- a/apps/web/i18n/locales/fr/recommendations.json
++++ b/apps/web/i18n/locales/fr/recommendations.json
+@@ -1,8 +1,5 @@
+ {
+   "recommendations": {
+-    "provisional": {
+-      "count": "aucune recommandation | {n} recommandation | {n} recommandations"
+-    },
+     "seeOnLinkedIn": "Voir sur LinkedIn",
+     "empty": "Aucune recommandation publiée pour le moment."
+   }
+diff --git a/apps/web/test/experience.e2e.ts b/apps/web/test/experience.e2e.ts
+new file mode 100644
+index 0000000..c024496
+--- /dev/null
++++ b/apps/web/test/experience.e2e.ts
+@@ -0,0 +1,689 @@
++import AxeBuilder from '@axe-core/playwright';
++import { expect, test, type Locator, type Page } from '@playwright/test';
++
++// Parcours de la section Expérience (lot F5b, filtre par techno, cartes, easter egg) sur la vraie page,
++// à chaque taille d'écran des maquettes, en français et en anglais, sur les fixtures :
++// - filtre dans l'URL (`?tech=`) : lecture au chargement, écriture au clic, partageable, conservé quand
++//   on change d'onglet ;
++// - clavier du filtre : le panneau s'ouvre au focus, la saisie remplace le panneau par les suggestions,
++//   Entrée choisit la première suggestion valide, Retour arrière retire la dernière puce, Échap ferme ;
++// - panneau : « Toutes les technos », techno à 0 résultat désactivée, technos sans expérience en
++//   pointillé, Fermer rend le focus au champ sans rouvrir le panneau ;
++// - résultats : « Avec toutes ces technos · N », autres expériences atténuées « En partie : X », état vide ;
++// - cartes : accordéon (`aria-expanded`, 320 ms, immédiat sous mouvement réduit), puces qui filtrent ;
++// - easter egg : fenêtre modale nommée, lignes animées une à une (toutes affichées d'emblée sous mouvement
++//   réduit), Échap, retour du focus sur la puce ;
++// - zone du filtre fixe pendant que la liste défile, cibles de 44 px sous 1024 px, axe WCAG 2.2 AA dans
++//   les quatre palettes (états : repos, panneau déplié, résultats, fenêtre ouverte).
++// Sous 1024 px, la section est celle de l'onglet XP ; au-delà, elle est dans la page avec les autres.
++
++const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
++const STORAGE_KEY = 'siteperso:preferences';
++
++const LOCALES = {
++  fr: {
++    path: '/',
++    label: 'filtrer par techno',
++    list: 'Liste des expériences',
++    remove: (name: string) => `Retirer le filtre ${name}`,
++    clearAll: 'Effacer tous les filtres',
++    allTechs: 'Toutes les technos (34)',
++    hideAll: 'Masquer la liste',
++    mainStack: 'stack principale',
++    close: 'Fermer',
++    withAll: 'Avec toutes ces technos · 2',
++    showOthers: 'Voir les 6 autres expériences',
++    hideOthers: 'Masquer les 6 autres expériences',
++    othersTitle: 'Les autres expériences · 6',
++    partial: 'En partie : Docker',
++    empty: 'Aucune expérience ne combine toutes ces technos',
++    showAll: 'Voir les 8 expériences',
++    live: '2 expériences avec toutes les technos choisies',
++    detail: 'Détail : Senior Software Engineer chez Nopillo',
++    filterBy: (name: string) => `Filtrer par ${name}`,
++    kafka: 'Apache Kafka',
++    egg: {
++      chip: 'Huile de coude',
++      back: 'Retour au CV',
++      done: 'Terminé. 0 vulnérabilité (sauf le dos).',
++    },
++    tabs: 'Sections',
++    xpTab: 'XP',
++    profileTab: 'Profil',
++  },
++  en: {
++    path: '/en',
++    label: 'filter by tech',
++    list: 'List of experiences',
++    remove: (name: string) => `Remove filter ${name}`,
++    clearAll: 'Clear all filters',
++    allTechs: 'All techs (34)',
++    hideAll: 'Hide the list',
++    mainStack: 'main stack',
++    close: 'Close',
++    withAll: 'With all these techs · 2',
++    showOthers: 'Show the 6 other experiences',
++    hideOthers: 'Hide the 6 other experiences',
++    othersTitle: 'The other experiences · 6',
++    partial: 'Partly: Docker',
++    empty: 'No experience combines all these techs',
++    showAll: 'Show the 8 experiences',
++    live: '2 experiences with all the chosen techs',
++    detail: 'Details: Senior Software Engineer at Nopillo',
++    filterBy: (name: string) => `Filter by ${name}`,
++    kafka: 'Apache Kafka',
++    egg: {
++      chip: 'Elbow grease',
++      back: 'Back to the CV',
++      done: 'Done. 0 vulnerabilities (except the back).',
++    },
++    tabs: 'Sections',
++    xpTab: 'XP',
++    profileTab: 'Profile',
++  },
++} as const;
++
++type LocaleCode = keyof typeof LOCALES;
++
++const PALETTES = [
++  { name: 'sombre', theme: 'sombre', highContrast: false },
++  { name: 'clair', theme: 'clair', highContrast: false },
++  { name: 'sombre renforcé', theme: 'sombre', highContrast: true },
++  { name: 'clair renforcé', theme: 'clair', highContrast: true },
++] as const;
++
++/** Sous 1024 px : onglets (une section à la fois) ; au-delà : sections ensemble. */
++function tabsMode(page: Page): boolean {
++  return (page.viewportSize()?.width ?? 0) < 1024;
++}
++
++/** Enregistre des préférences avant tout script de la page (format de domain/preferences). */
++async function storePreferences(page: Page, preferences: Record<string, unknown>): Promise<void> {
++  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
++    key: STORAGE_KEY,
++    value: JSON.stringify({ version: 1, ...preferences }),
++  });
++}
++
++/** Page chargée, hydratée, sur la section Expérience (onglet XP sous 1024 px) : renvoie la section. */
++async function openExperience(page: Page, code: LocaleCode, query = ''): Promise<Locator> {
++  const locale = LOCALES[code];
++  await page.goto(`${locale.path}${query}`);
++  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
++  if (tabsMode(page)) {
++    await page
++      .getByRole('navigation', { name: locale.tabs })
++      .getByRole('button', { name: locale.xpTab, exact: true })
++      .click();
++  }
++  const section = page.locator('#section-experience');
++  await expect(section.getByText(locale.label, { exact: true })).toBeVisible();
++  // Le filtre lit l'URL après le montage : attendre que les puces de l'URL soient là.
++  return section;
++}
++
++async function axe(page: Page, label: string): Promise<void> {
++  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
++  expect(results.violations, label).toEqual([]);
++  expect(
++    results.passes.map((rule) => rule.id),
++    label,
++  ).toContain('color-contrast');
++}
++
++function field(section: Locator): Locator {
++  return section.getByRole('textbox');
++}
++
++function drawer(section: Locator): Locator {
++  return section.locator('.filter-drawer');
++}
++
++/** Vrai quand le panneau est ouvert (classe posée, donc visible et atteignable). */
++async function drawerOpen(section: Locator): Promise<boolean> {
++  return (await drawer(section).getAttribute('class'))?.includes('filter-drawer--open') ?? false;
++}
++
++for (const code of Object.keys(LOCALES) as LocaleCode[]) {
++  const locale = LOCALES[code];
++
++  test.describe(`${code} (${locale.path})`, () => {
++    test('structure : filtre dans une zone fixe, liste nommée et atteignable au clavier', async ({
++      page,
++    }) => {
++      const section = await openExperience(page, code);
++
++      const search = section.getByRole('search');
++      await expect(search).toBeVisible();
++      await expect(field(section)).toHaveAccessibleName(locale.label);
++      const list = section.getByRole('region', { name: locale.list });
++      await expect(list).toHaveAttribute('tabindex', '0');
++      await expect(list.getByRole('article')).toHaveCount(8);
++      await expect(section.getByRole('heading', { level: 3 }).first()).toBeVisible();
++      // Zone fixe : le filtre n'est pas dans la liste et ne bouge pas quand elle défile. La mesure de
++      // départ attend la fin du glissement de l'onglet (340 ms sous 1024 px, coquille F3a).
++      await expect(list.getByRole('search')).toHaveCount(0);
++      await section.evaluate((element) =>
++        Promise.all(element.getAnimations().map((animation) => animation.finished)).then(
++          () => undefined,
++        ),
++      );
++      const before = await search.boundingBox();
++      await list.evaluate((element) => {
++        element.scrollTop = 400;
++      });
++      await expect
++        .poll(async () => list.evaluate((element) => element.scrollTop))
++        .toBeGreaterThan(0);
++      expect(await search.boundingBox()).toEqual(before);
++    });
++
++    test('filtre dans l’URL : lu au chargement, annoncé, avec les technos inconnues ignorées', async ({
++      page,
++    }) => {
++      const section = await openExperience(page, code, '?tech=kafka,inconnue');
++
++      await expect(
++        section.getByRole('button', { name: locale.remove(locale.kafka) }),
++      ).toBeVisible();
++      await expect(section.locator('.result-groups__title').first()).toHaveText(
++        `${code === 'fr' ? 'Avec' : 'With'} ${locale.kafka} · 2`,
++      );
++      await expect(section.getByRole('article')).toHaveCount(2);
++      await expect(section.locator('[aria-live="polite"]')).toHaveText(
++        code === 'fr'
++          ? '2 expériences avec toutes les technos choisies'
++          : '2 experiences with all the chosen techs',
++      );
++    });
++
++    test('clavier : le focus ouvre le panneau, Entrée choisit, Retour arrière retire, Échap ferme', async ({
++      page,
++    }) => {
++      const section = await openExperience(page, code);
++      await section.focus();
++
++      await page.keyboard.press('Tab');
++      await expect(field(section)).toBeFocused();
++      expect(await drawerOpen(section)).toBe(true);
++      await expect(section.getByText(locale.mainStack, { exact: true })).toBeVisible();
++
++      await page.keyboard.type('kafka');
++      const suggestions = section.getByRole('group', {
++        name: code === 'fr' ? 'Suggestions de technos' : 'Tech suggestions',
++      });
++      await expect(suggestions.getByRole('button')).toHaveCount(1);
++      await expect(suggestions.getByRole('button')).toContainText(locale.kafka);
++      await expect(section.locator('.filter-drawer')).toHaveAttribute('inert', '');
++
++      await page.keyboard.press('Enter');
++      await expect(
++        section.getByRole('button', { name: locale.remove(locale.kafka) }),
++      ).toBeVisible();
++      await expect(page).toHaveURL(/\?tech=kafka$/);
++      await expect(field(section)).toBeFocused();
++      await expect(field(section)).toHaveValue('');
++      // Choisir ne ferme pas le panneau : il réapparaît à la place des suggestions.
++      expect(await drawerOpen(section)).toBe(true);
++      await expect(section.getByRole('article')).toHaveCount(2);
++
++      await page.keyboard.press('Backspace');
++      await expect(section.getByRole('button', { name: locale.remove(locale.kafka) })).toHaveCount(
++        0,
++      );
++      await expect(page).not.toHaveURL(/tech=/);
++      await expect(section.getByRole('article')).toHaveCount(8);
++
++      await page.keyboard.press('Escape');
++      expect(await drawerOpen(section)).toBe(false);
++      await expect(field(section)).toBeFocused();
++      // Le retour de focus après Échap n'a pas rouvert le panneau.
++      await page.waitForTimeout(600);
++      expect(await drawerOpen(section)).toBe(false);
++      await expect(drawer(section)).toBeHidden();
++    });
++
++    test('saisie : Échap vide d’abord le champ, une techno sans résultat est désactivée', async ({
++      page,
++    }) => {
++      const section = await openExperience(page, code, '?tech=typescript,docker');
++      await field(section).focus();
++
++      await page.keyboard.type('node');
++      const suggestions = section.getByRole('group', {
++        name: code === 'fr' ? 'Suggestions de technos' : 'Tech suggestions',
++      });
++      const first = suggestions.getByRole('button').first();
++      await expect(first).toHaveAttribute('aria-disabled', 'true');
++      // Entrée n'ajoute pas une techno qui donnerait 0 résultat.
++      await page.keyboard.press('Enter');
++      await expect(
++        section.getByRole('button', { name: /^(Retirer le filtre|Remove filter)/ }),
++      ).toHaveCount(2);
++
++      await page.keyboard.press('Escape');
++      await expect(field(section)).toHaveValue('');
++      await expect(suggestions).toHaveCount(0);
++      expect(await drawerOpen(section)).toBe(true);
++    });
++
++    test('panneau : toutes les technos, états, Fermer rend le focus sans rouvrir', async ({
++      page,
++    }) => {
++      const section = await openExperience(page, code, '?tech=typescript,docker');
++      await field(section).focus();
++      expect(await drawerOpen(section)).toBe(true);
++
++      const toggle = section.getByRole('button', { name: locale.allTechs });
++      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
++      await toggle.click();
++      await expect(section.getByRole('button', { name: locale.hideAll })).toHaveAttribute(
++        'aria-expanded',
++        'true',
++      );
++      const all = section.locator('.all-techs');
++      await expect(all).toBeVisible();
++      // Techno qui donnerait 0 résultat : désactivée mais focalisable ; sans expérience : pointillé.
++      const node = all.locator('button[aria-disabled="true"]').first();
++      await expect(node).toBeVisible();
++      await node.click({ force: true });
++      await expect(
++        section.getByRole('button', { name: /^(Retirer le filtre|Remove filter)/ }),
++      ).toHaveCount(2);
++      await expect(all.locator('.tech-chip--dashed').first()).toBeVisible();
++      expect(
++        await all
++          .locator('.tech-chip--dashed')
++          .first()
++          .evaluate((element) => element.tagName),
++      ).toBe('SPAN');
++      await section.locator('.filter-drawer__close').click();
++      expect(await drawerOpen(section)).toBe(false);
++      await expect(field(section)).toBeFocused();
++      await page.waitForTimeout(600);
++      expect(await drawerOpen(section)).toBe(false);
++    });
++
++    test('panneau : choisir une techno du panneau ne le ferme pas et met à jour les compteurs', async ({
++      page,
++    }) => {
++      const section = await openExperience(page, code);
++      await field(section).click();
++      const quick = section.locator('.filter-drawer__quick');
++      await expect(quick).toBeVisible();
++
++      await quick.getByRole('button', { name: /^Docker/ }).click();
++
++      await expect(page).toHaveURL(/\?tech=docker$/);
++      expect(await drawerOpen(section)).toBe(true);
++      await expect(quick.getByRole('button', { name: /^Docker/ })).toHaveAttribute(
++        'aria-pressed',
++        'true',
++      );
++      await expect(quick.getByRole('button', { name: /^TypeScript/ })).toContainText('2');
++      await expect(quick.getByRole('button', { name: /^Node\.js/ })).toHaveAttribute(
++        'aria-disabled',
++        'true',
++      );
++    });
++
++    test('le panneau se ferme au défilement de la liste', async ({ page }) => {
++      const section = await openExperience(page, code);
++      await field(section).click();
++      expect(await drawerOpen(section)).toBe(true);
++      await page.waitForTimeout(600);
++
++      await section.getByRole('region', { name: locale.list }).evaluate((element) => {
++        element.scrollTop = 200;
++      });
++
++      await expect.poll(async () => drawerOpen(section)).toBe(false);
++    });
++
++    test('résultats : groupe complet, autres expériences atténuées, état vide', async ({
++      page,
++    }) => {
++      const section = await openExperience(page, code, '?tech=typescript,docker');
++
++      await expect(section.getByText(locale.withAll, { exact: true })).toBeVisible();
++      await expect(section.getByRole('article')).toHaveCount(2);
++      const show = section.getByRole('button', { name: locale.showOthers });
++      await expect(show).toHaveAttribute('aria-expanded', 'false');
++      await show.click();
++
++      await expect(section.getByRole('button', { name: locale.hideOthers })).toHaveAttribute(
++        'aria-expanded',
++        'true',
++      );
++      await expect(section.getByText(locale.othersTitle, { exact: true })).toBeVisible();
++      await expect(section.getByRole('article')).toHaveCount(8);
++      await expect(section.getByText(locale.partial, { exact: true })).toHaveCount(2);
++      const dimmed = section.locator('.experience-card--dimmed').first();
++      expect(
++        Number(await dimmed.evaluate((element) => getComputedStyle(element).opacity)),
++      ).toBeLessThan(1);
++
++      await section.getByRole('button', { name: locale.hideOthers }).click();
++      await expect(section.getByRole('article')).toHaveCount(2);
++
++      // Aucune expérience ne combine tout : pas de page vide.
++      const empty = await openExperience(page, code, '?tech=typescript,php');
++      await expect(empty.getByText(locale.empty, { exact: false }).first()).toBeVisible();
++      await expect(empty.getByRole('article')).toHaveCount(0);
++      await empty.getByRole('button', { name: locale.showAll }).click();
++      await expect(empty.getByRole('article')).toHaveCount(8);
++    });
++
++    test('carte : accordéon au clavier, aria-expanded et durée de 320 ms', async ({ page }) => {
++      await page.emulateMedia({ reducedMotion: 'no-preference' });
++      const section = await openExperience(page, code);
++      const toggle = section.getByRole('button', { name: locale.detail });
++      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
++      const panel = page.locator(`#${await toggle.getAttribute('aria-controls')}`);
++      await expect(panel).toBeHidden();
++      expect(
++        await panel.evaluate((element) => getComputedStyle(element).transitionDuration),
++      ).toContain('0.32s');
++
++      await toggle.focus();
++      await page.keyboard.press('Enter');
++
++      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
++      await expect(panel).toBeVisible();
++      await expect(panel.getByRole('listitem')).toHaveCount(4);
++      await page.keyboard.press('Space');
++      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
++      await expect(panel).toBeHidden();
++    });
++
++    test('carte : sous mouvement réduit, l’accordéon s’ouvre sans animation', async ({ page }) => {
++      await page.emulateMedia({ reducedMotion: 'reduce' });
++      const section = await openExperience(page, code);
++      const toggle = section.getByRole('button', { name: locale.detail });
++      const panel = page.locator(`#${await toggle.getAttribute('aria-controls')}`);
++
++      await toggle.click();
++
++      expect(
++        await panel.evaluate((element) =>
++          Number.parseFloat(getComputedStyle(element).transitionDuration),
++        ),
++      ).toBeLessThan(0.001);
++      await expect(panel).toBeVisible();
++    });
++
++    test('carte : une puce filtre (aria-pressed, URL, remonte la liste) et se retire au second clic', async ({
++      page,
++    }) => {
++      const section = await openExperience(page, code);
++      const list = section.getByRole('region', { name: locale.list });
++      await list.evaluate((element) => {
++        element.scrollTop = 300;
++      });
++
++      const chip = section
++        .getByRole('button', { name: locale.filterBy('Docker'), exact: true })
++        .first();
++      await chip.click();
++
++      await expect(page).toHaveURL(/\?tech=docker$/);
++      await expect(section.getByRole('button', { name: locale.remove('Docker') })).toBeVisible();
++      await expect(
++        section.getByRole('button', { name: locale.filterBy('Docker'), exact: true }).first(),
++      ).toHaveAttribute('aria-pressed', 'true');
++      await expect.poll(async () => list.evaluate((element) => element.scrollTop)).toBe(0);
++      await expect(section.getByRole('article')).toHaveCount(4);
++
++      await section
++        .getByRole('button', { name: locale.filterBy('Docker'), exact: true })
++        .first()
++        .click();
++      await expect(page).not.toHaveURL(/tech=/);
++      await expect(section.getByRole('article')).toHaveCount(8);
++    });
++
++    test('effacer, puces du champ : retirer une puce rend le focus au champ sans ouvrir le panneau', async ({
++      page,
++    }) => {
++      const section = await openExperience(page, code, '?tech=typescript,docker');
++
++      await section.getByRole('button', { name: locale.remove('TypeScript') }).click();
++      await expect(page).toHaveURL(/\?tech=docker$/);
++      await expect(field(section)).toBeFocused();
++      expect(await drawerOpen(section)).toBe(false);
++
++      await section.getByRole('button', { name: locale.clearAll }).click();
++      await expect(page).not.toHaveURL(/tech=/);
++      await expect(section.getByRole('article')).toHaveCount(8);
++    });
++
++    test('le filtre survit au rechargement et au changement d’onglet', async ({ page }) => {
++      const section = await openExperience(page, code, '?tech=kafka');
++      await expect(section.getByRole('article')).toHaveCount(2);
++
++      if (tabsMode(page)) {
++        const nav = page.getByRole('navigation', { name: locale.tabs });
++        await nav.getByRole('button', { name: locale.profileTab, exact: true }).click();
++        await expect(section).toBeHidden();
++        await nav.getByRole('button', { name: locale.xpTab, exact: true }).click();
++        await expect(section).toBeVisible();
++        await expect(section.getByRole('article')).toHaveCount(2);
++      }
++      await expect(page).toHaveURL(/\?tech=kafka$/);
++
++      await page.reload();
++      await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
++      if (tabsMode(page)) {
++        await page
++          .getByRole('navigation', { name: locale.tabs })
++          .getByRole('button', { name: locale.xpTab, exact: true })
++          .click();
++      }
++      await expect(section.getByRole('article')).toHaveCount(2);
++      await expect(
++        section.getByRole('button', { name: locale.remove(locale.kafka) }),
++      ).toBeVisible();
++    });
++
++    test('easter egg : fenêtre nommée, focus, lignes animées, Échap, retour du focus sur la puce', async ({
++      page,
++    }) => {
++      await page.emulateMedia({ reducedMotion: 'no-preference' });
++      const section = await openExperience(page, code);
++      const chip = section.getByRole('button', { name: locale.egg.chip, exact: true });
++      await chip.scrollIntoViewIfNeeded();
++
++      await chip.click();
++
++      const dialog = page.getByRole('dialog', { name: locale.egg.chip });
++      await expect(dialog).toBeVisible();
++      await expect(dialog).toContainText('huile-de-coude.sh');
++      await expect(dialog.getByRole('button', { name: locale.egg.back })).toBeFocused();
++      // Le filtre n'a pas bougé : la puce n'est pas un filtre.
++      await expect(page).not.toHaveURL(/tech=/);
++
++      // Les lignes arrivent une à une : la dernière n'est pas encore là, puis elle apparaît.
++      const done = dialog.getByText(locale.egg.done);
++      await expect(done).toHaveCSS('opacity', '0');
++      await expect(dialog.getByText('npm install huile-de-coude')).toHaveCSS('opacity', '1', {
++        timeout: 2_000,
++      });
++      await expect(done).toHaveCSS('opacity', '1', { timeout: 8_000 });
++      const fill = dialog.locator('.egg__fill');
++      await expect
++        .poll(async () => fill.evaluate((element) => element.getBoundingClientRect().width))
++        .toBeGreaterThan(0);
++
++      // Piège de focus : Tab ne sort pas de la fenêtre.
++      await page.keyboard.press('Tab');
++      await expect(dialog.locator(':focus')).toHaveCount(1);
++      await page.keyboard.press('Tab');
++      await expect(dialog.locator(':focus')).toHaveCount(1);
++
++      await page.keyboard.press('Escape');
++      await expect(dialog).toBeHidden();
++      await expect(chip).toBeFocused();
++    });
++
++    test('easter egg : sous mouvement réduit, toutes les lignes sont là d’emblée ; « Retour au CV » ferme', async ({
++      page,
++    }) => {
++      await page.emulateMedia({ reducedMotion: 'reduce' });
++      const section = await openExperience(page, code);
++      const chip = section.getByRole('button', { name: locale.egg.chip, exact: true });
++      await chip.scrollIntoViewIfNeeded();
++      await chip.click();
++
++      const dialog = page.getByRole('dialog', { name: locale.egg.chip });
++      await expect(dialog.getByText(locale.egg.done)).toHaveCSS('opacity', '1', { timeout: 1_000 });
++      for (const line of await dialog.locator('.egg__line').all()) {
++        await expect(line).toHaveCSS('opacity', '1', { timeout: 1_000 });
++      }
++      await expect
++        .poll(async () =>
++          dialog.locator('.egg__fill').evaluate((element) => {
++            const bar = element.parentElement!;
++            return Math.abs(element.getBoundingClientRect().width - bar.clientWidth) < 2;
++          }),
++        )
++        .toBe(true);
++
++      await dialog.getByRole('button', { name: locale.egg.back }).click();
++      await expect(dialog).toBeHidden();
++      await expect(chip).toBeFocused();
++    });
++
++    test('easter egg : le voile ferme la fenêtre', async ({ page }) => {
++      const section = await openExperience(page, code);
++      const chip = section.getByRole('button', { name: locale.egg.chip, exact: true });
++      await chip.scrollIntoViewIfNeeded();
++      await chip.click();
++      const dialog = page.getByRole('dialog', { name: locale.egg.chip });
++      await expect(dialog).toBeVisible();
++
++      await page.mouse.click(2, 2);
++
++      await expect(dialog).toBeHidden();
++    });
++
++    test('cibles : au moins 44 px sous 1024 px, 24 px pour les puces et au-delà', async ({
++      page,
++    }) => {
++      const section = await openExperience(page, code, '?tech=typescript,docker');
++      await field(section).click();
++      const minimum = tabsMode(page) ? 44 : 24;
++
++      const targets = [
++        section.getByRole('button', { name: locale.clearAll }),
++        section.getByRole('button', { name: locale.allTechs }),
++        section.locator('.filter-drawer__close'),
++        section.getByRole('button', { name: locale.showOthers }),
++        section.locator('.accordion__toggle').first(),
++        field(section),
++      ];
++      for (const target of targets) {
++        const box = await target.boundingBox();
++        expect(box?.height, String(await target.textContent())).toBeGreaterThanOrEqual(minimum);
++        expect(box?.width).toBeGreaterThanOrEqual(minimum);
++      }
++      // Puces de techno (D17) : 24 × 24 px au moins (WCAG 2.5.8) ; hauteur de la maquette sinon.
++      for (const chip of await section.locator('.tech-chip:not(.tech-chip--dashed)').all()) {
++        if (!(await chip.isVisible())) continue;
++        const box = await chip.boundingBox();
++        expect(box?.height).toBeGreaterThanOrEqual(24);
++        expect(box?.width).toBeGreaterThanOrEqual(24);
++      }
++    });
++
++    test('focus visible : contour de 2 px sur le cadre du champ, les puces et les boutons', async ({
++      page,
++    }) => {
++      const section = await openExperience(page, code, '?tech=kafka');
++      await section.focus();
++      await page.keyboard.press('Tab');
++      await expect(
++        section.getByRole('button', { name: locale.remove(locale.kafka) }),
++      ).toBeFocused();
++
++      const targets: [Locator, Locator][] = [
++        [
++          section.getByRole('button', { name: locale.remove(locale.kafka) }),
++          section.getByRole('button', { name: locale.remove(locale.kafka) }),
++        ],
++        // Le champ lui-même n'a pas de contour : il est porté par son cadre.
++        [field(section), section.locator('.chip-input')],
++      ];
++      for (const [focused, outlined] of targets) {
++        await focused.focus();
++        await page.keyboard.press('Shift+Tab');
++        await page.keyboard.press('Tab');
++        await expect(focused).toBeFocused();
++        const outline = await outlined.evaluate((element) => {
++          const style = getComputedStyle(element);
++          return [style.outlineStyle, style.outlineWidth];
++        });
++        expect(outline).toEqual(['solid', '2px']);
++      }
++    });
++
++    for (const palette of PALETTES) {
++      test.describe(`axe WCAG 2.2 AA, palette ${palette.name}`, () => {
++        // Mouvement réduit : l'état final (panneau, accordéon, lignes de la fenêtre) est celui mesuré.
++        test.beforeEach(async ({ page }) => {
++          await page.emulateMedia({ reducedMotion: 'reduce' });
++          await storePreferences(page, {
++            theme: palette.theme,
++            highContrast: palette.highContrast,
++          });
++        });
++
++        test('repos et panneau déplié', async ({ page }) => {
++          const section = await openExperience(page, code, '?tech=typescript,docker');
++          await expect(page.locator('html')).toHaveAttribute('data-theme', palette.theme);
++          await axe(page, `${palette.name}, repos`);
++
++          await field(section).click();
++          await section.getByRole('button', { name: locale.allTechs }).click();
++          await expect(section.locator('.all-techs')).toBeVisible();
++          await axe(page, `${palette.name}, panneau déplié`);
++        });
++
++        test('suggestions et autres expériences', async ({ page }) => {
++          const section = await openExperience(page, code, '?tech=typescript,docker');
++          await field(section).fill('s');
++          const suggestions = section.getByRole('group', {
++            name: code === 'fr' ? 'Suggestions de technos' : 'Tech suggestions',
++          });
++          await expect(suggestions).toBeVisible();
++          await axe(page, `${palette.name}, suggestions`);
++
++          await field(section).fill('');
++          await section.getByRole('button', { name: locale.showOthers }).click();
++          await expect(section.getByText(locale.partial, { exact: true }).first()).toBeVisible();
++          await axe(page, `${palette.name}, autres expériences`);
++        });
++
++        test('état vide et accordéon ouvert', async ({ page }) => {
++          const section = await openExperience(page, code, '?tech=typescript,php');
++          await expect(section.getByText(locale.empty, { exact: false }).first()).toBeVisible();
++          await axe(page, `${palette.name}, état vide`);
++
++          await section.getByRole('button', { name: locale.showAll }).click();
++          await section.locator('.accordion__toggle').first().click();
++          await expect(section.getByRole('article')).toHaveCount(8);
++          await axe(page, `${palette.name}, accordéon ouvert`);
++        });
++
++        test('fenêtre de l’easter egg ouverte', async ({ page }) => {
++          const section = await openExperience(page, code);
++          const chip = section.getByRole('button', { name: locale.egg.chip, exact: true });
++          await chip.scrollIntoViewIfNeeded();
++          await chip.click();
++          await expect(page.getByRole('dialog', { name: locale.egg.chip })).toBeVisible();
++          await expect(page.getByText(locale.egg.done)).toHaveCSS('opacity', '1');
++          await axe(page, `${palette.name}, fenêtre`);
++        });
++      });
++    }
++  });
++}
+diff --git a/apps/web/test/sections.e2e.ts b/apps/web/test/sections.e2e.ts
+new file mode 100644
+index 0000000..7e7e0a6
+--- /dev/null
++++ b/apps/web/test/sections.e2e.ts
+@@ -0,0 +1,226 @@
++import { expect, test, type Locator, type Page } from '@playwright/test';
++
++// Parcours de la page intégrée (lot F5c : les quatre sections dans la coquille), à chaque taille d'écran
++// des maquettes, en français et en anglais, sur les fixtures :
++// - un seul `h1` (celui de la coquille, masqué visuellement), le grand titre visible est celui du profil ;
++// - recommandations : citations et légendes dans la langue de la recommandation (`lang="fr"` sur `/en`
++//   avec les fixtures), liens externes en nouvel onglet avec `rel="noopener noreferrer"`, pas de bouton
++//   GitHub (les fixtures n'en ont pas) ;
++// - sélecteur de langue : `?tech=` conservé en passant d'une langue à l'autre (D21, les slugs sont les
++//   mêmes dans les deux langues) ;
++// - onglets (sous 1024 px) : pendant l'onglet XP, `<main>` ne défile pas et n'a pas de marge, la liste
++//   défile seule et c'est elle que lisent la flèche « faire défiler » et la barre d'actions ; marge haute
++//   de 28 px des onglets Recos et IA (20 px pour le Profil), comme la maquette mobile. Au-delà (en
++//   attendant la mosaïque, F6) : la section Expérience tient dans la fenêtre et sa liste défile seule.
++// Le mode se déduit de la largeur du projet : chaque test vérifie le comportement de la sienne.
++// axe tourne déjà sur chaque section dans shell.e2e.ts (page entière, quatre palettes).
++
++const LOCALES = {
++  fr: {
++    path: '/',
++    other: { path: '/en', removeDocker: 'Remove filter Docker', xpTab: 'XP' },
++    title: 'Développeur full-stack',
++    visibleTitle: /^Développeur\s*full-stack\s*senior$/,
++    removeKafka: 'Retirer le filtre Apache Kafka',
++    filterDocker: 'Filtrer par Docker',
++    list: 'Liste des expériences',
++    tabs: { profile: 'Profil', xp: 'XP', recos: 'Recos', ai: 'IA' },
++  },
++  en: {
++    path: '/en',
++    other: { path: '/', removeDocker: 'Retirer le filtre Docker', xpTab: 'XP' },
++    title: 'Full-stack developer',
++    visibleTitle: /^Full-stack\s*developer\s*senior$/,
++    removeKafka: 'Remove filter Apache Kafka',
++    filterDocker: 'Filter by Docker',
++    list: 'List of experiences',
++    tabs: { profile: 'Profile', xp: 'XP', recos: 'Recs', ai: 'AI' },
++  },
++} as const;
++
++type LocaleCode = keyof typeof LOCALES;
++
++/** Sous 1024 px : onglets (une section à la fois) ; au-delà : sections ensemble. */
++function tabsMode(page: Page): boolean {
++  return (page.viewportSize()?.width ?? 0) < 1024;
++}
++
++/** Page chargée et hydratée (la coquille a choisi son mode). */
++async function open(page: Page, path: string): Promise<void> {
++  await page.goto(path);
++  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
++}
++
++/** Choisit un onglet du bas (sous 1024 px) ; sans effet au-delà, où toutes les sections sont là. */
++async function tab(page: Page, name: string): Promise<void> {
++  if (!tabsMode(page)) return;
++  await page
++    .getByRole('navigation', { name: 'Sections' })
++    .getByRole('button', { name, exact: true })
++    .click();
++}
++
++/** Attend la fin des animations d'un élément (glissement de l'onglet). */
++async function settled(locator: Locator): Promise<void> {
++  await locator.evaluate((element) =>
++    Promise.all(element.getAnimations().map((animation) => animation.finished)).then(
++      () => undefined,
++    ),
++  );
++}
++
++for (const code of Object.keys(LOCALES) as LocaleCode[]) {
++  const locale = LOCALES[code];
++
++  test.describe(`${code} (${locale.path})`, () => {
++    test('titre : un seul h1, masqué visuellement ; le grand titre visible est celui du profil', async ({
++      page,
++    }) => {
++      await open(page, locale.path);
++
++      const heading = page.getByRole('heading', { level: 1 });
++      await expect(heading).toHaveCount(1);
++      await expect(heading).toHaveText(locale.title);
++      const box = await heading.boundingBox();
++      expect([box?.width, box?.height]).toEqual([1, 1]);
++      const visible = page.locator('#section-profile .profile-title');
++      await expect(visible).toBeVisible();
++      await expect(visible).toHaveText(locale.visibleTitle);
++      expect(await visible.evaluate((element) => element.tagName)).toBe('DIV');
++    });
++
++    test('recommandations : citations et légendes dans la langue de la recommandation', async ({
++      page,
++    }) => {
++      await open(page, locale.path);
++      await tab(page, locale.tabs.recos);
++
++      const section = page.locator('#section-recommendations');
++      const quotes = section.locator('blockquote');
++      await expect(quotes).toHaveCount(3);
++      await expect(quotes.first()).toBeVisible();
++      // Les fixtures servent des recommandations écrites en français, même sur /en (repli de langue).
++      for (const element of await section.locator('blockquote, figcaption').all()) {
++        await expect(element).toHaveAttribute('lang', 'fr');
++      }
++      await expect(page.locator('html')).toHaveAttribute('lang', code);
++    });
++
++    test('liens externes : nouvel onglet et rel="noopener noreferrer" ; pas de GitHub', async ({
++      page,
++    }) => {
++      await open(page, locale.path);
++
++      const external = page.locator('a[target="_blank"]');
++      // LinkedIn du profil, lien du haut et bouton du bas des recommandations.
++      expect(await external.count()).toBeGreaterThanOrEqual(3);
++      for (const link of await external.all()) {
++        await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
++        await expect(link).toHaveAttribute('href', /^https:\/\//);
++      }
++      await expect(page.locator('#section-recommendations a[target="_blank"]')).toHaveCount(2);
++      await expect(page.locator('#section-profile a[target="_blank"]')).toHaveCount(1);
++      // Les fixtures n'ont pas de lien GitHub : aucun bouton GitHub.
++      await expect(page.getByRole('link', { name: /github/i })).toHaveCount(0);
++      await expect(page.locator('a[href*="github"]')).toHaveCount(0);
++    });
++
++    test('sélecteur de langue : le filtre ?tech= suit le changement de langue', async ({
++      page,
++    }) => {
++      await open(page, `${locale.path}?tech=kafka`);
++      await tab(page, locale.tabs.xp);
++      await expect(page.getByRole('button', { name: locale.removeKafka })).toBeVisible();
++
++      const link = page.locator('.language-switch').getByRole('link');
++      await expect(link).toHaveAttribute('href', `${locale.other.path}?tech=kafka`);
++
++      // Une techno choisie après le chargement met aussi le lien à jour.
++      await page.getByRole('button', { name: locale.removeKafka }).click();
++      await page
++        .locator('#section-experience')
++        .getByRole('button', { name: locale.filterDocker, exact: true })
++        .first()
++        .click();
++      await expect(page).toHaveURL(/\?tech=docker$/);
++      await expect(link).toHaveAttribute('href', `${locale.other.path}?tech=docker`);
++
++      await link.click();
++      await expect(page.locator('html')).toHaveAttribute('lang', code === 'fr' ? 'en' : 'fr');
++      await expect(page).toHaveURL(new RegExp(`${locale.other.path}\\?tech=docker$`));
++      await tab(page, locale.other.xpTab);
++      await expect(page.getByRole('button', { name: locale.other.removeDocker })).toBeVisible();
++    });
++
++    test('section Expérience : la liste défile seule, dans la hauteur disponible', async ({
++      page,
++    }) => {
++      await open(page, locale.path);
++      await tab(page, locale.tabs.xp);
++      const section = page.locator('#section-experience');
++      const list = page.getByRole('region', { name: locale.list });
++      await expect(list).toBeVisible();
++      await settled(section);
++      expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
++        true,
++      );
++      const viewport = page.viewportSize()?.height ?? 0;
++      const box = await section.boundingBox();
++      expect(box?.height ?? Infinity).toBeLessThanOrEqual(viewport);
++
++      if (!tabsMode(page)) {
++        // Bureau, avant la mosaïque : pas de barre d'actions ni de flèche ; la section tient dans une
++        // fenêtre (sa position dépend de la hauteur de la barre du haut, qui varie selon la langue).
++        await expect(page.locator('.action-bar, .scroll-hint')).toHaveCount(0);
++        return;
++      }
++      // Onglet XP : <main> ne défile pas et n'a pas de marge.
++      const main = page.locator('main#contenu');
++      const style = await main.evaluate((element) => {
++        const computed = getComputedStyle(element);
++        return [
++          computed.overflowY,
++          computed.paddingTop,
++          computed.paddingLeft,
++          computed.paddingBottom,
++        ];
++      });
++      expect(style).toEqual(['hidden', '0px', '0px', '0px']);
++      expect(await main.evaluate((element) => element.scrollHeight - element.clientHeight)).toBe(0);
++      // La liste a du contenu caché : la flèche est là et fait défiler la liste.
++      const hint = page.locator('.scroll-hint');
++      await expect(hint).toBeVisible();
++      await hint.click();
++      await expect
++        .poll(async () => list.evaluate((element) => element.scrollTop))
++        .toBeGreaterThan(0);
++      // Défiler la liste vers le bas masque la barre d'actions.
++      await list.evaluate((element) => {
++        element.scrollTop += 400;
++      });
++      await expect(page.locator('.action-bar')).toHaveClass(/action-bar--hidden/);
++    });
++
++    test('marge haute du contenu : 20 px pour le Profil, 28 px pour Recos et IA (onglets)', async ({
++      page,
++    }) => {
++      await open(page, locale.path);
++      const main = page.locator('main#contenu');
++      const paddingTop = async (): Promise<string> =>
++        main.evaluate((element) => getComputedStyle(element).paddingTop);
++
++      if (!tabsMode(page)) {
++        // Bureau : la marge de la zone de 1440 px, la même pour toutes les sections.
++        expect(await paddingTop()).toBe('12px');
++        return;
++      }
++      expect(await paddingTop()).toBe('20px');
++      await tab(page, locale.tabs.recos);
++      expect(await paddingTop()).toBe('28px');
++      await tab(page, locale.tabs.ai);
++      expect(await paddingTop()).toBe('28px');
++      await tab(page, locale.tabs.profile);
++      expect(await paddingTop()).toBe('20px');
++    });
++  });
++}

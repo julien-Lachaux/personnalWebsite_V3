@@ -22,9 +22,9 @@ describe('Harnais e2e', () => {
     await app.close();
   });
 
-  it('ENDPOINTS décrit 12 routes distinctes, toutes en 200 sur la base seedée', async () => {
-    expect(ENDPOINTS).toHaveLength(12);
-    expect(new Set(ENDPOINTS.map((endpoint) => endpoint.path)).size).toBe(12);
+  it('ENDPOINTS décrit 14 routes distinctes, toutes en 200 sur la base seedée', async () => {
+    expect(ENDPOINTS).toHaveLength(14);
+    expect(new Set(ENDPOINTS.map((endpoint) => endpoint.path)).size).toBe(14);
     for (const endpoint of ENDPOINTS) {
       const response = await app.inject({ method: 'GET', url: endpoint.path });
       expect(response.statusCode, endpoint.path).toBe(200);
