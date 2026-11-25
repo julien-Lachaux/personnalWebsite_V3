@@ -1,0 +1,67 @@
+# Production tout statique (lot 33, décision de Julien du 25 nov. 2026) : une seule pile, un seul service.
+# Le site affiché n'appelle jamais l'API : ses pages et données sont figées à la génération. L'API et la base
+# ne servent qu'à FABRIQUER le site, en CI (.github/workflows/release.yml, archive `site-<version>.tar.gz`
+# jointe à la release). Le serveur n'héberge donc ni API, ni PostgreSQL, ni génération : seulement Caddy.
+#
+# Fichier AUTONOME (pas une surcharge de compose.prod.yml, qui ne peut pas retirer de service) ; la pile
+# complète (compose.prod.yml, compose.vps.yml) reste celle de la pile locale et des tests.
+# Même contrat que la variante VPS (docker/compose.vps.yml) : aucun port publié, TLS et 80/443 tenus par le
+# Caddy de l'HÔTE, qui relaie vers le socket Unix de ce Caddy (`/run/prod/site-perso/web.sock`).
+#
+# Le site : DEPLOY_DIR/site/{releases/<version>/{public,csp.caddy}, current -> releases/<version>}, écrit par
+# scripts/deploy/deploy-static.sh. On monte le DOSSIER `site/` et non le lien `current` : un montage de lien est
+# résolu à la création du conteneur et resterait sur l'ancienne version après une bascule.
+# Lancement : scripts/deploy/deploy-static.sh <version> (variables : docs/deploiement.md, « Production
+# tout statique »). `!override` demande Compose 2.24 ou plus (déjà exigé par compose.vps.yml).
+name: siteperso-v3-static
+
+services:
+  caddy:
+    image: docker.io/library/caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
+    # `STATIC_RESTART=no` pour un premier essai : pas de relance en boucle tant que rien n'a démarré.
+    restart: ${STATIC_RESTART:-always}
+    environment:
+      # Mode travaux (docker/wip.caddy), validé au démarrage par caddy-start.sh.
+      WIP_MODE: ${WIP_MODE:-off}
+      WIP_KEY: ${WIP_KEY:-}
+      WIP_STATUS: ${WIP_STATUS:-503}
+      WIP_RETRY_AFTER: ${WIP_RETRY_AFTER:-3600}
+      WIP_API: ${WIP_API:-open}
+    entrypoint: ['/bin/sh', '/usr/local/bin/caddy-start.sh']
+    volumes:
+      - ./Caddyfile.vps-static:/etc/caddy/Caddyfile:ro
+      - ./wip.caddy:/etc/caddy/wip.caddy:ro
+      - ./caddy-start.sh:/usr/local/bin/caddy-start.sh:ro
+      # Site publié (lecture seule) : dossier parent du lien `current`, voir l'en-tête.
+      - ${STATIC_SITE_DIR:?STATIC_SITE_DIR requis (DEPLOY_DIR/site)}:/srv/web:ro
+      # Dossier du socket, créé et recréé au démarrage par l'hôte (2750 compte-appli:caddy).
+      - ${PROD_RUN_DIR:-/run/prod/site-perso}:/run/prod
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - app
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - label=disable
+    mem_limit: 256m
+    pids_limit: 100
+    # Sans valeur explicite, un conteneur Podman sans privilèges refuse tout `exec` (`caddy reload`).
+    oom_score_adj: 500
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+networks:
+  # Interne : le Caddy de la pile n'a plus de raison de joindre Internet (ni API, ni certificat à obtenir).
+  app:
+    internal: true
+
+volumes:
+  caddy_data:
+  caddy_config:
