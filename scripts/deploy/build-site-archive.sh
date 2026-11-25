@@ -3,7 +3,7 @@
 # l'API (déjà migrée, seedée et joignable), contrôle les pages, relève la CSP, puis écrit
 # `site-<version>.tar.gz` (dossiers `public/` et fichier `csp.caddy`, même disposition qu'un dossier
 # `releases/<id>/` de web-generate.sh) et sa somme `site-<version>.tar.gz.sha256`.
-# Exécuté par le job « Site statique » de .github/workflows/release.yml, jamais sur le serveur.
+# Exécuté par le job « Site statique de la release » du workflow de release, jamais sur le serveur.
 #
 # Usage : build-site-archive.sh <version X.Y.Z> <dossier de sortie>
 #

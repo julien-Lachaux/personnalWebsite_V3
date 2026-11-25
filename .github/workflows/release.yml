@@ -6,6 +6,13 @@ name: Release
 #   - push sur main : si la version du package.json n'est pas encore étiquetée et que CHANGELOG.md a sa
 #     section, pose l'étiquette vX.Y.Z et crée la release GitHub avec cette section. Un hotfix poussé
 #     directement sans toucher version ni changelog ne crée aucune étiquette.
+#   - lot 33 (production tout statique, décision de Julien du 25 nov. 2026) : après l'étiquetage, le job « site »
+#     du MÊME workflow génère le front contre l'API (PostgreSQL de service, migrations, seeds), relève la CSP et
+#     joint à la release `site-<version>.tar.gz` et sa somme SHA-256 (scripts/deploy/build-site-archive.sh). Le
+#     serveur ne fait que télécharger et vérifier cette archive (scripts/deploy/deploy-static.sh). Variables du
+#     dépôt GitHub exigées (Settings > Secrets and variables > Actions > Variables) : SITE_CONTACT_EMAIL (adresse
+#     du bouton de contact) et SITE_BASE_URL (origine https publique du site, sans barre finale) ; absentes, le
+#     job échoue avant toute génération. Il est rejouable (`gh run rerun --failed`) : `--clobber` à l'envoi.
 # Aucun robot n'écrit sur main ni sur la branche de release : la version et le changelog sont commités
 # par la session principale (pnpm release:prepare) et relus par Julien dans la pull request.
 #
@@ -23,6 +30,9 @@ on:
 # job qui étiquette.
 permissions:
   contents: read
+
+env:
+  NODE_VERSION: '26.13.1'
 
 jobs:
   controle:
@@ -48,6 +58,8 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     # Jamais deux étiquetages en même temps, jamais annulés en cours.
     concurrency:
       group: release-tag
@@ -69,3 +81,78 @@ jobs:
           node scripts/ci/release.mjs notes "$VERSION" >"$RUNNER_TEMP/notes.md"
           gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" \
             --notes-file "$RUNNER_TEMP/notes.md"
+
+  site:
+    name: Site statique de la release
+    needs: etiquette
+    # Rien à joindre quand aucune étiquette n'a été posée (hotfix sans version).
+    if: needs.etiquette.outputs.version != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: siteperso_site
+          POSTGRES_USER: siteperso
+          POSTGRES_PASSWORD: siteperso
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U siteperso -d siteperso_site"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgres://siteperso:siteperso@localhost:5433/siteperso_site
+      CORS_ORIGIN: http://localhost:3001
+      HOST: 127.0.0.1
+      PORT: '3000'
+      VERSION: ${{ needs.etiquette.outputs.version }}
+      # Valeurs publiques figées dans les pages au build : variables du dépôt, jamais dans le code.
+      NUXT_PUBLIC_CONTACT_EMAIL: ${{ vars.SITE_CONTACT_EMAIL }}
+      NUXT_PUBLIC_I18N_BASE_URL: ${{ vars.SITE_BASE_URL }}
+    steps:
+      - name: Variables du dépôt présentes
+        run: |
+          if [ -z "$NUXT_PUBLIC_CONTACT_EMAIL" ] || [ -z "$NUXT_PUBLIC_I18N_BASE_URL" ]; then
+            echo "::error::variables de dépôt SITE_CONTACT_EMAIL et SITE_BASE_URL requises (docs/deploiement.md, « Production tout statique »)"
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Contrats puis API compilés (dépendance `^build` de Turborepo).
+      - run: pnpm turbo run build --filter=@siteperso/api
+      - name: Migrations et seeds
+        working-directory: apps/api
+        run: |
+          node dist/cli/migrate.js
+          node dist/cli/seed.js
+      - name: API de génération
+        working-directory: apps/api
+        run: |
+          node dist/main.js >"$RUNNER_TEMP/api.log" 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/api/v1/health >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/api.log"
+          echo "::error::l'API ne répond pas"
+          exit 1
+      - name: Archive du site (génération, contrôle des pages, CSP)
+        run: bash scripts/deploy/build-site-archive.sh "$VERSION" "$RUNNER_TEMP/site"
+      - name: Archive et somme jointes à la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "v$VERSION" \
+            "$RUNNER_TEMP/site/site-$VERSION.tar.gz" "$RUNNER_TEMP/site/site-$VERSION.tar.gz.sha256" --clobber
