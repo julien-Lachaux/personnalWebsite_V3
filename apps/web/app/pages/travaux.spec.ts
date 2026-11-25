@@ -2,13 +2,15 @@ import { mountSuspended } from '@nuxt/test-utils/runtime';
 import type { VueWrapper } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { nextTick } from 'vue';
-import { clearNuxtState, useRuntimeConfig } from '#imports';
+import { clearNuxtData, clearNuxtState, useRuntimeConfig } from '#imports';
 
 import { UNINDEXED_PATH_STATE_KEY } from '../composables/seo/useSeo.js';
+import { cvEn } from '../data/fixtures/cv.en.js';
+import { cvFr } from '../data/fixtures/cv.fr.js';
 import WorkInProgressPage from './travaux.vue';
 
-// Page « travaux en cours » (lot 31) : message, contact par le mailto de la configuration, CV PDF de la
-// langue (repli sur le CV français), hors index, dans les deux langues.
+// Page « travaux en cours » (lot 31) : message, contact par le mailto de la configuration, profil
+// LinkedIn lu dans le CV (fixtures de l'application de test), hors index, dans les deux langues.
 
 async function flushHead(): Promise<void> {
   await nextTick();
@@ -20,19 +22,17 @@ function meta(selector: string): string | null {
 }
 
 const mounted: VueWrapper[] = [];
-let saved: { contactEmail: string; cvFiles: string[] };
+let saved: string;
 
 beforeEach(() => {
-  const { public: config } = useRuntimeConfig();
-  saved = { contactEmail: config.contactEmail, cvFiles: [...config.cvFiles] };
+  saved = useRuntimeConfig().public.contactEmail;
 });
 
 afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount();
-  const { public: config } = useRuntimeConfig();
-  config.contactEmail = saved.contactEmail;
-  config.cvFiles = saved.cvFiles;
+  useRuntimeConfig().public.contactEmail = saved;
   clearNuxtState(UNINDEXED_PATH_STATE_KEY);
+  clearNuxtData();
 });
 
 async function mount(route: string): Promise<VueWrapper> {
@@ -53,12 +53,12 @@ describe('page « travaux en cours »', () => {
     ]);
     expect(wrapper.findAll('main p:not(.annex-page__bar)').map((p) => p.text())).toEqual([
       'Je reconstruis ce site de fond en comble. Il revient bientôt, avec mon parcours, mes expériences et les technologies que j’utilise.',
-      'En attendant, vous pouvez m’écrire ou télécharger mon CV.',
+      'En attendant, vous pouvez m’écrire ou me retrouver sur LinkedIn.',
     ]);
     expect(wrapper.find('.annex-page__back').exists()).toBe(false);
   });
 
-  it('en français : contact par mailto (adresse non affichée), puis le CV PDF français', async () => {
+  it('en français : contact par mailto (adresse non affichée), puis le profil LinkedIn du CV', async () => {
     const wrapper = await mount('/travaux');
 
     const links = wrapper.findAll('main a');
@@ -67,46 +67,46 @@ describe('page « travaux en cours »', () => {
         'Lancer l’entretien',
         `mailto:contact@example.org?subject=${encodeURIComponent('Prise de contact depuis votre site')}`,
       ],
-      ['CV PDF', '/cv/cv-fr.pdf'],
+      ["Profil LinkedIn (s'ouvre dans un nouvel onglet)", cvFr.socialLinks[0]!.url],
     ]);
-    const cv = links[1]!;
-    expect(cv.attributes('type')).toBe('application/pdf');
-    expect(cv.attributes('download')).toBeDefined();
-    expect(cv.attributes('hreflang')).toBeUndefined();
+    expect(cvFr.socialLinks[0]!.slug).toBe('linkedin');
     expect(wrapper.text()).not.toContain('contact@example.org');
   });
 
-  it('en anglais : textes traduits, sujet anglais, CV français signalé tant que le CV anglais manque', async () => {
-    useRuntimeConfig().public.cvFiles = ['cv-fr.pdf'];
+  it('ouvre LinkedIn dans un nouvel onglet, sans référent, avec le style du bouton secondaire', async () => {
+    const wrapper = await mount('/travaux');
+
+    const linkedin = wrapper.findAll('main a')[1]!;
+    expect(linkedin.attributes('target')).toBe('_blank');
+    expect(linkedin.attributes('rel')).toBe('noopener noreferrer');
+    expect(linkedin.classes()).toEqual(
+      expect.arrayContaining(['base-button--outline', 'base-button--md']),
+    );
+    expect(linkedin.get('.visually-hidden').text()).toBe("(s'ouvre dans un nouvel onglet)");
+    expect(linkedin.get('.base-button__icon').attributes('aria-hidden')).toBe('true');
+  });
+
+  it('en anglais : textes traduits, sujet anglais, profil LinkedIn du CV anglais', async () => {
     const wrapper = await mount('/en/work-in-progress');
 
     expect(wrapper.get('h1').text()).toBe('Site under construction');
-    expect(wrapper.text()).toContain('In the meantime, you can email me or download my CV.');
-    const [contact, cv] = wrapper.findAll('main a');
+    expect(wrapper.text()).toContain('In the meantime, you can email me or find me on LinkedIn.');
+    const [contact, linkedin] = wrapper.findAll('main a');
     expect(contact!.text()).toBe('Start the interview');
     expect(contact!.attributes('href')).toBe(
       `mailto:contact@example.org?subject=${encodeURIComponent('Getting in touch from your website')}`,
     );
-    expect(cv!.text()).toBe('CV PDF (in French)');
-    expect(cv!.attributes('href')).toBe('/cv/cv-fr.pdf');
-    expect(cv!.attributes('hreflang')).toBe('fr');
-  });
-
-  it('en anglais : le CV anglais, dès qu’il est présent dans public/cv/', async () => {
-    useRuntimeConfig().public.cvFiles = ['cv-en.pdf', 'cv-fr.pdf'];
-    const wrapper = await mount('/en/work-in-progress');
-
-    const cv = wrapper.findAll('main a')[1]!;
-    expect(cv.text()).toBe('CV PDF');
-    expect(cv.attributes('href')).toBe('/cv/cv-en.pdf');
-    expect(cv.attributes('hreflang')).toBeUndefined();
+    expect(linkedin!.text()).toBe('LinkedIn profile (opens in a new tab)');
+    expect(linkedin!.attributes('href')).toBe(
+      cvEn.socialLinks.find((link) => link.slug === 'linkedin')!.url,
+    );
   });
 
   it('pose son titre, sa description et noindex, dans la langue de la page', async () => {
     await mount('/travaux');
     expect(document.title).toBe('Site en cours de construction');
     expect(meta('name="description"')).toBe(
-      'Le site de Julien Lachaux est en cours de construction. En attendant, vous pouvez lui écrire ou télécharger son CV.',
+      'Le site de Julien Lachaux est en cours de construction. En attendant, vous pouvez lui écrire ou le retrouver sur LinkedIn.',
     );
     expect(meta('name="robots"')).toBe('noindex');
     mounted.splice(0).forEach((wrapper) => wrapper.unmount());
@@ -114,7 +114,7 @@ describe('page « travaux en cours »', () => {
     await mount('/en/work-in-progress');
     expect(document.title).toBe('Site under construction');
     expect(meta('name="description"')).toBe(
-      'Julien Lachaux’s website is under construction. In the meantime, you can email him or download his CV.',
+      'Julien Lachaux’s website is under construction. In the meantime, you can email him or find him on LinkedIn.',
     );
     expect(meta('property="og:description"')).toBe(meta('name="description"'));
   });

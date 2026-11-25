@@ -15,9 +15,10 @@
   },
   "workInProgress": {
     "title": "Site en cours de construction",
-    "description": "Le site de Julien Lachaux est en cours de construction. En attendant, vous pouvez lui écrire ou télécharger son CV.",
+    "description": "Le site de Julien Lachaux est en cours de construction. En attendant, vous pouvez lui écrire ou le retrouver sur LinkedIn.",
     "intro": "Je reconstruis ce site de fond en comble. Il revient bientôt, avec mon parcours, mes expériences et les technologies que j’utilise.",
-    "next": "En attendant, vous pouvez m’écrire ou télécharger mon CV."
+    "next": "En attendant, vous pouvez m’écrire ou me retrouver sur LinkedIn.",
+    "linkedin": "Profil LinkedIn"
   },
   "declaration": {
     "title": "Déclaration d’accessibilité",
