@@ -8,9 +8,9 @@
 //   sans lien de retour à l'accueil : pendant les travaux, l'accueil mène ici.
 // - Contact : le bouton « Lancer l'entretien » de l'accueil (`mailto:` vers NUXT_PUBLIC_CONTACT_EMAIL,
 //   adresse jamais affichée) ; absente ou invalide, la page lève une erreur et la génération échoue.
-// - LinkedIn : le lien social `linkedin` du CV, lu au build par le même chemin que l'accueil (`useCv`,
-//   puis `mapLinks` de `mapCv`) ; absent des données, la page lève et la génération échoue plutôt que
-//   d'afficher un bouton mort. Lien externe : nouvel onglet, `noopener noreferrer`, indication
+// - LinkedIn : l'URL du lien social `linkedin` du CV, lue au build (`useLinkedinUrl`, même source que
+//   l'accueil) ; la charge utile de la page ne contient que cette URL, rien d'autre du CV. Absente des
+//   données, la génération échoue plutôt que d'afficher un bouton mort. Lien externe : nouvel onglet, `noopener noreferrer`, indication
 //   accessible (`LinkButton`, `common.opensInNewTab`).
 // - Hors index (`useUnindexedPage`) : `noindex`, ni canonique ni hreflang, donc absente du plan du site.
 // - Chemin anglais (`i18n.pages`), gabarit `annex` (`routeRules`, `appLayout`) et prérendu des deux
@@ -21,8 +21,7 @@ import LinkButton from '../components/base/LinkButton.vue';
 import ContactButton from '../components/shell/ContactButton.vue';
 import { usePageSeo, useUnindexedPage } from '../composables/seo/useSeo.js';
 import { useContactLink } from '../composables/shell/useContactLink.js';
-import { useCv } from '../composables/use-cv.js';
-import { mapLinks } from '../data/map-cv.js';
+import { useLinkedinUrl } from '../composables/use-cv.js';
 
 const { t, locale } = useI18n();
 
@@ -39,14 +38,7 @@ usePageSeo(() => ({
 }));
 useUnindexedPage();
 
-const cv = await useCv(locale.value);
-const linkedin = mapLinks(cv.socialLinks).linkedin;
-if (linkedin === null) {
-  throw new Error(
-    `Lien LinkedIn absent du CV « ${locale.value} » : la page « travaux en cours » attend un lien ` +
-      'social de slug « linkedin » (social_links).',
-  );
-}
+const linkedin = await useLinkedinUrl(locale.value);
 </script>
 
 <template>
@@ -57,7 +49,7 @@ if (linkedin === null) {
     <div class="work-in-progress__actions">
       <ContactButton size="md" />
       <LinkButton
-        :href="linkedin.url"
+        :href="linkedin"
         variant="outline"
         size="md"
         :external-label="t('common.opensInNewTab')"
