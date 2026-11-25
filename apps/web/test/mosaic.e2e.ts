@@ -358,12 +358,13 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       await expect(body).toHaveAttribute('tabindex', '0');
       await expect(body).not.toHaveAttribute('inert');
       // Défilement réel (F12-BARRE, revue de la PR 20) : le corps du Profil dépasse dans la colonne
-      // latérale et suit un scrollTo. À 3440 × 1440 la colonne est assez haute pour tout afficher : le
-      // corps ne dépasse pas et il n'y a rien à faire défiler.
+      // latérale et suit un scrollTo. À partir de 1080 px de haut (1920 × 1080, 3440 × 1440) la
+      // colonne est assez haute pour tout afficher : le corps ne dépasse pas, rien à faire défiler. Jusqu'à
+      // 900 px de haut (1024 × 768, 1280 × 844, 1440 × 900) il dépasse.
       const overflows = await body.evaluate(
         (element) => element.scrollHeight > element.clientHeight,
       );
-      if (page.viewportSize()!.height >= 1440) {
+      if (page.viewportSize()!.height >= 1080) {
         expect(overflows).toBe(false);
         return;
       }

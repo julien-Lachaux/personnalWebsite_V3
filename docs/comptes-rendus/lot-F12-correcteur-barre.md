@@ -85,3 +85,12 @@ pas). À cette hauteur le test affirme donc l'absence de dépassement ; ailleurs
 et le défilement. Résultat : `mosaic` sur portable-1024, desktop-1280, grand-1440 et ultra-3440 : 104
 réussis ; lint vert ; `pnpm integrity develop` : OK ; conteneurs arrêtés. Commit avec
 `Justification-test: F12-BARRE` (ajout d'assertions dans un test existant).
+
+## Suite 3 : seuil de hauteur corrigé (1920 × 1080)
+
+Le seuil `height >= 1440` était faux : à 1920 × 1080 le Profil ne dépasse pas non plus (CI en échec, fr
+et en). Je n'avais vérifié que quatre projets ; cette fois les sept. Seuil à `height >= 1080` :
+absence de dépassement à 1920 × 1080 et 3440 × 1440, dépassement et défilement jusqu'à 900 de haut
+(1024 × 768, 1280 × 844, 1440 × 900) ; 390 et 834 retournent avant (pas de colonne latérale).
+Résultat de `mosaic.e2e.ts` : 26 réussis sur chacun des sept projets, 0 échec ; `pnpm integrity
+develop` : OK ; conteneurs arrêtés. `Justification-test: F12-BARRE` au commit.
