@@ -22,8 +22,18 @@ services:
     environment:
       SITE_DOMAIN: ${SITE_DOMAIN:?SITE_DOMAIN requis}
       PUBLIC_HTTPS_PORT: ${HTTPS_PORT:-443}
+      # Mode travaux (docker/wip.caddy) : validé au démarrage par caddy-start.sh (clé de 32 caractères au
+      # moins si WIP_MODE=on, sinon le conteneur refuse de démarrer).
+      WIP_MODE: ${WIP_MODE:-off}
+      WIP_KEY: ${WIP_KEY:-}
+      WIP_STATUS: ${WIP_STATUS:-503}
+      WIP_RETRY_AFTER: ${WIP_RETRY_AFTER:-3600}
+      WIP_API: ${WIP_API:-open}
+    entrypoint: ['/bin/sh', '/usr/local/bin/caddy-start.sh']
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./wip.caddy:/etc/caddy/wip.caddy:ro
+      - ./caddy-start.sh:/usr/local/bin/caddy-start.sh:ro
       # Site du front (volume rempli par web-build) : Caddy le lit sans pouvoir l'écrire.
       - web_site:/srv/web:ro
       - caddy_data:/data
