@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -58,7 +59,7 @@ beforeEach(() => {
   workdir = mkdtempSync(join(tmpdir(), 'siteperso-engine-'));
   bin = join(workdir, 'bin');
   callLog = join(workdir, 'appels.log');
-  spawnSync('mkdir', [bin]);
+  mkdirSync(bin);
   for (const tool of SYSTEM_TOOLS) {
     symlinkSync(hostPath(tool), join(bin, tool));
   }
