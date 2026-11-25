@@ -1,0 +1,371 @@
+import { createHash } from 'node:crypto';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Page, type Request } from '@playwright/test';
+
+// Pages d'erreur serveur (lot 30), à chaque taille d'écran des maquettes, en fr et en, schémas clair et
+// sombre. Le proxy de production sert `50x.html` (ou `en/50x.html` sous /en) à l'adresse demandée, avec
+// le statut 500, 502, 503 ou 504 ; `page.route` le reproduit ici. Quand cette page est servie, le
+// serveur ou l'API peuvent être en panne : elle s'affiche sans JavaScript, ne demande que les feuilles
+// de style et les polices du site, tient sous la CSP stricte du déploiement, n'est pas indexable et
+// n'entre pas dans le plan du site.
+
+const PUBLIC_DIR = resolve(import.meta.dirname, '../.output/public');
+const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+
+/** Fond de la page (`--bg` de tokens.css) dans chaque schéma, sans réglage enregistré. */
+const BACKGROUND = { light: 'rgb(230, 235, 229)', dark: 'rgb(16, 26, 33)' } as const;
+/** Valeur de `data-theme` posée par le script de thème selon le schéma du système. */
+const THEME = { light: 'clair', dark: 'sombre' } as const;
+
+const PAGES = [
+  {
+    locale: 'fr',
+    file: '50x.html',
+    path: '/une-page?vue=1',
+    status: 503,
+    title: 'Site indisponible pour l’instant',
+    text: 'Le serveur n’a pas pu répondre à votre demande.',
+    retry: 'Réessayer',
+    back: 'Retour à l’accueil',
+    home: '/',
+    skip: 'Aller au contenu',
+  },
+  {
+    locale: 'fr',
+    file: '50x.html',
+    path: '/api/v1/cv?lang=fr',
+    status: 502,
+    title: 'Site indisponible pour l’instant',
+    text: 'Le serveur n’a pas pu répondre à votre demande.',
+    retry: 'Réessayer',
+    back: 'Retour à l’accueil',
+    home: '/',
+    skip: 'Aller au contenu',
+  },
+  {
+    locale: 'en',
+    file: 'en/50x.html',
+    path: '/en/some-page',
+    status: 504,
+    title: 'Website temporarily unavailable',
+    text: 'The server could not answer your request.',
+    retry: 'Try again',
+    back: 'Back to the home page',
+    home: '/en',
+    skip: 'Skip to content',
+  },
+  {
+    locale: 'en',
+    file: 'en/50x.html',
+    path: '/en',
+    status: 500,
+    title: 'Website temporarily unavailable',
+    text: 'The server could not answer your request.',
+    retry: 'Try again',
+    back: 'Back to the home page',
+    home: '/en',
+    skip: 'Skip to content',
+  },
+] as const;
+
+type ServerErrorPage = (typeof PAGES)[number];
+
+/** Sert la page d'erreur de la langue à l'adresse demandée, avec le statut et la politique donnés. */
+async function serveError(
+  page: Page,
+  { file, path, status }: ServerErrorPage,
+  headers: Record<string, string> = {},
+): Promise<Request[]> {
+  const served: Request[] = [];
+  const body = readFileSync(join(PUBLIC_DIR, file));
+  const pathname = new URL(path, 'http://localhost').pathname;
+  await page.route(
+    (url) => url.pathname === pathname,
+    async (route) => {
+      served.push(route.request());
+      await route.fulfill({ status, contentType: 'text/html; charset=utf-8', headers, body });
+    },
+  );
+  return served;
+}
+
+/** Ressources demandées par la page, hors du document servi par `serveError`. */
+function watchRequests(page: Page): string[] {
+  const requested: string[] = [];
+  page.on('request', (request) => {
+    if (request.resourceType() !== 'document') {
+      requested.push(`${request.resourceType()} ${new URL(request.url()).pathname}`);
+    }
+  });
+  return requested;
+}
+
+/**
+ * Vérifie le contenu, la structure et le référencement de la page affichée ; axe en plus quand
+ * JavaScript est actif (axe s'exécute dans la page : sans JavaScript, il ne peut pas tourner ; la page
+ * n'étant jamais hydratée, son document est le même dans les deux cas).
+ */
+async function expectServerErrorPage(
+  page: Page,
+  expected: ServerErrorPage,
+  { axe }: { axe: boolean },
+): Promise<void> {
+  await expect(page.locator('html')).toHaveAttribute('lang', expected.locale);
+  await expect(page.locator('h1')).toHaveCount(1);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(expected.title);
+  await expect(page).toHaveTitle(expected.title);
+  const main = page.locator('main#contenu');
+  await expect(main).toHaveCount(1);
+  await expect(main).toContainText(expected.text);
+  await expect(main).toContainText('>_ erreur-50x.log');
+  // Message générique : ni le code de la réponse, ni un détail technique.
+  await expect(main).not.toContainText(String(expected.status));
+  await expect(page.locator('a, button').first()).toHaveText(expected.skip);
+  await expect(page.locator('a, button').first()).toHaveAttribute('href', '#contenu');
+  // En-tête du site sans contrôles (ils demandent JavaScript) : le seul lien vers l'accueil.
+  const banner = page.getByRole('banner');
+  await expect(banner.getByRole('button')).toHaveCount(0);
+  await expect(banner.getByRole('link')).toHaveCount(1);
+  await expect(banner.getByRole('link')).toHaveAttribute('href', expected.home);
+  await expect(main.getByRole('link', { name: expected.back })).toHaveAttribute(
+    'href',
+    expected.home,
+  );
+  await expect(main.getByRole('link', { name: expected.retry })).toHaveAttribute('href', '');
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex');
+  await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
+  await expect(page.locator('link[rel="alternate"]')).toHaveCount(0);
+  // Rien ne déborde horizontalement, quelle que soit la largeur.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  if (!axe) return;
+  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+  expect(results.violations).toEqual([]);
+  expect(results.passes.length).toBeGreaterThan(0);
+}
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test.describe(`page d’erreur serveur sans JavaScript, schéma ${colorScheme}`, () => {
+    test.use({ colorScheme, javaScriptEnabled: false });
+
+    for (const expected of PAGES) {
+      test(`${expected.status} à ${expected.path} (${expected.locale}) : page complète, thème du système`, async ({
+        page,
+      }) => {
+        const served = await serveError(page, expected);
+        const requested = watchRequests(page);
+
+        const response = await page.goto(expected.path);
+
+        expect(response?.status()).toBe(expected.status);
+        await expect(page).toHaveURL(expected.path);
+        await expectServerErrorPage(page, expected, { axe: false });
+        // Sans le script de thème, le thème suit `prefers-color-scheme` (tokens.css).
+        await expect(page.locator('html')).not.toHaveAttribute('data-theme', /./);
+        expect(
+          await page
+            .locator('.annex-layout')
+            .evaluate((node) => getComputedStyle(node).backgroundColor),
+        ).toBe(BACKGROUND[colorScheme]);
+        // Seules les feuilles de style et les polices du site : aucun script, aucun appel à l'API.
+        await page.waitForLoadState('networkidle');
+        expect(requested.length).toBeGreaterThan(0);
+        for (const request of requested) {
+          expect(request).toMatch(
+            /^(?:stylesheet \/_nuxt\/[\w.-]+\.css|font \/fonts\/[\w/.-]+\.woff2)$/,
+          );
+        }
+
+        // « Réessayer » redemande l'adresse servie ; le retour mène à l'accueil.
+        await page.getByRole('main').getByRole('link', { name: expected.retry }).click();
+        await expect.poll(() => served.length).toBe(2);
+        expect(served[1]?.url()).toBe(served[0]?.url());
+        await expect(page).toHaveURL(expected.path);
+        await page.unrouteAll();
+        await page.getByRole('main').getByRole('link', { name: expected.back }).click();
+        await expect(page).toHaveURL(expected.home);
+      });
+    }
+  });
+
+  test.describe(`page d’erreur serveur avec JavaScript, schéma ${colorScheme}`, () => {
+    test.use({ colorScheme });
+
+    for (const expected of PAGES) {
+      test(`${expected.status} à ${expected.path} (${expected.locale}) : script de thème seul, jamais hydratée`, async ({
+        page,
+      }) => {
+        await serveError(page, expected);
+        const requested = watchRequests(page);
+        const errors: string[] = [];
+        page.on('pageerror', (error) => errors.push(String(error)));
+
+        await page.goto(expected.path, { waitUntil: 'networkidle' });
+
+        await expectServerErrorPage(page, expected, { axe: true });
+        // Le script de thème (D5) a posé le thème du système ; l'application n'a pas démarré.
+        await expect(page.locator('html')).toHaveAttribute('data-theme', THEME[colorScheme]);
+        expect(
+          await page.evaluate(() => {
+            const root = document.querySelector<Element & { __vue_app__?: unknown }>('#__nuxt');
+            return { config: '__NUXT__' in window, hydrated: root?.__vue_app__ !== undefined };
+          }),
+        ).toEqual({ config: false, hydrated: false });
+        expect(requested.filter((request) => !/^(?:stylesheet|font) /.test(request))).toEqual([]);
+        expect(errors).toEqual([]);
+      });
+    }
+
+    test('réglages enregistrés appliqués hors ligne (thème inverse, contraste renforcé)', async ({
+      page,
+    }) => {
+      const expected = PAGES[0];
+      const theme = colorScheme === 'dark' ? 'clair' : 'sombre';
+      await page.addInitScript(
+        (stored) => {
+          localStorage.setItem('siteperso:preferences', stored);
+        },
+        JSON.stringify({
+          version: 1,
+          theme,
+          textSize: 130,
+          highContrast: true,
+          readableFont: false,
+          textSpacing: false,
+          underlineLinks: false,
+          reduceMotion: false,
+        }),
+      );
+      await serveError(page, expected);
+
+      await page.goto(expected.path);
+
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await expect(page.locator('html')).toHaveAttribute('data-contrast', 'renforce');
+      await expect(page.locator('html')).toHaveAttribute('data-text-size', '130');
+      const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+      expect(results.violations).toEqual([]);
+    });
+  });
+}
+
+// CSP stricte du déploiement (même politique que test/csp.e2e.ts et scripts/deploy/csp-hashes.mjs) :
+// empreintes de tous les éléments en ligne des pages générées.
+
+function cspHash(content: string): string {
+  return `'sha256-${createHash('sha256').update(content, 'utf8').digest('base64')}'`;
+}
+
+function htmlFiles(directory: string): string[] {
+  return readdirSync(directory)
+    .sort()
+    .flatMap((name) => {
+      const path = join(directory, name);
+      if (statSync(path).isDirectory()) return htmlFiles(path);
+      return name.endsWith('.html') ? [path] : [];
+    });
+}
+
+function strictPolicy(): string {
+  const scripts = new Set<string>();
+  const styles = new Set<string>();
+  for (const file of htmlFiles(PUBLIC_DIR)) {
+    const html = readFileSync(file, 'utf8');
+    for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+      const attributes = match[1] ?? '';
+      if (/\bsrc\s*=/i.test(attributes)) continue;
+      if (/\btype\s*=\s*["']?application\/(?:ld\+)?json/i.test(attributes)) continue;
+      scripts.add(cspHash(match[2] ?? ''));
+    }
+    for (const match of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
+      styles.add(cspHash(match[1] ?? ''));
+    }
+  }
+  return [
+    "default-src 'self'",
+    `script-src 'self' ${[...scripts].sort().join(' ')}`.trim(),
+    `style-src 'self' ${[...styles].sort().join(' ')}`.trim(),
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+  ].join('; ');
+}
+
+test.describe('page d’erreur serveur sous la CSP stricte', () => {
+  for (const expected of [PAGES[0], PAGES[2]]) {
+    test(`${expected.file} : aucune violation ni erreur de console`, async ({ page }) => {
+      await serveError(page, expected, { 'content-security-policy': strictPolicy() });
+      await page.addInitScript(() => {
+        const seen: string[] = [];
+        Object.defineProperty(window, '__cspViolations', { value: seen });
+        document.addEventListener('securitypolicyviolation', (event) => {
+          seen.push(`${event.violatedDirective} bloque ${event.blockedURI || 'en ligne'}`);
+        });
+      });
+      const errors: string[] = [];
+      page.on('console', (message) => {
+        // Le navigateur journalise le statut d'erreur du document : c'est le statut attendu.
+        if (
+          /^Failed to load resource: the server responded with a status of 5\d\d\b/.test(
+            message.text(),
+          )
+        )
+          return;
+        if (message.type() === 'error') errors.push(message.text());
+      });
+      page.on('pageerror', (error) => errors.push(String(error)));
+
+      await page.goto(expected.path, { waitUntil: 'networkidle' });
+
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(expected.title);
+      await expect(page.locator('html')).toHaveAttribute('data-theme', /^(clair|sombre)$/);
+      expect(
+        await page.evaluate(
+          () => (window as unknown as { __cspViolations: string[] }).__cspViolations,
+        ),
+      ).toEqual([]);
+      expect(errors).toEqual([]);
+    });
+  }
+
+  // Témoin : sans les empreintes, le script de thème et les styles en ligne de la page sont bloqués.
+  test('témoin : une politique sans empreintes bloque le script de thème', async ({ page }) => {
+    const policy = strictPolicy()
+      .replace(/script-src [^;]+/, "script-src 'self'")
+      .replace(/style-src [^;]+/, "style-src 'self'");
+    await serveError(page, PAGES[0], { 'content-security-policy': policy });
+
+    await page.goto(PAGES[0].path, { waitUntil: 'networkidle' });
+
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', /./);
+  });
+});
+
+test('le plan du site ne contient pas les pages d’erreur serveur', async ({ request }) => {
+  const response = await request.get('/sitemap.xml');
+  expect(response.status()).toBe(200);
+  const xml = await response.text();
+  expect(xml).toContain('<loc>');
+  expect(xml).not.toContain('50x');
+});
+
+test('la page anglaise ne contient aucun libellé de la page française', () => {
+  const english = readFileSync(join(PUBLIC_DIR, 'en/50x.html'), 'utf8');
+  for (const label of [
+    'Site indisponible pour l’instant',
+    'Réessayer',
+    'Retour à l’accueil',
+    'Aller au contenu',
+    '(accueil)',
+  ]) {
+    expect(english).not.toContain(label);
+  }
+});
