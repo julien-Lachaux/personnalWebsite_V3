@@ -4,9 +4,9 @@
 // `CvView` (jamais le contrat). Le `h2` de la section est celui de la coquille (`AppShell`) ; ici,
 // seuls le titre du profil (`titleTag`) et les `h3` de l'encadré.
 //
-// Aucune hypothèse de hauteur et aucun défilement : la tuile du profil ne défile jamais et réduit son
-// contenu par le facteur S (`FitToHeight`, F6). Les tailles de texte sont en `rem` et suivent le
-// réglage de taille du texte ; mobile et tablette (< 1024 px) lisent 18 px, le bureau 17 px.
+// Aucune hypothèse de hauteur : le contenu garde sa taille normale et la tuile défile si besoin (D41).
+// Les tailles de texte sont en `rem`, suivent le réglage de taille du texte et reprennent celles de la
+// section IA (D41) : texte courant 17 px sous 1024 px, 16 px au-delà.
 import { type LinksView, type ProfileView } from '../../data/cv-view.js';
 import ProfileTitle from './ProfileTitle.vue';
 import SituationCard from './SituationCard.vue';
@@ -52,7 +52,7 @@ withDefaults(
   flex-direction: column;
   gap: 0.25rem;
   color: var(--violet);
-  font-size: var(--font-size-body-mobile);
+  font-size: var(--font-size-lead);
   font-weight: var(--font-weight-medium);
   letter-spacing: -0.01em;
   line-height: 1.4;
@@ -66,8 +66,8 @@ withDefaults(
 
 .profile__mission,
 .profile__intro {
-  font-size: var(--font-size-lead-mobile);
-  line-height: 1.45;
+  font-size: var(--font-size-lead);
+  line-height: 1.5;
 }
 
 .profile__mission {
@@ -79,10 +79,10 @@ withDefaults(
     gap: 1rem;
   }
 
+  .profile__taglines,
   .profile__mission,
   .profile__intro {
-    font-size: var(--font-size-lead);
-    line-height: 1.5;
+    font-size: var(--font-size-body-mobile);
   }
 }
 </style>

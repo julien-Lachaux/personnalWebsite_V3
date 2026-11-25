@@ -75,16 +75,16 @@ const id = useId();
   margin: 0;
   color: var(--violet);
   font-family: var(--font-mono);
-  font-size: var(--font-size-meta);
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-bold);
 }
 
 .situation__now,
 .situation__value {
   margin: 0;
-  font-size: var(--font-size-body);
+  font-size: var(--font-size-lead);
   font-weight: var(--font-weight-semibold);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .situation__list {
@@ -97,11 +97,18 @@ const id = useId();
 .situation__term {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: var(--font-size-meta);
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-medium);
 }
 
 .situation__value {
   margin-top: 0.125rem;
+}
+
+@media (min-width: 1024px) {
+  .situation__now,
+  .situation__value {
+    font-size: var(--font-size-body-mobile);
+  }
 }
 </style>
