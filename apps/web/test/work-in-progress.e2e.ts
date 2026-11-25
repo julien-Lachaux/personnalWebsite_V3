@@ -171,6 +171,45 @@ test('sitemap.xml ne mentionne pas la page « travaux en cours »', async ({ req
   expect(xml).not.toContain('/work-in-progress');
 });
 
+// Charge utile (décision de Julien) : de tout le CV, la page ne publie que l'URL de LinkedIn. Fichier
+// `_payload.json` (format devalue de Nuxt : tableau de valeurs reliées par leur indice) et données en
+// ligne du HTML (`__NUXT_DATA__`) : aucun autre champ du CV.
+const CV_FIELDS = ['profile', 'experiences', 'recommendations', 'skillGroups', 'socialLinks'];
+
+for (const wip of PAGES) {
+  test(`${wip.path} : la charge utile ne contient que l'URL de LinkedIn`, () => {
+    const directory = join(PUBLIC_DIR, wip.file, '..');
+    const source = readFileSync(join(directory, '_payload.json'), 'utf8');
+    const payload = JSON.parse(source) as unknown[];
+    const at = (index: unknown): unknown => payload[index as number];
+
+    // `data` → ["ShallowReactive", i] → { clé : j } → valeur.
+    const root = payload[0] as { data: number };
+    const [kind, dataIndex] = at(root.data) as [string, number];
+    expect(kind).toBe('ShallowReactive');
+    const data = at(dataIndex) as Record<string, number>;
+    expect(Object.keys(data)).toEqual([`cv-${wip.locale}-linkedin`]);
+    expect(at(data[`cv-${wip.locale}-linkedin`])).toBe(LINKEDIN_URL);
+
+    const inline = /<script[^>]*id="__NUXT_DATA__"[^>]*>([\s\S]*?)<\/script>/.exec(
+      readFileSync(join(PUBLIC_DIR, wip.file), 'utf8'),
+    )?.[1];
+    expect(inline).toBeDefined();
+    for (const text of [source, inline ?? '']) {
+      for (const field of CV_FIELDS) expect(text).not.toContain(`"${field}"`);
+      expect(text).not.toContain('"cv-fr"');
+      expect(text).not.toContain('"cv-en"');
+    }
+  });
+}
+
+test('témoin : la charge utile de l’accueil contient le CV entier sous `cv-fr`', () => {
+  const source = readFileSync(join(PUBLIC_DIR, '_payload.json'), 'utf8');
+
+  expect(source).toContain('"cv-fr"');
+  for (const field of CV_FIELDS) expect(source).toContain(`"${field}"`);
+});
+
 // CSP stricte : même politique que le déploiement, recalculée sur les pages générées (test/csp.e2e.ts).
 
 /** Empreinte CSP (`'sha256-…'`) du contenu exact d'un élément en ligne. */
