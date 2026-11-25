@@ -4,8 +4,16 @@
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
 !tsconfig.base.json
+# Dossiers parents réinclus explicitement (eux seuls, sans leur contenu) : Buildah (podman build) ne
+# descend pas dans un dossier exclu par `**` pour y trouver les `!…/**` ; Docker n'en a pas besoin.
+!apps
+!apps/web
 !apps/web/**
+!packages
+!packages/contracts
 !packages/contracts/**
+!scripts
+!scripts/deploy
 !scripts/deploy/web-generate.sh
 !scripts/deploy/csp-hashes.mjs
 apps/web/design

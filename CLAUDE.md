@@ -148,7 +148,7 @@ apps/web/
                           porte que son espace de clés ; mêmes clés dans les deux langues
                           (app/i18n-messages.spec.ts)
   public/                 fonts/<police>/ (woff2 + OFL.txt, D6), cv/cv-<langue>.pdf (D22), favicon
-  scripts/clean-cv-pdf.sh nettoyage des métadonnées d'un CV PDF (qpdf en Docker)
+  scripts/clean-cv-pdf.sh nettoyage des métadonnées d'un CV PDF (qpdf en conteneur)
   test/                   parcours Playwright (*.e2e.ts), support et fixtures de test
 ```
 
@@ -288,13 +288,28 @@ apps/web/
 
 ## Commandes
 
-Prérequis sur l'hôte : Docker (avec `docker compose`) et pnpm 10 (>= 10.34.5 : les versions 9.x sont visées par des avis de sécurité sans correctif), plus `gh` dans `~/.local/bin` pour la session principale (flux par pull request, décision de Julien du 21 nov. 2026). pnpm télécharge lui-même
-la version de Node fixée dans `.npmrc` (`use-node-version`, Node 26 = dernière ligne stable,
-docs/02) et l'utilise pour tous les scripts ; `engines.node` vaut `>=26 <27`.
+Poste de développement : Fedora (KDE) depuis le 24 nov. 2026, plus WSL2. Prérequis sur l'hôte : Podman
+(avec un fournisseur compose : `docker-compose` ou `podman-compose`) ou Docker (avec `docker compose`),
+et pnpm 12 (>= 12.23.0, `packageManager` ; montée depuis pnpm 10 le 25 nov. 2026), plus
+`gh` installé par le gestionnaire de paquets du système (`dnf`) pour la session principale (flux par
+pull request, décisions de Julien du 21 et du 24 nov. 2026). pnpm télécharge lui-même
+la version de Node fixée par `devEngines.runtime` du package.json racine (Node 26 = dernière ligne
+stable, docs/02 ; `pnpm install --no-runtime` dans les images Docker, qui fournissent Node) et
+l'utilise pour tous les scripts ; `engines.node` vaut `>=26 <27`. Depuis pnpm 11, `.npmrc` ne porte
+plus aucun réglage du projet : `allowBuilds` (scripts d'installation autorisés) et `engineStrict`
+sont dans `pnpm-workspace.yaml`.
+
+Moteur de conteneurs : les scripts locaux (`db:up`, `db:test:up`, `e2e:browsers:up`, `db:down`,
+`stack:*`, `clean-cv-pdf.sh`, `lint:workflows` et `lint:shell` par `scripts/ci/static-analysis.sh`)
+passent par `scripts/container-engine.sh` : `CONTAINER_ENGINE=podman|docker` s'il est posé, sinon
+docker s'il est installé (exécuteurs de la CI), sinon podman (poste de Julien) ; une commande `docker`
+qui est en fait podman (`podman-docker`) compte pour podman. Sous podman, la pile locale ajoute
+`docker/compose.podman.yml`. Seul le déploiement de production (`scripts/deploy/common.sh`) reste
+sur docker.
 
 ```sh
 pnpm install                 # dépendances, Node via pnpm, hook pre-commit husky
-pnpm db:up                   # postgres de dev (docker compose)
+pnpm db:up                   # postgres de dev (scripts/compose.sh : podman ou docker compose)
 pnpm db:migrate              # applique db/migrations (checksum, transaction par fichier)
 pnpm db:seed                 # rejoue db/seeds (idempotents) ; refusé si une migration est en attente
 pnpm db:reset                # drop schema public + migrate + seed (refusé en production)
@@ -539,10 +554,12 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   marquées « à relire » pour Julien. Chaque traduction produite est listée dans
   `docs/traductions-a-relire.md` (table, slug, champ, texte FR, texte EN proposé) ; Julien
   relit puis retire les lignes validées. Aucune traduction n'est considérée définitive avant.
-- Rien d'installé globalement sur l'hôte en dehors de Docker, pnpm et `gh` : PostgreSQL uniquement
-  en Docker, Node téléchargé par pnpm, `gh` (GitHub CLI) dans `~/.local/bin` pour la session
-  principale seulement (exception décidée par Julien le 21 nov. 2026, flux par pull request). Pas de
-  `npm i -g`, pas de `brew`/`apt` pour le projet.
+- Rien d'installé globalement sur l'hôte en dehors de Podman (ou Docker) avec son fournisseur compose
+  (`docker-compose` ou `podman-compose`, que `podman compose` appelle ; passage à Podman décidé par
+  Julien le 24 nov. 2026), pnpm et `gh` : PostgreSQL uniquement en conteneur, Node téléchargé par
+  pnpm, `gh` (GitHub CLI) installé par `dnf`, pour la session principale seulement (exception décidée
+  par Julien le 21 nov. 2026, flux par pull request ; installation système décidée le 24 nov. 2026).
+  Pas de `npm i -g`, pas d'autre paquet système (`dnf`, `brew`, `apt`) pour le projet.
 - Versions de paquets : stables actuelles vérifiées sur npm (`pnpm view <pkg> version`),
   épinglées exactement dans les `package.json`. Node : toujours la dernière ligne stable
   (https://nodejs.org/dist/index.json) ; en cas d'incompatibilité, on en discute avec Julien

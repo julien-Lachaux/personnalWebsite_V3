@@ -4,10 +4,17 @@
   "private": true,
   "description": "Site perso V3 : monorepo (API NestJS/Fastify, front Nuxt statique, contrats Zod/OpenAPI, SQL)",
   "type": "module",
-  "packageManager": "pnpm@10.34.9",
+  "packageManager": "pnpm@12.23.0",
   "engines": {
     "node": ">=26 <27",
-    "pnpm": ">=10.34.5"
+    "pnpm": ">=12.23.0"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "26.13.1",
+      "onFail": "download"
+    }
   },
   "scripts": {
     "build": "turbo run build",
@@ -29,15 +36,15 @@
     "lint:workflows": "bash scripts/ci/static-analysis.sh workflows",
     "lint:shell": "bash scripts/ci/static-analysis.sh shell",
     "format:staged": "node .husky/check-staged-format.mjs",
-    "db:up": "docker compose up -d --wait postgres",
-    "db:test:up": "docker compose up -d --wait postgres-test",
-    "e2e:browsers:up": "docker compose up -d --wait playwright",
+    "db:up": "bash scripts/compose.sh up -d --wait postgres",
+    "db:test:up": "bash scripts/compose.sh up -d --wait postgres-test",
+    "e2e:browsers:up": "bash scripts/compose.sh up -d --wait playwright",
     "db:migrate": "pnpm --filter @siteperso/api db:migrate",
     "db:seed": "pnpm --filter @siteperso/api db:seed",
     "db:reset": "pnpm --filter @siteperso/api db:reset",
     "db:deleted:list": "pnpm --filter @siteperso/api db:deleted:list",
     "db:deleted:purge": "pnpm --filter @siteperso/api db:deleted:purge",
-    "db:down": "docker compose down",
+    "db:down": "bash scripts/compose.sh down",
     "stack:up": "bash scripts/deploy/local-stack.sh up",
     "stack:logs": "bash scripts/deploy/local-stack.sh logs",
     "stack:ps": "bash scripts/deploy/local-stack.sh ps",

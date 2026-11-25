@@ -1,8 +1,9 @@
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it } from 'vitest';
+
+import { runCompose } from './support/compose.js';
 
 const root = (path: string) => fileURLToPath(new URL(`../../../${path}`, import.meta.url));
 const composeFile = root('docker/compose.prod.yml');
@@ -33,9 +34,8 @@ describe('génération du front : docker/compose.prod.yml', () => {
   let config: ComposeConfig;
 
   beforeAll(() => {
-    const result = spawnSync(
-      'docker',
-      ['compose', '-f', composeFile, '--profile', 'build', 'config', '--format', 'json'],
+    const result = runCompose(
+      ['-f', composeFile, '--profile', 'build', 'config', '--format', 'json'],
       {
         encoding: 'utf8',
         env: {
@@ -94,7 +94,7 @@ describe('génération du front : docker/compose.prod.yml', () => {
   });
 
   it('un `up` sans profil ne contient pas web-build', () => {
-    const result = spawnSync('docker', ['compose', '-f', composeFile, 'config', '--services'], {
+    const result = runCompose(['-f', composeFile, 'config', '--services'], {
       encoding: 'utf8',
       env: {
         ...process.env,

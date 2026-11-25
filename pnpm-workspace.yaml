@@ -2,8 +2,13 @@ packages:
   - apps/*
   - packages/*
 
-# pnpm 10 n'exécute plus les scripts d'installation des dépendances : seules celles-ci en ont besoin
-# (binaires natifs d'esbuild pour Vite/Vitest, de SWC pour la compilation).
-onlyBuiltDependencies:
-  - '@swc/core'
-  - esbuild
+# pnpm n'exécute les scripts d'installation que des dépendances autorisées ici (`true`) : seules
+# celles-ci en ont besoin (binaires natifs d'esbuild pour Vite/Vitest, de SWC pour la compilation).
+# Un paquet absent de la liste fait échouer l'installation (strictDepBuilds, défaut de pnpm 12).
+allowBuilds:
+  '@swc/core': true
+  esbuild: true
+
+# Refuse l'installation si la version de Node ne correspond pas au champ « engines » du package.json
+# (pnpm 11+ ne lit plus ses réglages dans .npmrc).
+engineStrict: true
