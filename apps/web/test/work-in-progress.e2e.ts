@@ -7,8 +7,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 // Page « travaux en cours » (lot 31), à chaque taille d'écran des maquettes, en clair et en sombre,
 // en français et en anglais :
-// - message, contact (mailto de la configuration, adresse non affichée), CV PDF (repli sur le CV
-//   français tant que le CV anglais manque), en-tête des pages annexes (langue, thème), axe ;
+// - message, contact (mailto de la configuration, adresse non affichée), profil LinkedIn lu dans le CV
+//   au build (lien externe, nouvel onglet), en-tête des pages annexes (langue, thème), axe ;
 // - hors index : `noindex`, ni canonique ni hreflang, absente de `sitemap.xml` ;
 // - servie telle quelle quel que soit le statut HTTP (le proxy du lot 32 peut la servir en 503) ;
 // - sous la CSP stricte du déploiement (empreintes recalculées sur les pages générées, comme
@@ -16,6 +16,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const PUBLIC_DIR = resolve(import.meta.dirname, '../.output/public');
+/** Lien social `linkedin` du CV de test, lu par `generate:fixtures` (fr et en). */
+const LINKEDIN_URL = 'https://www.linkedin.com/in/example';
 
 const PAGES = [
   {
@@ -27,8 +29,7 @@ const PAGES = [
     title: 'Site en cours de construction',
     contact: 'Lancer l’entretien',
     subject: 'Prise de contact depuis votre site',
-    cv: 'CV PDF',
-    cvLanguage: null,
+    linkedin: "Profil LinkedIn (s'ouvre dans un nouvel onglet)",
   },
   {
     locale: 'en',
@@ -39,8 +40,7 @@ const PAGES = [
     title: 'Site under construction',
     contact: 'Start the interview',
     subject: 'Getting in touch from your website',
-    cv: 'CV PDF (in French)',
-    cvLanguage: 'fr',
+    linkedin: 'LinkedIn profile (opens in a new tab)',
   },
 ] as const;
 
@@ -74,7 +74,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     test.use({ colorScheme });
 
     for (const wip of PAGES) {
-      test(`${wip.path} (${wip.locale}) : message, contact, CV, hors index, axe`, async ({
+      test(`${wip.path} (${wip.locale}) : message, contact, LinkedIn, hors index, axe`, async ({
         page,
       }) => {
         const response = await page.goto(wip.path);
@@ -89,7 +89,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(page.locator('h1')).toHaveCount(1);
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(wip.title);
 
-        // Deux liens seulement dans le contenu : contact puis CV (pas de retour à l'accueil).
+        // Deux liens seulement dans le contenu : contact puis LinkedIn (pas de retour à l'accueil).
         const main = page.getByRole('main');
         await expect(main.getByRole('link')).toHaveCount(2);
         await expect(main.getByRole('link', { name: wip.contact })).toHaveAttribute(
@@ -97,12 +97,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
           `mailto:contact@example.org?subject=${encodeURIComponent(wip.subject)}`,
         );
         await expect(main).not.toContainText('contact@example.org');
-        const cv = main.getByRole('link', { name: wip.cv, exact: true });
-        await expect(cv).toHaveAttribute('href', '/cv/cv-fr.pdf');
-        await expect(cv).toHaveAttribute('type', 'application/pdf');
-        if (wip.cvLanguage === null) await expect(cv).not.toHaveAttribute('hreflang');
-        else await expect(cv).toHaveAttribute('hreflang', wip.cvLanguage);
-        expect((await page.request.get('/cv/cv-fr.pdf')).status()).toBe(200);
+        const linkedin = main.getByRole('link', { name: wip.linkedin, exact: true });
+        await expect(linkedin).toHaveAttribute('href', LINKEDIN_URL);
+        await expect(linkedin).toHaveAttribute('target', '_blank');
+        await expect(linkedin).toHaveAttribute('rel', 'noopener noreferrer');
 
         // Hors index : ni canonique ni hreflang ni og:url.
         expect(await seo(page)).toEqual({
