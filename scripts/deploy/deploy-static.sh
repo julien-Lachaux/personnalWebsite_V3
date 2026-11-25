@@ -94,6 +94,19 @@ check_archive_paths() {
     */../*) die "entrée dangereuse dans l'archive : « ${entry} »" ;;
     esac
   done < <(tar -tzf "${archive}")
+  # Fichiers ordinaires et dossiers seulement : ni lien symbolique, ni lien dur, ni fichier spécial
+  # (`file_server` suivrait un lien hors du site).
+  while IFS= read -r entry; do
+    case "${entry}" in
+    -* | d*) ;;
+    *) die "entrée refusée dans l'archive (ni fichier ni dossier) : « ${entry} »" ;;
+    esac
+  done < <(tar -tvzf "${archive}")
+}
+
+# Valeur de la CSP de csp.caddy (vide si l'en-tête est absent).
+csp_value() {
+  sed -n 's/^[[:space:]]*header Content-Security-Policy "\([^"]*\)"$/\1/p' "$1" | tr -d '\n'
 }
 
 download_and_extract() {
@@ -136,6 +149,11 @@ download_and_extract() {
   if [ -L "${work}/extract/public" ] || [ -L "${work}/extract/csp.caddy" ]; then
     die "archive refusée : lien symbolique à la racine"
   fi
+  if [ -n "$(find "${work}/extract" ! -type f ! -type d -print -quit)" ]; then
+    die "archive refusée : entrée qui n'est ni un fichier ni un dossier"
+  fi
+  # Vérifiée avant la bascule : une CSP absente laisse la version active en place.
+  [ -n "$(csp_value "${work}/extract/csp.caddy")" ] || die "CSP introuvable dans csp.caddy : archive refusée"
 
   rm -rf "${SITE_DIR}/releases/${version}"
   mv "${work}/extract" "${SITE_DIR}/releases/${version}"
@@ -170,7 +188,7 @@ copy_error_pages() {
     log "AVERTISSEMENT : ${ERRORS_DIR} absent ou non inscriptible : pages de secours de l'hôte non copiées (docs/deploiement.md)"
     return 0
   fi
-  csp="$(sed -n 's/^[[:space:]]*header Content-Security-Policy "\([^"]*\)"$/\1/p' "${current}/csp.caddy" | tr -d '\n')"
+  csp="$(csp_value "${current}/csp.caddy")"
   [ -n "${csp}" ] || die "CSP introuvable dans csp.caddy : pages de secours non copiées"
   rm -rf "${ERRORS_DIR}/_nuxt" "${ERRORS_DIR}/fonts" "${ERRORS_DIR}/en"
   mkdir -p "${ERRORS_DIR}/en"
