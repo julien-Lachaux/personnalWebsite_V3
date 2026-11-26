@@ -314,3 +314,254 @@ sans modification d'un test existant.
 - Hauteur du Profil en 3 colonnes (ci-dessus) : à accepter, ou à corriger dans `useMosaic`
   (décor réel mesuré au lieu de 48 + 0,5) par le correcteur, sous autorisation, car des tests
   existants fixent ce calcul.
+
+## F11-04 : nom SEO depuis le contrat (RC-5 de la revue F10)
+
+Date : 26 nov. 2026. Sources : `docs/revues/code-front-2026-11-23.md` (RC-5),
+`docs/revues/triage-front-2026-11-23.md` (ligne RC-5, § Backlog).
+
+### Commits
+
+- `6eed6cb` feat(web): intitulé de poste en cours de phrase (inlineTitle)
+- `3820f7a` feat(web): nom du titulaire dans le modèle de vue (CvView.name)
+- `88615a9` feat(web): titre et description de l'accueil tirés de la vue
+
+### Fait
+
+- `app/data/cv-view.ts` : `CvView.name` (« Prénom Nom »), rempli par `mapName(profile)` dans
+  `mapCv` (`app/data/map-cv.ts`) ; `docs/04-front-donnees.md` range désormais `firstName` et
+  `lastName` dans « titre et description de la page d'accueil », plus dans « non affichés ».
+- `app/domain/format.ts` : `inlineTitle(title)`, l'intitulé repris en cours de phrase (initiale en
+  minuscule, sauf sigle en tête : « CTO », « QA engineer » restent tels quels).
+- `HomePage.vue` ne lit plus le contrat : `usePageSeo` avec le titre `${view.name} · ${view.profile.title}`
+  et la description `t('seo.homeDescription', { name, title: inlineTitle(view.profile.title) })`,
+  clé ajoutée dans `fr/common.json` et `en/common.json` au même commit, sans nom :
+  « Site et CV de {name}, {title} : … » / « Website and CV of {name}, {title}: … ».
+- Texte produit en production identique à l'ancien, caractère pour caractère : seeds
+  `first_name = 'Julien'`, `last_name = 'Lachaux'` (`db/seeds/0001_profile.sql:5`), intitulés
+  « Développeur full-stack » et « Full-stack developer » (l. 20 et 57), donc « Site et CV de Julien
+  Lachaux, développeur full-stack : … » et « Website and CV of Julien Lachaux, full-stack
+  developer: … ».
+- Tests ajoutés (nouveaux fichiers) : `app/data/map-cv-name.spec.ts`,
+  `app/domain/format-inline-title.spec.ts`, `app/components/home/HomePage-seo.spec.ts` (titre,
+  description et `og:description` dans les deux langues, une seule méta description ; « Prénom Nom »
+  des fixtures, absent de tout libellé, prouve que le nom vient du CV).
+
+### Preuves des critères
+
+- `pnpm --filter @siteperso/web lint` et `typecheck` : verts.
+- `pnpm --filter @siteperso/web test:coverage` : 143 fichiers, 1 216 tests, 100 % (instructions
+  1475/1475, branches 797/797, fonctions 492/492, lignes 1313/1313).
+- `pnpm exec stryker run --mutate app/domain/format.ts,app/data/map-cv.ts` : 160 mutants, 160 tués,
+  score 100 (seuil 100).
+- `pnpm --filter @siteperso/web generate:fixtures`, puis
+  `grep -o '<title>[^<]*</title>\|<meta name="description"[^>]*>' .output/public/index.html .output/public/en/index.html` :
+  `<title>Prénom Nom · Développeur full-stack</title>`, `content="Site et CV de Prénom Nom,
+  développeur full-stack : expériences, …"` ; en anglais `Prénom Nom · Full-stack developer`,
+  `Website and CV of Prénom Nom, full-stack developer: …` (avant le lot : « Julien Lachaux » dans le
+  build de fixtures, défaut décrit par RC-5).
+- `pnpm exec playwright test --workers=2 test/pages.e2e.ts test/work-in-progress.e2e.ts test/smoke.e2e.ts test/boot.e2e.ts` :
+  280 passés.
+- `pnpm integrity` : OK.
+
+### Décisions
+
+- **Nom dans `CvView.name`, pas dans `ProfileView`** (écart avec la correction proposée). Le nom
+  n'est affiché dans aucune section : c'est l'identité de la page, au niveau de la vue entière.
+  L'ajouter à `ProfileView` rendait trois tests existants faux ou non compilables :
+  `app/data/map-cv.spec.ts:33` (`toEqual` sur le résultat entier de `mapProfile`),
+  `app/components/profile/ProfileSection.spec.ts:7` et `app/components/profile/axe.spec.ts:54`
+  (objets typés `ProfileView` sans le champ : erreur de `vue-tsc`). Alternative écartée :
+  `ProfileView.name`, qui demandait le correcteur sur ces trois fichiers pour aucun gain.
+- **Nouvelle clé `seo.homeDescription`** plutôt que paramétrer `seo.description` : voir le point
+  d'arrêt ci-dessous. L'accueil pose sa propre description par `usePageSeo`, qui remplace celle par
+  défaut (même mécanisme que la déclaration d'accessibilité).
+- **`inlineTitle` dans `domain/format.ts`** : la minuscule initiale est une règle de présentation
+  pure (testée sans Nuxt, mutée) ; un sigle en tête est gardé, pour qu'un intitulé « CTO » ne
+  devienne pas « cTO ».
+
+### Tests existants rendus faux (point d'arrêt, non modifiés)
+
+1. **`seo.description`** (description par défaut de `useSiteSeo`, posée par app.vue) écrit encore
+   « Julien Lachaux, développeur full-stack ». La paramétrer rend faux
+   `app/composables/seo/useSeo.spec.ts:53-71` (« donne la description de la langue… » et « en
+   anglais »), qui attend ce texte exact d'un composant sans CV. Démonstration (libellés paramétrés
+   le temps de la commande, puis remis par `git checkout`) :
+
+   ```
+   $ pnpm exec vitest run app/composables/seo/useSeo.spec.ts
+        × donne la description de la langue et un Open Graph minimal dont le titre suit celui de la page
+        × en anglais
+   Expected: "Site et CV de Julien Lachaux, développeur full-stack : expériences, technologies, recommandations et place de l’IA dans son travail."
+   Received: "Site et CV de ,  : expériences, technologies, recommandations et place de l’IA dans son travail."
+   Expected: "Website and CV of Julien Lachaux, full-stack developer: experience, technologies, recommendations and the place of AI in his work."
+   Received: "Website and CV of , : experience, technologies, recommendations and the place of AI in his work."
+         Tests  2 failed | 1 passed (3)
+   ```
+
+   Effet aujourd'hui : aucune page générée n'affiche plus cette description (accueil :
+   `seo.homeDescription` ; déclaration et travaux : la leur ; pages d'erreur : `error.vue` n'appelle
+   pas `useSiteSeo`) : `grep -rl "Julien Lachaux" .output/public --include='*.html'` ne rend que
+   `travaux/index.html` et `en/work-in-progress/index.html` (point 2). Suite proposée : le correcteur,
+   sous autorisation, réécrit ces deux tests (plus de description par défaut, ou une description par
+   défaut sans nom) ; le lead retire ensuite `seo.description` et les deux lignes `description` /
+   `ogDescription` de `useSiteSeo` (ou les remplace par un texte sans nom), et peut renommer
+   `seo.homeDescription` en `seo.description`.
+2. **`workInProgress.description`** (page « travaux ») écrit « Le site de Julien Lachaux… » /
+   « Julien Lachaux’s website… ». La page a le CV au build, mais deux tests et une décision s'y
+   opposent :
+   - `app/pages/travaux.spec.ts:105-119` attend ce texte exact dans les deux langues ;
+   - `test/work-in-progress.e2e.ts:179-200` (« la charge utile ne contient que l'URL de LinkedIn »,
+     décision de Julien) : `usePageSeo` est recalculé dans le navigateur à l'hydratation, donc le nom
+     devrait entrer dans `_payload.json` (seconde clé, ou objet à la place de l'URL), ce que ce test
+     et la décision refusent.
+
+   À décider par Julien : (a) admettre le nom dans la charge utile de la page travaux (puis le
+   correcteur adapte les deux tests) ; (b) une description sans nom (« Ce site est en cours de
+   construction… ») : le texte de production change, `travaux.spec.ts` à adapter ; (c) garder le nom
+   dans ce libellé, exception documentée.
+
+### Points ouverts
+
+- Les deux points d'arrêt ci-dessus.
+- Les libellés sont publiés avec le site (`.output/public/_i18n/<empreinte>/{fr,en}/messages.json`) :
+  `seo.description` et `workInProgress.description` y portent le nom en dur tant que les points
+  ci-dessus ne sont pas tranchés (le nom est de toute façon public sur le site ; c'est la double
+  source, pas une fuite).
+
+## F11-03 (partie lead) : module commun des parcours Playwright (RC-7 de la revue F10)
+
+Date : 26 nov. 2026. Sources : `docs/revues/code-front-2026-11-23.md` (RC-7, RC-9),
+`docs/revues/triage-front-2026-11-23.md` (§ Backlog).
+
+### Commits
+
+- `e6f49e5` test(web): module commun des parcours Playwright (test/support/e2e.ts)
+- `cd46226` test(web): PALETTES dans le module commun des parcours
+
+### Fait
+
+`apps/web/test/support/e2e.ts` (hors `testMatch` `**/*.e2e.ts`), sémantique de chaque export
+documentée en tête du fichier :
+
+| Export | Meilleure copie reprise |
+|---|---|
+| `WCAG_22_AA` (tableau figé, `readonly string[]`) | les 12 constantes identiques |
+| `analyzeWcag22AA(page)` → résultats axe bruts | `new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze()` (15 appels) |
+| `expectAxeClean(page, label?)` → résultats | `axe` de shell, matrix, experience : `waitForSettledAnimations`, aucune violation, `color-contrast` parmi les règles réussies |
+| `STORAGE_KEY` | les 13 constantes ; écrite en clair (oracle), pas importée de `domain/preferences` |
+| `storePreferences(page, préférences)` | copies identiques de shell, experience, ai-placeholder (`{ version: 1, … }` par `addInitScript`) |
+| `PALETTES` | copies identiques de shell, experience, chip-counter-contrast, chip-pressed-mark |
+| `tabsMode(page)` | les 9 fonctions identiques (largeur < 1024) |
+| `gotoMounted(page, chemin, options?)` → réponse ; `expectShellMounted(page)` | `open` de shell, sections, journeys, controls, design-system ; attente `.app-shell[data-mode]` |
+| `waitForHydration(page)` | `hydrated` de pages, work-in-progress, client-bundle |
+| `waitForSettledAnimations(page, scope?)` | copie de shell (animations finies seulement, infinies ignorées), étendue à une portée (élément et descendants) |
+
+`waitForSettledAnimations` sonde à chaque image (`waitForFunction`) au lieu d'attendre les promesses
+`finished` : une animation infinie ne bloque pas, une animation annulée ne fait pas échouer.
+
+Parcours `apps/web/test/e2e-support.e2e.ts` : 17 tests (119 exécutions sur les 7 projets), un par
+assistant, avec témoins : axe signale une page non conforme ; `expectAxeClean` échoue sur une
+violation ET sur une page sans contraste mesuré ; `waitForSettledAnimations` attend une animation
+finie, ignore une infinie, n'attend pas hors de la portée (animation de 20 s voisine encore en cours),
+et se termine sur une animation annulée (animation de 60 s, plus longue que le délai du test).
+
+Relevé exact dans `apps/web/test/*.e2e.ts` (avant migration) : `const WCAG_22_AA` dans 12 fichiers
+(plus le tableau en ligne de `cv.e2e.ts`) ; `const STORAGE_KEY` dans 13 ; `function tabsMode` dans 9 ;
+attente des animations finies (`endTime === Infinity`) dans 9 (8 fonctions et l'attente en ligne de
+design-system) ; attente `.app-shell[data-mode]` `toHaveCount(1)` 26 fois dans 18 fichiers.
+
+### Preuves des critères
+
+- `pnpm --filter @siteperso/web lint` et `typecheck` (les parcours sont dans `.nuxt/tsconfig.node.json`) : verts.
+- `pnpm exec playwright test --workers=2 test/e2e-support.e2e.ts` : 119 passés (33 s).
+- `pnpm integrity` : OK. Aucun parcours existant modifié (`git diff --stat 5d05a79..HEAD -- apps/web/test`
+  : seuls `test/support/e2e.ts` et `test/e2e-support.e2e.ts`, créés).
+
+### Plan de migration (correcteur, autorisation « tests », `Justification-test: RC-7 …`)
+
+Règle : `import { … } from './support/e2e.js';`, suppression des définitions locales, aucune
+assertion changée. Repères : **(=)** même comportement ; **(≈)** seule l'attente change (plus longue
+ou plus robuste), aucune assertion ; **(!)** oracle plus strict, à décider, hors migration par défaut.
+`WCAG_22_AA` étant figé, `withTags(WCAG_22_AA)` ne compile plus : passer par `analyzeWcag22AA`.
+Vérification par fichier : même nombre de tests passés avant et après
+(`pnpm exec playwright test --workers=2 <fichier>`), puis
+`grep -n "const WCAG_22_AA\|const STORAGE_KEY\|function tabsMode\|endTime === Infinity" apps/web/test/*.e2e.ts`
+vide.
+
+| Fichier | Remplacer | Par | Effet |
+|---|---|---|---|
+| action-bar-keyboard, panel-link-target | rien | — | — |
+| ai-placeholder | `WCAG_22_AA` l.20, `STORAGE_KEY` l.21, `tabsMode` l.111, `storePreferences` l.115, `waitForSettledAnimations` l.122 | imports | (=) |
+| | `openAi` l.137-138 (`goto` + attente) | `gotoMounted(page, \`${site}${locale.path}\`)` | (=) |
+| | l.218 `new AxeBuilder…analyze()` | `analyzeWcag22AA(page)` ; les assertions sur `incomplete` et `passes` restent | (=) ; `expectAxeClean(page)` ajouterait l'attente des animations (≈) |
+| | curseur l.269-271 et 303-305 (`node.getAnimations()` → `finished`) | **garder** : sous mouvement réduit l'animation doit devenir finie ; l'assistant ignorerait une animation restée infinie | — |
+| boot | `STORAGE_KEY` l.10 | import ; garder `store` (texte brut ou retrait, documents invalides voulus) | (=) |
+| chip-counter-contrast | `STORAGE_KEY` l.8, `PALETTES` l.10, `settled` l.72 | imports, `waitForSettledAnimations(page)` | (=) |
+| | stockage en ligne l.93-100 | `storePreferences(page, { theme, highContrast })` | (=) |
+| chip-pressed-mark | `STORAGE_KEY` l.8, `PALETTES` l.10 ; stockage l.56 ; l.96-97 | imports ; `storePreferences` ; `gotoMounted(page, '/')` | (=) |
+| client-bundle | `hydrated` l.118 | `waitForHydration` | (=) |
+| controls | `open` l.41-44 | `gotoMounted` (garder le commentaire D5 au premier appel) | (=) |
+| csp | `WCAG_22_AA` l.22 ; l.176 ; l.189-190 | import ; `analyzeWcag22AA(page)` ; `gotoMounted(page, from, { waitUntil: 'networkidle' })` | (=) ; `cspHash`, `collectHashes`, `buildPolicy` : hors module, RC-8 (importer `scripts/deploy/csp-hashes.mjs`) |
+| cv | tableau en ligne l.75-77 ; 4 `goto` + attente (l.33-34, 69-70, 85-86, 100-101) | `analyzeWcag22AA(page)` ; `gotoMounted` | (=) ; `waitForTimeout(400)` l.73 : délai fixe non relevé par RC-9, à traiter avec lui |
+| defects-f8 | `STORAGE_KEY`, `tabsMode`, `settled` ; `open130` (stockage + `goto` + attente) | imports ; `storePreferences(page, { theme: 'clair', textSize: 130 })` puis `gotoMounted`, l'assertion `data-text-size` reste | (=) |
+| design-system | `WCAG_22_AA` l.12 ; `open` l.33 ; attente + axe en ligne l.136-146 | import ; `gotoMounted` ; `await expectAxeClean(page)` | (=) mêmes attente et assertions |
+| experience | `WCAG_22_AA`, `STORAGE_KEY`, `PALETTES` l.88, `tabsMode`, `storePreferences`, `waitForSettledAnimations`, `axe` l.142 | imports ; `axe(page, label)` → `expectAxeClean(page, label)` | (=) |
+| | `openExperience` l.111-112 ; `reload` + attente l.492-493 | `gotoMounted` ; `expectShellMounted(page)` | (=) |
+| | l.184-188 (`section.getAnimations()` → `finished`) | `waitForSettledAnimations(page, section)` | (≈) attend aussi les animations finies des descendants, ignore les infinies, ne rejette pas sur une transition annulée |
+| hydration-shift | `WCAG_22_AA` l.20 ; `axe` l.118 | import ; garder `axe` local sur `analyzeWcag22AA` (violations seules) | (=) ; `expectAxeClean` ajouterait le contraste (!) |
+| | `openMounted` l.57-58 ; l.65-68 (grille, `finished`) | `gotoMounted` ; `waitForSettledAnimations(page, page.locator('.tile-grid'))` | (=) ; (≈) |
+| | `desktop(page)` | `!tabsMode(page)` (facultatif) ; `openStatic` l.49 (`toHaveCount(0)`) reste | (=) |
+| journeys | `STORAGE_KEY`, `tabsMode`, `open` ; l.113-114 ; `reload` + attente l.223-224 | imports, `gotoMounted` ; `gotoMounted` ; `expectShellMounted` | (=) |
+| language-switch-d43 | l.13-14 et 36-37 | `gotoMounted` | (=) |
+| matrix | `WCAG_22_AA`, `STORAGE_KEY`, `tabsMode`, `waitForSettledAnimations`, `axe` | imports, `expectAxeClean(page, label)` | (=) |
+| | stockage l.83-90 ; l.92-93 | `storePreferences(page, { theme, highContrast, textSize })` ; `gotoMounted` | (=) |
+| | `PALETTES` l.34 (mêmes palettes, ordre clair d'abord) | import facultatif | mêmes noms de tests, ordre d'exécution seul changé |
+| mosaic | `WCAG_22_AA`, `STORAGE_KEY`, `tabsMode` ; `storeTheme` l.48 ; `open` l.75-76 | imports ; `storePreferences(page, { theme })` ; `gotoMounted` | (=) |
+| | `settled` l.64 (`grid.getAnimations({ subtree: true })` → `finished`, infinies non exclues) | `waitForSettledAnimations(page, grid(page))` | (≈) recommandé : plus d'attente sans fin si une tuile porte une animation infinie (curseur du placeholder IA, site sans IA). Le test l.401-415 vérifie ensuite `getAnimations({ subtree: true }).length === 0` : inchangé sur le site des fixtures, mais il échouerait sur un site sans IA (le curseur compte), où il bloque aujourd'hui |
+| | `axe` l.134 (sans attente) | `expectAxeClean(page, label)` | (≈) attente des animations du document ajoutée, mêmes assertions |
+| overflow | `STORAGE_KEY`, `tabsMode`, `settled` ; stockage l.64 ; l.68-69 | imports ; `storePreferences` ; `gotoMounted` | (=) |
+| pages | `WCAG_22_AA`, `hydrated` ; `axe` l.29 | imports, `waitForHydration` ; `axe` local sur `analyzeWcag22AA` (aucune violation, `passes` non vide) | (=) ; `expectAxeClean` (!) |
+| sections | `tabsMode`, `open` ; `settled(locator)` l.64 | imports, `gotoMounted` ; `waitForSettledAnimations(page, section)` | (=) ; (≈) comme experience. Le commentaire périmé l.172 (RC-10) peut être corrigé dans le même commit |
+| server-error | `WCAG_22_AA` l.16 ; l.146-148 ; l.250 | import ; `analyzeWcag22AA(page)`, assertions gardées | (=) ; `cspHash`, `htmlFiles`, `strictPolicy` : RC-8 |
+| shell | `WCAG_22_AA`, `STORAGE_KEY`, `PALETTES`, `tabsMode`, `storePreferences`, `open`, `waitForSettledAnimations`, `axe` ; `reload` + attente l.258-259 | imports, `gotoMounted`, `expectAxeClean` ; `expectShellMounted` | (=) |
+| short-height | `STORAGE_KEY`, `settled` ; stockage de `open` | imports ; `storePreferences(page, { theme: 'clair', textSize })` ; garder l'attente `[data-mode="tabs"]` (plus stricte que `gotoMounted`) | (=) |
+| smoke | `WCAG_22_AA` l.8 ; l.47-48 ; témoin l.72 | import ; `expectShellMounted(page)` puis `analyzeWcag22AA(page)` (le `goto` l.33 reste séparé) ; `analyzeWcag22AA(page)` | (=) |
+| title-overflow | `STORAGE_KEY` ; stockage de `open` | import ; `storePreferences(page, { theme: 'clair', ...preferences })`, garder l'attente `[data-mode="tabs"]` | (=) |
+| top-bar-height | `measure` l.12-13 | `gotoMounted` | (=) |
+| work-in-progress | `WCAG_22_AA`, `hydrated`, `axe` l.55 | imports, `waitForHydration` ; `axe` local sur `analyzeWcag22AA` | (=) ; `expectAxeClean` (!) ; `cspHash`, `htmlFiles`, `strictPolicy` : RC-8 |
+
+Ordre conseillé : un commit par famille (axe, préférences et palettes, montage et hydratation,
+animations), ou un par fichier ; les (≈) dans un commit à part, pour qu'un échec se relie à
+l'attente modifiée.
+
+### Décisions
+
+- **`WCAG_22_AA` figé** (`Object.freeze`, `readonly string[]`) : un tableau partagé par tous les
+  parcours d'un même processus ne doit pas pouvoir être modifié par l'un d'eux. Conséquence :
+  `analyzeWcag22AA` est le seul constructeur de l'analyse. Alternative écartée : `string[]`
+  modifiable comme les copies.
+- **`STORAGE_KEY` en clair** plutôt qu'importé de `PREFERENCES_STORAGE_KEY` : la clé est un contrat
+  avec les navigateurs des visiteurs ; la recopier dans le test garde l'oracle indépendant du code.
+- **Deux niveaux pour axe** : `expectAxeClean` (la copie la plus exigeante) et `analyzeWcag22AA`
+  (résultats bruts) ; les variantes « `passes` non vide » ou « violations seules » se migrent sur
+  `analyzeWcag22AA` sans changer leur oracle. Les renforcer (!) est une décision distincte.
+- **Portée de `waitForSettledAnimations` = élément et descendants** (`subtree: true`) : les deux
+  copies sur un seul élément (sections, experience) mesurent une zone dont les enfants s'animent
+  aussi ; une option « élément seul » n'a pas d'usage.
+- **Hors du module** : `cspHash`, `htmlFiles`, `collectHashes`, `buildPolicy`, `strictPolicy`
+  (csp, work-in-progress, server-error), à prendre de `scripts/deploy/csp-hashes.mjs` (RC-8) ;
+  les tables `LOCALES` (formes différentes d'un fichier à l'autre) ; `store` de boot.
+- Nom du module `test/support/e2e.ts` (hors `testMatch`), parcours `test/e2e-support.e2e.ts`.
+  CLAUDE.md (arborescence de `apps/web/test/`) : un nouveau parcours importe ces assistants.
+
+### Points ouverts
+
+- Migration des 26 parcours concernés (sur 28 existants) : correcteur, sous autorisation (plan
+  ci-dessus).
+- Renforcements (!) de pages, work-in-progress, hydration-shift (et smoke, server-error, csp, cv,
+  qui ne vérifient que les violations ou `passes` non vide) : à décider.
+- RC-9 : `cv.e2e.ts:73` (`waitForTimeout(400)` avant axe) s'ajoute aux quatre délais fixes relevés ;
+  `waitForSettledAnimations(page)` le remplacerait si le menu s'ouvre par une transition.
+- `mosaic.e2e.ts` ne tourne que sur le site avec IA ; sur un site sans IA, son test « aucun recalcul »
+  compterait l'animation infinie du curseur (voir le plan).

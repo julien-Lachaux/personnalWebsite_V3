@@ -151,7 +151,11 @@ apps/web/
                           (app/i18n-messages.spec.ts)
   public/                 fonts/<police>/ (woff2 + OFL.txt, D6), cv/cv-<langue>.pdf (D22), favicon
   scripts/clean-cv-pdf.sh nettoyage des métadonnées d'un CV PDF (qpdf en conteneur)
-  test/                   parcours Playwright (*.e2e.ts), support et fixtures de test
+  test/                   parcours Playwright (*.e2e.ts), support et fixtures de test ;
+                          support/e2e.ts : assistants communs des parcours (axe WCAG 2.2 AA,
+                          préférences, palettes, tabsMode, gotoMounted, waitForHydration,
+                          waitForSettledAnimations), exercés par e2e-support.e2e.ts (lot F11) ;
+                          un nouveau parcours les importe au lieu d'en recopier une version
 ```
 
 - **Couches** : la logique décide dans `domain/`, le composable relie l'état, le composant affiche.
@@ -177,7 +181,9 @@ apps/web/
   `localePath('/chemin-fr')`. Pas de `definePageMeta` dans une page : il laisse une branche que les
   tests de composants n'exécutent pas (gabarit par `routeRules` `appLayout`).
 - **Référencement et pages annexes (lot F7)** : chaque page pose son titre et sa description par
-  `usePageSeo` (sinon la description par défaut de la langue, `seo.description`) ; `og:title` suit le
+  `usePageSeo` (sinon la description par défaut de la langue, `seo.description`) ; l'accueil tire les
+  siens de la vue du CV (`CvView.name`, `profile.title`, `seo.homeDescription` paramétrée, lot F11) :
+  aucun nom du titulaire écrit dans un libellé qu'une page peut lire au CV ; `og:title` suit le
   titre (`%s`), `og:url` et `og:locale` viennent de `useLocaleHead` ; pas d'`og:image`. `sitemap.xml`
   et `robots.txt` sont écrits à la fin du prérendu (`nuxt.config.ts`) depuis les canoniques et
   hreflang des pages générées (`domain/sitemap.ts`) : une page sans canonique (redirection, erreur)
