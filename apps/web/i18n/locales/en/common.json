@@ -82,8 +82,9 @@
     "back": "Back to the home page"
   },
   "serverError": {
-    "title": "Website temporarily unavailable",
-    "text": "The server could not answer your request. The problem is temporary: please try again in a few moments.",
+    "title": "The server is temporarily down",
+    "text": "The site can’t be displayed right now. The problem is on the server’s side, not with your device or your connection, and it’s temporary.",
+    "next": "Nothing is lost: please try again in a few moments, or come back a little later.",
     "retry": "Try again",
     "back": "Back to the home page"
   }

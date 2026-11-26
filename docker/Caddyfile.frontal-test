@@ -11,4 +11,9 @@
 
 http://:8080 {
 	reverse_proxy unix//run/prod/web.sock
+
+	# Pages d'erreur de l'hôte quand la pile est arrêtée (D48) : le bloc exact à reporter sur le serveur, lu
+	# dans le dépôt (docker/host-errors.caddy), avec la copie des pages de secours de /srv/site-perso-errors
+	# (`vps-stack.sh errors`, volume `frontal_errors`).
+	import /etc/caddy/host-errors.caddy
 }

@@ -26,8 +26,8 @@ const PAGES = [
     file: '50x.html',
     path: '/une-page?vue=1',
     status: 503,
-    title: 'Site indisponible pour l’instant',
-    text: 'Le serveur n’a pas pu répondre à votre demande.',
+    title: 'Le serveur est en panne pour l’instant',
+    text: 'Le site ne peut pas s’afficher pour le moment.',
     retry: 'Réessayer',
     back: 'Retour à l’accueil',
     home: '/',
@@ -36,10 +36,10 @@ const PAGES = [
   {
     locale: 'fr',
     file: '50x.html',
-    path: '/api/v1/cv?lang=fr',
+    path: '/accessibilite?section=2',
     status: 502,
-    title: 'Site indisponible pour l’instant',
-    text: 'Le serveur n’a pas pu répondre à votre demande.',
+    title: 'Le serveur est en panne pour l’instant',
+    text: 'Le site ne peut pas s’afficher pour le moment.',
     retry: 'Réessayer',
     back: 'Retour à l’accueil',
     home: '/',
@@ -50,8 +50,8 @@ const PAGES = [
     file: 'en/50x.html',
     path: '/en/some-page',
     status: 504,
-    title: 'Website temporarily unavailable',
-    text: 'The server could not answer your request.',
+    title: 'The server is temporarily down',
+    text: 'The site can’t be displayed right now.',
     retry: 'Try again',
     back: 'Back to the home page',
     home: '/en',
@@ -62,8 +62,8 @@ const PAGES = [
     file: 'en/50x.html',
     path: '/en',
     status: 500,
-    title: 'Website temporarily unavailable',
-    text: 'The server could not answer your request.',
+    title: 'The server is temporarily down',
+    text: 'The site can’t be displayed right now.',
     retry: 'Try again',
     back: 'Back to the home page',
     home: '/en',
@@ -120,7 +120,7 @@ async function expectServerErrorPage(
   const main = page.locator('main#contenu');
   await expect(main).toHaveCount(1);
   await expect(main).toContainText(expected.text);
-  await expect(main).toContainText('>_ erreur-50x.log');
+  await expect(main).toContainText('>_ panne-serveur.log');
   // Message générique : ni le code de la réponse, ni un détail technique.
   await expect(main).not.toContainText(String(expected.status));
   await expect(page.locator('a, button').first()).toHaveText(expected.skip);
@@ -360,7 +360,7 @@ test('le plan du site ne contient pas les pages d’erreur serveur', async ({ re
 test('la page anglaise ne contient aucun libellé de la page française', () => {
   const english = readFileSync(join(PUBLIC_DIR, 'en/50x.html'), 'utf8');
   for (const label of [
-    'Site indisponible pour l’instant',
+    'Le serveur est en panne pour l’instant',
     'Réessayer',
     'Retour à l’accueil',
     'Aller au contenu',

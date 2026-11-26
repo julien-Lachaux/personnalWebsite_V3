@@ -186,9 +186,15 @@ hors de `sitemap.xml`. Branchées dans `handle_errors` des deux Caddyfile au lot
   `en/50x.html` (chemin d'origine `/en` ou `/en/…`), **par réécriture** (jamais de redirection : « Réessayer »
   recharge l'adresse qui a échoué), avec le statut de l'erreur (`file_server { status {err.status_code} }`), la CSP
   du front et `Cache-Control: no-cache` ;
-- `/api/*` : **inchangé** (décision de Julien, le comportement des erreurs serveur de l'API fait l'objet d'un
-  ticket séparé). Constaté sur la pile d'essai, API arrêtée : `502 Bad Gateway`, `Content-Type: text/plain;
-  charset=utf-8`, corps `502 Bad Gateway`,, jamais la page HTML ;
+- `/api/*` (D48, lot 35, `docs/05-front-organisation.md`) : quand Caddy produit lui-même une erreur 500, 502, 503
+  ou 504 (API arrêtée ou trop lente), `application/problem+json` minimal et stable (RFC 9457), au statut d'origine,
+  jamais la page HTML : `{"type":"about:blank","title":"Bad Gateway","status":502,"detail":"Le service est
+  momentanément indisponible. Réessayez dans quelques instants."}` (`title` = libellé HTTP du statut, `detail`
+  générique en français sans détail technique), avec `Cache-Control: no-store`, `Retry-After: 30`, la CSP
+  `default-src 'none';frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, sans
+  `Server`. Une erreur de l'API elle-même (déjà problem+json) traverse `reverse_proxy` sans passer par ce bloc.
+  Les autres erreurs de Caddy sous `/api/*` (413, 400…) restent en texte brut (voir « Parité développement /
+  production »). Le contrat OpenAPI est inchangé. Prouvé par `panne-api-caddy.e2e-spec.ts` (Caddy de la pile) ;
 - aucune erreur 50x n'est produite par le site statique lui-même : ces pages ne servent que quand Caddy ne joint
   plus l'API (et pour les adresses hors `/api/*` qu'une erreur de Caddy atteint) ; le test
   `wip-mode.e2e-spec.ts` les provoque par une route d'essai `/boom/*` ajoutée à une copie du Caddyfile.
@@ -236,10 +242,14 @@ moins 32 caractères » (`docker-compose logs caddy`), la pile n'est jamais à m
 
 ### Pages d'erreur quand la pile est arrêtée (Caddy de l'hôte, à reporter dans `add-app.sh`)
 
-Pile entière arrêtée, le Caddy de l'hôte ne joint plus le socket : il répond 502. Il peut servir une copie
-statique des pages 50x et de leurs ressources, posée dans un dossier de l'hôte lisible par `caddy` (hors du
-dossier 700 de l'appli), mise à jour à chaque déploiement. Bloc à ajouter au site de l'hôte (à côté de son
-`reverse_proxy unix//run/prod/site-perso/web.sock`) :
+Pile entière arrêtée, le Caddy de l'hôte ne joint plus le socket : il répond 502. Il sert alors, comme le Caddy
+de la pile (D48, lot 35, mêmes règles) : sous `/api/*`, le problem+json minimal ci-dessus (500, 502, 503, 504, jamais
+du HTML) ; ailleurs, la copie statique des pages 50x et de leurs ressources, posée dans un dossier de l'hôte lisible
+par `caddy` (hors du dossier 700 de l'appli), mise à jour à chaque déploiement ; `/_nuxt/*` et `/fonts/*` sont servis
+en 200. **Source unique : `docker/host-errors.caddy`**, le bloc exact à reporter dans le site de l'hôte (à côté de son
+`reverse_proxy unix//run/prod/site-perso/web.sock`) ; le frontal d'essai de `vps-stack.sh` (`Caddyfile.frontal-test`)
+l'importe, et `panne-hote.e2e-spec.ts` et `panne-vps-stack.e2e-spec.ts` le rejouent. Contenu actuel du fichier
+(le fichier fait foi) :
 
 ```caddyfile
 	log {
@@ -257,9 +267,22 @@ dossier 700 de l'appli), mise à jour à chaque déploiement. Bloc à ajouter au
 		@assets path /_nuxt/* /fonts/*
 		handle @assets {
 			root * /srv/site-perso-errors
-			file_server
+			# Statut 200 : sans lui, file_server garde celui de l'erreur (502) et le navigateur écarte la feuille de style.
+			file_server {
+				status 200
+			}
 		}
-		@down expression {err.status_code} in [502, 503, 504]
+		@apierr expression path('/api/*') && {err.status_code} in [500, 502, 503, 504]
+		handle @apierr {
+			header Content-Type "application/problem+json"
+			header Cache-Control "no-store"
+			header Retry-After "30"
+			header Content-Security-Policy "default-src 'none';frame-ancestors 'none'"
+			header X-Frame-Options "DENY"
+			header X-Content-Type-Options "nosniff"
+			respond `{"type":"about:blank","title":"{err.status_text}","status":{err.status_code},"detail":"Le service est momentanément indisponible. Réessayez dans quelques instants."}` {err.status_code}
+		}
+		@down expression {err.status_code} in [500, 502, 503, 504]
 		handle @down {
 			root * /srv/site-perso-errors
 			header Cache-Control "no-cache"
@@ -283,7 +306,8 @@ l'hôte reçoit la CSP du front de la version publiée (`csp.caddy`, empreinte d
 valeur de l'en-tête est copiée, dans `csp.txt`, et l'hôte la relit comme une chaîne. Ne jamais importer `csp.caddy`
 dans le Caddyfile de l'hôte : ce fichier, écrit par le compte de l'appli, pourrait alors porter n'importe quelle
 directive dans la configuration de l'hôte.
-Copie, à ajouter à `update.sh` côté hôte (ou à lancer après chaque `update.sh`, dossier créé une fois en 0755 par
+Sur la pile d'essai, `bash scripts/deploy/vps-stack.sh errors` rejoue la copie ci-dessous vers le volume
+`frontal_errors` du frontal simulé (`/srv/site-perso-errors`). Copie, à ajouter à `update.sh` côté hôte (ou à lancer après chaque `update.sh`, dossier créé une fois en 0755 par
 l'administrateur et appartenant à l'appli) :
 
 ```sh
@@ -371,11 +395,13 @@ vérification. Le journal d'accès contient des adresses IP : sa rotation est bo
 Un seul écart est connu sur les réponses de l'API : une URL mal encodée (`/api/%zz`) est rejetée par Caddy
 avant l'API, en `400 text/plain`, alors que l'API seule répond en `400 application/problem+json`. Aucun
 réglage de Caddy ne produit du problem+json pour cette erreur : l'écart est accepté et consigné ici.
-Les réponses que Caddy produit lui-même (`502` si l'API est arrêtée, `413` text/plain quand un corps dépasse
+Les réponses que Caddy produit lui-même (`413` text/plain quand un corps dépasse
 son plafond de 1 Kio, mesuré lors de l'essai du lot 9) sont des réponses d'infrastructure en texte brut, hors
-du comportement de l'API. **Tranché par Julien le 19 nov. 2026** : ces trois écarts (400, 413, 502) sont
+du comportement de l'API. **Tranché par Julien le 19 nov. 2026** : ces deux écarts (400, 413) sont
 acceptés et ne seront pas corrigés côté Caddy ; le front traite toute réponse non JSON comme une erreur
-générique.
+générique. Le troisième (502 si l'API est arrêtée) est levé par la décision D48 du 26 nov. 2026 (lot 35) : 500, 502,
+503 et 504 produits par Caddy sous `/api/*` sont en `application/problem+json` minimal (voir « Pages d'erreur
+serveur »), dans le Caddy de la pile comme dans celui de l'hôte.
 
 ## Production sous Podman sans privilèges (lot 29)
 
@@ -624,7 +650,7 @@ Si le port 8080 (ou 8443) est déjà pris sur le poste, changer `HTTP_PORT` et `
 | 5   | URL mal encodée                  | `curl -ski --http1.1 --path-as-is 'https://localhost:8443/api/%zz'`                          | 400 `text/plain` produit par Caddy : **écart documenté** (en HTTP/2, curl signale une erreur de flux, code 92)                                    |
 | 6   | HTTP vers HTTPS                  | `curl -si 'http://localhost:8080/api/v1/profile?a=1'`                                        | 301 `Location: https://localhost:8443/api/v1/profile?a=1`, sans `server`                                                                          |
 | 7   | Quota dépassé                    | `for i in $(seq 105); do curl -sk -o /dev/null -w '%{http_code}\n' https://localhost:8443/api/v1/health; done \| sort \| uniq -c` | 100 fois 200 puis 429 `application/problem+json` avec `retry-after` (le quota se libère après 60 s)                                               |
-| 8   | API arrêtée                      | `docker compose -f docker/compose.prod.yml --env-file docker/.env.local stop api` puis `curl -ski https://localhost:8443/api/v1/profile` | 502 `text/plain` produit par Caddy : **écart documenté** ; redémarrer avec `start api`                                           |
+| 8   | API arrêtée                      | `docker compose -f docker/compose.prod.yml --env-file docker/.env.local stop api` puis `curl -ski https://localhost:8443/api/v1/profile` | 502 `application/problem+json` produit par Caddy (D48, lot 35, `Retry-After: 30`) ; redémarrer avec `start api`                                           |
 | 9   | Rôle PostgreSQL en lecture seule | `docker compose … exec postgres psql -U siteperso_api -d siteperso -c 'create table t (i int)'` | `ERROR: permission denied for schema public`                                                                                                      |
 | 10  | Réseaux internes                 | `docker compose … exec caddy nc -z -w 3 postgres 5432` ; `exec api node -e "require('node:net').connect(443,'1.1.1.1').on('error',e=>console.log(e.code))"` | le premier échoue (Caddy ne joint pas la base) ; le second n'aboutit pas (l'API ne sort pas sur Internet)                                          |
 
