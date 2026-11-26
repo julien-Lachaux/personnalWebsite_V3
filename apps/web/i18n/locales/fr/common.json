@@ -82,8 +82,9 @@
     "back": "Retour à l’accueil"
   },
   "serverError": {
-    "title": "Site indisponible pour l’instant",
-    "text": "Le serveur n’a pas pu répondre à votre demande. Le problème est temporaire : réessayez dans quelques instants.",
+    "title": "Le serveur est en panne pour l’instant",
+    "text": "Le site ne peut pas s’afficher pour le moment. Le problème vient du serveur, pas de votre appareil ni de votre connexion, et il est temporaire.",
+    "next": "Rien n’est perdu : réessayez dans quelques instants, ou revenez un peu plus tard.",
     "retry": "Réessayer",
     "back": "Retour à l’accueil"
   }

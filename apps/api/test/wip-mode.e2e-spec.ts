@@ -198,12 +198,14 @@ if (engine === '' || !image) {
       }
     });
 
-    it('laisse /api/* répondre comme avant : 502 en texte brut quand l’API est arrêtée, jamais la page 50x', async () => {
+    it('répond en problem+json 502 sous /api/* quand l’API est arrêtée, jamais la page 50x', async () => {
       const { response, body } = await get(running, '/api/v1/health');
 
       expect(response.status).toBe(502);
-      expect(response.headers.get('content-type')).toContain('text/plain');
-      expect(body).toBe('502 Bad Gateway');
+      expect(response.headers.get('content-type')).toContain('application/problem+json');
+      expect(body).toBe(
+        '{"type":"about:blank","title":"Bad Gateway","status":502,"detail":"Le service est momentanément indisponible. Réessayez dans quelques instants."}',
+      );
     });
   });
 

@@ -10,6 +10,10 @@ services:
     restart: 'no'
     volumes:
       - ./Caddyfile.frontal-test:/etc/caddy/Caddyfile:ro
+      # Bloc d'erreurs de l'hôte (source unique, D48) et copie des pages de secours qu'il sert
+      # (`/srv/site-perso-errors` sur le serveur) : volume rempli par `vps-stack.sh errors`.
+      - ./host-errors.caddy:/etc/caddy/host-errors.caddy:ro
+      - frontal_errors:/srv/site-perso-errors
       - ${PROD_RUN_DIR:?PROD_RUN_DIR requis}:/run/prod
     networks:
       - front
@@ -35,6 +39,9 @@ services:
       - no-new-privileges:true
     oom_score_adj: 500
   client-b: *client
+
+volumes:
+  frontal_errors:
 
 networks:
   front:

@@ -78,7 +78,7 @@ export function buildPolicy({ scripts, styles }) {
     "default-src 'self'",
     `script-src 'self' ${scripts.join(' ')}`.trim(),
     `style-src 'self' ${styles.join(' ')}`.trim(),
-    "img-src 'self' data:",
+    "img-src 'self'",
     "font-src 'self'",
     "connect-src 'self'",
     "frame-ancestors 'none'",

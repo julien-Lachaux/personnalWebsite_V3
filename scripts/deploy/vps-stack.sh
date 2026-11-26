@@ -4,7 +4,7 @@
 # Sert à prouver l'IP réelle des clients et leur quota séparé (apps/api/test/vps-stack.e2e-spec.ts).
 # Aucun port n'est publié : tout passe par `compose exec` dans les clients.
 #
-# Usage : vps-stack.sh up | ps | logs [service…] | exec <service> <commande…> | down
+# Usage : vps-stack.sh up | ps | logs [service…] | exec <service> <commande…> | stop|start <service…> | errors | down
 #
 # Variables d'environnement reconnues :
 #   VPS_STACK_ENV_FILE      fichier d'environnement (défaut docker/.env.vps-test, créé s'il manque, ignoré par git)
@@ -32,9 +32,9 @@ if [ "$#" -gt 0 ]; then
   shift
 fi
 case "${command}" in
-up | ps | logs | exec | down) ;;
+up | ps | logs | exec | stop | start | errors | down) ;;
 *)
-  printf 'Usage : %s up | ps | logs [service…] | exec <service> <commande…> | down\n' "$(basename "$0")" >&2
+  printf 'Usage : %s up | ps | logs [service…] | exec <service> <commande…> | stop|start <service…> | errors | down\n' "$(basename "$0")" >&2
   exit 2
   ;;
 esac
@@ -146,6 +146,19 @@ up)
   ;;
 ps) "${COMPOSE[@]}" ps --all ;;
 exec) "${COMPOSE[@]}" exec -T "$@" ;;
+stop | start) "${COMPOSE[@]}" "${command}" "$@" ;;
+errors)
+  # Copie des pages de secours du site publié vers le frontal d'essai (D48) : mêmes commandes que
+  # docs/deploiement.md (« Pages d'erreur quand la pile est arrêtée »), vers le volume `frontal_errors`
+  # (/srv/site-perso-errors sur le serveur). À rejouer après chaque publication du site de la pile.
+  "${COMPOSE[@]}" exec -T caddy tar -C /srv/web/current/public -cf - 50x.html en/50x.html _nuxt fonts |
+    "${COMPOSE[@]}" exec -T frontal tar -C /srv/site-perso-errors -xf -
+  "${COMPOSE[@]}" exec -T caddy cat /srv/web/current/csp.caddy |
+    sed -n 's/^header Content-Security-Policy "\([^"]*\)"$/\1/p' | tr -d '\n' |
+    "${COMPOSE[@]}" exec -T frontal sh -c 'cat > /srv/site-perso-errors/csp.txt'
+  "${COMPOSE[@]}" exec -T frontal test -s /srv/site-perso-errors/csp.txt || die "CSP introuvable dans csp.caddy"
+  log "pages de secours copiées dans le frontal"
+  ;;
 logs) "${COMPOSE[@]}" logs --no-color --tail 200 "$@" ;;
 down)
   run "${COMPOSE[@]}" down --remove-orphans --volumes

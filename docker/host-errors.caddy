@@ -1,0 +1,46 @@
+# Erreurs du Caddy de l'HÔTE (VPS) quand la pile est arrêtée ou injoignable (D48, lot 35) : bloc `handle_errors` à
+# reporter tel quel dans le site de l'hôte, à côté de son `reverse_proxy unix//run/prod/site-perso/web.sock`
+# (docs/deploiement.md, « Pages d'erreur quand la pile est arrêtée »). Source unique : le frontal d'essai de
+# vps-stack.sh l'importe (docker/Caddyfile.frontal-test) et apps/api/test/panne-hote.e2e-spec.ts le rejoue.
+# Mêmes règles que le Caddy de la pile (docker/Caddyfile) :
+#   - /api/* : 500, 502, 503, 504 en `application/problem+json` minimal (RFC 9457), statut d'origine, jamais de HTML ;
+#   - ailleurs : page 50x du front (fr, ou en sous /en) par réécriture, avec le statut de l'erreur ;
+#   - /_nuxt/* et /fonts/* : ressources de la copie des pages de secours.
+# La copie (/srv/site-perso-errors : 50x.html, en/50x.html, _nuxt, fonts, csp.txt) est refaite à chaque déploiement.
+handle_errors {
+	header -Server
+	@assets path /_nuxt/* /fonts/*
+	handle @assets {
+		root * /srv/site-perso-errors
+		# Statut 200 : sans lui, file_server garde celui de l'erreur (502) et le navigateur écarte la feuille de style.
+		file_server {
+			status 200
+		}
+	}
+	@apierr expression path('/api/*') && {err.status_code} in [500, 502, 503, 504]
+	handle @apierr {
+		header Content-Type "application/problem+json"
+		header Cache-Control "no-store"
+		header Retry-After "30"
+		header Content-Security-Policy "default-src 'none';frame-ancestors 'none'"
+		header X-Frame-Options "DENY"
+		header X-Content-Type-Options "nosniff"
+		respond `{"type":"about:blank","title":"{err.status_text}","status":{err.status_code},"detail":"Le service est momentanément indisponible. Réessayez dans quelques instants."}` {err.status_code}
+	}
+	@down expression {err.status_code} in [500, 502, 503, 504]
+	handle @down {
+		root * /srv/site-perso-errors
+		header Cache-Control "no-cache"
+		header X-Robots-Tag "noindex"
+		# CSP du front relue comme simple VALEUR d'en-tête (placeholder `{file.…}`), jamais par `import` :
+		# le fichier est écrit par le compte de l'appli, qui ne doit pas pouvoir modifier la configuration
+		# du Caddy de l'hôte.
+		header Content-Security-Policy "{file./srv/site-perso-errors/csp.txt}"
+		@en vars_regexp en {http.request.orig_uri.path} ^/en(?:/|$)
+		rewrite * /50x.html
+		rewrite @en /en/50x.html
+		file_server {
+			status {err.status_code}
+		}
+	}
+}

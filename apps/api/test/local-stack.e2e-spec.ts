@@ -275,14 +275,17 @@ if (!available) {
       expect(last.headers['retry-after']).toBeDefined();
     }, 60_000);
 
-    it('API arrêtée : 502 text/plain produit par Caddy (écart connu), sans Server', async () => {
+    it('API arrêtée : 502 problem+json produit par Caddy (D48), sans Server', async () => {
       expect(compose(['stop', 'api']).status).toBe(0);
       try {
         const response = await send('/api/v1/profile');
 
         expect(response.status).toBe(502);
-        expect(response.headers['content-type']).toContain('text/plain');
+        expect(response.headers['content-type']).toContain('application/problem+json');
         expect(response.headers['server']).toBeUndefined();
+        expect(response.body).toBe(
+          '{"type":"about:blank","title":"Bad Gateway","status":502,"detail":"Le service est momentanément indisponible. Réessayez dans quelques instants."}',
+        );
       } finally {
         // Le redémarrage de l'API remet aussi son quota à zéro : la pile est rendue propre.
         compose(['start', 'api']);
