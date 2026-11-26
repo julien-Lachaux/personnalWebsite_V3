@@ -52,7 +52,7 @@ const scrollers = computed(() => ({ experience: experience.value?.scroller ?? nu
 // écrit dans les libellés.
 usePageSeo(() => ({
   title: `${view.value.name} · ${view.value.profile.title}`,
-  description: t('seo.homeDescription', {
+  description: t('seo.description', {
     name: view.value.name,
     title: inlineTitle(view.value.profile.title),
   }),

@@ -1,6 +1,6 @@
 // Méta de référencement (lot F7, F7-03). Deux niveaux :
-// - `useSiteSeo`, appelé une fois par app.vue : description par défaut de la langue (`seo.description`),
-//   Open Graph minimal (type, titre = titre de la page par le paramètre `%s` d'unhead, description).
+// - `useSiteSeo`, appelé une fois par app.vue : Open Graph minimal (type, titre = titre de la page
+//   par le paramètre `%s` d'unhead). Pas de description par défaut : chaque page indexée pose la sienne.
 //   `og:url`, `og:locale` et `og:locale:alternate` viennent de `useLocaleHead` (app.vue), avec
 //   `lang`, `hreflang` et `canonical`. Pas d'`og:image` tant que Julien n'en fournit pas.
 // - `usePageSeo`, appelé par une page : son titre et sa description (et `og:description`), qui
@@ -10,7 +10,7 @@
 //   `og:locale` : la page n'entre pas dans le plan du site (domain/sitemap.ts).
 // Les pages d'erreur n'appellent ni l'un ni l'autre : `error.vue` pose `noindex`, sans canonique.
 import { computed, type ComputedRef } from 'vue';
-import { useI18n, useRoute, useSeoMeta, useState } from '#imports';
+import { useRoute, useSeoMeta, useState } from '#imports';
 
 /**
  * État partagé (transmis du prérendu au navigateur) : chemin de la dernière page qui s'est déclarée
@@ -27,12 +27,9 @@ export interface PageSeo {
 
 /** Méta par défaut de toutes les pages de la langue courante (app.vue). */
 export function useSiteSeo(): void {
-  const { t } = useI18n();
   useSeoMeta({
-    description: () => t('seo.description'),
     ogType: 'website',
     ogTitle: '%s',
-    ogDescription: () => t('seo.description'),
   });
 }
 

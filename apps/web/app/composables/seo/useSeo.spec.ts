@@ -50,24 +50,22 @@ const OwnSeo = defineComponent({
 });
 
 describe('useSiteSeo', () => {
-  it('donne la description de la langue et un Open Graph minimal dont le titre suit celui de la page', async () => {
+  it('pose un Open Graph minimal dont le titre suit celui de la page, sans description ni nom', async () => {
     await mount(TitleOnly, '/');
 
-    const description =
-      'Site et CV de Julien Lachaux, développeur full-stack : expériences, technologies, recommandations et place de l’IA dans son travail.';
-    expect(meta('name="description"')).toBe(description);
-    expect(meta('property="og:description"')).toBe(description);
+    expect(meta('name="description"')).toBeNull();
+    expect(meta('property="og:description"')).toBeNull();
     expect(meta('property="og:type"')).toBe('website');
     expect(meta('property="og:title"')).toBe('Prénom Nom · Développeur full-stack');
     expect(meta('property="og:image"')).toBeNull();
   });
 
-  it('en anglais', async () => {
+  it('en anglais : pas non plus de description par défaut', async () => {
     await mount(TitleOnly, '/en');
 
-    expect(meta('name="description"')).toBe(
-      'Website and CV of Julien Lachaux, full-stack developer: experience, technologies, recommendations and the place of AI in his work.',
-    );
+    expect(meta('name="description"')).toBeNull();
+    expect(meta('property="og:description"')).toBeNull();
+    expect(meta('property="og:title"')).toBe('Prénom Nom · Développeur full-stack');
   });
 });
 
