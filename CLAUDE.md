@@ -4,7 +4,8 @@ Site perso V3 de Julien, back-end TypeScript et front Nuxt. Les décisions de r�
 `docs/` : `00-etat-des-lieux-v2.md`, `01-modele-de-donnees.md` (tables et contrat d'API),
 `02-stack-technique.md`, `03-organisation-agents.md` (lots, rôles, flux git), `04-front-donnees.md`
 (données du front), `05-front-organisation.md` (décisions D1 à D8, lots F0 à F10). Elles sont
-validées : on les applique, on ne les rediscute pas dans le code.
+validées : on les applique, on ne les rediscute pas dans le code. Le suivi du chantier (tableau Trello :
+listes, étiquettes, répartition Claude / OpenCode, cycle d'un lot) suit `docs/trello.md`.
 
 ## Structure
 
