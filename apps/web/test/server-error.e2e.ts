@@ -36,7 +36,7 @@ const PAGES = [
   {
     locale: 'fr',
     file: '50x.html',
-    path: '/api/v1/cv?lang=fr',
+    path: '/accessibilite?section=2',
     status: 502,
     title: 'Le serveur est en panne pour l’instant',
     text: 'Le site ne peut pas s’afficher pour le moment.',
