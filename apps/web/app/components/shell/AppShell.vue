@@ -13,8 +13,11 @@
 //   bouton de la tuile le garde (il reste sur le bouton, agrandie comme réduite). Le contenu de chaque
 //   tuile est un `div#section-<id>` (cible du focus, `h2` masqué visuellement, puis le slot) : la tuile
 //   est déjà la région nommée.
-// - Avant le montage (page générée), les sections sont rendues en grille simple à partir de 1024 px ; la
-//   mosaïque les remplace au montage (et sans JavaScript, la page reste lisible et défile).
+// - Avant le montage (page générée, D49) : la mosaïque est déjà là (`TileGrid` tant que le mode n'est pas
+//   `tabs`), dessinée par la CSS de `TileGrid` aux places de la vue d'ensemble ; au bureau, le montage ne
+//   fait que poser les positions calculées, sans rien remplacer. Sans JavaScript, chaque tuile défile
+//   seule et les boutons « agrandir » restent sans effet. Sous 1024 px, la même CSS n'en montre que le
+//   contenu du Profil, comme l'onglet Profil ; le montage le remplace par les sections des onglets.
 // - Un seul jeu d'en-têtes dans le DOM une fois monté (`v-if`) : deux `banner` et deux panneaux
 //   d'accessibilité sinon. Avant le montage (page générée, largeur inconnue), les deux sont rendus et
 //   la CSS n'affiche que celui de la largeur (`display: none` les retire aussi de l'arbre
@@ -172,7 +175,7 @@ function sectionClass(id: SectionId): Record<string, boolean> {
         >
           {{ heading }}
         </h1>
-        <TileGrid v-if="mode === 'mosaic'" :expanded="active" @toggle="toggleTile">
+        <TileGrid v-if="mode !== 'tabs'" :expanded="active" @toggle="toggleTile">
           <template v-for="id in SECTION_IDS" :key="id" #[id]>
             <div
               :id="`section-${id}`"
@@ -197,7 +200,7 @@ function sectionClass(id: SectionId): Record<string, boolean> {
             class="app-shell__section"
             :class="sectionClass(id)"
             :aria-labelledby="`titre-${id}`"
-            :hidden="mode === 'tabs' && id !== tab ? true : undefined"
+            :hidden="id !== tab ? true : undefined"
             tabindex="-1"
           >
             <h2 :id="`titre-${id}`" class="app-shell__section-heading">
@@ -371,54 +374,25 @@ function sectionClass(id: SectionId): Record<string, boolean> {
   }
 }
 
-/* Bureau, avant le montage (page générée, ou sans JavaScript) : sections en grille simple dans la zone
-   de 1440 px, la page défile. Le montage les remplace par la mosaïque. */
+/* Bureau (≥ 1024 px, lot F6) : la mosaïque, dès la page générée (D49 : la coquille n'a pas encore de
+   mode) ; la coquille occupe la fenêtre ; sous la barre du haut (hauteur réelle, elle peut passer à la
+   ligne), <main> donne toute la place restante à la mosaïque, sans marge ni défilement. */
 @media (min-width: 1024px) {
   .app-shell__mobile {
     display: none;
   }
 
-  .app-shell:not([data-mode]) .app-shell__main {
-    width: 100%;
-    max-width: var(--page-max);
-    margin-inline: auto;
-    padding: 0.75rem;
+  .app-shell:not([data-mode='tabs']) {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  .app-shell__sections {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
+  .app-shell:not([data-mode='tabs']) .app-shell__main {
+    position: relative;
+    overflow: hidden;
   }
-
-  .app-shell__sections .app-shell__section {
-    padding: 1rem 1.25rem;
-    border: var(--border-strong);
-    border-radius: var(--radius-window);
-    background-color: var(--card);
-  }
-
-  .app-shell__section-heading {
-    margin: 0 0 0.75rem;
-    font-family: var(--font-mono);
-    font-size: var(--font-size-meta);
-    font-weight: var(--font-weight-bold);
-    color: var(--violet);
-  }
-}
-
-/* Mosaïque (lot F6) : la coquille occupe la fenêtre ; sous la barre du haut (hauteur réelle, elle peut
-   passer à la ligne), <main> donne toute la place restante à la mosaïque, sans marge ni défilement. */
-.app-shell[data-mode='mosaic'] {
-  height: 100vh;
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.app-shell[data-mode='mosaic'] .app-shell__main {
-  position: relative;
-  overflow: hidden;
 }
 
 /* Contenu d'une tuile, cible du focus de la barre du haut : contour à l'intérieur (la tuile rogne). */

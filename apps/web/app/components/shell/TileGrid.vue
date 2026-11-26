@@ -23,6 +23,14 @@
 //   `visibility: hidden` après `--dur-tile`, `inert` et `aria-hidden` tout de suite (`pushedOut`). Pas de
 //   transition au premier placement ni quand la zone ou les mesures changent (`instant`).
 // - Bouton de chaque tuile : demande `toggle` ; la tuile agrandie est celle de la coquille (`expanded`).
+// - Avant le premier placement (page générée, D49) : la coquille rend déjà la mosaïque ; sa CSS (grille,
+//   requêtes média) pose les tuiles aux places de la vue d'ensemble que `computeLayout` leur donnera
+//   (mêmes constantes en px : `GAP`, `PAGE_MAX_WIDTH`, `PROFILE_WIDTH`, `RIGHT_COLUMN_WIDTH`,
+//   `PORTABLE_EXPERIENCE_SHARE`, seuils ; accord vérifié par `TileGrid-premount.spec.ts`, qui évalue
+//   ces règles et les compare à `computeLayout`, et dans le navigateur par `test/hydration-shift.e2e.ts`).
+//   Le montage passe aux positions absolues calculées (`--placed`) sans déplacer de tuile. Sans
+//   JavaScript, chaque tuile défile seule. Sous 1024 px (avant que la coquille ne choisisse les onglets),
+//   seul le contenu du Profil est montré, sans décor de tuile, comme l'onglet Profil.
 import { computed, onBeforeUnmount, onMounted, ref, type CSSProperties } from 'vue';
 import { useI18n } from '#imports';
 
@@ -88,11 +96,15 @@ function setContent(id: TileId, element: unknown): void {
   if (element instanceof HTMLElement) contents[id] = element;
 }
 
-function tileStyle(id: TileId): CSSProperties | undefined {
+/**
+ * Position calculée d'une tuile, en attribut `style` ; aucun attribut avant le premier placement (la page
+ * générée n'a pas de `style=""`, que la CSP stricte refuserait comme style en ligne).
+ */
+function placement(id: TileId): { style?: CSSProperties } {
   const tile = layout.value?.tiles[id];
-  if (tile === undefined) return undefined;
+  if (tile === undefined) return {};
   const { x, y, width, height } = tile.rect;
-  return { left: `${x}px`, top: `${y}px`, width: `${width}px`, height: `${height}px` };
+  return { style: { left: `${x}px`, top: `${y}px`, width: `${width}px`, height: `${height}px` } };
 }
 
 /** XP ne défile jamais (sa liste défile seule) ; Profil, IA et Recos défilent. */
@@ -152,7 +164,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="tile-grid" :class="{ 'tile-grid--instant': instant }">
+  <div
+    ref="root"
+    class="tile-grid"
+    :class="{ 'tile-grid--instant': instant, 'tile-grid--placed': layout !== null }"
+  >
     <BaseTile
       v-for="id in TILE_ORDER"
       :key="id"
@@ -161,7 +177,7 @@ onBeforeUnmount(() => {
         'tile-grid__tile--expanded': expanded === id,
         'tile-grid__tile--out': isOut(id),
       }"
-      :style="tileStyle(id)"
+      v-bind="placement(id)"
       :data-tile="id"
       :title="SECTION_FILES[id]"
       :label="t(`shell.headings.${id}`)"
@@ -215,6 +231,126 @@ onBeforeUnmount(() => {
 .tile-grid .tile-grid__tile--out {
   visibility: hidden;
   transition-delay: 0s, 0s, 0s, 0s, var(--dur-tile);
+}
+
+/* Avant le premier placement (D49), bureau : la vue d'ensemble de `computeLayout` en grille. Zone de
+   1440 px au plus, centrée (décalage arrondi au pixel), marges et gouttières de 12 px (`GAP`) ; en px et
+   non en rem : la mise en page calcule en px, quelle que soit la taille du texte. `round()` reproduit
+   les arrondis de `computeLayout` ; la grille sans `round()` qui la précède est le repli d'un
+   navigateur qui ne le connaît pas (écart d'un demi-pixel au plus). */
+@media (min-width: 1024px) {
+  .tile-grid:not(.tile-grid--placed) {
+    display: grid;
+    box-sizing: border-box;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .tile-grid:not(.tile-grid--placed) .tile-grid__tile {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+  }
+}
+
+/* 2 colonnes (1024 à 1199 px) : Profil de 360 px sur toute la hauteur ; XP en haut sur 56 % de la hauteur
+   (gouttière déduite), IA et Recos dessous, à parts égales. */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .tile-grid:not(.tile-grid--placed) {
+    grid-template-rows: 56fr 44fr;
+    grid-template-rows: round((100% - 12px) * 0.56, 1px) 1fr;
+    grid-template-columns: 360px 1fr 1fr;
+    grid-template-columns: 360px round((100% - 384px) / 2, 1px) 1fr;
+  }
+
+  .tile-grid:not(.tile-grid--placed) [data-tile='profile'] {
+    grid-area: 1 / 1 / 3 / 2;
+  }
+
+  .tile-grid:not(.tile-grid--placed) [data-tile='experience'] {
+    grid-area: 1 / 2 / 2 / 4;
+  }
+
+  .tile-grid:not(.tile-grid--placed) [data-tile='ai'] {
+    grid-area: 2 / 2 / 3 / 3;
+  }
+
+  .tile-grid:not(.tile-grid--placed) [data-tile='recommendations'] {
+    grid-area: 2 / 3 / 3 / 4;
+  }
+}
+
+/* 3 colonnes (≥ 1200 px) : Profil de 420 px à la hauteur de son contenu (toute la hauteur au plus), XP
+   au milieu, colonne de droite de 380 px (IA puis Recos, à parts égales). */
+@media (min-width: 1200px) {
+  .tile-grid:not(.tile-grid--placed) {
+    grid-template-rows: 1fr 1fr;
+    grid-template-rows: round((100% - 12px) / 2, 1px) 1fr;
+    grid-template-columns: 420px 1fr 380px;
+    padding-inline: max(12px, (100% - 1440px) / 2 + 12px);
+    padding-inline: calc(max(0px, round((100% - 1440px) / 2, 1px)) + 12px)
+      calc(max(0px, 100% - 1440px - round((100% - 1440px) / 2, 1px)) + 12px);
+  }
+
+  .tile-grid:not(.tile-grid--placed) [data-tile='profile'] {
+    grid-area: 1 / 1 / 3 / 2;
+    align-self: start;
+    max-height: 100%;
+  }
+
+  /* Hauteur du contenu (le corps d'une tuile prend sinon la place restante, `flex: 1`, et rognerait
+     1,5 px) ; il rétrécit et défile quand le Profil atteint toute la hauteur. Seul écart avec le
+     placement monté : `computeLayout` arrondit la hauteur mesurée au pixel supérieur et compte 48 px
+     de décor ; le bas du Profil descend donc de moins de 3 px au montage (rien ne bouge dedans). */
+  .tile-grid:not(.tile-grid--placed) [data-tile='profile'] :deep(.tile__body) {
+    flex: 0 1 auto;
+  }
+
+  .tile-grid:not(.tile-grid--placed) [data-tile='experience'] {
+    grid-area: 1 / 2 / 3 / 3;
+  }
+
+  .tile-grid:not(.tile-grid--placed) [data-tile='ai'] {
+    grid-area: 1 / 3 / 2 / 4;
+  }
+
+  .tile-grid:not(.tile-grid--placed) [data-tile='recommendations'] {
+    grid-area: 2 / 3 / 3 / 4;
+  }
+}
+
+/* Avant le montage, sous 1024 px (la coquille n'a pas encore choisi les onglets) : seul le contenu du
+   Profil, sans décor ni défilement propre, dans le flux de <main>, comme l'onglet Profil. */
+@media (max-width: 1023px) {
+  .tile-grid {
+    position: static;
+    overflow: visible;
+  }
+
+  .tile-grid .tile-grid__tile {
+    position: static;
+    display: block;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .tile-grid .tile-grid__tile:not([data-tile='profile']),
+  .tile-grid__tile :deep(.tile__bar),
+  .tile-grid__fade {
+    display: none;
+  }
+
+  .tile-grid__tile :deep(.tile__body) {
+    overflow: visible;
+  }
+
+  .tile-grid .tile-grid__content {
+    max-width: none;
+    padding: 0;
+  }
 }
 
 /* Premier placement, nouvelle zone, nouvelles mesures : pas d'animation. */
