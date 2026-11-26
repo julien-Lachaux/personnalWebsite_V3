@@ -79,3 +79,16 @@ export function formatRecommendationDate(date: string, locale: Locale): string {
     timeZone: 'UTC',
   }).format(new Date(date));
 }
+
+/** Sigle en tête d'un intitulé (« CTO », « QA engineer ») : deux majuscules de suite. */
+const LEADING_ACRONYM = /^\p{Lu}\p{Lu}/u;
+
+/**
+ * Intitulé de poste repris en cours de phrase (« Site et CV de Prénom Nom, développeur full-stack »,
+ * description de la page d'accueil) : initiale en minuscule, sauf si l'intitulé commence par un sigle,
+ * gardé tel quel. Le reste du texte n'est pas touché.
+ */
+export function inlineTitle(title: string): string {
+  if (LEADING_ACRONYM.test(title)) return title;
+  return title.charAt(0).toLowerCase() + title.slice(1);
+}
