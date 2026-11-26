@@ -640,3 +640,230 @@ sans objet ; site régénéré sur l'état commité (`generate:fixtures`, un seu
 - Faut-il garder le préchargement de JetBrains Mono pour son seul effet visuel (titres des fenêtres
   dans leur police 570 ms plus tôt sous réseau lent), sans gain de CLS ? Non retenu ici, la consigne
   liant le commit au gain.
+
+## Polices de repli ajustées (D51 (4), piste (a))
+
+Demande : faces de repli `local()` calibrées sur Space Grotesk et JetBrains Mono, deuxièmes des piles
+`--font-sans` et `--font-mono`, valeurs calculées depuis les woff2 du dépôt et vérifiées par un test,
+rendu final inchangé ; mesure avant/après ; rien de commité si le gain est nul ; arrêt si un test
+existant échoue à cause du changement de pile.
+
+**Résultat : arrêt sur la pile.** Les faces de repli et leur test sont commités (inertes tant que la
+pile ne les cite pas) ; la ligne qui les place dans `--font-sans` et `--font-mono` ne l'est pas : elle
+fait échouer un test existant (`tokens.spec.ts`, fidélité au handoff), voir « Test existant rendu
+faux ». Mesurée sans être commitée, elle divise le CLS du bureau par 5 à 45, mais augmente celui du
+mobile (390 px).
+
+### Commits
+
+- `3a17bee` feat(web): polices de repli ajustées aux dimensions de Space Grotesk et JetBrains Mono
+
+### Fait
+
+- Dépendances de développement épinglées exactement (versions stables vérifiées par `pnpm view` le
+  26 nov. 2026) : `@capsizecss/core` 4.1.3 (`createFontStack`, calcul des descripteurs),
+  `@capsizecss/unpack` 4.0.1 (lecture des woff2 par `fontkitten`), `@capsizecss/metrics` 4.5.0
+  (métriques publiées d'Arial, Helvetica, Arimo, Roboto, Courier New, Cousine). Aucune n'est importée
+  par le code de l'application : seul le test s'en sert.
+- `app/assets/css/fonts.css` : trois faces de repli, sans graisse, style ni `unicode-range` (comme
+  capsize et fontaine : gras et italique simulés sur les mêmes dimensions), chacune avec les quatre
+  descripteurs écrits :
+
+  | Famille | `src: local(...)` | size-adjust | ascent | descent | line-gap |
+  |---|---|---|---|---|---|
+  | `Space Grotesk Fallback` | Arial, ArialMT, Helvetica, Liberation Sans, LiberationSans, Arimo Regular, Arimo-Regular | 109.4659 % | 89.891 % | 26.675 % | 0 % |
+  | `Space Grotesk Fallback Roboto` | Roboto Regular, Roboto-Regular | 109.7063 % | 89.6941 % | 26.6165 % | 0 % |
+  | `JetBrains Mono Fallback` | Courier New, CourierNewPSMT, Liberation Mono, LiberationMono, Cousine Regular, Cousine-Regular | 99.9837 % | 102.0166 % | 30.0049 % | 0 % |
+
+- `app/assets/css/fonts-fallback.spec.ts` (nouveau, projet `nuxt`) : relit `fonts.css` (postcss),
+  recalcule chaque descripteur par `createFontStack` de capsize depuis les métriques du woff2 servi
+  (`@capsizecss/unpack`, `public/fonts/…-latin-wght-normal.woff2`) et celles de **chaque** police
+  locale de la face (une face ne regroupe que des chasses identiques : le test échoue sinon) ; vérifie
+  que `src` n'a que des `local()` (aucune requête, CSP inchangée), la liste exacte des noms, et que la
+  chasse publiée des graisses normale et grasse de Space Grotesk et de JetBrains Mono ne s'écarte pas
+  de plus de 0,5 % de celle de l'instance par défaut du woff2 (une seule face de repli suffit).
+- Calcul (capsize, technique de `@nuxtjs/fontaine`) : `size-adjust` = (largeur moyenne pondérée / em
+  de la police servie) / (même rapport pour la police locale), largeur pondérée par la fréquence des
+  caractères d'un texte anglais ; `ascent-override` = ascendante de la police servie / (em ×
+  size-adjust), de même pour la descendante et l'interligne. Les métriques verticales de la police
+  locale ne comptent pas (les quatre descripteurs sont écrits) : seule sa chasse fixe `size-adjust`.
+  Valeurs lues dans la sortie du test (CSS posée à 100 %, écart affiché par Vitest, puis recopié) ;
+  pour les recalculer après un changement de woff2 : `pnpm exec vitest run
+  app/assets/css/fonts-fallback.spec.ts` dans `apps/web`, l'écart donne les nouvelles valeurs.
+
+### Polices locales retenues, et présentes dans le conteneur Playwright
+
+| Face | Système visé | Présente dans `siteperso-v3-f11-playwright-1` (`fc-list`) |
+|---|---|---|
+| Arial, ArialMT | Windows, macOS, iOS | non |
+| Helvetica | macOS, iOS (même chasse qu'Arial dans capsize : 913/2048) | non |
+| Liberation Sans, LiberationSans | Linux (Fedora, Ubuntu…) | **oui** (Regular, Bold, Italic, Bold Italic) |
+| Arimo | ChromeOS (Liberation Sans sous son nom Google) | non |
+| Roboto | Android (chasse 911/2048, face à part) | non |
+| Courier New, CourierNewPSMT | Windows, macOS, iOS | non |
+| Liberation Mono, LiberationMono | Linux | **oui** |
+| Cousine | ChromeOS | non |
+
+Polices du conteneur : Liberation Sans/Mono/Serif, FreeSans/Mono/Serif, DejaVu absente,
+WenQuanYi Zen Hei (c'est elle que fontconfig donne pour `sans-serif` et `monospace` : le repli
+d'avant ce changement), IPAGothic, Loma, Unifont, Noto Color Emoji. Dans les mesures, les faces
+`Space Grotesk Fallback` et `JetBrains Mono Fallback` sont bien chargées (`document.fonts`, statut
+`loaded`) : c'est Liberation Sans et Liberation Mono qui servent. Menlo et DejaVu Sans Mono, proposés
+en exemple, n'ont pas la chasse de Courier New dans capsize (1233/2048 contre 1229) : non retenus
+(macOS a Courier New ; Linux a en général Liberation Mono).
+
+### Mesures (build `generate:fixtures`, processeur ×6, réseau 150 ms et 1,6 Mb/s, 3 passes)
+
+Sondes jetables du dossier de travail de la session : `font-probe.mjs` (même mesure qu'au
+préchargement), `cls-probe.mjs` (mêmes réglages, options ci-dessous), `width-ratio.mjs`,
+`char-widths.mjs`, `layout-diff.mjs` ; sorties `fallback-*.txt`. « Avant » = `HEAD` (`0d09349`),
+« après » = faces + pile (pile non commitée). Les trois passes donnent la même valeur partout
+(déterministe sous ces réglages).
+
+Chrome sous Linux, dans le conteneur, arrondit l'avance de chaque glyphe au pixel (avances entières
+mesurées à 100 px : 64,00, 61,00…), pas Windows, macOS ni Android. Le rapport de largeur repli /
+Space Grotesk d'une même phrase y varie de 0,967 à 1,069 selon la taille (13 à 22 px) au lieu de
+1,013 à 1,025. D'où deux séries : rendu du conteneur tel quel, et avances fractionnaires
+(`text-rendering: geometricPrecision` posé avant le premier rendu, option `geo` de `cls-probe.mjs`).
+
+| Largeur | Avant | Après | Avant, fractionnaire | Après, fractionnaire |
+|---|---|---|---|---|
+| 390 | 0,0227 | **0,0987** | 0,0228 | **0,0378** |
+| 1024 | 0,0182 | **0,0004** | 0,0188 | **0,0004** |
+| 1280 | 0,0547 | **0,0060** | 0,0544 | **0,0031** |
+| 1920 | 0,0184 | **0,0029** | 0,0183 | **0,0001** |
+
+Sauts (instant, valeur), rendu du conteneur :
+
+| Largeur | Avant | Après |
+|---|---|---|
+| 390 | 1 332 : 0,0038 (Space Grotesk) ; 1 479 : 0,0182 (barre d'actions) ; 1 510 : 0,0005 ; 2 321 : 0,0002 (JetBrains Mono) | 1 320 : 0,0799 (Space Grotesk) ; 1 530 : 0,0182 (barre d'actions) ; 1 582 : 0,0005 |
+| 1024 | 1 367 : 0,0174 ; 2 336 : 0,0009 | 1 367 : 0,0004 |
+| 1280 | 1 352 : 0,0541 ; 2 333 : 0,0006 | 1 359 : 0,0060 |
+| 1920 | 1 358 : 0,0181 ; 2 332 : 0,0003 | 1 360 : 0,0029 |
+
+Témoin « repli Arial non ajusté » (ce que voit un visiteur sous Windows aujourd'hui : pile forcée à
+`'Space Grotesk', 'Liberation Sans', sans-serif` sur le build d'avant, fractionnaire) : 0,0226,
+0,0174, 0,0541, 0,0181 ; le gain du bureau ne tient donc pas au repli particulier du conteneur.
+
+Lecture :
+
+- **Bureau (1024 à 1920)** : le saut de Space Grotesk passe de 0,017–0,054 à 0,0001–0,006, celui de
+  JetBrains Mono (vers 2,3 s) disparaît. Largeur du texte dans le repli / Space Grotesk, avances
+  fractionnaires, à 390 sur `/` (`width-ratio.mjs … geo`) : graisse 400 1,0036 (en : 1,0007), 500
+  1,0246, 600 1,0093, 700 1,0106, mono 0,9990 ; avec le repli d'avant : 0,92, 0,94, 0,99, 0,99, 0,83.
+- **Mobile (390)** : le texte du Profil remplit des lignes presque pleines ; à ±1 à 2 % de largeur,
+  une ligne bascule. `layout-diff.mjs` : la première accroche (« NestJS, Vue.js — données, ETL et
+  analytics », 17 px, graisse 500) tient sur une ligne en Space Grotesk et sur deux dans le repli
+  ajusté ; à la bascule, tout le Profil remonte de 24 px (`p.profile__tagline` 234+24 → 210+24,
+  `div.situation` 504+340 → 480+364). Avec le repli d'avant, 8 % plus étroit, aucune ligne ne
+  passait à la suivante sur cet écran (0,0038). Dans le conteneur, l'arrondi des avances aggrave
+  l'écart (graisse 400 : 1,048) et d'autres paragraphes changent de nombre de lignes (0,0799).
+- **Plus grande peinture (LCP, `font-probe.mjs`)**, avant → après : 390 : 4,55 → 0,73 s ; 1024 :
+  4,66 → 0,72 s ; 1280 : 1,27 → 0,73 s ; 1920 : 4,62 → 1,28 s. Le texte dans le repli ajusté est
+  compté dès le premier rendu (~0,71 s, inchangé). Indicatif : non demandé, et le LCP du conteneur
+  dépend aussi de la police de repli (WenQuanYi avant).
+
+| Poids | Avant | Après |
+|---|---|---|
+| CSS d'entrée (`entry.*.css`) | 14 039 o / 3 193 o gzip | 14 868 o / 3 421 o gzip (+829 / +228) |
+| CSS publiées (`_nuxt/*.css`) | 67 307 o / 10 932 o gzip | 68 136 o / 11 163 o gzip |
+| `index.html` | 123 917 o / 20 244 o gzip | 123 917 o / 20 242 o gzip |
+| `en/index.html` | 122 991 o / 20 006 o gzip | 122 991 o / 20 005 o gzip |
+
+Aucune requête de plus : `local()` n'est pas un téléchargement ; requêtes de polices inchangées.
+
+### Test existant rendu faux (point d'arrêt, non modifié)
+
+`app/assets/css/tokens.spec.ts:267-272`, « constantes de tokens.css du handoff (polices, rayons,
+largeurs, mouvement) », exige que `--font-sans` et `--font-mono` valent exactement ceux de
+`design/handoff-v6/tokens.css` (`'Space Grotesk',sans-serif`, `'JetBrains Mono',monospace`). Avec la
+pile de D51 (4) (`tokens.css`, ligne remise par `git checkout` après la commande) :
+
+```
+$ pnpm exec vitest run app/assets/css/tokens.spec.ts
+ FAIL  |nuxt| app/assets/css/tokens.spec.ts > tokens.css reprend le handoff v6 à l’identique > constantes de tokens.css du handoff (polices, rayons, largeurs, mouvement)
+AssertionError: --font-sans: expected '\'space grotesk\',\'space grotesk fal…' to be '\'space grotesk\',sans-serif' // Object.is equality
+Expected: "'space grotesk',sans-serif"
+Received: "'space grotesk','space grotesk fallback','space grotesk fallback roboto',sans-serif"
+      Tests  1 failed | 20 passed (21)
+```
+
+La décision D51 (4) ajoute deux familles entre la police du handoff et la famille générique : c'est un
+écart de la pile au handoff, sans écart de rendu une fois les woff2 chargés. Aucun contournement
+essayé (autre sélecteur que `:root`, variable intermédiaire lue par `base.css` à la place de
+`--font-sans`, `font-size-adjust`) : chacun garderait le test vert sans tenir ce qu'il vérifie.
+Suite proposée : le correcteur, sous autorisation « tests », réécrit ce test pour qu'il exige la
+police du handoff en tête et la famille générique du handoff en fin, les familles de repli de
+`fonts.css` (et elles seules) entre les deux (`Justification-test: D51-4 …`) ; le lead pose ensuite la
+ligne de `tokens.css` en un commit (et relance les parcours ci-dessous).
+
+### Parcours avec la pile (non commitée)
+
+Site généré avec faces et pile (`generate:fixtures`), puis
+`pnpm exec playwright test --workers=2 test/csp.e2e.ts test/design-system.e2e.ts test/matrix.e2e.ts test/hydration-shift.e2e.ts test/pages.e2e.ts test/smoke.e2e.ts test/title-overflow.e2e.ts test/top-bar-height.e2e.ts` :
+**581 passés** (10,6 min), dont les mesures de texte de `title-overflow`, `top-bar-height` et
+`hydration-shift` (`design-system` : `fontFamily` du corps toujours `"Space Grotesk", …` en tête ;
+polices téléchargées inchangées, une requête Space Grotesk et une JetBrains Mono, aucune Atkinson ;
+`csp` : politique recalculée identique, `font-src 'self'`, `local()` n'étant pas une requête). Seul
+échec du changement de pile : le test unitaire ci-dessus.
+
+### Vérifications (état commité)
+
+Sur `3a17bee` (faces et test, pile du handoff) :
+
+- `pnpm --filter @siteperso/web lint` et `typecheck` : verts.
+- `pnpm --filter @siteperso/web test:coverage` : 144 fichiers, 1 224 tests, 100 % (instructions
+  1472/1472, branches 797/797, fonctions 490/490, lignes 1310/1310) ; `fonts-fallback.spec.ts` :
+  8 tests.
+- `pnpm --filter @siteperso/web generate:fixtures`, puis les huit parcours ci-dessus,
+  `--workers=2` : 581 passés (10,6 min).
+- `pnpm integrity` : OK (base `origin/develop`, divergence `567527ca9cab`).
+- Mutation sans objet : ni `app/domain/` ni `app/data/` touchés. Hook pre-commit vert.
+- Aucun test existant modifié, aucune configuration protégée touchée, `tokens.css` inchangé.
+- `pnpm db:down` sans objet : aucune base démarrée ; le conteneur Playwright, fourni démarré, est
+  laissé tel quel ; les serveurs `sirv` lancés pour les sondes sont arrêtés.
+
+### Décisions
+
+- **capsize plutôt qu'un calcul maison ou `@nuxtjs/fontaine`** : `createFontStack` de
+  `@capsizecss/core` donne les quatre descripteurs par une formule publiée, et fontaine 1.1.0 lit
+  les métriques de la même façon (`@capsizecss/unpack`, `fontkitten`, `pnpm view fontaine
+  dependencies`) ; le module `@nuxtjs/fontaine` (0.5.0, `@nuxt/kit` ^3) aurait ajouté un greffon de
+  build qui réécrit les piles des CSS au build, hors de portée d'un test sur `fonts.css`. `fontkit`
+  écarté : capsize lit déjà les woff2 par `fontkitten`.
+- **Une face par famille, sans graisse** (comme capsize et fontaine) : Space Grotesk garde la même
+  chasse de 300 à 700 (488 à 490 / 1000), JetBrains Mono aussi (600) ; une face grasse sur
+  Arial Bold (983/2048, +7,7 %) aurait demandé une autre calibration, que capsize ne sait pas faire
+  sur une instance d'une police variable. Mesuré : graisse 700 à +1 % avec le gras simulé.
+- **Instance par défaut du woff2** : capsize lit l'instance par défaut de la police variable, Space
+  Grotesk **Light** (300), largeur 488 contre 489 pour la Regular publiée : écart de 0,2 %, vérifié
+  par le test (seuil 0,5 %) plutôt que masqué.
+- **Liberation Sans et Liberation Mono sous les métriques d'Arimo et de Cousine** : elles n'ont pas de
+  fiche dans `@capsizecss/metrics` ; Arimo et Cousine sont ces mêmes polices sous leur nom ChromeOS,
+  à la chasse d'Arial et de Courier New (fiches identiques dans capsize).
+- **Roboto à part** : chasse 911/2048 contre 913 pour Arial, donc `size-adjust` différent ; Helvetica
+  a la chasse d'Arial et rejoint sa face.
+- **Les faces commitées sans la pile** : elles ne servent à rien seules (aucun texte ne les demande,
+  rien n'est chargé ; +829 o de CSS) mais portent le calcul, son test et les dépendances ; la décision
+  sur la pile n'aura qu'une ligne à poser. Alternative écartée : ne rien commiter (calcul et test à
+  refaire). Si Julien renonce, `git revert` de ce commit.
+
+### Points ouverts (décision de Julien)
+
+1. **Pile contre test du handoff** : autoriser l'écart de `--font-sans` et `--font-mono` au handoff
+   (test réécrit par le correcteur, ci-dessus), ou renoncer.
+2. **Mobile** : avec la pile, le CLS du bureau tombe (0,0547 → 0,006 au pire), celui du mobile monte
+   (0,0227 → 0,0378 en avances fractionnaires, 0,0987 dans le conteneur, au seuil « bon » de 0,1). Le
+   défaut est celui de toute calibration moyenne (capsize, fontaine, `next/font`) sur des lignes presque
+   pleines ; une correction « à l'œil » de `size-adjust` est exclue par la consigne. Pistes : (a)
+   appliquer quand même (la plupart des visiteurs mobiles sont sous Android ou iOS, avances
+   fractionnaires, et Roboto, absente du conteneur, n'a pas été mesurée) ; (b) piles ajustées au
+   bureau seulement (`@media (min-width: …)` autour de la pile) ; (c) renoncer.
+3. **Atkinson Hyperlegible** (`data-font="lisible"`) : non fait. Même blocage (`--font-readable` est
+   aussi une constante du handoff vérifiée par le même test), et sans gain au premier affichage : la
+   police n'est demandée qu'après un choix du visiteur, sur une page déjà affichée.
+4. **Android (Roboto) et Windows/macOS (Arial, Courier New)** non mesurés : le conteneur n'a que
+   Liberation Sans et Liberation Mono. Que `local('Roboto Regular')` trouve la police du système
+   sous Chrome pour Android n'est pas vérifié ici (aucun appareil ni émulateur) : sans elle, la pile
+   passe à `sans-serif`, comme aujourd'hui.
