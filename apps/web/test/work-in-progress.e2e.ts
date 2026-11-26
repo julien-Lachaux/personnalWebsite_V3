@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { analyzeWcag22AA, waitForHydration } from './support/e2e.js';
+import { expectAxeClean, waitForHydration } from './support/e2e.js';
 
 // Page « travaux en cours » (lot 31), à chaque taille d'écran des maquettes, en clair et en sombre,
 // en français et en anglais :
@@ -43,12 +43,6 @@ const PAGES = [
     linkedin: 'LinkedIn profile (opens in a new tab)',
   },
 ] as const;
-
-async function axe(page: Page): Promise<void> {
-  const results = await analyzeWcag22AA(page);
-  expect(results.violations).toEqual([]);
-  expect(results.passes.length).toBeGreaterThan(0);
-}
 
 /** Méta de référencement de la page courante. */
 async function seo(page: Page) {
@@ -110,7 +104,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
           ),
         ).toBe(true);
 
-        await axe(page);
+        await expectAxeClean(page);
 
         // Le thème bascule depuis l'en-tête, puis la même page dans l'autre langue.
         const theme = await page.locator('html').getAttribute('data-theme');
@@ -149,7 +143,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(page.locator('html')).toHaveAttribute('lang', wip.locale);
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(wip.title);
         await expect(page.getByRole('main').getByRole('link')).toHaveCount(2);
-        await axe(page);
+        await expectAxeClean(page);
       });
     }
   });

@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { computeLayout } from '../app/domain/layout.js';
 import type { Rect, TileId } from '../app/domain/layout-types.js';
-import { analyzeWcag22AA, gotoMounted } from './support/e2e.js';
+import { expectAxeClean, gotoMounted } from './support/e2e.js';
 
 // Saut à l'hydratation (D49, ticket F11-02) : la page générée dessine déjà la mosaïque de la vue
 // d'ensemble, le montage ne fait que poser les positions calculées. À chaque taille d'écran des
@@ -113,11 +113,6 @@ function expectSameRect(page: Page, actual: Rect, expected: Rect, id: TileId, la
   }
 }
 
-async function axe(page: Page, label: string): Promise<void> {
-  const results = await analyzeWcag22AA(page);
-  expect(results.violations, label).toEqual([]);
-}
-
 for (const path of PATHS) {
   test.describe(`${path}`, () => {
     test('bureau : tuiles avant le montage à leur place montée, celle de computeLayout', async ({
@@ -184,7 +179,7 @@ for (const path of PATHS) {
       for (const id of TILES) expectSameRect(page, after.tiles[id], before.tiles[id], id, 'clic');
       await expect(page.locator('.tile-grid__tile--expanded')).toHaveCount(0);
 
-      await axe(page, `${path} avant le montage`);
+      await expectAxeClean(page, `${path} avant le montage`);
     });
 
     test('mobile et tablette : le Profil avant le montage à la place de l’onglet Profil monté', async ({
@@ -202,7 +197,7 @@ for (const path of PATHS) {
       await expect(page.locator('.bottom-nav')).toBeVisible();
       const before = await profile.boundingBox();
       const text = await profile.innerText();
-      await axe(page, `${path} avant le montage`);
+      await expectAxeClean(page, `${path} avant le montage`);
 
       await openMounted(page, path);
       await expect(page.locator('.tile-grid')).toHaveCount(0);

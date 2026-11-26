@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { analyzeWcag22AA, waitForHydration } from './support/e2e.js';
+import { expectAxeClean, waitForHydration } from './support/e2e.js';
 
 // Pages annexes et référencement (lot F7), à chaque taille d'écran des maquettes :
 // - déclaration d'accessibilité en français et en anglais : rubriques du RGAA, liens, méta, axe ;
@@ -17,12 +17,6 @@ import { analyzeWcag22AA, waitForHydration } from './support/e2e.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, '../.output/public');
 const LOCALES_DIR = join(import.meta.dirname, '../i18n/locales');
-
-async function axe(page: Page): Promise<void> {
-  const results = await analyzeWcag22AA(page);
-  expect(results.violations).toEqual([]);
-  expect(results.passes.length).toBeGreaterThan(0);
-}
 
 /** Adresse canonique de la page d'accueil : origine de toutes les adresses absolues du site. */
 async function siteOrigin(page: Page): Promise<string> {
@@ -166,7 +160,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
           'x-default': `${origin}/accessibilite`,
         });
 
-        await axe(page);
+        await expectAxeClean(page);
 
         // En-tête du site : nom du site vers l'accueil, puis la même page dans l'autre langue.
         const banner = page.getByRole('banner');
@@ -236,7 +230,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         expect(meta.canonical).toBeNull();
         expect(meta.alternates).toEqual({});
 
-        await axe(page);
+        await expectAxeClean(page);
 
         // Le retour à l'accueil quitte la page d'erreur.
         await page.getByRole('main').getByRole('link', { name: notFound.back }).click();
