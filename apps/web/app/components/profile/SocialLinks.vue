@@ -87,9 +87,11 @@ const { t } = useI18n();
   flex: 1 1 8rem;
 }
 
-/* Mobile et tablette : 56 px comme la maquette (au-dessus des 44 px tactiles). */
+/* Mobile et tablette : 56 px comme la maquette (au-dessus des 44 px tactiles). Sélecteur plus fort que
+   `.base-button--lg` (52 px) : à spécificité égale, l'ordre des styles décide, et il n'est pas le même
+   dans la page générée (styles en ligne) et une fois les feuilles de l'application chargées (F11-02). */
 @media (max-width: 1023px) {
-  .social-links__link {
+  .social-links .social-links__link {
     min-height: 3.5rem;
   }
 }
