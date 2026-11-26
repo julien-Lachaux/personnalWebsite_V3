@@ -230,6 +230,17 @@ apps/web/
   unique de `app/domain/root-attributes.ts` (partagée avec `usePreferencesSync`). Toute modification
   du script change son empreinte `THEME_SCRIPT_SHA256` (vérifiée par un test) : à reporter dans la
   CSP (F9).
+- **Mosaïque avant le montage (D49, lot F11)** : tant que la coquille n'a pas de mode (page générée,
+  sans JavaScript), `AppShell` rend `TileGrid`, que sa CSS place en grille aux rectangles de la vue
+  d'ensemble de `computeLayout` (px, `round()`, requêtes média aux seuils de `BREAKPOINTS`) ; sous
+  1024 px elle n'en montre que le contenu du Profil, comme l'onglet Profil. Le montage ne déplace
+  rien au bureau (`tile-grid--placed`, positions calculées) et remplace la grille par les onglets
+  dessous. Toute modification de la géométrie de `computeLayout` (ou de cette CSS) se reporte dans
+  l'autre : `TileGrid-premount.spec.ts` évalue la CSS livrée et la compare à `computeLayout`,
+  `test/hydration-shift.e2e.ts` compare avant et après le montage. La page générée n'a aucun
+  attribut `style` (CSP). Un style de section qui surcharge celui d'un élément de base le fait par
+  un sélecteur plus fort, jamais à spécificité égale : l'ordre des styles diffère entre la page
+  générée (styles en ligne) et l'application chargée.
 - **CSP stricte (lot F9a)** : le site tourne sous `script-src 'self'` et `style-src 'self'` plus les
   empreintes des seuls éléments en ligne du HTML généré, sans `'unsafe-inline'` ni `'unsafe-eval'`.
   Donc rien dans le navigateur n'appelle `eval` ou `new Function` (Zod 4 le sonde à la construction de

@@ -148,3 +148,169 @@ Le compilateur (`@intlify/message-compiler`, 19 694 o / 5 840 o gzip minifié) n
     l'ouverture (composant asynchrone) allégerait le premier chargement, mais change le moment
     d'affichage du panneau : à décider, avec les captures du handoff.
 - Aucun autre gain évident sans effet visible : les autres morceaux font moins de 8 Ko.
+
+## F11-02 : saut à l'hydratation (D49)
+
+Reprise après le redémarrage de la machine (vers 15 h 57) : le travail non commité était intact ; la
+décision est D49 (D48 pris par le lot 35, renumérotation `6510b49`). Navigateurs indisponibles
+pendant le lot 35, puis rendus par l'orchestrateur : tous les parcours ci-dessous ont été lancés.
+
+### Commits
+
+| Commit | Objet |
+|---|---|
+| dcbb7fd | `fix(web)` : bouton LinkedIn à 56 px dès la page générée (spécificité du style de section) |
+| 53b2e9d | `perf(web)` : mosaïque dessinée avant le montage (`AppShell`, `TileGrid`, garde-fou Vitest) |
+| 8496929 | `test(web)` : parcours `test/hydration-shift.e2e.ts` |
+| (ce commit) | `docs` : CLAUDE.md (mosaïque avant le montage) et ce compte rendu |
+
+### Fait
+
+- **Mosaïque dès la page générée.** `AppShell` rend `TileGrid` tant que le mode n'est pas `tabs`
+  (`v-if="mode !== 'tabs'"`, au lieu de `mode === 'mosaic'`) : la page générée contient les quatre
+  tuiles avec leur barre de titre et leur bouton. Au bureau, l'hydratation reprend ce DOM tel quel ;
+  le montage ne remplace plus rien, il ajoute `tile-grid--placed` et les positions absolues de
+  `computeLayout`. La grille simple de 2 colonnes et le titre visible de section qui n'existaient
+  qu'avant le montage sont supprimés (CSS morte). La CSS de la coquille plein écran (100dvh, `<main>`
+  positionné sans défilement) s'applique à ≥ 1024 px dès que le mode n'est pas `tabs`.
+- **Géométrie de la vue d'ensemble en CSS** (`TileGrid.vue`, `.tile-grid:not(.tile-grid--placed)`) :
+  grille en px (indépendante de la taille du texte, comme `computeLayout`), marges et gouttières de
+  12, zone de 1440 au plus centrée avec décalage arrondi au pixel ; 2 colonnes (1024 à 1199) :
+  Profil 360 sur toute la hauteur, XP sur `round((H − 12) × 0,56)`, IA et Recos à parts égales
+  arrondies ; 3 colonnes (≥ 1200) : Profil 420 à la hauteur de son contenu (toute la hauteur au
+  plus), XP au milieu, colonne de 380 (IA puis Recos, `round((H − 12) / 2)`). `round()` reproduit les
+  arrondis de `computeLayout` ; une déclaration sans `round()` la précède comme repli (écart ≤ 0,5 px).
+- **Sous 1024 px avant le montage** : la même grille ne montre que le contenu du Profil, sans décor
+  de tuile ni défilement propre, dans le flux de `<main>` : identique à l'onglet Profil monté (le
+  montage remplace alors la mosaïque par les sections des onglets, comme avant pour le bureau).
+- **Aucun attribut `style` dans la page générée** : `tileStyle` rendait `style=""` sur les quatre
+  tuiles dès qu'elles étaient rendues côté serveur ; remplacé par `v-bind="placement(id)"`, qui ne
+  pose `style` qu'une fois la tuile placée (un `style` en ligne est soumis à `style-src`).
+- **Écart de 4 px sur mobile et tablette, antérieur au lot, corrigé** : le bouton LinkedIn faisait
+  52 px avant le montage et 56 px après. Cause : `.social-links__link` (56 px sous 1024) et
+  `.base-button--lg` (52 px) ont la même spécificité ; dans la page générée, les styles sont en ligne
+  et celui du bouton de base vient après ; une fois l'application chargée, ses feuilles sont ajoutées
+  dans l'autre ordre. Correction : `.social-links .social-links__link` (fichier de section profile,
+  commit dédié). Règle reportée dans CLAUDE.md.
+- **Garde-fou Vitest** `app/components/shell/TileGrid-premount.spec.ts` (nouveau, 19 tests) : lit le
+  bloc `<style>` livré de `TileGrid.vue` (postcss), applique les requêtes média, évalue les pistes
+  (`px`, `%`, `round()`, `max()`, `calc()`, `fr`) pour 14 largeurs × 6 hauteurs (dont 1199/1200,
+  1440/1441, largeurs impaires) et compare chaque rectangle à `computeLayout` (écart < 1e-9) et le
+  repli à moins de 0,51 px ; vérifie l'absence de grille sous 1024, le Profil à la hauteur de son
+  contenu en 3 colonnes, et la classe `--placed` (posée par une zone de bureau, absente avec aucun
+  style en ligne sous 1024). Témoin de dérive : en passant la colonne de droite à 381 px et la part
+  d'XP à 0,55 dans `TileGrid.vue` (modification manuelle, annulée ensuite), 14 tests sur 19 échouent.
+- **Parcours** `test/hydration-shift.e2e.ts` (nouveau, 3 tests × 2 langues × 7 projets) :
+  - bureau : rectangles des tuiles et coin du contenu de chaque tuile, application bloquée
+    (`page.route` sur `_nuxt/**/*.js`, témoin : scripts refusés, pas de `data-mode`), égaux à ceux
+    de `computeLayout` puis à ceux d'après le montage (< 0,02 px ; seule exception, la hauteur du
+    Profil en 3 colonnes, < 3 px, voir « Points ouverts ») ;
+  - bureau sans JavaScript : page sans défilement, chaque tuile défile seule à la molette, le bouton
+    « agrandir » ne change rien, barres de titre visibles, axe WCAG 2.2 AA ;
+  - mobile et tablette : Profil avant le montage à la place, à la taille et au texte de l'onglet
+    Profil monté, aucune barre de tuile ni autre tuile visible, barre du haut masquée, navigation du
+    bas visible, axe avant le montage.
+
+### Mesures
+
+CLS sous processeur ×6 et réseau lent (150 ms, 1,6 Mb/s), 3 passes identiques, sonde jetable
+`f11-02-probe.mjs` ; instants des décalages par `timing-probe.mjs` (même dossier de travail).
+
+| Largeur | CLS avant (786c0a0) | CLS après | Décalage au montage après |
+|---|---|---|---|
+| 390 | 0,0213 (4 décalages) | 0,0227 | aucun |
+| 834 | 0,0274 (4) | 0,0248 | aucun |
+| 1024 | 0,0033 (2) | 0,0182 | aucun |
+| 1280 | 0,0068 (2) | 0,0547 | aucun |
+| 1920 | 0,0249 (2) | 0,0184 | aucun |
+
+Lecture : après le lot, **aucun décalage n'a lieu au montage** (`data-mode` posé vers 4,6 s, aucune
+entrée `layout-shift` ensuite). Tous les décalages restants ont lieu avant, à l'arrivée des polices :
+Space Grotesk (fin ~1,32 s, décalage à ~1,38 s : texte du Profil, cartes d'XP) et JetBrains Mono
+(~2,30 s : titres des tuiles, barre du haut). Le CLS « avant » sous-estimait le saut : la grille était
+remplacée par de nouveaux nœuds, que l'API Layout Instability ne compte pas comme décalés (seuls les
+nœuds présents dans les deux images le sont). Le CLS d'après monte à 1024 et 1280 parce que le texte
+se recompose dans des tuiles plus étroites quand la police arrive. Tous restent sous 0,1 (« bon »).
+Mobile : le décalage de 0,018 (`action-bar`, `cv-menu`, ~1,48 s) a lieu lui aussi avant le montage
+(antérieur au lot).
+
+Captures sans JavaScript (après) : `shots/after-nojs-{390,834,1024,1280,1920}.png` et après montage
+`shots/after-after-*.png` dans le dossier de travail jetable de la session ; à 1024, 1280 et 1920, la
+capture sans JavaScript est la mosaïque montée (barres de titre, colonnes, hauteurs). Les captures
+« avant » ont été perdues au redémarrage (dossier temporaire) ; celles de l'orchestrateur à 1280
+montraient la grille simple de 2 colonnes sans barres de titre.
+
+Poids (build `generate:fixtures`, gzip -9, sonde `measure-js.mjs`) :
+
+| | Après F11-01 | Après F11-02 |
+|---|---|---|
+| `_nuxt/*.js` publiés | 12 fichiers, 395 454 o / 140 737 o gzip | 12 fichiers, 395 488 o / 140 754 o gzip |
+| JS chargé par `/` (7 modulepreload + 1 prefetch) | 390 432 o / 138 285 o gzip | 390 466 o / 138 302 o gzip |
+| `index.html` | 118 593 o | 123 569 o / 20 243 o gzip |
+
++34 o de JS (+17 o gzip) : la fonction `placement` et la classe `--placed`. La page générée grossit
+de 4 976 o bruts : le gabarit des quatre tuiles (barres, boutons) et la CSS de la grille, en ligne.
+
+### Preuves des critères
+
+| Critère | Commande | Résultat |
+|---|---|---|
+| Avant le montage = après, au bureau, et = `computeLayout` | `pnpm --filter @siteperso/web generate:fixtures`, puis dans `apps/web` : `pnpm exec playwright test --workers=2 test/hydration-shift.e2e.ts` | 42 passés (7 projets × 2 langues × 3 tests) |
+| Sans JavaScript : tuiles qui défilent seules, « agrandir » sans effet, axe | même parcours (test « bureau sans JavaScript ») | vert à 1024, 1280, 1440, 1920, 3440 |
+| Mobile et tablette : avant le montage = onglet Profil monté | même parcours ; avant la correction du bouton LinkedIn : 4 échecs « height », reçu 4 (390 et 834, fr et en) | vert après `dcbb7fd` |
+| CSS et `computeLayout` d'accord, côté Vitest | `pnpm exec vitest run app/components/shell/TileGrid-premount.spec.ts` | 19 passés ; 14 échecs avec la CSS modifiée à la main (témoin, annulé) |
+| Aucun décalage au montage | sonde `timing-probe.mjs` (CPU ×6, réseau lent) à 390, 1024, 1280, 1920 | aucune entrée `layout-shift` après `data-mode` |
+| Parcours touchés | `pnpm exec playwright test --workers=2 test/shell.e2e.ts test/mosaic.e2e.ts test/sections.e2e.ts test/overflow.e2e.ts test/short-height.e2e.ts test/top-bar-height.e2e.ts test/matrix.e2e.ts test/csp.e2e.ts test/client-bundle.e2e.ts test/hydration-shift.e2e.ts test/pages.e2e.ts` | 917 passés (15,2 min) |
+| Lint, typecheck | `pnpm --filter @siteperso/web lint`, `typecheck` | verts (aussi au pre-commit) |
+| Couverture | `TEST_MAX_WORKERS=2 pnpm --filter @siteperso/web test:coverage` | 140 fichiers, 1 209 tests, 100 % sur les quatre métriques |
+| Mutation | aucun fichier de `app/domain` ni `app/data` touché | sans objet |
+| Intégrité | `pnpm integrity develop` | OK |
+
+Refus des garde-fous, non contournés : une sonde `node` qui réécrivait `TileGrid.vue` pour le témoin
+de dérive (« écriture opaque (node) qui mentionne un oracle »), puis la même boucle en `python3`
+(« code en ligne calculé ») ; le témoin a été fait par deux modifications visibles à l'outil
+d'édition, annulées de la même façon. Une écriture `python3` de ce compte rendu a aussi été refusée
+(« écriture opaque ») : il a été complété à l'outil d'édition.
+
+### Décisions
+
+- **`TileGrid` rendu avant le montage, plutôt qu'une grille de sections habillée de fausses barres
+  de titre** : le DOM du bureau est celui du montage, à l'identique (barre, bouton, corps qui défile,
+  contenu), donc aucune dérive possible entre deux gabarits et aucun remplacement de nœuds au
+  montage. Coût : sous 1024 px, le montage remplace la mosaïque par les sections des onglets (comme
+  il le faisait au bureau avant le lot) ; la CSS de la page générée rend ce remplacement invisible
+  (prouvé par le parcours mobile et tablette). Alternative écartée : garder les sections avant le
+  montage et leur ajouter une barre de titre dupliquée ; le bureau aurait gardé un remplacement de
+  nœuds et deux gabarits à tenir d'accord.
+- **Garde-fou par évaluation de la CSS livrée plutôt que par constantes partagées** : la CSP interdit
+  de passer les constantes par un `style` en ligne dans la page générée, et une variable CSS écrite à
+  la main resterait une copie. Le test évalue les règles réellement livrées et les confronte au
+  résultat de `computeLayout`, pas à des constantes recopiées : toute dérive d'un côté ou de l'autre
+  échoue. `layout.ts` n'est pas modifié (aucun export ajouté).
+- **Hauteur du Profil en 3 colonnes : écart admis de moins de 3 px** : la CSS donne la hauteur réelle
+  du contenu ; `computeLayout` arrondit la mesure au pixel supérieur et compte 48 px de décor, alors
+  que les bordures de 1,5 px sont dessinées à 1 px sur un écran de densité 1 (décor réel 47 px).
+  Mesuré à 1920 : 927,78 px avant, 930 après. Le haut de la tuile et tout son contenu ne bougent pas ;
+  seul le bord bas descend de 2,2 px. Le reproduire en CSS demanderait d'arrondir une hauteur de
+  contenu, ce que la CSS ne sait pas faire ; modifier `useMosaic` changerait des tests existants.
+
+### Tests existants rendus faux
+
+Aucun : `test:coverage` du front (140 fichiers, 1 209 tests) et les parcours listés ci-dessous passent
+sans modification d'un test existant.
+
+### Points ouverts
+
+- **CLS des polices** (0,018 à 0,055 au bureau sous réseau lent) : sans rapport avec le montage, il
+  vient de la substitution des polices (`font-display: swap`). Pistes à décider : précharger
+  Space Grotesk et JetBrains Mono (`<link rel="preload">`, deux woff2), ou des polices de repli
+  ajustées (`size-adjust`, `ascent-override`) pour que la recomposition ne déplace rien.
+- **Décalage mobile `action-bar` / `cv-menu`** (0,018 à 390, ~1,5 s, avant le montage) : antérieur
+  au lot, non analysé.
+- **Ordre des styles en ligne / feuilles** : d'autres surcharges à spécificité égale entre une
+  section et un élément de base peuvent changer au chargement de l'application, comme le bouton
+  LinkedIn. Seul celui-là est mesuré (le parcours compare le Profil et les rectangles des tuiles) ;
+  une revue des surcharges `.<section>__x` sur la racine d'un composant de base serait utile.
+- Hauteur du Profil en 3 colonnes (ci-dessus) : à accepter, ou à corriger dans `useMosaic`
+  (décor réel mesuré au lieu de 48 + 0,5) par le correcteur, sous autorisation, car des tests
+  existants fixent ce calcul.
