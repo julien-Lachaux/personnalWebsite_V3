@@ -8,7 +8,8 @@
     "skipToContent": "Skip to content"
   },
   "seo": {
-    "description": "Website and CV of Julien Lachaux, full-stack developer: experience, technologies, recommendations and the place of AI in his work."
+    "description": "Website and CV of Julien Lachaux, full-stack developer: experience, technologies, recommendations and the place of AI in his work.",
+    "homeDescription": "Website and CV of {name}, {title}: experience, technologies, recommendations and the place of AI in his work."
   },
   "annex": {
     "home": "home page"
