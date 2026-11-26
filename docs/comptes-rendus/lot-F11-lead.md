@@ -565,3 +565,78 @@ l'attente modifiée.
   `waitForSettledAnimations(page)` le remplacerait si le menu s'ouvre par une transition.
 - `mosaic.e2e.ts` ne tourne que sur le site avec IA ; sur un site sans IA, son test « aucun recalcul »
   compterait l'animation infinie du curseur (voir le plan).
+
+## Préchargement des polices (D51 (4))
+
+Demande : précharger Space Grotesk et JetBrains Mono pour réduire le CLS dû à leur arrivée, ne rien
+commiter si le gain est nul ou négatif. **Gain nul : rien n'est commité** (changement essayé, mesuré,
+retiré ; `apps/web/nuxt.config.ts` inchangé).
+
+### Constat de départ
+
+Space Grotesk (sous-ensemble latin) est **déjà préchargée depuis F1-02** : `nuxt.config.ts`,
+`app.head.link`, même URL que son `@font-face`, `crossorigin` ; présente dans les six pages générées
+(`/`, `/en`, accessibilité, travaux, 404, 50x). La seule police à ajouter était donc JetBrains Mono
+latin (`/fonts/jetbrains-mono/jetbrains-mono-latin-wght-normal.woff2`, 40 404 o).
+
+Polices réellement demandées (sonde `font-probe.mjs`, mode `requests`, à 390 et 1280, sur `/`, `/en`,
+`/accessibilite`, `/en/accessibility`, `/travaux`, `/404.html`, `/50x.html`, `/en/50x.html`) : sur
+chaque page exactement ces deux fichiers, une requête chacun ; jamais un `latin-ext` ni Atkinson
+Hyperlegible ; journal de Chrome (`Log.entryAdded`, 4,5 s après `load`) vide, avant comme après le
+changement : ni « preloaded but not used », ni téléchargement double (le préchargement existant de
+Space Grotesk est donc correct). `font-src 'self'` (`test/csp.e2e.ts`, `csp-hashes.mjs`) couvre ces
+fichiers servis par le site ; un `<link>` n'est pas un élément en ligne et ne touche pas aux empreintes.
+
+### Mesures (build `generate:fixtures`, processeur ×6, réseau 150 ms et 1,6 Mb/s, 3 passes)
+
+Sonde jetable `font-probe.mjs` (dossier de travail de la session) ; sorties `fonts-before*.txt` et
+`fonts-after*.txt` au même endroit.
+
+| Largeur | CLS avant | CLS après | Sauts avant (instant, valeur) | Sauts après |
+|---|---|---|---|---|
+| 390 | 0,0227 ×3 | 0,0222 ×3 | 1 332 : 0,0038 ; 1 457 : 0,0182 ; 1 495 : 0,0005 ; 2 323 : 0,0002 | 1 329 : 0,0038 ; 1 457 : 0,0182 ; 1 755 : 0,0002 |
+| 1024 | 0,0182 ×3 | 0,0182 ×3 | 1 355 : 0,0174 ; 2 339 : 0,0009 | 1 365 : 0,0174 ; 1 773 : 0,0009 |
+| 1280 | 0,0547 ×3 | 0,0547 / 0,0547 / 0,046 | 1 365 : 0,0541 ; 2 336 : 0,0006 | 1 362 : 0,0541 ; 1 765 : 0,0006 |
+| 1920 | 0,0184 ×3 | 0,0184 ×3 | 1 353 : 0,0181 ; 2 335 : 0,0003 | 1 361 : 0,0181 ; 1 763 : 0,0003 |
+
+| Arrivée (ms, début → fin) | Avant | Après |
+|---|---|---|
+| Space Grotesk | 503 → 1 310 (préchargée) | 503 → 1 310 |
+| JetBrains Mono | 627 → 2 296 (demandée par la CSS) | 503 → 1 725 (préchargée) |
+| Premier rendu (FCP) | ~710 | ~710 |
+| Montage (`data-mode`) | ~4 590 | ~4 590 |
+
+| Poids | Avant | Après |
+|---|---|---|
+| `index.html` | 123 561 o / 20 233 o gzip | 123 689 o / 20 249 o gzip |
+| JS chargé par `/` (`measure-js.mjs`) | 390 709 o / 138 394 o gzip | 390 836 o / 138 410 o gzip |
+| `_nuxt/*.js` publiés | 395 731 o / 140 847 o gzip | 395 858 o / 140 860 o gzip |
+
+Lecture : JetBrains Mono arrive 570 ms plus tôt, mais **son saut reste, de même valeur**
+(0,0002 à 0,0009), seulement avancé ; le saut principal (0,017 à 0,054) est celui de Space Grotesk,
+déjà préchargée, qui arrive à 1,31 s, après le premier rendu (0,71 s) : la bande passante est partagée
+avec la page (123 ko non compressés par `sirv`), la CSS et 390 ko de scripts, et aucun préchargement
+ne la fait arriver avant ce rendu. Seul écart : à 390, un saut de 0,0005 (1,5 s, source SVG) disparaît,
+reproductible mais sans lien établi avec la police. Coût : +128 o par page, +127 o de JS (la liste
+`link` est aussi sérialisée dans l'entrée client par unhead). Le CLS dû aux polices est inchangé : gain
+jugé nul, changement non commité, parcours de vérification non ajouté (il n'aurait couvert que ce
+changement).
+
+### Vérifications
+
+Aucune modification versionnée hors de ce compte rendu : lint, typecheck, `test:coverage` et parcours
+sans objet ; site régénéré sur l'état commité (`generate:fixtures`, un seul préchargement dans
+`index.html`).
+
+### Points ouverts (décision de Julien)
+
+- D51 (4) ne peut pas tenir son objectif par le préchargement : le CLS restant vient du remplacement de
+  la police de repli par Space Grotesk après le premier rendu. Pistes, à décider, aucune appliquée :
+  (a) polices de repli ajustées aux métriques de Space Grotesk et de JetBrains Mono (`@font-face`
+  `local()` avec `size-adjust`, `ascent-override`, `descent-override`, `line-gap-override` ; technique
+  du module `@nuxtjs/fontaine`), qui réduit le saut sans changer le rendu final ; (b)
+  `font-display: optional` : aucun saut, mais première visite possiblement dans la police de repli
+  (fidélité au handoff) ; (c) statu quo : tous les CLS mesurés restent sous 0,1 (« bon »).
+- Faut-il garder le préchargement de JetBrains Mono pour son seul effet visuel (titres des fenêtres
+  dans leur police 570 ms plus tôt sous réseau lent), sans gain de CLS ? Non retenu ici, la consigne
+  liant le commit au gain.
