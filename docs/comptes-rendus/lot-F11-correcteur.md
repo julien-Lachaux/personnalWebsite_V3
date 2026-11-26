@@ -119,3 +119,26 @@ la première exécution (14 échecs `data-mode`), corrigée avant tout commit. R
   de sections) restent à traiter.
 - Contraste mesuré des 404 et pages annexes : vérifié par `expectAxeClean` désormais ; la déclaration et la page travaux sont
   les seules à passer par la page hydratée.
+
+## D51-4 : `control-tokens.spec.ts` ignore la requête `(min-width: 1024px)`
+
+Test faux par omission (autorisation 63986733) : la table `MEDIA` refuse toute requête inconnue, or la règle du bureau de
+D51 (4) ne porte que des polices. Ajout de l'entrée `'(min-width: 1024px)': () => true` (commentaire : seules les piles de
+polices en dépendent). Vrai plutôt que faux : la règle entre dans la cascade, donc une couleur qu'elle poserait serait vue.
+Aucune assertion, aucun seuil, aucune autre entrée modifiés ; `tokens.css` inchangé dans le commit.
+
+1. Code actuel (sans règle du bureau) : `vitest run app/assets/css/` : 5 fichiers, 48 tests verts.
+2. Règle du bureau posée temporairement en fin de `tokens.css` (texte exact demandé) : mêmes 5 fichiers, 48 tests verts.
+   Sans l'entrée `MEDIA`, c'était l'erreur `requête média inconnue : (min-width: 1024px)` (cf. compte rendu du lead).
+   `tokens.css` restauré par `git checkout`.
+3. Témoin, honnêtement :
+   - Une règle `@media (min-width: 1024px) { :root { --bg: #777777; --line-control: #777777; } }` à spécificité 1 ne fait
+     PAS échouer le test (48 verts) : dans chaque état, des règles de palette plus spécifiques ou postérieures l'emportent,
+     et la cascade du test les calcule comme le navigateur. Ce n'est donc pas un trou de l'oracle, la couleur posée serait
+     réellement écrasée.
+   - La même déclaration sous un sélecteur de spécificité 6 (`:root:not([data-x])…` répété) fait échouer 7 tests
+     « --line-control atteint 3:1 sur chaque fond opaque ». L'oracle voit donc une couleur du bureau qui s'imposerait.
+   - Limite : seuls `--bg`/`--line-control` et les fonds listés sont contrôlés, pas les autres couleurs ; la valeur `true`
+     ne vérifie pas le cas de largeur inférieure à 1024 px (par construction, seules les polices changent).
+
+Vérifications : voir le message de fin (vitest css, lint, integrity).
