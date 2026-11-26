@@ -122,8 +122,10 @@ http://{$SITE_DOMAIN:localhost} {
 	# Une route inconnue du front (404 du file_server) sert la vraie page 404 du front, avec son statut.
 	# Une erreur serveur (500, 502, 503, 504) sert la page autonome 50x du front (lot 30) : par réécriture
 	# (jamais de redirection : « Réessayer » recharge l'adresse affichée), avec le statut de l'erreur, la CSP
-	# du front et `no-cache`. Sous /api/*, rien ne change : réponse texte brute de la dernière branche
-	# (réponse HTML ou JSON de l'API en erreur : ticket séparé).
+	# du front et `no-cache`. Sous /api/* (D48, lot 35), une erreur 500, 502, 503 ou 504 produite par Caddy (API
+	# injoignable ou trop lente) répond un `application/problem+json` minimal (RFC 9457) au statut d'origine, jamais
+	# la page HTML ; une erreur de l'API elle-même (déjà problem+json) traverse reverse_proxy sans passer ici. Mêmes
+	# règles dans le Caddy de l'hôte (docker/host-errors.caddy). Autres erreurs de Caddy sous /api/* (413…) : texte brut.
 	handle_errors {
 		header -Server
 		header X-Frame-Options "DENY"
@@ -153,6 +155,15 @@ http://{$SITE_DOMAIN:localhost} {
 					status {err.status_code}
 				}
 			}
+		}
+		@apierr expression path('/api/*') && {err.status_code} in [500, 502, 503, 504]
+		handle @apierr {
+			header Content-Type "application/problem+json"
+			header Cache-Control "no-store"
+			header Retry-After "30"
+			header Content-Security-Policy "default-src 'none';frame-ancestors 'none'"
+			header X-Content-Type-Options "nosniff"
+			respond `{"type":"about:blank","title":"{err.status_text}","status":{err.status_code},"detail":"Le service est momentanément indisponible. Réessayez dans quelques instants."}` {err.status_code}
 		}
 		handle {
 			respond "{err.status_code} {err.status_text}" {err.status_code}
