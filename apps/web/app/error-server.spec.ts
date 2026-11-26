@@ -67,12 +67,12 @@ describe('error.vue : page d’erreur serveur', () => {
     const wrapper = await mountError('/50x.html', 404);
 
     expect(wrapper.findAll('h1').map((heading) => heading.text())).toEqual([
-      'Site indisponible pour l’instant',
+      'Le serveur est en panne pour l’instant',
     ]);
     const main = wrapper.get('main');
     expect(main.attributes('id')).toBe('contenu');
-    expect(main.text()).toContain('Le serveur n’a pas pu répondre à votre demande.');
-    expect(wrapper.get('.annex-page__bar').text()).toBe('>_ erreur-50x.log');
+    expect(main.text()).toContain('Le site ne peut pas s’afficher pour le moment.');
+    expect(wrapper.get('.annex-page__bar').text()).toBe('>_ panne-serveur.log');
     expect(main.findAll('a').map((link) => [link.text(), link.attributes('href')])).toEqual([
       ['Retour à l’accueil', '/'],
       ['Réessayer', ''],
@@ -80,7 +80,7 @@ describe('error.vue : page d’erreur serveur', () => {
     expect(wrapper.find('.error-page__status').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('404');
     expect(wrapper.text()).not.toContain('Détail technique');
-    expect(document.title).toBe('Site indisponible pour l’instant');
+    expect(document.title).toBe('Le serveur est en panne pour l’instant');
     expect(document.documentElement.getAttribute('lang')).toBe('fr');
     expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
       'noindex',
@@ -92,8 +92,8 @@ describe('error.vue : page d’erreur serveur', () => {
   it('en anglais à /en/50x.html', async () => {
     const wrapper = await mountError('/en/50x.html', 404);
 
-    expect(wrapper.get('h1').text()).toBe('Website temporarily unavailable');
-    expect(wrapper.get('main').text()).toContain('The server could not answer your request.');
+    expect(wrapper.get('h1').text()).toBe('The server is temporarily down');
+    expect(wrapper.get('main').text()).toContain('The site can’t be displayed right now.');
     expect(
       wrapper
         .get('main')
@@ -103,7 +103,7 @@ describe('error.vue : page d’erreur serveur', () => {
       ['Back to the home page', '/en'],
       ['Try again', ''],
     ]);
-    expect(document.title).toBe('Website temporarily unavailable');
+    expect(document.title).toBe('The server is temporarily down');
     expect(document.documentElement.getAttribute('lang')).toBe('en');
   });
 
@@ -121,7 +121,7 @@ describe('error.vue : page d’erreur serveur', () => {
   it('ne dépend pas du statut de l’erreur : même page pour un 503', async () => {
     const wrapper = await mountError('/50x.html', 503);
 
-    expect(wrapper.get('h1').text()).toBe('Site indisponible pour l’instant');
+    expect(wrapper.get('h1').text()).toBe('Le serveur est en panne pour l’instant');
     expect(wrapper.find('.error-page__status').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('503');
   });
