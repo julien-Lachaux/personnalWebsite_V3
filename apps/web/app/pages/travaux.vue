@@ -60,8 +60,8 @@ const linkedin = await useLinkedinUrl(locale.value);
           <template #icon>
             <svg
               focusable="false"
-              width="16"
-              height="16"
+              width="22"
+              height="22"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -93,7 +93,12 @@ const linkedin = await useLinkedinUrl(locale.value);
 /* Deux boutons de même largeur ; ils passent l'un sous l'autre si la place manque (texte agrandi),
    comme les boutons de la section profil (SocialLinks). */
 .work-in-progress__action {
+  display: flex;
   flex: 1 1 8rem;
+}
+
+.work-in-progress__action :deep(.base-button) {
+  flex: 1;
 }
 
 /* Mobile et tablette : 56 px comme la maquette (au-dessus des 44 px tactiles). */
@@ -101,15 +106,5 @@ const linkedin = await useLinkedinUrl(locale.value);
   .work-in-progress__action :deep(.base-button) {
     min-height: 3.5rem;
   }
-}
-
-/* La page annex impose la couleur d'accent aux liens ; on rétablit la couleur propre à chaque
-   variante de bouton pour que le texte reste lisible sur son fond. */
-.work-in-progress__actions .base-button--solid {
-  color: var(--on) !important;
-}
-
-.work-in-progress__actions .base-button--linkedin {
-  color: var(--li) !important;
 }
 </style>

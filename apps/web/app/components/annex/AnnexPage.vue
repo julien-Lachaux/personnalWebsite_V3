@@ -135,7 +135,8 @@ const localePath = useLocalePath();
   margin-block: 0.5rem;
 }
 
-.annex-page__body :slotted(a) {
+/* Liens du texte seulement : un bouton (`.base-button`) garde le style de sa variante. */
+.annex-page__body :slotted(a:not(.base-button)) {
   color: var(--accent);
   font-weight: var(--font-weight-medium);
   text-decoration: underline;
