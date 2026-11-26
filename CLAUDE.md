@@ -234,7 +234,11 @@ apps/web/
   empreintes des seuls éléments en ligne du HTML généré, sans `'unsafe-inline'` ni `'unsafe-eval'`.
   Donc rien dans le navigateur n'appelle `eval` ou `new Function` (Zod 4 le sonde à la construction de
   ses schémas : `@siteperso/contracts` n'est évalué qu'au build, source du CV importée à la demande
-  dans `data/fetch-cv.ts`), et aucun `<script>` ni `<style>` n'est injecté à l'exécution (`useHead`
+  dans `data/fetch-cv.ts` ; lot F11 : le build client de `nuxt generate` remplace
+  `data/select-cv-source.ts` par `data/browser-cv-source.ts`, greffon de `nuxt.config.ts`, donc ni
+  Zod, ni lecture de l'API, ni fixtures dans `_nuxt/`, vérifié par `test/client-bundle.e2e.ts` ; hors
+  de `select-cv-source.ts`, le code du navigateur n'importe de `@siteperso/contracts` que des types, et
+  n'importe ni `parse-cv.ts`, ni `api-cv-source.ts`, ni `fixture-cv-source.ts`), et aucun `<script>` ni `<style>` n'est injecté à l'exécution (`useHead`
   avec `innerHTML`, page d'erreur par défaut de Nuxt). Vérifié par `test/csp.e2e.ts` (politique
   recalculée sur les pages générées, document servi par `page.route`, témoin).
 - **Tests** : deux projets Vitest dans `apps/web/vitest.config.ts`, `unit` (`app/domain/`,
