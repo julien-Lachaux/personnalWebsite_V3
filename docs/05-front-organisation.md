@@ -60,8 +60,8 @@ fusion `--no-ff` dans `develop` par la session front.
 | D45 | Tailles de texte d'Expérience (25 nov., lot F12) | Comme le Profil (D41), la section Expérience prend les tailles de la section IA, référence choisie par Julien : texte courant des cartes (`CardIntro`, `ExperienceCard`) en `--font-size-lead` sous 1024 px et `--font-size-body-mobile` au-delà ; petits textes (filtres, technos, tiroir, easter egg) en `--font-size-small` au lieu de `--font-size-meta` ; titre des cartes sur un token de taille au lieu de `1.25rem` écrit en dur. Tests rendus obsolètes : D23, `Justification-test: F12-XPTEXTE`. |
 | D46 | Captures de référence du handoff (25 nov., lot F12) | Les captures du dossier `reference` du handoff v6 restent la copie du handoff, non régénérées. Elles ne correspondent plus au site pour les écarts voulus D41 à D45 (en-tête, Profil non réduit, tuiles repliées, menu du CV, tailles d'Expérience) : ces décisions font foi sur les captures. Aucun test ne les compare aujourd'hui ; une future régression visuelle prendra pour référence le site généré, pas ces captures. |
 | D47 | Déclaration d'accessibilité et CV anglais (25 nov., lot F12) | La phrase de la déclaration sur le CV PDF (« rédigé en français, y compris depuis la version anglaise du site ») dépend des CV présents au build (`runtimeConfig.public.cvFiles`) : elle n'est affichée que tant que le CV anglais manque ; dès que `cv-en.pdf` est déposé, elle dit que le CV existe en français et en anglais. Le reste du constat (PDF non balisé, D33) est inchangé. Tests rendus obsolètes : D23, `Justification-test: F12-DECLA`. |
-| D48 | Mosaïque avant le montage (26 nov., lot F11, F11-02) | Sur le bureau (≥ 1024 px), la page générée dessine déjà la mosaïque de la vue d'ensemble (tuiles avec leur barre de titre, colonnes et hauteurs de `computeLayout`) par CSS et requêtes média, au lieu d'une grille simple de 2 colonnes : le montage ne fait plus que poser les positions calculées, sans saut visible. Sans JavaScript, chaque tuile défile seule et les boutons « agrandir » restent sans effet. |
-| D49 | Mesures du JS en CI (26 nov., lot F11, F11-06) | La CI échoue si un script du site généré (`_nuxt/*.js`) contient les schémas Zod ou les fixtures, et si le JS chargé par la page d'accueil (gzip) dépasse le budget : valeur mesurée à la fin du lot F11 plus 10 %. Les mesures (poids total, JS par page) sont affichées dans le résumé du job. |
+| D49 | Mosaïque avant le montage (26 nov., lot F11, F11-02) | Sur le bureau (≥ 1024 px), la page générée dessine déjà la mosaïque de la vue d'ensemble (tuiles avec leur barre de titre, colonnes et hauteurs de `computeLayout`) par CSS et requêtes média, au lieu d'une grille simple de 2 colonnes : le montage ne fait plus que poser les positions calculées, sans saut visible. Sans JavaScript, chaque tuile défile seule et les boutons « agrandir » restent sans effet. |
+| D50 | Mesures du JS en CI (26 nov., lot F11, F11-06) | La CI échoue si un script du site généré (`_nuxt/*.js`) contient les schémas Zod ou les fixtures, et si le JS chargé par la page d'accueil (gzip) dépasse le budget : valeur mesurée à la fin du lot F11 plus 10 %. Les mesures (poids total, JS par page) sont affichées dans le résumé du job. |
 | D20 | Prénom dans le contenu et les fixtures | Normal : c'est le CV de Julien ; seuls e-mail, téléphone et données de contact restent interdits dans le dépôt. |
 | D18 | Nom accessible des fenêtres | Nom explicite (« Me contacter »…), le nom de fichier (`contact.sh`) reste le titre visible (F3). |
 
@@ -170,11 +170,11 @@ Bloquants back : **F4 attend le lot contrats du brief back-001** ; F9 attend le 
 
 ### F11 Optimisation (décidé le 20 nov., en fin de chantier)
 - F11-01 Poids du JavaScript client : fixtures et Zod ne servent qu'au build et ne doivent pas partir dans le navigateur (473 ko de JS au total relevés en F3a).
-- F11-02 Saut à l'hydratation : mosaïque dessinée avant le montage (D48).
+- F11-02 Saut à l'hydratation : mosaïque dessinée avant le montage (D49).
 - F11-03 Assistants communs des parcours Playwright (`test/support/`, RC-7 de la revue F10) : module du lead, migration des parcours par le correcteur.
 - F11-04 Nom SEO depuis le contrat (RC-5 de la revue F10) : nom affiché dans `ProfileView`, description SEO paramétrée.
 - F11-05 `csp.e2e.ts` importe `buildPolicy` de `scripts/deploy/csp-hashes.mjs` (D40), après BF-17.
-- F11-06 Mesures du JS en CI (D49).
+- F11-06 Mesures du JS en CI (D50).
 
 ### F10 Revues et recette (revue-code, revue-securite, revue-a11y, triage, correcteur, chef-de-projet)
 - Revues indépendantes, triage, corrections, recette finale depuis un clone neuf.
