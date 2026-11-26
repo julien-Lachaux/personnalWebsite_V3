@@ -105,6 +105,20 @@
   --slide-distance: 64px;
 }
 
+/* Polices de repli ajustées au bureau seulement (docs/05, D51 (4), lot F11) : à partir de 1024 px
+   (seuil de la mosaïque, `BREAKPOINTS.portable`), les faces de repli de fonts.css prennent place
+   entre la police du handoff et sa famille générique ; avant l'arrivée des woff2, le texte occupe
+   déjà leur place (CLS du bureau divisé par 5 à 45). Sous 1024 px, la pile du handoff reste : les
+   lignes presque pleines du Profil y basculeraient à ±1 % de largeur (CLS mobile en hausse). Rendu
+   final inchangé ; vérifié par fonts-desktop-stack.spec.ts. */
+@media (min-width: 1024px) {
+  :root {
+    --font-sans:
+      'Space Grotesk', 'Space Grotesk Fallback', 'Space Grotesk Fallback Roboto', sans-serif;
+    --font-mono: 'JetBrains Mono', 'JetBrains Mono Fallback', monospace;
+  }
+}
+
 /* Taille du texte : 115 % et 130 % de la taille de base (100 % par défaut). */
 :root[data-text-size='115'] {
   --text-scale: 1.15;
