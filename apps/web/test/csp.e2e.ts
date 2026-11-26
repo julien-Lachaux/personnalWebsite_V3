@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
+import { buildPolicy, collectHashes } from '../../../scripts/deploy/csp-hashes.mjs';
 import { analyzeWcag22AA, gotoMounted } from './support/e2e.js';
 
 // CSP stricte (lot F9a, BF-14) : le site généré s'affiche sous la politique que le proxy de
@@ -11,82 +11,17 @@ import { analyzeWcag22AA, gotoMounted } from './support/e2e.js';
 // ni `'unsafe-inline'` ni `'unsafe-eval'`), sans aucune violation ni erreur de console, au chargement
 // comme après une navigation dans l'application.
 //
-// La politique est recalculée ici à partir des pages générées, comme le fait le déploiement
-// (`scripts/deploy/csp-hashes.mjs`, côté back) ; le front n'en dépend pas. Le document est servi par
+// La politique est celle du déploiement : elle vient de `scripts/deploy/csp-hashes.mjs`, importé
+// ici (RC-8, D40), sans copie ; les empreintes sont relevées sur les pages générées. Le document est servi par
 // `page.route` depuis `.output/public` avec l'en-tête, selon les règles du proxy (`{path}`, puis
 // `{path}/index.html`, sinon `404.html` en 404) ; les autres ressources viennent du serveur statique
 // des parcours. Un témoin vérifie que la politique est bien appliquée et les violations relevées.
 
 const publicDir = resolve(import.meta.dirname, '../.output/public');
 
-// Scripts de données (non exécutés) : la CSP ne les contrôle pas.
-const DATA_SCRIPT_TYPES = new Set(['application/json', 'application/ld+json']);
-
-interface InlineHashes {
-  readonly scripts: readonly string[];
-  readonly styles: readonly string[];
-}
-
-/** Empreinte CSP (`'sha256-…'`) du contenu exact d'un élément en ligne. */
-function cspHash(content: string): string {
-  return `'sha256-${createHash('sha256').update(content, 'utf8').digest('base64')}'`;
-}
-
-/** Empreintes des scripts exécutables et des styles en ligne d'une page HTML. */
-function inlineHashes(html: string): InlineHashes {
-  const scripts: string[] = [];
-  const styles: string[] = [];
-  for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
-    const attributes = match[1] ?? '';
-    if (/\bsrc\s*=/i.test(attributes)) continue;
-    const type = /\btype\s*=\s*["']?([^"'\s>]+)/i.exec(attributes)?.[1]?.toLowerCase();
-    if (type !== undefined && DATA_SCRIPT_TYPES.has(type)) continue;
-    scripts.push(cspHash(match[2] ?? ''));
-  }
-  for (const match of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
-    styles.push(cspHash(match[1] ?? ''));
-  }
-  return { scripts, styles };
-}
-
-function htmlFiles(directory: string): string[] {
-  return readdirSync(directory)
-    .sort()
-    .flatMap((name) => {
-      const path = join(directory, name);
-      if (statSync(path).isDirectory()) return htmlFiles(path);
-      return name.endsWith('.html') ? [path] : [];
-    });
-}
-
-/** Empreintes (sans doublon, triées) de toutes les pages générées. */
-function collectHashes(): InlineHashes {
-  const pages = htmlFiles(publicDir);
-  if (pages.length === 0) throw new Error(`aucune page HTML dans ${publicDir}`);
-  const scripts = new Set<string>();
-  const styles = new Set<string>();
-  for (const page of pages) {
-    const found = inlineHashes(readFileSync(page, 'utf8'));
-    found.scripts.forEach((hash) => scripts.add(hash));
-    found.styles.forEach((hash) => styles.add(hash));
-  }
-  return { scripts: [...scripts].sort(), styles: [...styles].sort() };
-}
-
-/** Politique complète, directive par directive celle du déploiement. */
-function buildPolicy({ scripts, styles }: InlineHashes): string {
-  return [
-    "default-src 'self'",
-    `script-src 'self' ${scripts.join(' ')}`.trim(),
-    `style-src 'self' ${styles.join(' ')}`.trim(),
-    "img-src 'self' data:",
-    "font-src 'self'",
-    "connect-src 'self'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "object-src 'none'",
-  ].join('; ');
+/** Politique servie par le déploiement, empreintes relevées sur les pages générées. */
+function deployedPolicy(): string {
+  return buildPolicy(collectHashes(publicDir));
 }
 
 /** Fichier servi pour un chemin, comme le proxy : `{path}`, `{path}/index.html`, sinon la 404. */
@@ -161,7 +96,7 @@ const pages = [
 test.describe('CSP stricte du déploiement', () => {
   for (const { path, status, lang, heading } of pages) {
     test(`${path} : aucune violation, script de thème exécuté, page affichée`, async ({ page }) => {
-      const observed = await watch(page, buildPolicy(collectHashes()));
+      const observed = await watch(page, deployedPolicy());
 
       const response = await page.goto(path, { waitUntil: 'networkidle' });
 
@@ -183,7 +118,7 @@ test.describe('CSP stricte du déploiement', () => {
     { from: '/en', to: '/', lang: 'fr' },
   ] as const) {
     test(`navigation ${from} → ${to} dans l'application : aucune violation`, async ({ page }) => {
-      const observed = await watch(page, buildPolicy(collectHashes()));
+      const observed = await watch(page, deployedPolicy());
       await gotoMounted(page, from, { waitUntil: 'networkidle' });
 
       await page.locator(`.language-switch a[hreflang="${lang}"]`).click();

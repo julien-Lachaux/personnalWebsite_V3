@@ -142,3 +142,22 @@ Aucune assertion, aucun seuil, aucune autre entrée modifiés ; `tokens.css` inc
      ne vérifie pas le cas de largeur inférieure à 1024 px (par construction, seules les polices changent).
 
 Vérifications : voir le message de fin (vitest css, lint, integrity).
+
+## F11-05 (RC-8)
+
+Autorisation `a1c5d658` (D40) : `csp.e2e.ts`, `server-error.e2e.ts`, `work-in-progress.e2e.ts` importent
+`buildPolicy` et `collectHashes` de `scripts/deploy/csp-hashes.mjs` au lieu d'en copier la politique.
+
+| Finding | Commit | Ce qui change | Preuve |
+| ------- | ------ | ------------- | ------ |
+| RC-8 | voir `git log` (sujet `test(web): RC-8 …`) | Les copies locales (`cspHash`, `htmlFiles`, `inlineHashes`, `strictPolicy`) disparaissent ; la politique est celle du déploiement, donc `img-src 'self'` (les copies gardaient `img-src 'self' data:`). Commentaire de tête de `csp.e2e.ts` corrigé. | 63 + 161 + 98 = 322 tests, avant et après, tous passés (`--workers=2`, 7 projets) ; typecheck, lint, `apps/api/test/csp-hashes.e2e-spec.ts` (6) et `pnpm integrity develop` verts. |
+
+- Témoin : `font-src 'self'` remplacé temporairement par `'none'` dans `csp-hashes.mjs` : les parcours CSP des trois
+  fichiers échouent (projet desktop-1280 : tous les tests CSP en échec) ; script restauré par `git checkout`.
+- Écarts relevés entre copies et script, hors `img-src` : aucun de substance. Les copies de `server-error` et
+  `work-in-progress` écartaient les scripts dont le type commence par `application/json` ou `application/ld+json` ;
+  le script écarte ces deux types exacts (insensible à la casse) ; pas de différence sur les pages générées.
+- Typage : aucun `.d.mts` nécessaire, `vue-tsc -b` accepte l'import du `.mjs`.
+- Le site ne charge aucune image `data:` : les 322 tests passent sous `img-src 'self'`.
+- Point ouvert : `pnpm db:down` (fin de liste) a aussi retiré le réseau du projet, donc probablement arrêté le conteneur
+  playwright du worktree ; à relancer par `pnpm e2e:browsers:up` si besoin.

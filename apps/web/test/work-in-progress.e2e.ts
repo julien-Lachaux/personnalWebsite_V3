@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
+import { buildPolicy, collectHashes } from '../../../scripts/deploy/csp-hashes.mjs';
 import { expectAxeClean, waitForHydration } from './support/e2e.js';
 
 // Page « travaux en cours » (lot 31), à chaque taille d'écran des maquettes, en clair et en sombre,
@@ -12,8 +12,8 @@ import { expectAxeClean, waitForHydration } from './support/e2e.js';
 //   au build (lien externe, nouvel onglet), en-tête des pages annexes (langue, thème), axe ;
 // - hors index : `noindex`, ni canonique ni hreflang, absente de `sitemap.xml` ;
 // - servie telle quelle quel que soit le statut HTTP (le proxy du lot 32 peut la servir en 503) ;
-// - sous la CSP stricte du déploiement (empreintes recalculées sur les pages générées, comme
-//   test/csp.e2e.ts), sans violation ni erreur de console.
+// - sous la CSP stricte du déploiement (celle de scripts/deploy/csp-hashes.mjs, empreintes relevées sur
+//   les pages générées), sans violation ni erreur de console.
 
 const PUBLIC_DIR = resolve(import.meta.dirname, '../.output/public');
 /** Lien social `linkedin` du CV de test, lu par `generate:fixtures` (fr et en). */
@@ -196,51 +196,11 @@ test('témoin : la charge utile de l’accueil contient le CV entier sous `cv-fr
   for (const field of CV_FIELDS) expect(source).toContain(`"${field}"`);
 });
 
-// CSP stricte : même politique que le déploiement, recalculée sur les pages générées (test/csp.e2e.ts).
+// CSP stricte : la politique du déploiement, de scripts/deploy/csp-hashes.mjs (RC-8, D40), avec les
+// empreintes relevées sur les pages générées.
 
-/** Empreinte CSP (`'sha256-…'`) du contenu exact d'un élément en ligne. */
-function cspHash(content: string): string {
-  return `'sha256-${createHash('sha256').update(content, 'utf8').digest('base64')}'`;
-}
-
-function htmlFiles(directory: string): string[] {
-  return readdirSync(directory)
-    .sort()
-    .flatMap((name) => {
-      const path = join(directory, name);
-      if (statSync(path).isDirectory()) return htmlFiles(path);
-      return name.endsWith('.html') ? [path] : [];
-    });
-}
-
-/** Politique du déploiement, avec les empreintes des scripts exécutables et styles en ligne. */
 function strictPolicy(): string {
-  const scripts = new Set<string>();
-  const styles = new Set<string>();
-  for (const file of htmlFiles(PUBLIC_DIR)) {
-    const html = readFileSync(file, 'utf8');
-    for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
-      const attributes = match[1] ?? '';
-      if (/\bsrc\s*=/i.test(attributes)) continue;
-      if (/\btype\s*=\s*["']?application\/(ld\+)?json/i.test(attributes)) continue;
-      scripts.add(cspHash(match[2] ?? ''));
-    }
-    for (const match of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
-      styles.add(cspHash(match[1] ?? ''));
-    }
-  }
-  return [
-    "default-src 'self'",
-    `script-src 'self' ${[...scripts].sort().join(' ')}`.trim(),
-    `style-src 'self' ${[...styles].sort().join(' ')}`.trim(),
-    "img-src 'self' data:",
-    "font-src 'self'",
-    "connect-src 'self'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "object-src 'none'",
-  ].join('; ');
+  return buildPolicy(collectHashes(PUBLIC_DIR));
 }
 
 test.describe('page « travaux en cours » sous la CSP stricte', () => {
