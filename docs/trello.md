@@ -67,8 +67,10 @@ supprimée : elle reste retrouvable.
    compte rendu. Une question pour Julien passe par lui avant d'implémenter.
 3. **PR** (session principale) : push, `gh pr create --base develop --head lot/N-nom`, suivi de la CI
    et de la revue. Le numéro de PR est noté sur la carte.
-4. **Fusion** (session principale, CI verte, `VERDICT: OK`, accord de Julien) : `gh pr merge --merge`,
-   puis la carte passe dans « Fusionné dans develop » avec le commit de merge.
+4. **Fusion** (session principale) : aux trois conditions de `CLAUDE.md` (« Flux git et
+   interdictions ») — CI verte, revue `revue-pr` sans point bloquant (`VERDICT: OK`), recette
+   acceptée — plus l'accord de Julien. Puis `gh pr merge --merge`, et la carte passe dans « Fusionné
+   dans develop » avec le commit de merge.
 5. **Release** : à la fusion de la release dans `main`, les cartes passent dans « Released ».
 
 ## Relecture du tableau
