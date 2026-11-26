@@ -1,6 +1,6 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-import { gotoMounted, tabsMode } from './support/e2e.js';
+import { gotoMounted, tabsMode, waitForSettledAnimations } from './support/e2e.js';
 
 // Parcours de la page intégrée (lot F5c : les quatre sections dans la coquille), à chaque taille d'écran
 // des maquettes, en français et en anglais, sur les fixtures :
@@ -49,15 +49,6 @@ async function tab(page: Page, name: string): Promise<void> {
     .getByRole('navigation', { name: 'Sections' })
     .getByRole('button', { name, exact: true })
     .click();
-}
-
-/** Attend la fin des animations d'un élément (glissement de l'onglet). */
-async function settled(locator: Locator): Promise<void> {
-  await locator.evaluate((element) =>
-    Promise.all(element.getAnimations().map((animation) => animation.finished)).then(
-      () => undefined,
-    ),
-  );
 }
 
 for (const code of Object.keys(LOCALES) as LocaleCode[]) {
@@ -151,7 +142,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       const section = page.locator('#section-experience');
       const list = page.getByRole('region', { name: locale.list });
       await expect(list).toBeVisible();
-      await settled(section);
+      await waitForSettledAnimations(page, section);
       expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
         true,
       );

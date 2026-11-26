@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { computeLayout } from '../app/domain/layout.js';
 import type { Rect, TileId } from '../app/domain/layout-types.js';
-import { expectAxeClean, gotoMounted } from './support/e2e.js';
+import { expectAxeClean, gotoMounted, waitForSettledAnimations } from './support/e2e.js';
 
 // Saut à l'hydratation (D49, ticket F11-02) : la page générée dessine déjà la mosaïque de la vue
 // d'ensemble, le montage ne fait que poser les positions calculées. À chaque taille d'écran des
@@ -59,11 +59,7 @@ async function openMounted(page: Page, path: string): Promise<void> {
   await expect(page.locator('.tile-grid.tile-grid--placed:not(.tile-grid--instant)')).toHaveCount(
     1,
   );
-  await page
-    .locator('.tile-grid')
-    .evaluate((element) =>
-      Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)),
-    );
+  await waitForSettledAnimations(page, page.locator('.tile-grid'));
 }
 
 interface Snapshot {

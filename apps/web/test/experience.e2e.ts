@@ -7,6 +7,7 @@ import {
   PALETTES,
   storePreferences,
   tabsMode,
+  waitForSettledAnimations,
 } from './support/e2e.js';
 
 // Parcours de la section Expérience (lot F5b, filtre par techno, cartes, easter egg) sur la vraie page,
@@ -138,11 +139,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       // Zone fixe : le filtre n'est pas dans la liste et ne bouge pas quand elle défile. La mesure de
       // départ attend la fin du glissement de l'onglet (340 ms sous 1024 px, coquille F3a).
       await expect(list.getByRole('search')).toHaveCount(0);
-      await section.evaluate((element) =>
-        Promise.all(element.getAnimations().map((animation) => animation.finished)).then(
-          () => undefined,
-        ),
-      );
+      await waitForSettledAnimations(page, section);
       const before = await search.boundingBox();
       await list.evaluate((element) => {
         element.scrollTop = 400;
