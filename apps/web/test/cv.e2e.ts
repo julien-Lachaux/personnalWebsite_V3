@@ -1,8 +1,9 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+
+import { analyzeWcag22AA, gotoMounted } from './support/e2e.js';
 
 // Menu « CV PDF » (D44, qui remplace le bouton et son repli de D22) : dans chaque langue et à chaque
 // taille d'écran, le bouton ouvre la liste des deux versions. Une version dont le fichier est dans
@@ -30,8 +31,7 @@ const LOCALES = [
 
 for (const { code, path, labels, soon } of LOCALES) {
   test(`${code} (${path}) : le menu « CV PDF » propose les deux versions`, async ({ page }) => {
-    await page.goto(path);
-    await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+    await gotoMounted(page, path);
 
     const trigger = page.getByRole('button', { name: 'CV PDF', exact: true });
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
@@ -66,15 +66,12 @@ for (const { code, path, labels, soon } of LOCALES) {
   });
 
   test(`${code} (${path}) : axe WCAG 2.2 AA, menu ouvert`, async ({ page }) => {
-    await page.goto(path);
-    await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+    await gotoMounted(page, path);
     await page.getByRole('button', { name: 'CV PDF', exact: true }).click();
     await expect(page.locator('.cv-menu__list:visible')).toHaveCount(1);
     await page.waitForTimeout(400);
 
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
-      .analyze();
+    const results = await analyzeWcag22AA(page);
 
     expect(results.violations).toEqual([]);
   });
@@ -82,8 +79,7 @@ for (const { code, path, labels, soon } of LOCALES) {
   test(`${code} (${path}) : un clic sur une zone neutre de la page referme le menu`, async ({
     page,
   }) => {
-    await page.goto(path);
-    await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+    await gotoMounted(page, path);
 
     const trigger = page.getByRole('button', { name: 'CV PDF', exact: true });
     await trigger.click();
@@ -97,8 +93,7 @@ for (const { code, path, labels, soon } of LOCALES) {
   });
 
   test(`${code} (${path}) : Échap referme le menu et rend le focus au bouton`, async ({ page }) => {
-    await page.goto(path);
-    await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+    await gotoMounted(page, path);
 
     const trigger = page.getByRole('button', { name: 'CV PDF', exact: true });
     await trigger.focus();

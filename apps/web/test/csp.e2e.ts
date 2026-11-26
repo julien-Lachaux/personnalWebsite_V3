@@ -2,8 +2,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+
+import { analyzeWcag22AA, gotoMounted } from './support/e2e.js';
 
 // CSP stricte (lot F9a, BF-14) : le site généré s'affiche sous la politique que le proxy de
 // production pose (aucun domaine tiers, scripts et styles en ligne autorisés par leur seule empreinte,
@@ -17,9 +18,6 @@ import { expect, test, type Page } from '@playwright/test';
 // des parcours. Un témoin vérifie que la politique est bien appliquée et les violations relevées.
 
 const publicDir = resolve(import.meta.dirname, '../.output/public');
-
-/** Règles axe des niveaux A et AA de WCAG 2.0, 2.1 et 2.2. */
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 // Scripts de données (non exécutés) : la CSP ne les contrôle pas.
 const DATA_SCRIPT_TYPES = new Set(['application/json', 'application/ld+json']);
@@ -173,7 +171,7 @@ test.describe('CSP stricte du déploiement', () => {
       await expect(page.locator('main#contenu')).toHaveCount(1);
       // Le script de thème (D5) a tourné sous la CSP : il pose toujours `data-theme`.
       await expect(page.locator('html')).toHaveAttribute('data-theme', /^(clair|sombre)$/);
-      const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+      const results = await analyzeWcag22AA(page);
       expect(results.violations).toEqual([]);
       expect(await observed.violations()).toEqual([]);
       expect(observed.errors).toEqual([]);
@@ -186,8 +184,7 @@ test.describe('CSP stricte du déploiement', () => {
   ] as const) {
     test(`navigation ${from} → ${to} dans l'application : aucune violation`, async ({ page }) => {
       const observed = await watch(page, buildPolicy(collectHashes()));
-      await page.goto(from, { waitUntil: 'networkidle' });
-      await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+      await gotoMounted(page, from, { waitUntil: 'networkidle' });
 
       await page.locator(`.language-switch a[hreflang="${lang}"]`).click();
 

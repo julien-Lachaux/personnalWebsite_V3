@@ -1,5 +1,6 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+
+import { expectAxeClean, gotoMounted } from './support/e2e.js';
 
 // Design system global (lot F1a : F1-01, F1-02, F1-06) dans un vrai navigateur, sur le site généré :
 // thèmes et repli sur le schéma du système, contraste renforcé, taille du texte, police lisible
@@ -7,9 +8,6 @@ import { expect, test, type Page } from '@playwright/test';
 // d'évitement, masquage visuel. Les attributs de la racine sont l'interface (tête de tokens.css).
 // Les éléments de test sont ajoutés dans <body>, hors de la racine de Nuxt (#__nuxt) : l'hydratation
 // de Vue retirerait un nœud inconnu ajouté dans <main>.
-
-/** Règles axe des niveaux A et AA de WCAG 2.0, 2.1 et 2.2. */
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 /** Couleurs du handoff v6 (design-tokens.json) attendues après le rendu. */
 const PALETTES = {
@@ -24,16 +22,6 @@ const PALETTES = {
 } as const;
 
 type Attributes = Record<string, string | null>;
-
-/**
- * Charge la page et attend son hydratation (la coquille a choisi son mode : `data-mode`). Avant
- * cela, le montage de l'application pose les attributs de <html> selon les préférences (D5) et
- * écraserait ceux qu'un test poserait juste après `goto`.
- */
-async function open(page: Page, path: string): Promise<void> {
-  await page.goto(path);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
-}
 
 /** Pose (ou retire, valeur null) des attributs sur <html>, comme le feront les préférences. */
 async function setRoot(page: Page, attributes: Attributes): Promise<void> {
@@ -79,7 +67,10 @@ test.describe('thèmes', () => {
       test('sans réglage enregistré, la page suit le schéma du système, avec ou sans data-theme', async ({
         page,
       }) => {
-        await open(page, '/');
+        // `gotoMounted` attend l'hydratation (la coquille a choisi son mode : `data-mode`). Avant
+        // cela, le montage de l'application pose les attributs de <html> selon les préférences (D5)
+        // et écraserait ceux qu'un test poserait juste après `goto`.
+        await gotoMounted(page, '/');
         const palette = PALETTES[colorScheme === 'dark' ? 'sombre' : 'clair'];
 
         // D5 : l'application pose toujours data-theme, d'après le schéma du système.
@@ -100,7 +91,7 @@ test.describe('thèmes', () => {
       test('data-theme l’emporte sur le système, data-contrast renforce le thème posé', async ({
         page,
       }) => {
-        await open(page, '/');
+        await gotoMounted(page, '/');
 
         for (const [theme, contrast, expected] of [
           ['sombre', null, 'sombre'],
@@ -128,22 +119,12 @@ test.describe('thèmes', () => {
       test(`axe WCAG 2.2 AA : ${path}, ${theme}${contrast === null ? '' : ', contraste renforcé'}`, async ({
         page,
       }) => {
-        await open(page, path);
+        await gotoMounted(page, path);
         await setRoot(page, { 'data-theme': theme, 'data-contrast': contrast });
 
-        // Le changement de thème déclenche des transitions de couleur : mesurer une fois posées (F5D-2).
-        await page.waitForFunction(() =>
-          document
-            .getAnimations()
-            .every(
-              (animation) =>
-                animation.playState !== 'running' ||
-                animation.effect?.getComputedTiming().endTime === Infinity,
-            ),
-        );
-        const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
-        expect(results.violations).toEqual([]);
-        expect(results.passes.map((rule) => rule.id)).toContain('color-contrast');
+        // Le changement de thème déclenche des transitions de couleur : `expectAxeClean` mesure une
+        // fois les animations finies terminées (F5D-2).
+        await expectAxeClean(page);
       });
     }
   }
@@ -155,7 +136,7 @@ test.describe('focus, lien d’évitement, masquage visuel', () => {
       page,
     }) => {
       await page.emulateMedia({ colorScheme });
-      await open(page, '/');
+      await gotoMounted(page, '/');
       await page.keyboard.press('Tab');
 
       const focused = page.locator(':focus');
@@ -174,7 +155,7 @@ test.describe('focus, lien d’évitement, masquage visuel', () => {
   }
 
   test('le lien d’évitement est hors de l’écran, puis visible au focus', async ({ page }) => {
-    await open(page, '/');
+    await gotoMounted(page, '/');
     // Le lien de l'application (app.vue), pas un lien ajouté par le test.
     const link = page.locator('.skip-link');
     await expect(link).toHaveCount(1);
@@ -201,7 +182,7 @@ test.describe('focus, lien d’évitement, masquage visuel', () => {
   test('.visually-hidden retire un titre de l’écran sans le retirer de l’arbre d’accessibilité', async ({
     page,
   }) => {
-    await open(page, '/');
+    await gotoMounted(page, '/');
     await page.evaluate(() => {
       const heading = document.createElement('h2');
       heading.className = 'visually-hidden';
@@ -223,7 +204,7 @@ test.describe('réglages de lecture', () => {
   test('taille du texte : la racine passe à 115 % puis 130 %, les tailles en rem suivent', async ({
     page,
   }) => {
-    await open(page, '/');
+    await gotoMounted(page, '/');
     const sizes = async (): Promise<number[]> =>
       page.evaluate(() =>
         [document.documentElement, document.querySelector('h1')].map((element) =>
@@ -252,7 +233,7 @@ test.describe('réglages de lecture', () => {
   test('espacement du texte (WCAG 1.4.12) : interligne 1,5, lettres 0,12 em, mots 0,16 em', async ({
     page,
   }) => {
-    await open(page, '/');
+    await gotoMounted(page, '/');
     const spacing = async (): Promise<{ size: number; values: string[] }> =>
       page
         .locator('main .profile__intro')
@@ -284,7 +265,7 @@ test.describe('réglages de lecture', () => {
   });
 
   test('souligner les liens : même un lien sans soulignement le reçoit', async ({ page }) => {
-    await open(page, '/');
+    await gotoMounted(page, '/');
     await page.evaluate(() => {
       // Lien ordinaire : le seul `a[hreflang]` de la vraie page est le sélecteur de langue, qui a
       // la forme d'un bouton (sans soulignement, D19).
@@ -332,7 +313,7 @@ test.describe('polices auto-hébergées', () => {
         family,
       );
 
-    await open(page, '/');
+    await gotoMounted(page, '/');
     await page.evaluate(async () => document.fonts.ready);
 
     expect(fonts('space-grotesk')).toEqual([
@@ -390,7 +371,7 @@ test.describe('mouvement', () => {
     test.use({ reducedMotion: 'no-preference' });
 
     test('durées du handoff, réduites par data-motion="reduit"', async ({ page }) => {
-      await open(page, '/');
+      await gotoMounted(page, '/');
       expect(milliseconds(await rootVariable(page, '--dur-tile'))).toBeCloseTo(550, 5);
       expect(milliseconds(await rootVariable(page, '--dur-accordion'))).toBeCloseTo(320, 5);
       expect(await transition(page)).toBe(2000);
@@ -405,7 +386,7 @@ test.describe('mouvement', () => {
     test.use({ reducedMotion: 'reduce' });
 
     test('durées réduites par défaut, rétablies par data-motion="normal"', async ({ page }) => {
-      await open(page, '/');
+      await gotoMounted(page, '/');
       expect(milliseconds(await rootVariable(page, '--dur-tile'))).toBeCloseTo(0.01, 5);
       expect(milliseconds(await rootVariable(page, '--dur-press'))).toBeCloseTo(0.01, 5);
       expect(await transition(page)).toBeCloseTo(0.01, 5);
