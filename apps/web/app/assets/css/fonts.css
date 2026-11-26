@@ -71,6 +71,54 @@
     U+A720-A7FF;
 }
 
+/*
+ * Polices de repli ajustées (D51 (4), lot F11), destinées à la deuxième place des piles
+ * `--font-sans` et `--font-mono` (tokens.css) : avant l'arrivée de Space Grotesk ou de JetBrains
+ * Mono, le texte s'affiche dans une police installée (`local()` : aucune requête, rien pour la CSP)
+ * ramenée à leurs dimensions, pour que la bascule ne déplace presque rien. Une fois les woff2
+ * chargés, ces faces ne servent plus : le rendu final est inchangé. Tant que tokens.css ne les cite
+ * pas (pile en attente de décision, docs/comptes-rendus/lot-F11-lead.md), aucun texte ne les demande.
+ *
+ * Valeurs calculées, jamais réglées à l'œil : `createFontStack` de capsize (technique de
+ * `@nuxtjs/fontaine`) sur les métriques des woff2 de `public/fonts/` et celles de la police locale ;
+ * `fonts-fallback.spec.ts` les recalcule et échoue au moindre écart (un woff2 changé se reporte ici).
+ * Une face regroupe des polices aux métriques identiques : Arial, Helvetica, Liberation Sans et Arimo
+ * (Windows, macOS et iOS, Linux, ChromeOS) ; Roboto à part (Android) ; Courier New, Liberation Mono
+ * et Cousine. Une face par famille, sans graisse ni style, comme capsize et fontaine : le gras et
+ * l'italique sont simulés sur ces dimensions (Space Grotesk et JetBrains Mono gardent la même chasse
+ * d'une graisse à l'autre, vérifié par le test).
+ */
+@font-face {
+  font-family: 'Space Grotesk Fallback';
+  src:
+    local('Arial'), local('ArialMT'), local('Helvetica'), local('Liberation Sans'),
+    local('LiberationSans'), local('Arimo Regular'), local('Arimo-Regular');
+  ascent-override: 89.891%;
+  descent-override: 26.675%;
+  line-gap-override: 0%;
+  size-adjust: 109.4659%;
+}
+
+@font-face {
+  font-family: 'Space Grotesk Fallback Roboto';
+  src: local('Roboto Regular'), local('Roboto-Regular');
+  ascent-override: 89.6941%;
+  descent-override: 26.6165%;
+  line-gap-override: 0%;
+  size-adjust: 109.7063%;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono Fallback';
+  src:
+    local('Courier New'), local('CourierNewPSMT'), local('Liberation Mono'),
+    local('LiberationMono'), local('Cousine Regular'), local('Cousine-Regular');
+  ascent-override: 102.0166%;
+  descent-override: 30.0049%;
+  line-gap-override: 0%;
+  size-adjust: 99.9837%;
+}
+
 /* Atkinson Hyperlegible (Braille Institute), statique : 400 et 700, romain et italique. */
 @font-face {
   font-family: 'Atkinson Hyperlegible';
