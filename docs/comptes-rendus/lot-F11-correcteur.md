@@ -1,79 +1,121 @@
 # Lot F11 : corrections (correcteur)
 
-Date : 26 nov. 2026. Branche `lot/F11-optimisation`.
+Date : 26 nov. 2026. Branche `lot/F11-optimisation`. Autorisations (recréées par l'orchestrateur dans l'état
+du worktree après un premier arrêt, voir « Incident ») : `8330042e` (RC-5), `1f9bdbed` (RC-7).
 
 ## Résultat
 
 | Finding | Commit | Ce qui change | Preuve |
 |---|---|---|---|
-| RC-7 (F11-03) | aucun | rien | non fait : voir ci-dessous |
-| RC-5 (suite de F11-04) | aucun | rien | non fait : voir ci-dessous |
+| RC-5 | `21e871c` | `useSiteSeo` ne pose plus de description (ni `og:description`) : chaque page indexée a la sienne par `usePageSeo`. `seo.description` (nom en dur) supprimée, `seo.homeDescription` renommée `seo.description` (`HomePage.vue`). `useSeo.spec.ts` : les deux tests de `useSiteSeo` attendent l'absence de description. Texte de production identique. | voir RC-5 ci-dessous |
+| RC-7 (=), 6 parcours | `90759f0` | ai-placeholder, boot, chip-counter-contrast, chip-pressed-mark, client-bundle, controls | 413 tests avant et après |
+| RC-7 (=), 4 parcours | `7e96c25` | csp, cv, defects-f8, design-system | 301 avant et après |
+| RC-7 (=), 17 parcours | `18c9b04` | experience, hydration-shift, journeys, language-switch-d43, matrix, mosaic, overflow, pages, sections, server-error, shell, short-height, smoke, title-overflow, top-bar-height, work-in-progress | 1 715 avant et après |
+| RC-7 D51 (2) | `acfd0ae` | pages, work-in-progress, hydration-shift : `expectAxeClean` | 238 passés, aucun défaut révélé |
+| RC-7 (≈) | `35fdb37` | mosaic, sections, experience, hydration-shift : `waitForSettledAnimations(page, portée)`, axe de mosaic par `expectAxeClean` | 784 avant et après |
 
-Aucun fichier de production ni de test n'a été modifié.
+Le dernier commit « docs » (ce fichier) ne touche aucun test.
 
-## Non fait et pourquoi
+## RC-5
 
-Les deux entrées demandent de modifier un test existant (26 parcours `apps/web/test/*.e2e.ts` pour
-RC-7, `apps/web/app/composables/seo/useSeo.spec.ts` pour RC-5). Le garde-fou refuse chacune de ces
-écritures, malgré les autorisations `7250baa9` (RC-7) et `21b2ac9a` (RC-5) annoncées.
-
-Démonstration :
+Test d'abord : `pnpm exec vitest run app/composables/seo/useSeo.spec.ts` avant la correction de production :
 
 ```
-Edit apps/web/app/composables/seo/useSeo.spec.ts
-Garde-fous : refusé. modification d’un test existant : apps/web/app/composables/seo/useSeo.spec.ts.
-Aucune autorisation « tests » de l'orchestrateur pour l'agent correcteur.
-
-Edit apps/web/test/client-bundle.e2e.ts
-Garde-fous : refusé. modification d’un test existant : apps/web/test/client-bundle.e2e.ts.
-Aucune autorisation « tests » de l'orchestrateur pour l'agent correcteur.
+FAIL useSiteSeo > pose un Open Graph minimal … sans description ni nom
+FAIL useSiteSeo > en anglais : pas non plus de description par défaut
+  Received: "Website and CV of Julien Lachaux, full-stack developer: …"
+  Tests  2 failed | 1 passed (3)
 ```
 
-Cause probable (lecture seule, sans rien modifier) : les deux autorisations sont bien dans
-`/home/jlachaux/Projets/personnalWebsite_V3/.claude/hooks/state/authorizations.json` (id `7250baa9`,
-agent `correcteur`, portée `tests`, ticket RC-7, les chemins des parcours ; id `21b2ac9a`, RC-5,
-`useSeo.spec.ts` ; créées le 26 nov. 2026 à 16:36 UTC, valables 24 h, `bound_to: null`, non
-révoquées). Mais la racine de l'état des hooks est `CLAUDE_PROJECT_DIR`
-(`.claude/hooks/lib/state.mjs`, `stateRoot`), qui vaut ici le worktree
-`/home/jlachaux/Projets/personnalWebsite_V3-f11`, dont `.claude/hooks/state/` ne contient ni
-`authorizations.json` ni autre fichier d'autorisation (seulement `carry/` et `snapshots/`). Le hook ne
-voit donc pas les grants créés depuis le checkout principal. Les autorisations ont été créées au
-mauvais endroit pour ce worktree : à recréer depuis une session dont l'état est celui du worktree
-f11, ou à faire lire par le worktree ; je n'y touche pas (`.claude/` interdit).
+Après : `useSeo.spec.ts`, `i18n-messages.spec.ts`, `i18n-hardcoded.spec.ts`, `components/home` : 8 fichiers, 28 tests
+verts. Site régénéré (`generate:fixtures`), méta description par page :
 
-Conséquence sur l'ordre de travail : le test d'abord n'est pas possible pour RC-5 (le seul test qui
-échouerait à cause du défaut est la réécriture de `useSeo.spec.ts:53-71`, et la correction de
-production sans elle rend ces deux tests faux). Je n'ai donc rien modifié en production non plus.
+| Page | Description |
+|---|---|
+| `/`, `/en` | `Site et CV de Prénom Nom, développeur full-stack : …` / `Website and CV of Prénom Nom, full-stack developer: …` (fixtures ; en production le nom du CV : texte identique à l'ancien) |
+| `/accessibilite`, `/en/accessibility` | la leur (`usePageSeo`) |
+| `/travaux`, `/en/work-in-progress` | la leur (nom en dur, exception D51 (1), inchangée) |
+| `200.html`, `404.html`, `50x.html`, `/en/404.html`, `/en/50x.html` | aucune, comme avant : `error.vue` n'appelle pas `useSiteSeo` (pages noindex) |
 
-Plan RC-5 prêt à appliquer dès l'autorisation visible (déjà vérifié par lecture) :
+Parcours `pages`, `work-in-progress`, `smoke`, `server-error` : 392 passés (98 + 98 + 35 + 161). `test:coverage` du front
+100 % (1472/1472, 797/797, 490/490, 1310/1310). `lint` et `typecheck` verts.
 
-1. `useSeo.spec.ts` : les deux tests de `useSiteSeo` attendent `meta[name=description]` et
-   `og:description` absents (`toBeNull`), `og:type` = `website`, `og:title` suivant le titre de la
-   page, dans les deux langues ; ils échouent sur le code actuel.
-2. `useSeo.ts` : `useSiteSeo` ne pose plus `description` ni `ogDescription` (reste `ogType` et
-   `ogTitle: '%s'`) ; `seo.description` (fr et en) supprimée, `seo.homeDescription` renommée
-   `seo.description` (`HomePage.vue:55` et CLAUDE.md l.184-185 suivent). Le texte de production
-   reste identique : l'accueil, la déclaration d'accessibilité et la page travaux posent chacun leur
-   description par `usePageSeo` ; `error.vue` n'appelle pas `useSiteSeo`, donc 404 et 50x ne posent
-   aujourd'hui aucune description et gardent ce comportement. `workInProgress.description` reste en
-   dur (D51 (1)).
+`Justification-test: RC-5` : `useSeo.spec.ts:53-71` attendait le texte par défaut avec « Julien Lachaux » ; la description
+par défaut n'existe plus, le test attend son absence (échec montré ci-dessus avant la correction).
 
-## Base de mesure de F11-03
+## RC-7 : migration des parcours
 
-Une passe complète des 2 632 tests (projets × parcours, `--workers=2`) a été lancée pour relever le
-nombre de tests passés avant migration ; je l'ai interrompue (processus hôte du lanceur seulement,
-pas de podman) une fois le blocage établi. Aucun résultat à citer. Le conteneur des navigateurs n'a
-pas été touché ; `.output/public` a été régénéré une fois (`generate:fixtures`, vert) sur l'état
-commité.
+Suppression des définitions locales (`WCAG_22_AA`, `STORAGE_KEY` sauf `boot`, `shell` et `journeys` qui lisent la clé,
+`tabsMode`, `storePreferences`, `PALETTES` quand identique, `open`/`hydrated`/`settled`/`waitForSettledAnimations`/`axe`)
+au profit de `./support/e2e.js`. Le module n'a pas été modifié ; rien ne lui manquait.
+
+Nombres de tests : relevés avant par `playwright test --list <fichier>`, puis passés après par fichier ou groupe
+(`--workers=2`). Ils concordent : ai-placeholder 126, boot 49, chip-counter-contrast 56, chip-pressed-mark 63,
+client-bundle 56, controls 63 (413) ; csp 63, cv 56, defects-f8 28, design-system 154 (301) ; hydration-shift 42,
+journeys 56, language-switch-d43 21 (119) ; experience 476, matrix 112 (588) ; mosaic 182, overflow 14, pages 98,
+sections 84, server-error 161, shell 147, short-height 112, smoke 35, title-overflow 70, top-bar-height 7,
+work-in-progress 98 (1 008) ; aucun test sauté (le total listé égale le total passé). Non touchés : action-bar-keyboard,
+panel-link-target (rien à migrer), e2e-support (le module).
+
+`grep -n "const WCAG_22_AA\|const STORAGE_KEY\|function tabsMode\|endTime === Infinity" apps/web/test/*.e2e.ts` : vide.
+
+### Renforcements axe (D51 (2)) et leur résultat
+
+| Parcours | Avant | Après (`expectAxeClean`) | Résultat |
+|---|---|---|---|
+| pages (déclaration, 404) | violations, `passes` non vide | + animations finies terminées, `color-contrast` mesuré | vert, 98 |
+| work-in-progress | idem | idem | vert, 98 |
+| hydration-shift (avant le montage) | violations seules | idem | vert, 42 : aucun défaut révélé |
+
+Aucun vrai défaut n'est apparu ; rien n'a été affaibli.
+
+### Gardé en local (plan)
+
+Curseur de `ai-placeholder` (attente `finished` locale) ; `PALETTES` de ai-placeholder, matrix (ordre clair d'abord) et
+design-system (couleurs attendues, autre forme) ; `cspHash`, `buildPolicy`, `strictPolicy` (RC-8, F11-05) ;
+`waitForTimeout(400)` de `cv.e2e.ts` (RC-9) ; attente `[data-mode="tabs"]` de short-height et title-overflow (plus
+stricte que `gotoMounted`) ; `data-mode="mosaic"` de language-switch-d43 (hors plan) ; commentaire périmé de sections.e2e.ts
+(RC-10, hors périmètre).
+
+### Variantes (≈) (commit `35fdb37`)
+
+`waitForSettledAnimations(page, portée)` remplace l'attente par `finished` de experience (section), sections (section),
+mosaic (grille, ~20 appels) et hydration-shift (grille) : même résultat sur les fixtures (784 passés). Le plan marquait
+aussi l'`axe` de mosaic (attente ajoutée) : fait avec les (≈). Le test de mosaic « aucun recalcul »
+(`getAnimations({ subtree: true }).length === 0`) est inchangé.
+
+## Incident (premier passage)
+
+Les autorisations `7250baa9` et `21b2ac9a` avaient été écrites dans l'état du checkout principal, pas dans celui du
+worktree f11 (`CLAUDE_PROJECT_DIR`) : le hook refusait toute édition de test. Je m'étais arrêté sans rien modifier
+(commit `58dedd5`, remplacé par ce compte rendu). L'orchestrateur les a recréées (`1f9bdbed`, `8330042e`).
+
+Deux fausses manœuvres pendant la reprise, sans conséquence sur l'état livré : une passe de référence de 2 632 tests
+interrompue (processus hôte du lanceur uniquement ; un `sirv` resté ouvert sur le port 6021 a dû être arrêté), et une
+erreur de ligne dans `hydration-shift` (suppression de `page.unrouteAll()` au lieu de l'attente du montage) attrapée par
+la première exécution (14 échecs `data-mode`), corrigée avant tout commit. Rien de podman n'a été touché.
+
+## Vérifications finales
+
+- `pnpm --filter @siteperso/web lint` et `typecheck` : verts (le hook pre-commit les rejoue à chaque commit).
+- `pnpm --filter @siteperso/web test:coverage` : 100 %.
+- Tous les parcours migrés, `--workers=2` : voir les groupes ci-dessus, tous verts (aucun échec).
+- `pnpm integrity` : OK.
+- Conteneur des navigateurs : intact ; pas de base de test ni de pile utilisées (front seul).
 
 ## Décisions
 
-Aucune. Arrêt sur les deux entrées (sortie honorable).
+- Les (≈) et (!) dans des commits séparés, comme demandé ; hydration-shift est dans les deux (axe strict, puis attente de la
+  grille).
+- `CLAUDE.md` (l. 184-185) et `docs/04-front-donnees.md` citent encore `seo.homeDescription` : fichiers que l'entrée RC-5 ne
+  cite pas, non modifiés.
 
 ## Points ouverts
 
-- Recréer ou rendre visibles les autorisations `7250baa9` et `21b2ac9a` pour le worktree
-  `personnalWebsite_V3-f11` (ou autoriser le correcteur depuis une session dont `CLAUDE_PROJECT_DIR`
-  est ce worktree), puis relancer le correcteur sur RC-7 (plan de `lot-F11-lead.md`, F11-03) et RC-5.
-- Les vérifications de fin (lint, typecheck, `test:coverage`, parcours, `pnpm integrity`) n'ont pas été
-  lancées : rien n'a changé.
+- Mettre à jour `CLAUDE.md` et `docs/04-front-donnees.md` (`seo.homeDescription` devient `seo.description`, plus de description
+  par défaut dans `useSiteSeo`).
+- Le site de production publie encore l'ancien libellé tant que le front n'est pas régénéré ; rien à faire côté contrat.
+- RC-8 (empreintes CSP locales à csp, work-in-progress, server-error), RC-9 (`waitForTimeout(400)` de cv), RC-10 (commentaire
+  de sections) restent à traiter.
+- Contraste mesuré des 404 et pages annexes : vérifié par `expectAxeClean` désormais ; la déclaration et la page travaux sont
+  les seules à passer par la page hydratée.
