@@ -181,8 +181,8 @@ apps/web/
   `localePath('/chemin-fr')`. Pas de `definePageMeta` dans une page : il laisse une branche que les
   tests de composants n'exécutent pas (gabarit par `routeRules` `appLayout`).
 - **Référencement et pages annexes (lot F7)** : chaque page pose son titre et sa description par
-  `usePageSeo` (sinon la description par défaut de la langue, `seo.description`) ; l'accueil tire les
-  siens de la vue du CV (`CvView.name`, `profile.title`, `seo.homeDescription` paramétrée, lot F11) :
+  `usePageSeo` (pas de description par défaut : `useSiteSeo` n'en pose plus, lot F11) ; l'accueil tire les
+  siens de la vue du CV (`CvView.name`, `profile.title`, `seo.description` paramétrée, lot F11) :
   aucun nom du titulaire écrit dans un libellé qu'une page peut lire au CV ; `og:title` suit le
   titre (`%s`), `og:url` et `og:locale` viennent de `useLocaleHead` ; pas d'`og:image`. `sitemap.xml`
   et `robots.txt` sont écrits à la fin du prérendu (`nuxt.config.ts`) depuis les canoniques et
