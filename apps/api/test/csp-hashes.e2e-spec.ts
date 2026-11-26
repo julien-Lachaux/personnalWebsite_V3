@@ -100,7 +100,7 @@ describe('scripts/deploy/csp-hashes.mjs', () => {
     expect(directives.split('; ')).toEqual(
       expect.arrayContaining([
         "default-src 'self'",
-        "img-src 'self' data:",
+        "img-src 'self'",
         "font-src 'self'",
         "connect-src 'self'",
         "frame-ancestors 'none'",
