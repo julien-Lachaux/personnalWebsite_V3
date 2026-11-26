@@ -1,8 +1,8 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 import { computeLayout } from '../app/domain/layout.js';
 import type { Rect, TileId } from '../app/domain/layout-types.js';
+import { analyzeWcag22AA, gotoMounted } from './support/e2e.js';
 
 // Saut à l'hydratation (D49, ticket F11-02) : la page générée dessine déjà la mosaïque de la vue
 // d'ensemble, le montage ne fait que poser les positions calculées. À chaque taille d'écran des
@@ -17,7 +17,6 @@ import type { Rect, TileId } from '../app/domain/layout-types.js';
 // - mobile et tablette : le Profil avant le montage à la place exacte de l'onglet Profil monté, sans
 //   décor de tuile ni autre section.
 
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const TILES: readonly TileId[] = ['profile', 'experience', 'recommendations', 'ai'];
 const PATHS = ['/', '/en'] as const;
 /** Écart admis (px) entre deux rectangles qui doivent être égaux (arrondis du moteur). */
@@ -54,8 +53,7 @@ async function openStatic(page: Page, path: string): Promise<string[]> {
 /** Ouvre `path` avec l'application ; attend le montage, les polices, le placement et les animations. */
 async function openMounted(page: Page, path: string): Promise<void> {
   await page.unrouteAll();
-  await page.goto(path);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+  await gotoMounted(page, path);
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   if (!desktop(page)) return;
   await expect(page.locator('.tile-grid.tile-grid--placed:not(.tile-grid--instant)')).toHaveCount(
@@ -116,7 +114,7 @@ function expectSameRect(page: Page, actual: Rect, expected: Rect, id: TileId, la
 }
 
 async function axe(page: Page, label: string): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+  const results = await analyzeWcag22AA(page);
   expect(results.violations, label).toEqual([]);
 }
 

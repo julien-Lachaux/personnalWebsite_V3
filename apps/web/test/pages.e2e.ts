@@ -1,8 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+
+import { analyzeWcag22AA, waitForHydration } from './support/e2e.js';
 
 // Pages annexes et référencement (lot F7), à chaque taille d'écran des maquettes :
 // - déclaration d'accessibilité en français et en anglais : rubriques du RGAA, liens, méta, axe ;
@@ -14,20 +15,11 @@ import { expect, test, type Page } from '@playwright/test';
 // - version anglaise : aucun libellé d'interface français dans les pages /en (texte et noms
 //   accessibles), hors passages marqués `lang="fr"`.
 
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const PUBLIC_DIR = join(import.meta.dirname, '../.output/public');
 const LOCALES_DIR = join(import.meta.dirname, '../i18n/locales');
 
-/** Attend l'hydratation (application Vue montée sur #__nuxt). */
-async function hydrated(page: Page): Promise<void> {
-  await page.waitForFunction(() => {
-    const root = document.querySelector<Element & { __vue_app__?: unknown }>('#__nuxt');
-    return root?.__vue_app__ !== undefined;
-  });
-}
-
 async function axe(page: Page): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+  const results = await analyzeWcag22AA(page);
   expect(results.violations).toEqual([]);
   expect(results.passes.length).toBeGreaterThan(0);
 }
@@ -124,7 +116,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         const origin = await siteOrigin(page);
         const response = await page.goto(declaration.path);
         expect(response?.status()).toBe(200);
-        await hydrated(page);
+        await waitForHydration(page);
 
         await expect(page.locator('html')).toHaveAttribute('lang', declaration.locale);
         await expect(page.locator('h1')).toHaveCount(1);
@@ -229,7 +221,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         );
         const response = await page.goto(notFound.path);
         expect(response?.status()).toBe(404);
-        await hydrated(page);
+        await waitForHydration(page);
 
         await expect(page).toHaveURL(notFound.path);
         await expect(page.locator('html')).toHaveAttribute('lang', notFound.locale);
@@ -366,7 +358,7 @@ for (const { path, file } of ENGLISH_PAGES) {
       );
     }
     await page.goto(path);
-    await hydrated(page);
+    await waitForHydration(page);
 
     const texts = await page.evaluate(() => {
       /** Vrai hors des passages marqués dans une autre langue que l'anglais. */

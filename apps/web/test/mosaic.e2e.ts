@@ -1,8 +1,8 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { computeLayout, EXPANDED_MAX_WIDTH, GAP } from '../app/domain/layout.js';
 import type { MosaicLayout, Rect, TileId } from '../app/domain/layout-types.js';
+import { analyzeWcag22AA, gotoMounted, storePreferences, tabsMode } from './support/e2e.js';
 
 // Mosaïque du bureau (lot F6, SPEC § 3.3 à § 4.2), à chaque taille d'écran des maquettes, en français et
 // en anglais, thèmes clair et sombre :
@@ -17,8 +17,6 @@ import type { MosaicLayout, Rect, TileId } from '../app/domain/layout-types.js';
 // - axe WCAG 2.2 AA dans la mosaïque et en tuile agrandie ; mouvement réduit.
 // Sous 1024 px, la vue par onglets est inchangée : chaque test le vérifie puis s'arrête.
 
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-const STORAGE_KEY = 'siteperso:preferences';
 const TILES: readonly TileId[] = ['profile', 'experience', 'recommendations', 'ai'];
 
 const LOCALES = {
@@ -40,18 +38,6 @@ type LocaleCode = keyof typeof LOCALES;
 
 const THEMES = ['clair', 'sombre'] as const;
 
-/** Sous 1024 px : onglets, pas de mosaïque. */
-function tabsMode(page: Page): boolean {
-  return (page.viewportSize()?.width ?? 0) < 1024;
-}
-
-async function storeTheme(page: Page, theme: (typeof THEMES)[number]): Promise<void> {
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-    key: STORAGE_KEY,
-    value: JSON.stringify({ version: 1, theme }),
-  });
-}
-
 function grid(page: Page): Locator {
   return page.locator('.tile-grid');
 }
@@ -72,8 +58,7 @@ async function settled(page: Page): Promise<void> {
  * `false` ; sinon attend le premier placement des tuiles.
  */
 async function open(page: Page, path: string): Promise<boolean> {
-  await page.goto(path);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+  await gotoMounted(page, path);
   if (tabsMode(page)) {
     await expect(page.locator('.app-shell')).toHaveAttribute('data-mode', 'tabs');
     await expect(grid(page)).toHaveCount(0);
@@ -132,7 +117,7 @@ function expectRect(actual: Rect, expected: Rect, label: string): void {
 }
 
 async function axe(page: Page, label: string): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+  const results = await analyzeWcag22AA(page);
   expect(results.violations, label).toEqual([]);
   expect(
     results.passes.map((rule) => rule.id),
@@ -489,7 +474,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       test(`axe WCAG 2.2 AA, thème ${theme} : mosaïque, XP agrandie, Profil agrandi`, async ({
         page,
       }) => {
-        await storeTheme(page, theme);
+        await storePreferences(page, { theme });
         if (!(await open(page, locale.path))) return;
         await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 

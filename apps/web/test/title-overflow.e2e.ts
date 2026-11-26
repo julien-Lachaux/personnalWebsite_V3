@@ -1,12 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { storePreferences } from './support/e2e.js';
+
 // Débordements de mots longs (constats RA-3 et RA-4, WCAG 1.4.4, 1.4.10, 1.4.12) :
 // - le titre du Profil (« Développeur » en tête) ne sort pas de la fenêtre à 320 px, texte à 115 et 130 % ;
 // - le bouton « CV PDF » (menu du CV, D44) de la barre d'actions n'est pas rogné à 390 px avec
 //   l'espacement des textes et le texte à 130 %.
 // La taille de fenêtre est posée par chaque groupe : le parcours ne dépend pas du projet Playwright.
-
-const STORAGE_KEY = 'siteperso:preferences';
 
 const LOCALES = {
   fr: { path: '/', nav: 'Sections' },
@@ -18,10 +18,7 @@ async function open(
   path: string,
   preferences: { textSize: number; textSpacing?: boolean },
 ): Promise<void> {
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-    key: STORAGE_KEY,
-    value: JSON.stringify({ version: 1, theme: 'clair', ...preferences }),
-  });
+  await storePreferences(page, { theme: 'clair', ...preferences });
   await page.goto(path);
   await expect(page.locator('.app-shell[data-mode="tabs"]')).toHaveCount(1);
   await expect(page.locator('html')).toHaveAttribute(

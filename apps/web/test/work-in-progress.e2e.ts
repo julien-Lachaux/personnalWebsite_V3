@@ -2,8 +2,9 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+
+import { analyzeWcag22AA, waitForHydration } from './support/e2e.js';
 
 // Page « travaux en cours » (lot 31), à chaque taille d'écran des maquettes, en clair et en sombre,
 // en français et en anglais :
@@ -14,7 +15,6 @@ import { expect, test, type Page } from '@playwright/test';
 // - sous la CSP stricte du déploiement (empreintes recalculées sur les pages générées, comme
 //   test/csp.e2e.ts), sans violation ni erreur de console.
 
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const PUBLIC_DIR = resolve(import.meta.dirname, '../.output/public');
 /** Lien social `linkedin` du CV de test, lu par `generate:fixtures` (fr et en). */
 const LINKEDIN_URL = 'https://www.linkedin.com/in/example';
@@ -44,16 +44,8 @@ const PAGES = [
   },
 ] as const;
 
-/** Attend l'hydratation (application Vue montée sur #__nuxt). */
-async function hydrated(page: Page): Promise<void> {
-  await page.waitForFunction(() => {
-    const root = document.querySelector<Element & { __vue_app__?: unknown }>('#__nuxt');
-    return root?.__vue_app__ !== undefined;
-  });
-}
-
 async function axe(page: Page): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+  const results = await analyzeWcag22AA(page);
   expect(results.violations).toEqual([]);
   expect(results.passes.length).toBeGreaterThan(0);
 }
@@ -79,7 +71,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       }) => {
         const response = await page.goto(wip.path);
         expect(response?.status()).toBe(200);
-        await hydrated(page);
+        await waitForHydration(page);
 
         await expect(page.locator('html')).toHaveAttribute('lang', wip.locale);
         await expect(page.locator('html')).toHaveAttribute('data-theme', /^(clair|sombre)$/);
@@ -151,7 +143,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
         const response = await page.goto(wip.path);
         expect(response?.status()).toBe(503);
-        await hydrated(page);
+        await waitForHydration(page);
 
         await expect(page).toHaveURL(wip.path);
         await expect(page.locator('html')).toHaveAttribute('lang', wip.locale);

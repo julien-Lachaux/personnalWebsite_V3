@@ -1,5 +1,14 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+
+import {
+  expectAxeClean,
+  expectShellMounted,
+  gotoMounted,
+  PALETTES,
+  STORAGE_KEY,
+  storePreferences,
+  tabsMode,
+} from './support/e2e.js';
 
 // Parcours de la vraie page (lot F3a : coquille et données sur les fixtures), à chaque taille d'écran
 // des maquettes (un projet Playwright par taille), en français et en anglais :
@@ -10,9 +19,6 @@ import { expect, test, type Page } from '@playwright/test';
 // - thème et réglages enregistrés puis rechargés sans flash (D5) ;
 // - sélecteur de langue (D21).
 // Le mode se déduit de la largeur du projet : chaque test vérifie le comportement de la sienne.
-
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-const STORAGE_KEY = 'siteperso:preferences';
 
 const LOCALES = {
   fr: {
@@ -47,65 +53,12 @@ const LOCALES = {
 
 type LocaleCode = keyof typeof LOCALES;
 
-const PALETTES = [
-  { name: 'sombre', theme: 'sombre', highContrast: false },
-  { name: 'clair', theme: 'clair', highContrast: false },
-  { name: 'sombre renforcé', theme: 'sombre', highContrast: true },
-  { name: 'clair renforcé', theme: 'clair', highContrast: true },
-] as const;
-
-/** Sous 1024 px : onglets (une section à la fois) ; au-delà : sections ensemble. */
-function tabsMode(page: Page): boolean {
-  return (page.viewportSize()?.width ?? 0) < 1024;
-}
-
-/** Enregistre des préférences avant tout script de la page (format de domain/preferences). */
-async function storePreferences(page: Page, preferences: Record<string, unknown>): Promise<void> {
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-    key: STORAGE_KEY,
-    value: JSON.stringify({ version: 1, ...preferences }),
-  });
-}
-
-/** Page chargée et hydratée (la coquille a choisi son mode). */
-async function open(page: Page, path: string): Promise<void> {
-  await page.goto(path);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
-}
-
-/**
- * Attend la fin des animations et transitions finies (fondu d'onglet, panneaux) : axe mesure le
- * contraste sur les couleurs rendues, donc fausses tant qu'un fondu est translucide (F5D-2).
- * Les animations infinies (indice de défilement) ne s'arrêtent jamais : on les ignore.
- */
-async function waitForSettledAnimations(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .every(
-        (animation) =>
-          animation.playState !== 'running' ||
-          animation.effect?.getComputedTiming().endTime === Infinity,
-      ),
-  );
-}
-
-async function axe(page: Page, label: string): Promise<void> {
-  await waitForSettledAnimations(page);
-  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
-  expect(results.violations, label).toEqual([]);
-  expect(
-    results.passes.map((rule) => rule.id),
-    label,
-  ).toContain('color-contrast');
-}
-
 for (const code of Object.keys(LOCALES) as LocaleCode[]) {
   const locale = LOCALES[code];
 
   test.describe(`${code} (${locale.path})`, () => {
     test('structure : un en-tête, un main, un h1, un h2 par section, lang', async ({ page }) => {
-      await open(page, locale.path);
+      await gotoMounted(page, locale.path);
 
       await expect(page.locator('html')).toHaveAttribute('lang', code);
       await expect(page.getByRole('banner')).toHaveCount(1);
@@ -132,11 +85,11 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     for (const palette of PALETTES) {
       test(`axe WCAG 2.2 AA, palette ${palette.name}, chaque section`, async ({ page }) => {
         await storePreferences(page, { theme: palette.theme, highContrast: palette.highContrast });
-        await open(page, locale.path);
+        await gotoMounted(page, locale.path);
         await expect(page.locator('html')).toHaveAttribute('data-theme', palette.theme);
 
         if (!tabsMode(page)) {
-          await axe(page, palette.name);
+          await expectAxeClean(page, palette.name);
           return;
         }
         for (const [index, tab] of locale.tabs.entries()) {
@@ -148,7 +101,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
           await expect(
             page.getByRole('heading', { level: 2, name: locale.sections[index] ?? '' }),
           ).toHaveCount(1);
-          await axe(page, `${palette.name}, onglet ${tab}`);
+          await expectAxeClean(page, `${palette.name}, onglet ${tab}`);
         }
       });
     }
@@ -156,7 +109,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     test('lien d’évitement : premier arrêt du clavier, visible, mène au contenu', async ({
       page,
     }) => {
-      await open(page, locale.path);
+      await gotoMounted(page, locale.path);
 
       await page.keyboard.press('Tab');
       const skip = page.getByRole('link', { name: locale.skip });
@@ -169,7 +122,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     });
 
     test('sections au clavier : onglets (aria-current) ou barre du haut', async ({ page }) => {
-      await open(page, locale.path);
+      await gotoMounted(page, locale.path);
 
       if (tabsMode(page)) {
         const nav = page.getByRole('navigation', { name: 'Sections' });
@@ -203,7 +156,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     });
 
     test('panneau d’accessibilité au clavier : nom, focus, Échap', async ({ page }) => {
-      await open(page, locale.path);
+      await gotoMounted(page, locale.path);
       const trigger = page.getByRole('button', { name: locale.panelTrigger, exact: true });
       await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 
@@ -215,7 +168,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       await expect(panel.getByRole('heading', { level: 2 })).toHaveText('accessibilite.cfg');
       await expect(trigger).toHaveAttribute('aria-expanded', 'true');
       await expect(page.getByRole('button', { name: locale.firstSetting })).toBeFocused();
-      await axe(page, 'panneau ouvert');
+      await expectAxeClean(page, 'panneau ouvert');
 
       await page.keyboard.press('Escape');
       await expect(panel).toBeHidden();
@@ -224,7 +177,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
 
     test('thème et réglages enregistrés, rechargés sans flash', async ({ page }) => {
       await page.emulateMedia({ colorScheme: 'dark' });
-      await open(page, locale.path);
+      await gotoMounted(page, locale.path);
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'sombre');
 
       await page.getByRole('button', { name: locale.toLight }).click();
@@ -256,7 +209,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         }).observe(document, { attributes: true, subtree: true });
       });
       await page.reload();
-      await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+      await expectShellMounted(page);
 
       const log = await page.evaluate(
         () =>
@@ -282,7 +235,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     test('sélecteur de langue : « FR | EN », langue courante sans lien, nom = texte visible (D21)', async ({
       page,
     }) => {
-      await open(page, locale.path);
+      await gotoMounted(page, locale.path);
 
       const switcher = page.locator('.language-switch');
       await expect(switcher).toHaveCount(1);

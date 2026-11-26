@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+import { gotoMounted } from './support/e2e.js';
+
 // D43 (lot F12) : le séparateur de « FR | EN » ne bouge pas au changement de langue et la langue
 // courante prend la couleur d'accent ; D41 : le texte du Profil a la taille de celui de la section IA.
 // Mesures dans le navigateur (boîtes et styles calculés), à la taille de chaque projet : 1280 (bureau) et
@@ -10,8 +12,7 @@ function switcher(page: Page): Locator {
 }
 
 async function separatorBox(page: Page, path: string) {
-  await page.goto(path);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+  await gotoMounted(page, path);
   const separator = switcher(page).locator('.language-switch__separator');
   await expect(separator).toBeVisible();
   const box = await separator.boundingBox();
@@ -33,8 +34,7 @@ test.describe('sélecteur de langue (D43)', () => {
 
   test('la langue courante prend la couleur calculée de --accent', async ({ page }) => {
     for (const path of ['/', '/en']) {
-      await page.goto(path);
-      await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+      await gotoMounted(page, path);
       const current = switcher(page).locator('[aria-current="true"]');
       await expect(current).toBeVisible();
 

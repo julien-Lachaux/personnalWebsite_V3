@@ -2,8 +2,9 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Request } from '@playwright/test';
+
+import { analyzeWcag22AA } from './support/e2e.js';
 
 // Pages d'erreur serveur (lot 30), à chaque taille d'écran des maquettes, en fr et en, schémas clair et
 // sombre. Le proxy de production sert `50x.html` (ou `en/50x.html` sous /en) à l'adresse demandée, avec
@@ -13,7 +14,6 @@ import { expect, test, type Page, type Request } from '@playwright/test';
 // n'entre pas dans le plan du site.
 
 const PUBLIC_DIR = resolve(import.meta.dirname, '../.output/public');
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 /** Fond de la page (`--bg` de tokens.css) dans chaque schéma, sans réglage enregistré. */
 const BACKGROUND = { light: 'rgb(230, 235, 229)', dark: 'rgb(16, 26, 33)' } as const;
@@ -143,7 +143,7 @@ async function expectServerErrorPage(
     true,
   );
   if (!axe) return;
-  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+  const results = await analyzeWcag22AA(page);
   expect(results.violations).toEqual([]);
   expect(results.passes.length).toBeGreaterThan(0);
 }
@@ -247,7 +247,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await expect(page.locator('html')).toHaveAttribute('data-contrast', 'renforce');
       await expect(page.locator('html')).toHaveAttribute('data-text-size', '130');
-      const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+      const results = await analyzeWcag22AA(page);
       expect(results.violations).toEqual([]);
     });
   });

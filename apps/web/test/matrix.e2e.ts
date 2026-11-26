@@ -1,5 +1,6 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+
+import { expectAxeClean, gotoMounted, storePreferences, tabsMode } from './support/e2e.js';
 
 // Matrice du lot F8 : chaque taille d'écran (un projet Playwright par taille) x thème (clair, sombre) x
 // langue (fr, en), avec et sans contraste renforcé, au texte agrandi à 130 % (plus un passage à 100 %
@@ -8,9 +9,6 @@ import { expect, test, type Page } from '@playwright/test';
 //   (bureau), après la fin des animations.
 // Les débordements à 130 % sont mesurés par overflow.e2e.ts.
 // Les parcours de shell.e2e.ts et mosaic.e2e.ts couvrent déjà les onglets à 100 % dans les quatre palettes.
-
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-const STORAGE_KEY = 'siteperso:preferences';
 
 const LOCALES = {
   fr: {
@@ -41,33 +39,6 @@ const PALETTES = [
 const TILES = ['profile', 'experience', 'recommendations', 'ai'] as const;
 const SECTIONS = ['profile', 'experience', 'recommendations', 'ai'] as const;
 
-function tabsMode(page: Page): boolean {
-  return (page.viewportSize()?.width ?? 0) < 1024;
-}
-
-/** Attend la fin des animations finies (fondus, glissements) : axe mesure les couleurs rendues. */
-async function waitForSettledAnimations(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .every(
-        (animation) =>
-          animation.playState !== 'running' ||
-          animation.effect?.getComputedTiming().endTime === Infinity,
-      ),
-  );
-}
-
-async function axe(page: Page, label: string): Promise<void> {
-  await waitForSettledAnimations(page);
-  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
-  expect(results.violations, label).toEqual([]);
-  expect(
-    results.passes.map((rule) => rule.id),
-    label,
-  ).toContain('color-contrast');
-}
-
 for (const code of Object.keys(LOCALES) as LocaleCode[]) {
   const locale = LOCALES[code];
 
@@ -80,17 +51,12 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         if (tabsMode(page) && textSize === 100) return;
 
         await page.emulateMedia({ colorScheme: palette.theme === 'sombre' ? 'dark' : 'light' });
-        await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-          key: STORAGE_KEY,
-          value: JSON.stringify({
-            version: 1,
-            theme: palette.theme,
-            highContrast: palette.highContrast,
-            textSize,
-          }),
+        await storePreferences(page, {
+          theme: palette.theme,
+          highContrast: palette.highContrast,
+          textSize,
         });
-        await page.goto(locale.path);
-        await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+        await gotoMounted(page, locale.path);
         const html = page.locator('html');
         await expect(html).toHaveAttribute('data-theme', palette.theme);
         await expect(html).toHaveAttribute('data-text-size', String(textSize));
@@ -101,18 +67,18 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
           for (const [index, name] of locale.tabs.entries()) {
             await nav.getByRole('button', { name, exact: true }).click();
             await expect(page.locator(`#section-${SECTIONS[index]}`)).toBeVisible();
-            await axe(page, `onglet ${name}`);
+            await expectAxeClean(page, `onglet ${name}`);
           }
           return;
         }
 
         await expect(page.locator('.tile-grid:not(.tile-grid--instant)')).toHaveCount(1);
-        await axe(page, 'mosaïque');
+        await expectAxeClean(page, 'mosaïque');
         for (const id of TILES) {
           const tile = page.locator(`[data-tile="${id}"]`);
           await tile.getByRole('button', { name: locale.expand }).click();
           await expect(tile).toHaveClass(/tile-grid__tile--expanded/);
-          await axe(page, `tuile ${id} agrandie`);
+          await expectAxeClean(page, `tuile ${id} agrandie`);
           await tile.getByRole('button', { name: locale.collapse }).click();
           await expect(page.locator('.tile-grid__tile--expanded')).toHaveCount(0);
         }

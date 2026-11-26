@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+import { gotoMounted, tabsMode } from './support/e2e.js';
+
 // Parcours de la page intégrée (lot F5c : les quatre sections dans la coquille), à chaque taille d'écran
 // des maquettes, en français et en anglais, sur les fixtures :
 // - un seul `h1` (celui de la coquille, masqué visuellement), le grand titre visible est celui du profil ;
@@ -40,17 +42,6 @@ const LOCALES = {
 
 type LocaleCode = keyof typeof LOCALES;
 
-/** Sous 1024 px : onglets (une section à la fois) ; au-delà : sections ensemble. */
-function tabsMode(page: Page): boolean {
-  return (page.viewportSize()?.width ?? 0) < 1024;
-}
-
-/** Page chargée et hydratée (la coquille a choisi son mode). */
-async function open(page: Page, path: string): Promise<void> {
-  await page.goto(path);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
-}
-
 /** Choisit un onglet du bas (sous 1024 px) ; sans effet au-delà, où toutes les sections sont là. */
 async function tab(page: Page, name: string): Promise<void> {
   if (!tabsMode(page)) return;
@@ -76,7 +67,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     test('titre : un seul h1, masqué visuellement ; le grand titre visible est celui du profil', async ({
       page,
     }) => {
-      await open(page, locale.path);
+      await gotoMounted(page, locale.path);
 
       const heading = page.getByRole('heading', { level: 1 });
       await expect(heading).toHaveCount(1);
@@ -92,7 +83,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     test('recommandations : citations et légendes dans la langue de la recommandation', async ({
       page,
     }) => {
-      await open(page, locale.path);
+      await gotoMounted(page, locale.path);
       await tab(page, locale.tabs.recos);
 
       const section = page.locator('#section-recommendations');
@@ -109,7 +100,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     test('liens externes : nouvel onglet et rel="noopener noreferrer" ; pas de GitHub', async ({
       page,
     }) => {
-      await open(page, locale.path);
+      await gotoMounted(page, locale.path);
 
       const external = page.locator('a[target="_blank"]');
       // LinkedIn du profil, lien du haut et bouton du bas des recommandations.
@@ -128,7 +119,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     test('sélecteur de langue : le filtre ?tech= suit le changement de langue', async ({
       page,
     }) => {
-      await open(page, `${locale.path}?tech=kafka`);
+      await gotoMounted(page, `${locale.path}?tech=kafka`);
       await tab(page, locale.tabs.xp);
       await expect(page.getByRole('button', { name: locale.removeKafka })).toBeVisible();
 
@@ -155,7 +146,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     test('section Expérience : la liste défile seule, dans la hauteur disponible', async ({
       page,
     }) => {
-      await open(page, locale.path);
+      await gotoMounted(page, locale.path);
       await tab(page, locale.tabs.xp);
       const section = page.locator('#section-experience');
       const list = page.getByRole('region', { name: locale.list });
@@ -204,7 +195,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
     test('marge haute du contenu : 20 px pour le Profil, 28 px pour Recos et IA (onglets)', async ({
       page,
     }) => {
-      await open(page, locale.path);
+      await gotoMounted(page, locale.path);
       const main = page.locator('main#contenu');
       const paddingTop = async (): Promise<string> =>
         main.evaluate((element) => getComputedStyle(element).paddingTop);

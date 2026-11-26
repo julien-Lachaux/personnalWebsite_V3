@@ -1,5 +1,13 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+
+import {
+  expectAxeClean,
+  expectShellMounted,
+  gotoMounted,
+  PALETTES,
+  storePreferences,
+  tabsMode,
+} from './support/e2e.js';
 
 // Parcours de la section Expérience (lot F5b, filtre par techno, cartes, easter egg) sur la vraie page,
 // à chaque taille d'écran des maquettes, en français et en anglais, sur les fixtures :
@@ -16,9 +24,6 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 // - zone du filtre fixe pendant que la liste défile, cibles de 44 px sous 1024 px, axe WCAG 2.2 AA dans
 //   les quatre palettes (états : repos, panneau déplié, résultats, fenêtre ouverte).
 // Sous 1024 px, la section est celle de l'onglet XP ; au-delà, elle est dans la page avec les autres.
-
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-const STORAGE_KEY = 'siteperso:preferences';
 
 const LOCALES = {
   fr: {
@@ -85,31 +90,10 @@ const LOCALES = {
 
 type LocaleCode = keyof typeof LOCALES;
 
-const PALETTES = [
-  { name: 'sombre', theme: 'sombre', highContrast: false },
-  { name: 'clair', theme: 'clair', highContrast: false },
-  { name: 'sombre renforcé', theme: 'sombre', highContrast: true },
-  { name: 'clair renforcé', theme: 'clair', highContrast: true },
-] as const;
-
-/** Sous 1024 px : onglets (une section à la fois) ; au-delà : sections ensemble. */
-function tabsMode(page: Page): boolean {
-  return (page.viewportSize()?.width ?? 0) < 1024;
-}
-
-/** Enregistre des préférences avant tout script de la page (format de domain/preferences). */
-async function storePreferences(page: Page, preferences: Record<string, unknown>): Promise<void> {
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-    key: STORAGE_KEY,
-    value: JSON.stringify({ version: 1, ...preferences }),
-  });
-}
-
 /** Page chargée, hydratée, sur la section Expérience (onglet XP sous 1024 px) : renvoie la section. */
 async function openExperience(page: Page, code: LocaleCode, query = ''): Promise<Locator> {
   const locale = LOCALES[code];
-  await page.goto(`${locale.path}${query}`);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+  await gotoMounted(page, `${locale.path}${query}`);
   if (tabsMode(page)) {
     await page
       .getByRole('navigation', { name: locale.tabs })
@@ -120,33 +104,6 @@ async function openExperience(page: Page, code: LocaleCode, query = ''): Promise
   await expect(section.getByText(locale.label, { exact: true })).toBeVisible();
   // Le filtre lit l'URL après le montage : attendre que les puces de l'URL soient là.
   return section;
-}
-
-/**
- * Attend la fin des animations et transitions finies (fondu d'onglet, panneaux) : axe mesure le
- * contraste sur les couleurs rendues, donc fausses tant qu'un fondu est translucide (F5D-2).
- * Les animations infinies (indice de défilement) ne s'arrêtent jamais : on les ignore.
- */
-async function waitForSettledAnimations(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .every(
-        (animation) =>
-          animation.playState !== 'running' ||
-          animation.effect?.getComputedTiming().endTime === Infinity,
-      ),
-  );
-}
-
-async function axe(page: Page, label: string): Promise<void> {
-  await waitForSettledAnimations(page);
-  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
-  expect(results.violations, label).toEqual([]);
-  expect(
-    results.passes.map((rule) => rule.id),
-    label,
-  ).toContain('color-contrast');
 }
 
 function field(section: Locator): Locator {
@@ -490,7 +447,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       await expect(page).toHaveURL(/\?tech=kafka$/);
 
       await page.reload();
-      await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+      await expectShellMounted(page);
       if (tabsMode(page)) {
         await page
           .getByRole('navigation', { name: locale.tabs })
@@ -658,12 +615,12 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         test('repos et panneau déplié', async ({ page }) => {
           const section = await openExperience(page, code, '?tech=typescript,docker');
           await expect(page.locator('html')).toHaveAttribute('data-theme', palette.theme);
-          await axe(page, `${palette.name}, repos`);
+          await expectAxeClean(page, `${palette.name}, repos`);
 
           await field(section).click();
           await section.getByRole('button', { name: locale.allTechs }).click();
           await expect(section.locator('.all-techs')).toBeVisible();
-          await axe(page, `${palette.name}, panneau déplié`);
+          await expectAxeClean(page, `${palette.name}, panneau déplié`);
         });
 
         test('suggestions et autres expériences', async ({ page }) => {
@@ -673,7 +630,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
             name: code === 'fr' ? 'Suggestions de technos' : 'Tech suggestions',
           });
           await expect(suggestions).toBeVisible();
-          await axe(page, `${palette.name}, suggestions`);
+          await expectAxeClean(page, `${palette.name}, suggestions`);
 
           await field(section).fill('');
           await expect(drawer(section)).toHaveClass(/filter-drawer--open/);
@@ -683,18 +640,18 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
             'true',
           );
           await expect(section.getByText(locale.partial, { exact: true }).first()).toBeVisible();
-          await axe(page, `${palette.name}, autres expériences`);
+          await expectAxeClean(page, `${palette.name}, autres expériences`);
         });
 
         test('état vide et accordéon ouvert', async ({ page }) => {
           const section = await openExperience(page, code, '?tech=typescript,php');
           await expect(section.getByText(locale.empty, { exact: false }).first()).toBeVisible();
-          await axe(page, `${palette.name}, état vide`);
+          await expectAxeClean(page, `${palette.name}, état vide`);
 
           await section.getByRole('button', { name: locale.showAll }).click();
           await section.locator('.accordion__toggle').first().click();
           await expect(section.getByRole('article')).toHaveCount(8);
-          await axe(page, `${palette.name}, accordéon ouvert`);
+          await expectAxeClean(page, `${palette.name}, accordéon ouvert`);
         });
 
         test('fenêtre de l’easter egg ouverte', async ({ page }) => {
@@ -704,7 +661,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
           await chip.click();
           await expect(page.getByRole('dialog', { name: locale.egg.chip })).toBeVisible();
           await expect(page.getByText(locale.egg.done)).toHaveCSS('opacity', '1');
-          await axe(page, `${palette.name}, fenêtre`);
+          await expectAxeClean(page, `${palette.name}, fenêtre`);
         });
       });
     }
