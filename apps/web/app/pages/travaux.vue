@@ -47,33 +47,37 @@ const linkedin = await useLinkedinUrl(locale.value);
     <p>{{ t('workInProgress.intro') }}</p>
     <p>{{ t('workInProgress.next') }}</p>
     <div class="work-in-progress__actions">
-      <ContactButton size="md" />
-      <LinkButton
-        :href="linkedin"
-        variant="outline"
-        size="md"
-        :external-label="t('common.opensInNewTab')"
-      >
-        <template #icon>
-          <svg
-            focusable="false"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="9" cy="8" r="3.5" />
-            <path
-              d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.6c1.9.9 3 2.8 3 5.4"
-            />
-          </svg>
-        </template>
-        {{ t('workInProgress.linkedin') }}
-      </LinkButton>
+      <div class="work-in-progress__action">
+        <ContactButton size="lg" />
+      </div>
+      <div class="work-in-progress__action">
+        <LinkButton
+          :href="linkedin"
+          variant="linkedin"
+          size="lg"
+          :external-label="t('common.opensInNewTab')"
+        >
+          <template #icon>
+            <svg
+              focusable="false"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="9" cy="8" r="3.5" />
+              <path
+                d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.6c1.9.9 3 2.8 3 5.4"
+              />
+            </svg>
+          </template>
+          {{ t('workInProgress.linkedin') }}
+        </LinkButton>
+      </div>
     </div>
   </AnnexPage>
 </template>
@@ -82,7 +86,30 @@ const linkedin = await useLinkedinUrl(locale.value);
 .work-in-progress__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.625rem;
   margin-top: 1.5rem;
+}
+
+/* Deux boutons de même largeur ; ils passent l'un sous l'autre si la place manque (texte agrandi),
+   comme les boutons de la section profil (SocialLinks). */
+.work-in-progress__action {
+  flex: 1 1 8rem;
+}
+
+/* Mobile et tablette : 56 px comme la maquette (au-dessus des 44 px tactiles). */
+@media (max-width: 1023px) {
+  .work-in-progress__action :deep(.base-button) {
+    min-height: 3.5rem;
+  }
+}
+
+/* La page annex impose la couleur d'accent aux liens ; on rétablit la couleur propre à chaque
+   variante de bouton pour que le texte reste lisible sur son fond. */
+.work-in-progress__actions .base-button--solid {
+  color: var(--on) !important;
+}
+
+.work-in-progress__actions .base-button--linkedin {
+  color: var(--li) !important;
 }
 </style>

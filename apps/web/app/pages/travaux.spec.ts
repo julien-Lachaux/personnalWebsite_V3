@@ -80,7 +80,7 @@ describe('page « travaux en cours »', () => {
     expect(linkedin.attributes('target')).toBe('_blank');
     expect(linkedin.attributes('rel')).toBe('noopener noreferrer');
     expect(linkedin.classes()).toEqual(
-      expect.arrayContaining(['base-button--outline', 'base-button--md']),
+      expect.arrayContaining(['base-button--linkedin', 'base-button--lg']),
     );
     expect(linkedin.get('.visually-hidden').text()).toBe("(s'ouvre dans un nouvel onglet)");
     expect(linkedin.get('.base-button__icon').attributes('aria-hidden')).toBe('true');
