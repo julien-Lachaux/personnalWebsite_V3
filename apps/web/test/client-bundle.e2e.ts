@@ -7,6 +7,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { BROWSER_CV_SOURCE_MESSAGE } from '../app/data/browser-cv-source.js';
 import { cvEn } from '../app/data/fixtures/cv.en.js';
 import { cvFr } from '../app/data/fixtures/cv.fr.js';
+import { waitForHydration } from './support/e2e.js';
 
 // JavaScript du navigateur (lot F11, F11-01) : le CV est lu à la génération du site, jamais dans le
 // navigateur, qui le trouve dans la charge utile de chaque page. Aucun script publié dans `_nuxt/` ne
@@ -114,14 +115,6 @@ test.describe('JavaScript du navigateur sans la source du CV', () => {
   }
 });
 
-/** Attend l'hydratation (application Vue montée sur #__nuxt) : un clic devient une navigation client. */
-async function hydrated(page: Page): Promise<void> {
-  await page.waitForFunction(() => {
-    const root = document.querySelector<Element & { __vue_app__?: unknown }>('#__nuxt');
-    return root?.__vue_app__ !== undefined;
-  });
-}
-
 /** Script du site qui remplace la source du CV dans le navigateur (un seul, celui du greffon). */
 function browserSourceScript(): string {
   const found = scriptsOf(SITES[0].dir).filter(({ text }) =>
@@ -189,7 +182,7 @@ test.describe('navigation côté client : le CV vient de la charge utile', () =>
       const seen = probe(page);
 
       await page.goto(journey.start);
-      await hydrated(page);
+      await waitForHydration(page);
       await journey.link(page).click();
       await expect(page).toHaveURL(journey.arrival);
       await journey.check(page);

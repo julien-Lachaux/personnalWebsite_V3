@@ -1,18 +1,11 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+import { gotoMounted, PALETTES, storePreferences } from './support/e2e.js';
+
 // Coche de la puce pressée (D35, RA-7, WCAG 1.4.1) : une puce `aria-pressed="true"` porte une coche ✓
 // décorative devant son nom, dans les quatre palettes ; une puce non pressée n'en porte pas. Le nom
 // accessible et le texte de la puce ne changent pas (la coche est un pseudo-élément à contenu
 // alternatif vide). La coche est lue sur le rendu (`::before`), et sa couleur est celle de la puce.
-
-const STORAGE_KEY = 'siteperso:preferences';
-
-const PALETTES = [
-  { name: 'sombre', theme: 'sombre', highContrast: false },
-  { name: 'clair', theme: 'clair', highContrast: false },
-  { name: 'sombre renforcé', theme: 'sombre', highContrast: true },
-  { name: 'clair renforcé', theme: 'clair', highContrast: true },
-] as const;
 
 const LOCALES = {
   fr: { path: '/', tabs: 'Sections', xp: 'XP', name: /^Docker, \d+ expériences?$/ },
@@ -53,13 +46,9 @@ test.describe('390 px, coche des puces pressées', () => {
       test(`${code}, ${palette.name} : la coche apparaît quand la puce est pressée, sans changer son nom`, async ({
         page,
       }) => {
-        await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-          key: STORAGE_KEY,
-          value: JSON.stringify({
-            version: 1,
-            theme: palette.theme,
-            highContrast: palette.highContrast,
-          }),
+        await storePreferences(page, {
+          theme: palette.theme,
+          highContrast: palette.highContrast,
         });
         const quick = await openFilter(page, code);
 
@@ -93,8 +82,7 @@ test.describe('1280 px, coche des puces d’une carte', () => {
   test('la puce pressée d’une carte porte la coche, la puce non pressée n’en porte pas', async ({
     page,
   }) => {
-    await page.goto('/');
-    await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+    await gotoMounted(page, '/');
     const section = page.locator('#section-experience');
     const idle = section.locator('article button.tech-chip[aria-pressed="false"]').first();
     await expect(idle).toBeVisible();
