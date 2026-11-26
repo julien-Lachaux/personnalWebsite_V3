@@ -43,6 +43,11 @@ const LINKEDIN_RECOMMENDATIONS = 'linkedin-recommendations';
 /** Titre coupé après son premier mot (« Développeur » / « full-stack ») ; une ligne s'il n'en a qu'un. */
 const TITLE_LINES = /^(\S+)\s+(.*\S)/;
 
+/** Nom affiché du titulaire : prénom puis nom, séparés d'une espace (« Prénom Nom »). */
+export function mapName(profile: Pick<Profile, 'firstName' | 'lastName'>): string {
+  return `${profile.firstName} ${profile.lastName}`;
+}
+
 /** Profil. */
 export function mapProfile(profile: Profile): ProfileView {
   const lines = TITLE_LINES.exec(profile.title);
@@ -180,6 +185,7 @@ export function mapAi(aiOverview: AiOverview | null): AiView | null {
 export function mapCv(cv: Cv, labels: CvLabels): CvView {
   return {
     locale: cv.locale,
+    name: mapName(cv.profile),
     profile: mapProfile(cv.profile),
     links: mapLinks(cv.socialLinks),
     experiences: mapExperiences(cv.experiences, cv.locale, labels),

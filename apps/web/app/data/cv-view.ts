@@ -110,6 +110,11 @@ export interface AiView {
 /** Tout ce que la page affiche, pour une langue. */
 export interface CvView {
   readonly locale: Locale;
+  /**
+   * Nom affiché du titulaire (« Prénom Nom ») : titre et description de la page d'accueil, jamais
+   * écrit dans les sections (docs/04, « Profil »).
+   */
+  readonly name: string;
   readonly profile: ProfileView;
   readonly links: LinksView;
   readonly experiences: readonly ExperienceView[];
