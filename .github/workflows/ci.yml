@@ -270,6 +270,12 @@ jobs:
           CI: 'true'
           NUXT_CV_SOURCE: fixtures
           NUXT_PUBLIC_CONTACT_EMAIL: contact@example.org
+      # F11-06 (D50) : mesures du JS du site généré par l'étape précédente (même site pour les sept écrans,
+      # donc une seule entrée de la matrice, sans régénérer) : échec si Zod ou les fixtures sont dans un
+      # script ou si le JS de l'accueil dépasse le budget ; tableau dans le résumé du job.
+      - name: Mesures et budget du JavaScript du site généré
+        if: ${{ matrix.project == 'desktop-1280' }}
+        run: node scripts/ci/front-bundle-budget.mjs
       # Rapport Playwright (traces des échecs), consultable depuis le run.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
