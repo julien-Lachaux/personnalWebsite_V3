@@ -13,6 +13,8 @@
 // - `STORAGE_KEY` et `storePreferences(page, préférences)` : préférences enregistrées avant tout script
 //   de la page, au format de `domain/preferences` (`{ version: 1, … }`). La clé est écrite ici en clair,
 //   pas importée du code : c'est l'oracle, un changement de clé en production doit faire échouer.
+// - `PALETTES` : les quatre palettes (thème sombre ou clair, contraste normal ou renforcé), nom des
+//   cas et préférences à enregistrer, dans l'ordre des copies de shell, experience et des puces.
 // - `tabsMode(page)` : vrai sous 1024 px (vue par onglets), faux au-delà (mosaïque), d'après la taille
 //   de la fenêtre du projet (`MOSAIC_QUERY`, `BREAKPOINTS.portable`).
 // - `gotoMounted(page, chemin, options?)` : `goto` puis `expectShellMounted` ; rend la réponse.
@@ -40,6 +42,14 @@ export const WCAG_22_AA: readonly string[] = Object.freeze([
 
 /** Clé du stockage local des préférences (`domain/preferences`), écrite en clair : oracle. */
 export const STORAGE_KEY = 'siteperso:preferences';
+
+/** Les quatre palettes : `name` nomme le cas, `theme` et `highContrast` sont les préférences. */
+export const PALETTES = [
+  { name: 'sombre', theme: 'sombre', highContrast: false },
+  { name: 'clair', theme: 'clair', highContrast: false },
+  { name: 'sombre renforcé', theme: 'sombre', highContrast: true },
+  { name: 'clair renforcé', theme: 'clair', highContrast: true },
+] as const;
 
 /** Largeur à partir de laquelle la coquille passe en mosaïque (`MOSAIC_QUERY`). */
 const MOSAIC_MIN_WIDTH = 1024;

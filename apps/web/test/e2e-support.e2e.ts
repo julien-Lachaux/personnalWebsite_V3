@@ -5,6 +5,7 @@ import {
   expectAxeClean,
   expectShellMounted,
   gotoMounted,
+  PALETTES,
   STORAGE_KEY,
   storePreferences,
   tabsMode,
@@ -111,6 +112,28 @@ test.describe('préférences et coquille', () => {
       textSize: 130,
     });
   });
+
+  test('PALETTES : les quatre combinaisons de thème et de contraste, une fois chacune', () => {
+    expect(PALETTES.map(({ name, theme, highContrast }) => [name, theme, highContrast])).toEqual([
+      ['sombre', 'sombre', false],
+      ['clair', 'clair', false],
+      ['sombre renforcé', 'sombre', true],
+      ['clair renforcé', 'clair', true],
+    ]);
+  });
+
+  for (const palette of PALETTES) {
+    test(`PALETTES, ${palette.name} : appliquée à <html> par ses préférences`, async ({ page }) => {
+      await storePreferences(page, { theme: palette.theme, highContrast: palette.highContrast });
+      await gotoMounted(page, '/');
+
+      const html = page.locator('html');
+      await expect(html).toHaveAttribute('data-theme', palette.theme);
+      expect(await html.getAttribute('data-contrast')).toBe(
+        palette.highContrast ? 'renforce' : null,
+      );
+    });
+  }
 
   test('tabsMode suit le mode choisi par la coquille à la taille du projet', async ({ page }) => {
     await gotoMounted(page, '/');
