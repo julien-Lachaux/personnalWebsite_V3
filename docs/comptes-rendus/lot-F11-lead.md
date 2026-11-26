@@ -867,3 +867,65 @@ Sur `3a17bee` (faces et test, pile du handoff) :
    Liberation Sans et Liberation Mono. Que `local('Roboto Regular')` trouve la police du système
    sous Chrome pour Android n'est pas vérifié ici (aucun appareil ni émulateur) : sans elle, la pile
    passe à `sans-serif`, comme aujourd'hui.
+
+### Suite : pile au bureau seulement (option (b), D51 (4) mise à jour, `8e6cc39`)
+
+Demande de l'orchestrateur : la pile de repli dans `@media (min-width: 1024px) { :root { … } }`
+(seuil de la mosaïque, `BREAKPOINTS.portable`), la déclaration de base de `:root` laissée au handoff ;
+arrêt si `tokens.spec.ts` échoue, sinon un test nouveau sur la surcharge du bureau.
+
+**Résultat : nouvel arrêt, sur un autre test existant.** `tokens.spec.ts` reste vert (21/21) :
+la déclaration de base est intacte. Mais `control-tokens.spec.ts` échoue (8 tests) : il recalcule la
+cascade de la racine sur `tokens.css` puis `control-tokens.css` et refuse toute requête média qu'il
+ne connaît pas (table `MEDIA`, `control-tokens.spec.ts:44-55`). Règle posée dans `tokens.css`, puis
+retirée par `git checkout` (rien de commité) :
+
+```
+$ pnpm exec vitest run app/assets/css/
+ FAIL  |nuxt| app/assets/css/control-tokens.spec.ts > bordure des contrôles (D12) > sombre posé : --line-control atteint 3:1 sur chaque fond opaque
+ … (mêmes erreurs pour sombre du système, clair posé, clair du système, sombre et clair en
+ contraste renforcé, renforcé sans thème posé, et « le --line décoratif du handoff reste inchangé »)
+Error: requête média inconnue : (min-width: 1024px)
+ ❯ mediaMatches app/assets/css/control-tokens.spec.ts:53:33
+ Test Files  1 failed | 4 passed (5)
+      Tests  8 failed | 40 passed (48)
+$ pnpm exec vitest run app/assets/css/tokens.spec.ts
+      Tests  21 passed (21)
+```
+
+Pas de contournement : poser la règle dans `fonts.css` (hors des fichiers que lit ce test) le
+garderait vert, mais seulement parce qu'il ne la voit plus ; c'est à décider, pas à choisir pour faire
+passer un test. Deux suites possibles, à trancher par l'orchestrateur :
+
+- (a) le correcteur, sous autorisation `D51-4`, ajoute `'(min-width: 1024px)'` à la table `MEDIA` de
+  `control-tokens.spec.ts` (sans effet sur les couleurs : la règle ne porte que `--font-sans` et
+  `--font-mono` ; l'état devrait sinon se dédoubler en largeur), puis le lead pose la règle dans
+  `tokens.css` avec le test nouveau prévu ;
+- (b) la règle va dans `fonts.css`, à côté des faces qu'elle cite (police et pile au même endroit),
+  décision de placement à reporter dans CLAUDE.md ; aucun test existant à toucher.
+
+Test nouveau prévu (non écrit, il échouerait sans la règle) : dans la règle
+`@media (min-width: 1024px)` de `:root`, `--font-sans` vaut exactement la police du handoff, puis les
+familles des faces de repli de `fonts.css` qui la concernent, dans leur ordre, puis la famille
+générique du handoff ; de même pour `--font-mono` ; la règle ne porte rien d'autre ; la déclaration de
+base reste celle du handoff (déjà vérifié par `tokens.spec.ts`).
+
+Mesure avec la règle (build `generate:fixtures` de la règle non commitée, mêmes réglages, 3 passes,
+`cls-probe.mjs`, sorties `fallback-media.txt` et `fallback-media-geo.txt`) :
+
+| Largeur | Avant | Bureau seul | Avant, fractionnaire | Bureau seul, fractionnaire |
+|---|---|---|---|---|
+| 390 | 0,0227 | **0,0227** (×3) | 0,0228 | **0,0228** (×3) |
+| 1024 | 0,0182 | 0,0004 (×3) | 0,0188 | 0,0004 (×3) |
+| 1280 | 0,0547 | 0,0069 / 0,006 / 0,006 | 0,0544 | 0,0031 (×3) |
+| 1920 | 0,0184 | 0,0029 (×3) | 0,0183 | 0,0001 (×3) |
+
+À 390, mêmes sauts qu'avant (1 331 : 0,0038 ; 1 494 : 0,0182 ; 1 549 : 0,0005 ; 2 326 : 0,0002) et
+seules Space Grotesk et JetBrains Mono chargées : le mobile revient exactement à l'état d'avant. La
+première passe à 1280 porte un saut de 0,0009 à 737 ms (non reproduit aux deux suivantes).
+Poids : CSS d'entrée 14 978 o / 3 435 o gzip (+939 / +242 depuis `0d09349`), `index.html`
+inchangé (123 917 o / 20 240 o gzip).
+
+Vérifications sans objet sur cette suite : aucune modification de code versionnée (lint, typecheck,
+couverture et parcours de `3a17bee` restent valables) ; `.output/public` contient le build de la
+règle non commitée, à régénerer. Point ouvert : le choix entre (a) et (b).
