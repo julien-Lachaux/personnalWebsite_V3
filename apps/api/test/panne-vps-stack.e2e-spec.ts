@@ -103,7 +103,7 @@ const siteCommand = [
   'mkdir -p /site/releases/r1/public/en /site/releases/r1/public/_nuxt /site/releases/r1/public/fonts',
   'cd /site/releases/r1',
   'for page in index.html en/index.html 404.html en/404.html 50x.html en/50x.html _nuxt/a.css fonts/f.woff2; do echo "PAGE $page" > "public/$page"; done',
-  `echo 'header Content-Security-Policy "${CSP}"' > csp.caddy`,
+  `printf '%s\\n' "header Content-Security-Policy \\"${CSP}\\"" > csp.caddy`,
   'ln -sfn releases/r1 /site/current',
 ].join(' && ');
 
