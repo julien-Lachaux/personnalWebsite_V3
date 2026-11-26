@@ -69,9 +69,11 @@ supprimée : elle reste retrouvable.
    et de la revue. Le numéro de PR est noté sur la carte.
 4. **Fusion** (session principale) : aux trois conditions de `CLAUDE.md` (« Flux git et
    interdictions ») — CI verte, revue `revue-pr` sans point bloquant (`VERDICT: OK`), recette
-   acceptée — plus l'accord de Julien. Puis `gh pr merge --merge`, et la carte passe dans « Fusionné
-   dans develop » avec le commit de merge.
-5. **Release** : à la fusion de la release dans `main`, les cartes passent dans « Released ».
+   acceptée. Puis `gh pr merge --merge`, et la carte passe dans « Fusionné dans develop » avec le
+   commit de merge.
+5. **Release** : la PR `release/<version>` vers `main` n'est fusionnée qu'après l'accord explicite de
+   Julien (`CLAUDE.md`, « Pull request vers `main` ») ; à cette fusion, les cartes passent dans
+   « Released ».
 
 ## Relecture du tableau
 
