@@ -929,3 +929,58 @@ inchangé (123 917 o / 20 240 o gzip).
 Vérifications sans objet sur cette suite : aucune modification de code versionnée (lint, typecheck,
 couverture et parcours de `3a17bee` restent valables) ; `.output/public` contient le build de la
 règle non commitée, à régénerer. Point ouvert : le choix entre (a) et (b).
+
+#### Fait (suite (a) retenue : `405c62f` du correcteur, puis la règle)
+
+Commits :
+
+- `190ad43` feat(web): polices de repli ajustées dans les piles du bureau (D51 (4))
+- (ce commit) docs: convention des polices de repli du bureau et compte rendu
+
+- `app/assets/css/tokens.css` : règle unique `@media (min-width: 1024px) { :root { … } }`, après la
+  déclaration de base (inchangée, celle du handoff) : `--font-sans: 'Space Grotesk', 'Space Grotesk
+  Fallback', 'Space Grotesk Fallback Roboto', sans-serif` et `--font-mono: 'JetBrains Mono',
+  'JetBrains Mono Fallback', monospace` ; commentaire qui cite D51 (4). `:root[data-font='lisible']`,
+  plus spécifique, l'emporte toujours au bureau.
+- `app/assets/css/fonts-desktop-stack.spec.ts` (nouveau, projet `nuxt`, 4 tests) : reconstruit la
+  pile attendue depuis `design/handoff-v6/tokens.css` (police, générique) et les familles des
+  `@font-face` de `fonts.css` nommées « <police> Fallback… » (ordre du fichier) ; exige une seule règle
+  `(min-width: ${BREAKPOINTS.portable}px)` dans `tokens.css`, qui ne contient que `:root`, qui ne porte
+  que `--font-sans` et `--font-mono`, chacune égale à la pile attendue. Sans la règle : 4 échecs
+  (`expected [] to have a length of 1 but got +0`, puis lecture d'une règle absente), règle retirée
+  puis remise par l'outil d'édition avant le commit.
+- CLAUDE.md, « Préférences → CSS » : convention des polices de repli (faces calculées, pile au bureau
+  seulement, test qui la garde, nommage d'une nouvelle face).
+
+#### Mesures (build commité `190ad43`, `generate:fixtures`, `cls-probe.mjs`, 3 passes)
+
+| Largeur | Avant (`0d09349`) | Après | Avant, fractionnaire | Après, fractionnaire |
+|---|---|---|---|---|
+| 390 | 0,0227 | **0,0227** (×3) | 0,0228 | **0,0228** (×3) |
+| 1024 | 0,0182 | 0,0004 (×3) | 0,0188 | 0,0004 (×3) |
+| 1280 | 0,0547 | 0,006 (×3) | 0,0544 | 0,0031 (×3) |
+| 1920 | 0,0184 | 0,0029 (×3) | 0,0183 | 0,0001 (×3) |
+
+À 390, mêmes sauts qu'avant (1 339 : 0,0038 ; 1 473 : 0,0182 ; 1 514 : 0,0005 ; 2 329 : 0,0002) et
+seules Space Grotesk et JetBrains Mono chargées ; au bureau, les faces de repli sont chargées
+(`document.fonts`) et le seul saut restant est celui de la bascule vers Space Grotesk. Valeurs
+identiques à la mesure de la règle non commitée (seule différence : la première passe à 1280 n'a plus
+le saut isolé de 0,0009).
+
+#### Vérifications ciblées (sur `190ad43`)
+
+- `pnpm --filter @siteperso/web lint` et `typecheck` : verts.
+- `pnpm exec vitest run app/assets/css/` (dans `apps/web`) : 6 fichiers, 52 tests verts
+  (`tokens.spec.ts`, `control-tokens.spec.ts`, `fonts-fallback.spec.ts` compris).
+- `pnpm --filter @siteperso/web test:coverage` : 145 fichiers, 1 228 tests, 100 % (instructions
+  1472/1472, branches 797/797, fonctions 490/490, lignes 1310/1310).
+- `generate:fixtures`, puis `pnpm exec playwright test --workers=2` sur `csp`, `design-system`,
+  `matrix`, `hydration-shift`, `pages`, `smoke`, `title-overflow`, `top-bar-height`, `shell` et
+  `mosaic` : **910 passés** (14,7 min).
+- `pnpm integrity` : OK (base `origin/develop`, divergence `567527ca9cab`). Hook pre-commit vert.
+- Mutation sans objet (ni `app/domain/` ni `app/data/` touchés) ; `pnpm db:down` sans objet (aucune
+  base démarrée) ; conteneur Playwright laissé démarré ; sirv de la sonde arrêté.
+
+#### Points ouverts
+
+- Atkinson Hyperlegible (point ouvert 3 ci-dessus) et Android/Windows non mesurés (point 4) : inchangés.

@@ -216,6 +216,14 @@ apps/web/
   px (vérifié par `app/assets/css/tokens.spec.ts`, avec la fidélité au handoff et les contrastes des
   quatre palettes). Classes globales : `.skip-link` (lien d'évitement, visible au focus) et
   `.visually-hidden`. Polices dans `public/fonts/` (Fontsource 5.3.0, OFL), aucune requête tierce.
+  Polices de repli ajustées (D51 (4), lot F11) : faces `local()` de `fonts.css` (« Space Grotesk
+  Fallback », « … Fallback Roboto », « JetBrains Mono Fallback »), descripteurs calculés par capsize
+  et recalculés par `fonts-fallback.spec.ts` (jamais réglés à l'œil) ; citées par les piles
+  `--font-sans` et `--font-mono` au bureau seulement, dans l'unique règle
+  `@media (min-width: 1024px) { :root { … } }` de `tokens.css` (police du handoff, replis, générique
+  du handoff : `fonts-desktop-stack.spec.ts`) ; sous 1024 px et dans `:root`, la pile du handoff
+  reste (`tokens.spec.ts`). Une face de repli ajoutée à `fonts.css` se nomme « <police> Fallback… »
+  et entre dans la pile du bureau.
 - **Configuration et données personnelles** : valeurs publiques en `NUXT_PUBLIC_*`, figées au build,
   modèle `apps/web/.env.example` (à copier en `apps/web/.env`, jamais commité). L'adresse du bouton
   « Lancer l'entretien » est `NUXT_PUBLIC_CONTACT_EMAIL` (`useRuntimeConfig().public.contactEmail`) :
