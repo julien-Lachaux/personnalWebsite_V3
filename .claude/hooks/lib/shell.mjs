@@ -1288,11 +1288,13 @@ function analyzeSegment(seg, env) {
   for (const a of assignments) {
     const name = a.slice(0, a.indexOf('='));
     const value = a.slice(a.indexOf('=') + 1);
+    const lhs = name;
+    const known = !value.includes(UNKNOWN) && !lhs.endsWith('+') && !lhs.includes('[');
     if (name === 'HUSKY' && (value === '0' || value.includes(UNKNOWN)))
       deny(`désactiver husky (${shown(a)}) est interdit`);
     gitConfigEnv(env, name, value, true);
     allowProtocolEnv(env, name, value, true);
-    traceEnv(env, name, value, true);
+    traceEnv(env, lhs.replace(/\+$/, ''), value, known);
     if (CODE_FILE_ENV.has(name))
       deny(`variable ${name} : elle fait charger un code au démarrage ; illisible, donc refusée`);
     if (
