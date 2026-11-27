@@ -41,6 +41,7 @@ import { after, before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { analyzeCommand } from '../lib/shell.mjs';
+import { GIT_SPAWN_LIMITS, hermeticGitEnv } from './support/hermetic-git-env.mjs';
 
 const HOOKS = dirname(dirname(fileURLToPath(import.meta.url)));
 const GUARD = join(HOOKS, 'guard.mjs');
@@ -58,16 +59,17 @@ let project;
 let marker;
 let extScript;
 
-const ENV = () => ({
-  ...process.env,
-  HOME: join(root, 'home'),
-  GIT_CONFIG_NOSYSTEM: '1',
-  GIT_TERMINAL_PROMPT: '0',
-  GIT_AUTHOR_NAME: 'Test',
-  GIT_AUTHOR_EMAIL: 'ci@noreply.invalid',
-  GIT_COMMITTER_NAME: 'Test',
-  GIT_COMMITTER_EMAIL: 'ci@noreply.invalid',
-});
+// Lot 49 : environnement hermétique (aucun askpass de l'utilisateur) ; la configuration globale de
+// git reste celle du HOME jetable, des gabarits écrivant en --global.
+const ENV = () =>
+  hermeticGitEnv({
+    HOME: join(root, 'home'),
+    GIT_CONFIG_GLOBAL: join(root, 'home', '.gitconfig'),
+    GIT_AUTHOR_NAME: 'Test',
+    GIT_AUTHOR_EMAIL: 'ci@noreply.invalid',
+    GIT_COMMITTER_NAME: 'Test',
+    GIT_COMMITTER_EMAIL: 'ci@noreply.invalid',
+  });
 
 function write(rel, content) {
   mkdirSync(dirname(join(repo, rel)), { recursive: true });
@@ -82,15 +84,23 @@ before(() => {
   extScript = join(root, 'ext.sh');
   writeFileSync(extScript, `#!/bin/sh\ntouch ${marker}\n`);
   repo = join(root, 'repo');
-  execFileSync('git', ['init', '-q', '-b', 'develop', repo], { env: ENV() });
+  execFileSync('git', ['init', '-q', '-b', 'develop', repo], { env: ENV(), ...GIT_SPAWN_LIMITS });
   write('apps/api/src/app.ts', 'export const answer = 42;\n');
   write('apps/api/src/app.spec.ts', "it('répond', () => {});\n");
   write('suivi.txt', 'a\n');
   write('filtre.txt', 'a\n');
   write('.gitattributes', 'filtre.txt filter=zz\n');
-  execFileSync('git', ['add', '-A'], { cwd: repo, env: ENV() });
-  execFileSync('git', ['commit', '-q', '-m', 'base'], { cwd: repo, env: ENV() });
-  execFileSync('git', ['config', 'alias.st', 'status --short'], { cwd: repo, env: ENV() });
+  execFileSync('git', ['add', '-A'], { cwd: repo, env: ENV(), ...GIT_SPAWN_LIMITS });
+  execFileSync('git', ['commit', '-q', '-m', 'base'], {
+    cwd: repo,
+    env: ENV(),
+    ...GIT_SPAWN_LIMITS,
+  });
+  execFileSync('git', ['config', 'alias.st', 'status --short'], {
+    cwd: repo,
+    env: ENV(),
+    ...GIT_SPAWN_LIMITS,
+  });
   // Fichier suivi modifié : git diff lance diff.external.
   write('suivi.txt', 'b\n');
 });
@@ -116,6 +126,7 @@ function hook(command, role) {
     input: JSON.stringify(input),
     encoding: 'utf8',
     env: { ...ENV(), CLAUDE_PROJECT_DIR: project },
+    ...GIT_SPAWN_LIMITS,
   });
   return { code: res.status, stderr: res.stderr };
 }
@@ -266,7 +277,9 @@ const fill = (t, cmd) => t.replaceAll('%CMD%', cmd).replaceAll('%SCRIPT%', extSc
 
 /** Version de git qui rejoue les formes : [majeure, mineure]. */
 const GIT_VERSION = (() => {
-  const m = /(\d+)\.(\d+)/.exec(execFileSync('git', ['--version'], { encoding: 'utf8' }));
+  const m = /(\d+)\.(\d+)/.exec(
+    execFileSync('git', ['--version'], { encoding: 'utf8', ...GIT_SPAWN_LIMITS }),
+  );
   return [Number(m[1]), Number(m[2])];
 })();
 const atLeast = (version) => {
@@ -292,6 +305,7 @@ function launches(template) {
     encoding: 'utf8',
     env: ENV(),
     timeout: 20000,
+    killSignal: 'SIGKILL',
   });
   return existsSync(marker);
 }
@@ -320,7 +334,7 @@ describe('L25-01 : comportement réel de git (dépôt jetable, témoin)', () => 
     for (const command of EXT_CONFIG) {
       const unset = command.replace(/ (--add )?(protocol\.\S+) \S+$/, ' --unset $2');
       const launched = launches(`${command}; ${EXT('git')}`);
-      spawnSync('bash', ['-c', unset], { cwd: repo, env: ENV() });
+      spawnSync('bash', ['-c', unset], { cwd: repo, env: ENV(), ...GIT_SPAWN_LIMITS });
       assert.ok(launched, command);
     }
   });
@@ -342,9 +356,9 @@ describe('L25-01 : clé de -c entourée d’espaces (git 2.30 les retire), core.
     const res = spawnSync(
       'bash',
       ['-c', SPACED[0].replace('%SUB%', 'config --get core.hooksPath')],
-      { cwd: repo, encoding: 'utf8', env: ENV() },
+      { cwd: repo, encoding: 'utf8', env: ENV(), ...GIT_SPAWN_LIMITS },
     );
-    const version = execFileSync('git', ['--version'], { encoding: 'utf8' });
+    const version = execFileSync('git', ['--version'], { encoding: 'utf8', ...GIT_SPAWN_LIMITS });
     if (/ 2\.([0-9]|[12][0-9]|30)\./.test(version)) assert.equal(res.stdout.trim(), '/autre');
   });
 
