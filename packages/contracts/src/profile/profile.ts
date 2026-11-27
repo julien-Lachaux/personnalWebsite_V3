@@ -4,10 +4,11 @@ import { ImageSchema } from '../common/image.js';
 
 /**
  * Chemin d'un fichier statique servi par le front, relatif à la racine du site : un seul `/` en tête,
- * aucun espace. Écarte `javascript:`, `data:`, une URL absolue et une URL sans protocole (`//hôte`),
+ * aucun espace. Écarte `javascript:`, `data:`, une URL absolue et une URL sans protocole (`//hôte`) et un
+ * antislash `\` (`/\hôte` que le navigateur résout en `//hôte`, RS-1 / BF-16),
  * que le front rendrait dans un `href`.
  */
-const SITE_PATH_PATTERN = /^\/[^/\s]\S*$/;
+const SITE_PATH_PATTERN = /^\/[^/\s\\]\S*$/;
 
 /** Texte affiché, jamais vide. */
 const text = (description: string, example: string) =>
