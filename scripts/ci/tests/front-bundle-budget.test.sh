@@ -4,6 +4,10 @@
 # Les apostrophes simples portent des accents graves littéraux (cellules Markdown) : rien à développer.
 # shellcheck disable=SC2016
 set -euo pipefail
+# En CI, GitHub Actions pose GITHUB_STEP_SUMMARY : le script écrirait alors son tableau dans ce fichier et
+# rien sur la sortie que les cas lisent. Les cas partent donc sans la variable ; celui du résumé de job la
+# pose lui-même.
+unset GITHUB_STEP_SUMMARY
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 script=scripts/ci/front-bundle-budget.mjs
 fail=0
