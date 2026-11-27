@@ -1,8 +1,9 @@
 // État des garde-fous : dépôts git, instantanés des oracles, autorisations nominatives, journal.
 //
 // Tout est rangé sous `<projet>/.claude/hooks/` (gitignoré) où `<projet>` est CLAUDE_PROJECT_DIR
-// (racine où la session a démarré, fournie par Claude Code) ou, à défaut, la racine git du dossier
-// courant : `state/snapshots/<clé>/`, `state/authorizations.json`, `state/violations/`, `audit.log`.
+// (racine où la session a démarré, fournie par Claude Code) ou, à défaut, le checkout principal pour
+// les hooks (stateRoot) et la racine git du dossier courant pour authorize.mjs (cliStateRoot, lot 45) :
+// `state/snapshots/<clé>/`, `state/authorizations.json`, `state/violations/`, `audit.log`.
 // La clé d'un sous-agent est son agent_id, celle de la session principale son session_id.
 
 import { execFileSync } from 'node:child_process';
@@ -129,8 +130,8 @@ export function mainCheckoutOf(cwd) {
 
 /**
  * Racine de l'état : CLAUDE_PROJECT_DIR (identique pour tous les hooks d'une session, sous-agents
- * en worktree compris), sinon le checkout principal du dépôt courant (cas d'authorize.mjs lancé
- * depuis un terminal).
+ * en worktree compris), sinon le checkout principal du dépôt courant (rejeu manuel d'un hook ; les
+ * hooks de .claude/settings.json reçoivent toujours la variable). authorize.mjs lit cliStateRoot.
  */
 export function stateRoot(cwd) {
   const project = process.env.CLAUDE_PROJECT_DIR;
@@ -138,6 +139,35 @@ export function stateRoot(cwd) {
   if (!root)
     throw new Error("impossible de déterminer la racine du projet pour l'état des garde-fous");
   return join(root, '.claude', 'hooks', 'state');
+}
+
+/**
+ * Racine de l'état pour les commandes lancées hors hook (authorize.mjs, lot 45) : CLAUDE_PROJECT_DIR
+ * s'il est posé, sinon la racine git du dossier courant (`git rev-parse --show-toplevel`), jamais le
+ * checkout principal d'office : lancé depuis un worktree sans la variable, l'ancien repli sur le
+ * checkout principal rangeait l'autorisation là où les hooks du worktree ne la lisent pas. Une
+ * variable posée sur un dossier absent, ou un dossier courant hors de tout dépôt sans variable, est
+ * refusé avec un message plutôt que deviné. Rend `{ root, project, source }`.
+ */
+export function cliStateRoot(cwd) {
+  const project = process.env.CLAUDE_PROJECT_DIR;
+  if (project !== undefined && project !== '') {
+    if (!existsSync(project) || !statSync(project).isDirectory())
+      throw new Error(`CLAUDE_PROJECT_DIR désigne un dossier absent : ${project}`);
+    const dir = normalize(project);
+    return {
+      root: join(dir, '.claude', 'hooks', 'state'),
+      project: dir,
+      source: 'CLAUDE_PROJECT_DIR',
+    };
+  }
+  const top = toplevelOf(cwd);
+  if (!top)
+    throw new Error(
+      `le dossier courant n'est dans aucun dépôt git (${cwd}) : lancer la commande depuis le ` +
+        'worktree visé, ou poser CLAUDE_PROJECT_DIR=<worktree>',
+    );
+  return { root: join(top, '.claude', 'hooks', 'state'), project: top, source: 'dossier courant' };
 }
 
 export function auditPath(root) {

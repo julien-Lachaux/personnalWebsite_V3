@@ -100,9 +100,10 @@ hc read tN | grep -q "Enter to confirm" && hc keys tN enter
 
 ## Garde-fous
 
-- **Autorisations depuis un worktree** : `authorize.mjs` range l'état dans `CLAUDE_PROJECT_DIR`, sinon dans
-  le checkout principal. Le Bash de la session principale n'a pas toujours cette variable : sans elle,
-  l'autorisation part dans le checkout principal, et les hooks du worktree ne la voient pas. Toujours :
+- **Autorisations depuis un worktree** : `authorize.mjs` range l'état dans `CLAUDE_PROJECT_DIR` s'il est posé,
+  sinon dans le dépôt du dossier courant (worktree compris, lot 45), et annonce l'état visé sur la sortie
+  d'erreur (`état des garde-fous de <dossier> (…)`) : le relire. Une variable héritée qui désigne le checkout
+  principal l'emporte sur le dossier courant ; le plus sûr reste de nommer le worktree :
 
   ```sh
   CLAUDE_PROJECT_DIR=<worktree> node .claude/hooks/authorize.mjs grant --agent <rôle> --scope <portée> \

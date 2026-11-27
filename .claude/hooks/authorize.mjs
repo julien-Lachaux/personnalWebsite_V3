@@ -8,6 +8,9 @@
 // l'utilise (agent_id) et ne sert qu'à lui. Création, révocation et chaque usage sont journalisés
 // dans .claude/hooks/audit.log ; aucune variable d'environnement n'ouvre d'exception.
 //
+// État visé : celui de CLAUDE_PROJECT_DIR s'il est posé, sinon celui du dépôt du dossier courant
+// (`git rev-parse --show-toplevel`, worktree compris) ; hors de tout dépôt sans la variable, refus.
+//
 //   node .claude/hooks/authorize.mjs grant --agent correcteur --scope tests --ticket RC-12 \
 //        --reason "test faux établi par le triage" --path apps/api/test/errors.e2e-spec.ts [--ttl 240]
 //   node .claude/hooks/authorize.mjs list
@@ -17,8 +20,8 @@ import { classify, GRANTABLE } from './lib/policy.mjs';
 import {
   audit,
   newGrantId,
+  cliStateRoot,
   readAuthorizations,
-  stateRoot,
   writeAuthorizations,
 } from './lib/state.mjs';
 
@@ -113,7 +116,17 @@ function revoke(root, args) {
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const root = stateRoot(process.cwd());
+// Lot 45 : l'état visé est celui de CLAUDE_PROJECT_DIR, sinon celui du dépôt du dossier courant
+// (worktree compris) ; il est annoncé sur la sortie d'erreur, pour qu'une autorisation ne parte
+// jamais en silence dans l'état d'un autre worktree.
+let target;
+try {
+  target = cliStateRoot(process.cwd());
+} catch (error) {
+  fail(error.message);
+}
+process.stderr.write(`authorize : état des garde-fous de ${target.project} (${target.source})\n`);
+const root = target.root;
 if (command === 'grant') grant(root, parseArgs(rest));
 else if (command === 'list') list(root);
 else if (command === 'revoke') revoke(root, parseArgs(rest));
