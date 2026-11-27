@@ -34,8 +34,10 @@ export const RecommendationSchema = z
       .array(z.string().min(1))
       .min(1)
       .meta({ description: 'Citation, un paragraphe par entrée (texte brut, au moins un).' }),
-    // Langue de la ligne de traduction servie (`fr` en repli).
-    locale: LocaleSchema,
+    locale: LocaleSchema.meta({
+      description:
+        "Langue de la ligne de traduction servie : `fr` quand la citation n'est pas traduite, même pour `?lang=en`. Le front s'en sert pour l'attribut `lang` de la citation.",
+    }),
   })
   .meta({
     id: 'Recommendation',
