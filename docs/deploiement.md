@@ -387,8 +387,11 @@ vérification. Le journal d'accès contient des adresses IP : sa rotation est bo
 - En-têtes de sécurité sous `/api/*` : `X-Frame-Options: DENY` et `Content-Security-Policy: default-src
   'none';frame-ancestors 'none'` sont posés par l'API (helmet). Le `Caddyfile` les double avec les mêmes
   valeurs et le préfixe `?` (posé seulement si l'API ne l'a pas fait) : jamais deux valeurs divergentes.
-  Pour la page statique : `default-src 'self'` et `X-Frame-Options: SAMEORIGIN`. À adapter quand le front
-  sera servi.
+  Pour la page statique : `X-Frame-Options: DENY`, y compris sur les pages d'erreur du front, et CSP
+  stricte sans `'unsafe-inline'`, générée au déploiement par `scripts/deploy/csp-hashes.mjs`
+  (empreintes des scripts et styles en ligne ; `default-src 'self'`, `frame-ancestors 'none'`, …),
+  écrite dans `csp.caddy`, importée par `docker/Caddyfile` (`import /srv/web/current/csp.*`), aussi sur
+  les pages d'erreur ; posés par Caddy, pas par l'API.
 
 ### Écart connu entre développement et production
 
