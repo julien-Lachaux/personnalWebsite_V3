@@ -25,6 +25,26 @@ const browserPort = process.env['PLAYWRIGHT_PORT'] ?? '3100';
 const sitePort = process.env['WEB_E2E_PORT'] ?? '4173';
 const ci = process.env['CI'] !== undefined;
 
+// Borne du nombre de processus (lot 43, décision du 25 nov. 2026, même règle que Vitest, L19-03) :
+// TEST_MAX_WORKERS, entier positif ou pourcentage des cœurs logiques (`2`, `50%`), lue dans
+// l'environnement puis dans le `.env` racine chargé ci-dessus (l'environnement l'emporte ; une valeur
+// vide compte comme absente). Sans valeur : `workers` par défaut de Playwright (la moitié des cœurs),
+// en CI compris. `--workers` en ligne de commande l'emporte. Une valeur invalide arrête Playwright.
+const workersSetting = process.env['TEST_MAX_WORKERS'] ?? '';
+if (workersSetting !== '' && !/^([1-9]\d*|([1-9]\d?|100)%)$/.test(workersSetting)) {
+  throw new Error(
+    `TEST_MAX_WORKERS invalide (« ${workersSetting} ») : un entier positif ou un pourcentage de 1 à 100 %, ex. 4 ou 50%.`,
+  );
+}
+const workers =
+  workersSetting === ''
+    ? {}
+    : {
+        workers: workersSetting.endsWith('%')
+          ? workersSetting
+          : Number.parseInt(workersSetting, 10),
+      };
+
 /** Tailles d'écran des maquettes v6 (nom de capture de référence : `<écran>-<largeur>`). */
 export const viewports = [
   { name: 'mobile-390', width: 390, height: 844 },
@@ -45,6 +65,7 @@ export default defineConfig({
   testDir: 'test',
   testMatch: '**/*.e2e.ts',
   fullyParallel: true,
+  ...workers,
   // Un `.only` oublié fait échouer la passe au lieu de taire les autres tests.
   forbidOnly: true,
   retries: 0,
