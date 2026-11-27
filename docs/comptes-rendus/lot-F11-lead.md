@@ -65,8 +65,8 @@ page ne change pas : le morceau n'était plus préchargé (constat de l'orchestr
 téléchargé que si le gestionnaire s'exécutait dans le navigateur. Le « ~472 ko » du constat additionne
 le script d'entrée deux fois (il est aussi dans les 7 modulepreload).
 
-Mesures complètes : `/tmp/claude-1000/-home-jlachaux-Projets-personnalWebsite-V3-f11/27c0b126-55c9-42cb-99ad-d566be881142/scratchpad/js-before-fixtures.txt`
-et `js-after-fixtures.txt` dans le même dossier (jetables).
+Mesures complètes : `js-before-fixtures.txt` et `js-after-fixtures.txt`, dans le dossier temporaire de la
+session (jetables, non conservés) ; les chiffres utiles sont repris ci-dessus.
 
 ### Preuves des critères
 
