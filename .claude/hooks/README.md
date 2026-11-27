@@ -247,6 +247,18 @@ Refusé à tous les rôles, session principale comprise (lot 13 bis) :
   (abréviations comprises), `-u` de `clone` et `--exec` d'`archive` et de `fetch-pack` (commande
   lancée en local pour un dépôt local). Tests : `tests/config-env-commands.test.mjs` (rejeu réel
   par git, commande témoin) ;
+- les traces que git écrit lui-même (L48-01, décision de Julien du 25 nov. 2026) : la valeur d'une
+  variable `GIT_TRACE*` (`GIT_TRACE`, `GIT_TRACE_PACKET`, `GIT_TRACE2`, `GIT_TRACE2_EVENT`,
+  `GIT_TRACE2_PERF`…, préfixe d'une commande, `export`, `env`, affectation seule) ou d'une clé
+  `trace2.*Target` (par `-c`, `--config-env`, `GIT_CONFIG_PARAMETERS` ou `GIT_CONFIG_KEY_<n>`) qui
+  est un chemin (`/…`, `./…`, relatif) est une cible d'écriture, vérifiée comme une redirection
+  `>>` (mêmes refus sur les oracles et leurs dossiers : un dossier reçoit un fichier par
+  processus) ; vide, `0`, `false`, `1`, `true` et un chiffre seul (sortie d'erreur ou descripteur)
+  sont permis ; une socket (`af_unix:…`) ou une valeur calculée sont refusées. Les réglages sans
+  destination (`GIT_TRACE2_BRIEF`, `GIT_TRACE2_ENV_VARS`, `GIT_TRACE2_EVENT_NESTING`,
+  `GIT_TRACE_REDACT`…) ne sont pas des cibles. git 2.56.1 ignore un chemin relatif et ne lit
+  `trace2.*Target` que dans les configurations système et globale : ces formes sont vérifiées
+  quand même. Tests : `tests/git-trace.test.mjs` ;
 - `gh` pour ce qui étiquette, publie ou supprime :
   `gh release create|delete|delete-asset|edit|upload`,
   `gh repo delete|edit|rename|archive|unarchive|sync`, toute action `delete`, `gh alias set|import`, `gh api` avec une méthode autre que GET ou avec `-f`, `-F`,
@@ -424,7 +436,8 @@ Ce qu'il ne sait pas lire est refusé, jamais laissé passer en silence, pour to
 - nom de commande, sous-commande git ou gh calculés (`$CMD`, `"$(echo git)"`, `$=X` de zsh),
   sous-commande git qui n'est ni connue ni un alias lisible (commande externe `git-<nom>`) ;
 - cible d'écriture calculée (`rm "$F"`, `> "$(pwd)/x"`, expansion d'accolades `a.{b,c}`) ou
-  relative à un dossier courant calculé (`cd "$D" && rm x`, `cd -`) ;
+  relative à un dossier courant calculé (`cd "$D" && rm x`, `cd -`), destination de traces de git
+  calculée ou sur une socket (`GIT_TRACE="$F"`, `-c trace2.eventTarget=af_unix:…`) ;
 - script exécuté calculé, absent, trop gros (plus de 512 Ko) ou écrit par la même commande
   (`echo … > s.sh && sh s.sh`) ; code en ligne calculé (`bash -c "$CODE"`, `eval "$C"`) ; code
   lu sur un tube (`… | sh`, `… | node`) ; here-document ou here-string d'un interpréteur avec
@@ -451,9 +464,9 @@ Ce n'est pas un interpréteur : ce qu'un programme fait sans le nommer sur sa li
   et de chemins d'oracles), pas analysé comme une commande ;
 - la commande `w` de sed est lue, pas les autres façons d'écrire d'un programme sed ou awk ;
 - une clé qui lance une commande déjà posée dans un fichier de configuration (dépôt, global,
-  système) avant la commande est lue par git sans paraître sur la ligne de commande ; un fichier
-  écrit par git lui-même à la demande de l'environnement (`GIT_TRACE*`, `trace2.*Target`) n'est pas
-  lu comme une cible d'écriture (point ouvert du lot 25).
+  système) avant la commande est lue par git sans paraître sur la ligne de commande, de même
+  qu'une destination de traces (`trace2.*Target`) déjà écrite dans un tel fichier ou une variable
+  `GIT_TRACE*` déjà présente dans l'environnement de l'hôte.
 
 Le hook de fin (empreintes) et le script d'intégrité de la CI sont les filets. Les hooks ne sont pas
 un bac à sable : un agent déterminé peut écrire l'état local ; la CI ne dépend pas de cet état.

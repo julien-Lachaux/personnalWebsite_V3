@@ -1273,7 +1273,10 @@ function analyzeSegment(seg, env) {
   }
   const words = seg.words.map(word);
   if (seg.kind === 'data') {
-    if (['for', 'select', 'foreach'].includes(seg.header) && words[1]) st.vars.set(words[1], null);
+    if (['for', 'select', 'foreach'].includes(seg.header) && words[1]) {
+      st.vars.set(words[1], null);
+      traceEnv(env, words[1], UNKNOWN, false);
+    }
     return;
   }
   if (words.length > 0 && words.every((x) => ASSIGNMENT.test(x))) {
@@ -1289,6 +1292,7 @@ function analyzeSegment(seg, env) {
       deny(`désactiver husky (${shown(a)}) est interdit`);
     gitConfigEnv(env, name, value, true);
     allowProtocolEnv(env, name, value, true);
+    traceEnv(env, name, value, true);
     if (CODE_FILE_ENV.has(name))
       deny(`variable ${name} : elle fait charger un code au démarrage ; illisible, donc refusée`);
     if (
@@ -1361,7 +1365,10 @@ function analyzeSegment(seg, env) {
         if (ASSIGNMENT.test(a)) {
           assignVar(env, a);
           const target = a.slice(a.indexOf('=') + 1);
-          if (nameref) gitConfigEnv(env, target, UNKNOWN, false);
+          if (nameref) {
+            gitConfigEnv(env, target, UNKNOWN, false);
+            traceEnv(env, target, UNKNOWN, false);
+          }
         } else if (/^GIT_/.test(a)) st.gitEnv.push(a);
       }
       break;
@@ -1377,7 +1384,10 @@ function analyzeSegment(seg, env) {
       )) {
         st.vars.set(a, null);
         // Valeur lue à l'exécution : une variable GIT_CONFIG_* ainsi affectée est illisible.
-        if (cmd !== 'unset') gitConfigEnv(env, a, UNKNOWN, false);
+        if (cmd !== 'unset') {
+          gitConfigEnv(env, a, UNKNOWN, false);
+          traceEnv(env, a, UNKNOWN, false);
+        }
       }
       break;
     case 'printf':
@@ -1388,6 +1398,7 @@ function analyzeSegment(seg, env) {
         if (name !== undefined) {
           st.vars.set(name, null);
           gitConfigEnv(env, name, UNKNOWN, false);
+          traceEnv(env, name, UNKNOWN, false);
         }
       }
       break;
@@ -1732,7 +1743,12 @@ const EXT_MOTIF =
 /** Clé dont la valeur doit se lire : commande lancée par git, alias, transport ext::. */
 function valueMatters(key) {
   const k = key.trim();
-  return COMMAND_CONFIG_KEY.test(k) || PROTOCOL_KEY.test(k) || /^alias\./i.test(k);
+  return (
+    COMMAND_CONFIG_KEY.test(k) ||
+    PROTOCOL_KEY.test(k) ||
+    TRACE_TARGET_KEY.test(k) ||
+    /^alias\./i.test(k)
+  );
 }
 
 /**
@@ -1751,6 +1767,10 @@ function configEntry(env, rawKey, value, what, base) {
     return;
   }
   if (value === null) return;
+  if (TRACE_TARGET_KEY.test(key)) {
+    traceTarget(env, value, what, base);
+    return;
+  }
   if (PROTOCOL_KEY.test(key)) {
     if (value.trim().toLowerCase() !== 'never') env.deny(`${what} : ${EXT_MOTIF}`);
     return;
@@ -1848,6 +1868,71 @@ function allowProtocolEnv(env, name, value, known) {
     env.deny(`variable GIT_ALLOW_PROTOCOL=${shown(value)} : ${EXT_MOTIF}`);
 }
 
+// ---------------------------------------------------------------------------------------------
+// Traces de git (L48-01, décision de Julien du 25 nov. 2026, point ouvert 2 du lot 25) : git écrit
+// lui-même ses traces dans le fichier que nomme `GIT_TRACE*` ou `trace2.*Target` (ajout en fin de
+// fichier, comme `>>` ; un dossier reçoit un fichier par processus). Une telle valeur est une cible
+// d'écriture, vérifiée comme une redirection (mêmes refus sur les oracles et leurs dossiers).
+// Valeurs lues par git (trace.c, trace2/tr2_dst.c) : vide, `0`, `false` désactivent ; `1`, `true`,
+// un chiffre seul écrivent sur la sortie d'erreur ou ce descripteur : permis. `af_unix:…` (socket)
+// et une valeur calculée sont refusés (illisibles). Tout autre texte est un chemin : git n'écrit
+// qu'un chemin absolu et ignore un chemin relatif (mesuré sous git 2.56.1), vérifié quand même
+// (surestimation prudente). Toutes les variables `GIT_TRACE*` sont des destinations, sauf les
+// réglages ci-dessous (liste de tr2_sysenv.c et de trace.c) : une variable inconnue de cette liste
+// est lue comme une destination. Les clés `trace2.*Target` ne sont lues par git que dans les
+// fichiers de configuration système et global (read_very_early_config, mesuré sous git 2.56.1 :
+// `-c` et GIT_CONFIG_PARAMETERS sans effet) ; passées par `-c`, `--config-env` ou l'environnement,
+// elles reçoivent le même traitement par prudence.
+
+/** Variables GIT_TRACE* qui règlent les traces sans en nommer la destination. */
+const TRACE_SETTINGS = new Set([
+  'GIT_TRACE_CURL_NO_DATA',
+  'GIT_TRACE_REDACT',
+  'GIT_TRACE2_BRIEF',
+  'GIT_TRACE2_CONFIG_PARAMS',
+  'GIT_TRACE2_DST_DEBUG',
+  'GIT_TRACE2_ENV_VARS',
+  'GIT_TRACE2_EVENT_BRIEF',
+  'GIT_TRACE2_EVENT_NESTING',
+  'GIT_TRACE2_MAX_FILES',
+  'GIT_TRACE2_PARENT_NAME',
+  'GIT_TRACE2_PARENT_SID',
+  'GIT_TRACE2_PERF_BRIEF',
+  'GIT_TRACE2_REDACT',
+]);
+
+/** Clé de configuration qui nomme la destination des traces trace2 (normal, perf, event…). */
+const TRACE_TARGET_KEY = /^trace2\.[^.]*target$/i;
+
+/** Valeur de destination de trace sans fichier : désactivée, sortie d'erreur ou descripteur. */
+const TRACE_NO_FILE = /^(|0|1|[2-9]|false|true)$/i;
+
+/** Destination de trace `value` (UNKNOWN : calculée), donnée par `what`, relative à `base`. */
+function traceTarget(env, value, what, base) {
+  if (value.includes(UNKNOWN)) {
+    env.deny(
+      `${what} illisible (${shown(value)}) : git écrirait ses traces dans le fichier qu'elle ` +
+        'nomme, sans qu’il se vérifie ; illisible, donc refusée — écris le chemin en clair',
+    );
+    return;
+  }
+  if (TRACE_NO_FILE.test(value)) return;
+  if (/^af_unix:/i.test(value)) {
+    env.deny(
+      `${what}=${shown(value)} : git écrirait ses traces sur une socket, dont le destinataire ne ` +
+        'se vérifie pas ; illisible, donc refusée',
+    );
+    return;
+  }
+  env.target(value, base);
+}
+
+/** Affectation d'une variable GIT_TRACE* qui nomme une destination (`known` : valeur lisible). */
+function traceEnv(env, name, value, known) {
+  if (!/^GIT_TRACE/.test(name) || TRACE_SETTINGS.has(name)) return;
+  traceTarget(env, known ? value : UNKNOWN, `variable ${name}`, env.st.base);
+}
+
 function assignVar(env, a) {
   const { st, deny, nested } = env;
   const k = a.indexOf('=');
@@ -1861,6 +1946,7 @@ function assignVar(env, a) {
   if (/^GIT_/.test(name)) st.gitEnv.push(a);
   gitConfigEnv(env, name, value, known);
   allowProtocolEnv(env, name, value, known);
+  traceEnv(env, name, value, known);
   // L25-01 : la valeur d'une clé peut venir plus loin dans la commande (vérifiée à la fin).
   if (GIT_CONFIG_ENV.test(name)) checkEnvConfig(env, st.vars, false);
   if (CODE_FILE_ENV.has(name))
