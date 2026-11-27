@@ -1527,6 +1527,101 @@ Branche `lot/25-garde-fous`, partie de `lot/22-un-seul-run` (hooks les plus réc
   `pr-flow.test.mjs:201`) vérifient désormais un cas toujours refusé (f82e224, sur accord explicite
   de Julien, par la session principale) ; correctif appliqué (80fdaf5) ; 1263 tests des hooks verts.
 
+## 7 septies novies. Lot 26 — Suites des revues (PR #14 fusionnée le 23 nov. 2026)
+
+Branche `lot/26-suites-revues`, tête `cf8716d`, PR #14 vers `develop` fusionnée le 23 nov. 2026
+(commit de merge `5599c48`) ; sous-branche `lot/26-hooks` (worktree `lot-26-hooks`, depuis
+`origin/develop` 612b57a, PR #9) fusionnée dedans (`b9873ed`, L26-05). Comptes rendus :
+`docs/comptes-rendus/lot-26-devops.md` (dev-devops), `docs/comptes-rendus/lot-26-lead.md`
+(lead-architecte), `docs/comptes-rendus/lot-26-recette.md` (recette, chef de projet).
+Recette : **acceptée, avec un ticket partiel (L26-04) et trois réserves de preuve**. CI : run
+45154790264, tête `cf8716d`, tentative 2, `success`, 19 jobs verts ; revue `revue-pr` :
+`VERDICT: OK` (d'après l'orchestrateur).
+
+- **L26-01** (dev-devops, CI, commit `8a96500`) : `persist-credentials: false` sur tous les
+  checkouts de `.github/workflows/ci.yml` (10 checkouts d'après la recette ; jobs qui avaient
+  `actions: write` et la mutation inclus) ; aucune étape ne s'appuie sur les identifiants git
+  persistés (pas de `git fetch`, `pull` ni `push` dans les workflows ni dans les scripts appelés ;
+  `garde-fous` garde `fetch-depth: 0`, l'historique est récupéré par le checkout) ; le jeton
+  d'annulation passe par `GH_TOKEN`. Fait, recette OK.
+- **L26-02** (dev-devops, CI, commit `8a96500`) : les huit étapes « Annuler le run »
+  (`if: failure()`) supprimées, `actions: write` retiré des jobs de contrôle ; nouveau job
+  `arret-premier-echec`, sans checkout, seul porteur de `actions: write` : interroge l'API des jobs
+  du run toutes les 15 s, dès qu'un job surveillé est conclu `failure`, écrit un résumé et lance
+  `gh run cancel` ; le job fautif reste « en échec », les autres sont annulés. Piste
+  `if: failure()` + `gh run cancel` + `exit 1` écartée (`gh run cancel` annule aussi le job en
+  cours ; `needs` + `failure()` n'agit qu'après la fin de tous les jobs) ; mutation, revue et
+  `arret-premier-echec` exclus de la surveillance (un échec de mutation n'annule rien). Fait,
+  recette OK ; preuve d'annulation : run 45154790264, tentative 1. Surveillance tolérante aux erreurs
+  d'API complétée en `cf8716d` (L26-revue). Non exécuté localement par l'agent ; vérifiable en CI :
+  premier run vert puis un échec provoqué à confirmer, avertissement avec jeton en lecture seule
+  (fork) ; `timeout-minutes: 45` de la revue inchangé (surveillance 4 min 18 s sur le run complet).
+- **L26-03** (dev-devops, CI, commit `868a5c4`, puis `8a96500`) : `scripts/ci/check-front-matrix.mjs`
+  compare les `name` de `viewports` (`apps/web/playwright.config.ts`) et `matrix.project` de
+  `front-parcours` (noms et ordre), exécuté par le job `garde-fous` ; test
+  `scripts/ci/tests/front-matrix.test.sh` ; noms des contrôles inchangés ; pas de modification de
+  `package.json` (le contrôle est lancé par `pnpm integrity:test`, déjà dans `pnpm check`). Fait,
+  recette OK.
+- **L26-04** (dev-devops, CI, commit `86ac85b`) : **partiel**. Fait : `release.mjs prepare --commit`
+  refusé sur `main`, même avec `--any-branch` ; cas `scripts/ci/tests/release-main.test.sh`.
+  Non fait (sortie honorable) : `check` qui régénère la section du CHANGELOG — implémentation
+  écrite puis retirée (esquisse `renderSection(wanted, date, commits, intro).trim() !== section`,
+  ajoutée après la détection de section absente) ; contredit un cas existant non modifiable de
+  `release.test.sh` : `c 'fix: encore un'` puis `is 'check : commit ajouté sans changer la majeure,
+  concordant' "$(code rel check release/4.0.0)" 0` ; le commit postérieur à `prepare` n'est pas
+  dans la section → code 1 au lieu de 0 ; raisonnement par lecture de code, les scripts de
+  `scripts/ci/` ne pouvant être lancés par l'agent. **Renvoyé à une carte Julien** : carte Trello
+  « [Julien] Décider : check de release qui régénère le CHANGELOG (L26-04) » ; décision : retirer
+  ou adapter ce cas sous `Justification-test`, ou renoncer à la comparaison ; recette : ticket
+  partiel + décision 1.
+- **L26-05** (lead-architecte, garde-fous ; suite de la revue automatisée de la PR #9 : relevés
+  `state/authorized-writes.jsonl` (L25-04) et `state/carry/` (L25-03) jamais purgés, journal
+  relu en entier à chaque fin de tâche) : **fait**. Un fichier JSON par écriture autorisée
+  `state/authorized-writes/<sha16 du dépôt>/<ms>-<pid>-<aléa>.json`, `writeJsonAtomic` (temporaire
+  + rename, 3 essais sur `ENOENT`), jamais réécrit, supprimable sans verrou ; `authorizedWriteBy`
+  ne lit que le dépôt vérifié + l'ancien journal tant qu'il existe ; ancien journal converti au
+  premier élagage puis supprimé ; `pruneState` appelé par `verify` en fin de tâche, quel que soit
+  le résultat, jamais bloquant : écriture autorisée retirée si illisible ou mal rangée, dépôt
+  disparu ou retiré, autorisation inconnue/révoquée/non couvrante depuis plus de 24 h
+  (`WRITE_GRACE_MS`), expirée depuis plus de 24 h sans instantané en cours d'une autre clé pris au
+  plus tard à l'heure de l'écriture ; report de test (`state/carry/`) retiré si illisible ou mal
+  rangé, dépôt disparu ou retiré, plus aucun test reporté à l'empreinte relevée, plus de 7 jours
+  (`CARRY_MAX_AGE_MS`) ; dossiers vidés et temporaires d'écritures plantées (24 h) retirés ;
+  `authorize.mjs revoke` date `revoked_at`, première révocation seulement ; concurrence par
+  relevés immuables, retrait de report par rename + `link`. `pnpm hooks:test` **1264 → 1285
+  verts** (21 nouveaux `tests/state-prune.test.mjs`, aucun échec ; `tests/resumed-agent.test.mjs`
+  L25-03 et `tests/other-agent-authorized.test.mjs` L25-04 inchangés) ; contre-épreuve `prune(ctx)`
+  neutralisée : 3 tests en échec ; `pnpm integrity develop` : « Intégrité des tests : OK » ; job
+  CI « Garde-fous (…, hooks des agents) » vert. Aucun test existant modifié ; rien sous
+  `.github/`, `scripts/ci/` ni `apps/`. Non fait : `state/authorizations.json`, `state/violations/`,
+  `audit.log` non élagués ; pas de test déterministe sur `ENOENT`. Points ouverts du compte rendu :
+  exécution d'un seul test des hooks refusée à l'agent ; instantanés orphelins laissés par un
+  agent tué retiennent indéfiniment les écritures expirées (élagage à part à décider) ;
+  `CARRY_MAX_AGE_MS` = 7 jours à confirmer par Julien ; concurrence `findAuthorization`
+  (lecture-modification-écriture d'`authorizations.json`) antérieure et inchangée. 4 commits
+  `2957658`, `d880615`, `1090c64`, `390a899`. Recette OK.
+- **L26-06** (dev-devops, CI, commits `75dc827`, `3600666`) : consommation de la revue dans le
+  résumé du run ; `scripts/ci/review-usage.mjs` résume `total_cost_usd`, `num_turns` et
+  `duration_ms` du message `result` (`execution_file`, `--pr`, `--run`, `model` ; tableau Markdown +
+  total ; lecture de JSON seul, rien appelé, aucun jeton affiché), étape `if: always()` dans le job
+  de revue, test `scripts/ci/tests/review-usage.test.sh`, `docs/deploiement.md` mis à jour ; job
+  « Revue PR (Claude) » vert. Fait, recette OK.
+- **L26-revue** (dev-devops, CI, commit `cf8716d`) : constats non bloquants de la revue appliqués :
+  surveillance tolérante à l'API (trois tentatives par lecture, avertissement sans job rouge),
+  `timed_out` ajouté, aide de `release.mjs`. Fait, recette OK ; réserve 2.
+
+Réserves de preuve de la recette : (1) exécution des scripts et des hooks refusée à l'agent par les
+garde-fous (`scripts/ci/`, `.claude/hooks/`, `scripts/ci/tests/`), sans contournement ; substitut :
+job CI `garde-fous` vert du run 45154790264 ; `pnpm integrity:test` et `pnpm hooks:test` laissés à
+l'orchestrateur ; dev-devops n'a pas exécuté `check-front-matrix.mjs`, `front-matrix.test.sh`,
+`release-main.test.sh` ; (2) pas de défaillance réelle de l'API testée pour la tolérance de la
+surveillance ajoutée en `cf8716d`, seulement le passage nominal ; (3) « Le backlog ne décrit pas le
+lot » (réserve 3 de la recette, comblée par cette section). Décisions de la recette à demander à
+Julien : la carte L26-04 ci-dessus ; `CARRY_MAX_AGE_MS` = 7 jours (L26-05) ; test instable
+`experience.e2e.ts:680` (écran 3440, tentative 1 du run 45154790264, signalé hors lot) → ticket du
+front ? `pnpm lint:workflows`, `pnpm lint:shell`, Prettier, `pnpm integrity develop` : OK ; intégrité des tests : aucun test existant
+modifié ou supprimé ; dix lignes `Justification-test` (L26-01 à L26-06, L26-revue).
+
 ## 7 septies. Lot 15 — Brief back-001 de la session front (validé par Julien le 19 nov. 2026)
 
 Demande : `docs/briefs/back-001-donnees-front.md` (tickets BF-1 à BF-7 : profil restructuré, liens
