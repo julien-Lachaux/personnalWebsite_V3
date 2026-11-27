@@ -158,7 +158,7 @@ Variables de génération, toutes dans `.env.prod` (modèle `docker/.env.prod.ex
 - En-têtes de tout le site inchangés (HSTS, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, pas de `Server`) ;
   sur le front : `X-Frame-Options: DENY` et la CSP.
 - **CSP** : `default-src 'self'` ; `script-src 'self'` plus une empreinte par script en ligne ; `style-src 'self'`
-  plus une empreinte par `<style>` en ligne ; `img-src 'self' data:` ; `font-src`, `connect-src` en `'self'` ;
+  plus une empreinte par `<style>` en ligne ; `img-src 'self'` ; `font-src`, `connect-src` en `'self'` ;
   `frame-ancestors 'none'`, `base-uri 'self'`, `form-action 'self'`, `object-src 'none'`. Aucun domaine tiers.
 - Les empreintes changent à chaque génération (carte d'import, `window.__NUXT__`, styles critiques de chaque page).
   `scripts/deploy/csp-hashes.mjs` les relève dans toutes les pages de `.output/public` (le script de thème sans
