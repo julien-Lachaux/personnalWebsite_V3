@@ -9,6 +9,8 @@
 // par l'hôte, où Caddy publie la pile (certificat interne : erreurs TLS ignorées).
 // Codes de sortie : 0 aucune violation ; 1 violation ou page incorrecte ; 2 usage.
 import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Les pages 404 du front (404.html, en/404.html) sont prérendues ; le statut 404 vient de Caddy. Pour une
 // route inconnue seulement, le message de console « Failed to load resource … 404 » est le document
@@ -107,7 +109,13 @@ async function main(argv) {
   return failed ? 1 : 0;
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+// Point d'entrée : `process.argv[1]` (chemin réel) contre `fileURLToPath(import.meta.url)` (chemin
+// décodé : espace, accent…), les deux résolus ; sans `process.argv[1]` (import, `node -e`), rien à lancer.
+const isMainModule =
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+
+if (isMainModule) {
   main(process.argv.slice(2)).then(
     (code) => {
       process.exitCode = code;
