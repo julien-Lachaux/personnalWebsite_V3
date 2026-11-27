@@ -433,6 +433,11 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   garde-fous » (lot 14) : règles et conduite face à un refus, jamais le fonctionnement des
   détections (fichiers destinés à devenir publics) ; `.claude/hooks/tests/agents-git-section.test.mjs`
   vérifie qu'elle est identique dans tous les fichiers et que ses refus sont effectifs.
+- Lancement des agents (décision de Julien des 26 et 27 nov. 2026, lot F11) : chaque agent tourne dans un
+  onglet de herdr Desktop (`herdr-app do tab.new`, `claude --agent <rôle>`, PATH avec node et pnpm),
+  visible et reprenable par Julien, pas en sous-agent invisible ; autorisations créées avec
+  `CLAUDE_PROJECT_DIR=<worktree>` ; pause de tout le travail à 90 % de la limite hebdomadaire d'usage.
+  Recette, suivi et pièges : `docs/agents-herdr.md`.
 - Un test se protège, il ne se négocie pas. Interdits à tout agent : modifier ou supprimer un test
   existant, ajouter un marqueur de saut ou de focus de Vitest ou de Playwright (dont `test.fixme`
   et `test.slow`) ou un commentaire d'ignore de couverture, désactiver une règle axe, régénérer une
