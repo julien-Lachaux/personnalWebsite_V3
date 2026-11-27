@@ -302,8 +302,10 @@ function sectionClass(id: SectionId): Record<string, boolean> {
     min-height: 0;
   }
 
-  /* Une section à la fois : l'onglet courant (avant le montage, par la classe ; après, par `hidden`). */
-  .app-shell__section:not(.app-shell__section--current) {
+  /* Une section à la fois : l'onglet courant (avant le montage, par la classe ; après, par `hidden`).
+     Les sections de la mosaïque d'avant le montage (`--tile`) restent toutes dans le flux : sans
+     JavaScript, la navigation du bas ne marche pas. */
+  .app-shell__section:not(.app-shell__section--current, .app-shell__section--tile) {
     display: none;
   }
 

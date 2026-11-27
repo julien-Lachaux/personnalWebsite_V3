@@ -319,8 +319,9 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Avant le montage, sous 1024 px (la coquille n'a pas encore choisi les onglets) : seul le contenu du
-   Profil, sans décor ni défilement propre, dans le flux de <main>, comme l'onglet Profil. */
+/* Avant le montage, sous 1024 px (la coquille n'a pas encore choisi les onglets) : les quatre sections
+   l'une sous l'autre (Profil en haut, à la place de l'onglet Profil), sans décor ni défilement propre,
+   dans le flux de <main>. */
 @media (max-width: 1023px) {
   .tile-grid {
     position: static;
@@ -337,7 +338,12 @@ onBeforeUnmount(() => {
     box-shadow: none;
   }
 
-  .tile-grid .tile-grid__tile:not([data-tile='profile']),
+  /* Les trois autres sections suivent le Profil dans le flux : sans JavaScript, la navigation du bas
+     ne fonctionne pas et tout le contenu doit rester lisible. Le montage les retire. */
+  .tile-grid .tile-grid__tile:not([data-tile='profile']) {
+    margin-top: var(--tile-padding);
+  }
+
   .tile-grid__tile :deep(.tile__bar),
   .tile-grid__fade {
     display: none;

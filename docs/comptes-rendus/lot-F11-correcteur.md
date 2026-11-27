@@ -161,3 +161,29 @@ Autorisation `a1c5d658` (D40) : `csp.e2e.ts`, `server-error.e2e.ts`, `work-in-pr
 - Le site ne charge aucune image `data:` : les 322 tests passent sous `img-src 'self'`.
 - Point ouvert : `pnpm db:down` (fin de liste) a aussi retiré le réseau du projet, donc probablement arrêté le conteneur
   playwright du worktree ; à relancer par `pnpm e2e:browsers:up` si besoin.
+
+## F11-REVUE-1 : sections masquées sans JavaScript sous 1024 px (revue de la PR 33)
+
+Constat de la revue (non bloquant, établi juste) : avant le montage, sous 1024 px, `TileGrid` masquait
+Expérience, Recommandations et IA ; sans JavaScript la navigation du bas ne marche pas, ces sections
+étaient donc inaccessibles. Décision de l'orchestrateur : les quatre sections restent dans le flux.
+
+| Finding | Commit | Ce qui change | Preuve |
+| ------- | ------ | ------------- | ------ |
+| F11-REVUE-1 | voir `git log` (sujet `fix(web): F11-REVUE-1 …`) | `TileGrid.vue` : les tuiles autres que le Profil ne sont plus `display: none` sous 1024 px, séparées par `margin-top: var(--tile-padding)` ; `AppShell.vue` : la règle « une section à la fois » exclut les sections de la mosaïque d'avant le montage (`--tile`), cause réelle du masquage de ces sections. | Voir ci-dessous. |
+
+- Tests modifiés (autorisation `aa77a7c3`) : `TileGrid-premount.spec.ts` (le test décrivait le masquage :
+  `display: none` devient `display: block` pour toutes les tuiles et `margin-top` pour les autres) et
+  `hydration-shift.e2e.ts` (`[data-tile]:visible` vaut 4 et dans l'ordre Profil, Expérience,
+  Recommandations, IA ; le reste est inchangé : Profil identique avant et après le montage, barres masquées,
+  barre du haut cachée, navigation du bas, axe).
+- Nouveau test : `hydration-shift.e2e.ts`, « sans JavaScript, le texte de chaque section est lisible » (un `h1`,
+  un `h2` par section, section rendue et texte visible).
+- Avant la correction : le test unitaire échoue (`expected 'none' to be undefined`), le parcours sur mobile-390 et
+  tablette-834 échoue (`[data-tile]:visible` : attendu 4, reçu 1). Après la seule correction de `TileGrid.vue`, il
+  restait 2 tuiles visibles : `AppShell.vue` masquait aussi les sections (`.app-shell__section:not(--current)`), d'où
+  la seconde correction.
+- Après : `hydration-shift`, `shell`, `sections` sur mobile-390, tablette-834, portable-1024 et desktop-1280 : 164
+  passés ; lint, typecheck verts ; `test:coverage` du front : 1239 tests, 100 %.
+- Point ouvert : le `h2` de chaque section est masqué visuellement (`visually-hidden`) avant le montage, comme avant
+  la PR ; seule la section Profil a un grand titre visible.

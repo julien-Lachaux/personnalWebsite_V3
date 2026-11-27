@@ -239,11 +239,17 @@ describe('TileGrid avant le montage : CSS de la page générée et computeLayout
     });
   }
 
-  it('sous 1024 px, aucune grille : la page générée montre l’onglet Profil', () => {
+  it('sous 1024 px, aucune grille : la page générée montre les quatre sections dans le flux', () => {
     expect(cssRects({ width: BREAKPOINTS.portable - 1, height: 800 })).toBeNull();
-    const others = ".tile-grid .tile-grid__tile:not([data-tile='profile'])";
-    expect(declarations(others, BREAKPOINTS.portable - 1)['display']).toBe('none');
-    expect(declarations(others, BREAKPOINTS.portable)['display']).toBeUndefined();
+    const tile = '.tile-grid .tile-grid__tile';
+    expect(declarations(tile, BREAKPOINTS.portable - 1)['display']).toBe('block');
+    const others = `${tile}:not([data-tile='profile'])`;
+    expect(declarations(others, BREAKPOINTS.portable - 1)['display']).toBeUndefined();
+    expect(declarations(others, BREAKPOINTS.portable - 1)['margin-top']).toBe(
+      'var(--tile-padding)',
+    );
+    expect(declarations(others, BREAKPOINTS.portable)['margin-top']).toBeUndefined();
+    expect(declarations(tile, BREAKPOINTS.portable)['display']).toBeUndefined();
     expect(declarations('.tile-grid', BREAKPOINTS.portable - 1)).toMatchObject({
       position: 'static',
     });

@@ -188,7 +188,12 @@ for (const path of PATHS) {
       await expect(profile).toHaveCount(1);
       await expect(profile).toBeVisible();
       await expect(page.locator('.tile__bar:visible')).toHaveCount(0);
-      await expect(page.locator('[data-tile]:visible')).toHaveCount(1);
+      await expect(page.locator('[data-tile]:visible')).toHaveCount(TILES.length);
+      expect(
+        await page
+          .locator('[data-tile]:visible')
+          .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-tile'))),
+      ).toEqual([...TILES]);
       await expect(page.locator('.top-bar')).toBeHidden();
       await expect(page.locator('.bottom-nav')).toBeVisible();
       const before = await profile.boundingBox();
@@ -202,6 +207,26 @@ for (const path of PATHS) {
         expect(Math.abs((after?.[key] ?? -1) - (before?.[key] ?? -2)), key).toBeLessThan(SAME);
       }
       expect(await profile.innerText()).toBe(text);
+    });
+
+    test('mobile et tablette : sans JavaScript, le texte de chaque section est lisible', async ({
+      page,
+    }) => {
+      if (desktop(page)) return;
+
+      await openStatic(page, path);
+      await expect(page.locator('h1')).toHaveCount(1);
+      for (const id of TILES) {
+        const heading = page.locator(`[data-tile="${id}"] h2`);
+        await expect(heading, `${id} : un seul h2`).toHaveCount(1);
+        await expect(heading, `${id} : titre visible`).toBeVisible();
+        const section = page.locator(`[data-tile="${id}"] #section-${id}`);
+        const box = await section.boundingBox();
+        expect(box?.height ?? 0, `${id} : section rendue`).toBeGreaterThan(40);
+        expect((await section.innerText()).trim().length, `${id} : texte visible`).toBeGreaterThan(
+          20,
+        );
+      }
     });
   });
 }
