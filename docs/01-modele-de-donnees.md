@@ -43,7 +43,7 @@ dès le départ. Accessibilité complète : toute image a un texte alternatif tr
 profile_translations : profile_id, locale, title (« Développeur full-stack »), picture_alt, et les champs
 du design v6 (brief back-001, BF-1, 20 nov. 2026), tous `not null` et non vides : title_badge, taglines `text[]`
 (au moins une accroche, aucune vide), intro, mission, current_activity, seeking_format, seeking_location,
-seeking_availability, cv_path (chemin relatif à la racine du site, ex. `/cv.pdf`). Les anciennes colonnes
+seeking_availability, cv_path (chemin relatif à la racine du site, ex. `/cv/cv-fr.pdf`). Les anciennes colonnes
 headline, bio et availability sont supprimées (migration 0016).
 
 ### social_links
