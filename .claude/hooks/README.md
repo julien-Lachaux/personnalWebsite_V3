@@ -143,7 +143,19 @@ par Julien rend le test obsolète) modifier un test existant ; `fails` (qa, qa-f
 test en échec attendu ; `config` (lead-architecte, dev-devops) une configuration protégée. Une
 autorisation vise des chemins précis, expire (4 h par défaut) et se lie au premier sous-agent qui
 l'utilise. Création, usage, refus, révocation et violations sont journalisés dans
-`.claude/hooks/audit.log`. État et journal sont gitignorés, sous le checkout principal.
+`.claude/hooks/audit.log`. État et journal sont gitignorés.
+
+Dépôt visé (lot 45, L45-01) : `authorize.mjs` écrit dans l'état de `CLAUDE_PROJECT_DIR` s'il est
+posé, sinon dans celui du dépôt du dossier courant (`git rev-parse --show-toplevel`, un worktree
+compris), jamais d'office dans le checkout principal : lancé depuis un worktree sans la variable,
+il rangeait l'autorisation là où les hooks du worktree ne la lisent pas. Chaque appel annonce sur
+la sortie d'erreur l'état visé et sa source (`état des garde-fous de <dossier> (CLAUDE_PROJECT_DIR)`
+ou `(dossier courant)`) ; une variable posée sur un dossier absent, ou un dossier courant hors de
+tout dépôt sans la variable, est refusé (code 2) avec un message. Depuis le checkout principal pour
+un worktree : `CLAUDE_PROJECT_DIR=<worktree> node .claude/hooks/authorize.mjs …`, ou lancer la
+commande depuis le worktree. Les hooks gardent leur règle (`stateRoot`) : `CLAUDE_PROJECT_DIR`,
+toujours fourni par Claude Code (`.claude/settings.json`), et à défaut, pour un rejeu manuel, le
+checkout principal (`tests/state-root.test.mjs`).
 
 Le commit qui modifie un test existant ou une configuration protégée porte en plus la ligne
 `Justification-test: <identifiant> <raison>`, exigée par `scripts/ci/check-tests-integrity.sh`.
