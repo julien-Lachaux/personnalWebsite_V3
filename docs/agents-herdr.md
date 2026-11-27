@@ -123,6 +123,23 @@ hc read tN | grep -q "Enter to confirm" && hc keys tN enter
   orphelin, Podman bloqué jusqu'au redémarrage). Un agent qui lance `pnpm db:down` arrête aussi les
   navigateurs Playwright du même projet compose.
 
+- **Un agent ne lance ni `claude` ni `hc`** : une session lancée sans `--agent` a le rôle de la session
+  principale (`main`) et ses droits (push, écritures `gh`, autorisations). Seule la session principale lance
+  et pilote des terminaux. Les hooks ne le vérifient pas encore (carte Trello « Garde-fous : `hc` et
+  `claude` interdits aux agents ») : d'ici là, c'est une règle de l'orchestrateur.
+
+## Charge de la machine
+
+Le 26 nov. 2026, la machine a planté avec deux lots, leurs agents, une pile d'essai et des parcours
+Playwright en même temps. Donc :
+
+- au plus **deux lots** en cours en même temps, et dans chaque worktree **un seul agent lourd** à la fois
+  (tests e2e, Playwright, génération, mutation) ; un agent de revue ou de doc peut s'y ajouter ;
+- **un seul lot sur Podman** à la fois, désigné par la session principale ; les autres se limitent aux tests
+  sans conteneurs jusqu'à ce qu'elle le libère ;
+- `TEST_MAX_WORKERS=2` dans le `.env` racine de chaque worktree, Playwright avec `--workers=2` ;
+- une pile d'essai sous `systemd-run --user --scope` avec `MemoryMax` et `TasksMax`.
+
 ## Ce qu'il ne faut pas faire
 
 - Contourner un refus des garde-fous ou du classifieur par un détour (script `pnpm` ajouté pour lancer une
