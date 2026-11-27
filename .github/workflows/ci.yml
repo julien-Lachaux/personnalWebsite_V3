@@ -312,6 +312,14 @@ jobs:
   arret-premier-echec:
     name: Arrêt au premier échec
     runs-on: ubuntu-latest
+    # L47-01 : la boucle sort d'elle-même dès que tous les jobs surveillés sont conclus (ou au premier
+    # échec) : la borne n'est qu'un filet, elle ne retient pas d'exécuteur sur un run normal. Elle doit
+    # dépasser le plus long job surveillé, `pile-locale` (35 min), sinon ce job s'arrête avant lui et un
+    # dépassement de `pile-locale` (conclu `timed_out`) n'annulerait plus la mutation de l'API (150 min).
+    # Tous les jobs surveillés partent au début du run (aucun `needs`) ; 10 min de marge couvrent l'attente
+    # d'un exécuteur par le dernier d'entre eux et la latence de la boucle (15 s, plus 3 lectures de l'API
+    # espacées de 5 s). Borne = 35 + 10 = 45 min : à relever avec le délai de `pile-locale` (ou d'un job
+    # surveillé qui le dépasserait).
     timeout-minutes: 45
     permissions:
       actions: write
