@@ -126,7 +126,9 @@ function hook(command, role) {
     input: JSON.stringify(input),
     encoding: 'utf8',
     env: { ...ENV(), CLAUDE_PROJECT_DIR: project },
-    ...GIT_SPAWN_LIMITS,
+    // Node (guard.mjs), pas git : délai propre, plus large que celui des appels git.
+    timeout: 30000,
+    killSignal: 'SIGKILL',
   });
   return { code: res.status, stderr: res.stderr };
 }

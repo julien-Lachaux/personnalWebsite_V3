@@ -35,7 +35,8 @@ it('aucun appel git de la suite config-env-commands n’atteint un askpass', () 
     killSignal: 'SIGKILL',
     env,
   });
-  assert.match(res.stdout, /ℹ pass [1-9]/, 'la suite config-env-commands ne s’est pas exécutée');
   assert.equal(res.error, undefined, 'la suite config-env-commands n’a pas terminé à temps');
+  assert.equal(res.status, 0, res.stdout);
+  assert.match(res.stdout, /ℹ pass [1-9]/, 'la suite config-env-commands ne s’est pas exécutée');
   assert.equal(readFileSync(log, 'utf8'), '', 'un appel git a atteint l’askpass');
 });
