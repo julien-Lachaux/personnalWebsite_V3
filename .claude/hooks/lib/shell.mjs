@@ -3062,6 +3062,10 @@ function analyzeGit(
         write.values[0].trim().toLowerCase() !== 'never'
       )
         deny(`git config ${key} ${shown(write.values[0])} : ${EXT_MOTIF}`);
+      // L48-01 : trace2.*Target écrit par git config --global (ou --system) nomme la destination
+      // des traces de git ; une valeur qui est un chemin est une cible d'écriture (comme `>>`).
+      if (key && TRACE_TARGET_KEY.test(key) && write.values[0] !== undefined)
+        traceTarget(env, write.values[0], `git config ${key}`, gitBase);
       break;
     }
     case 'rebase': {

@@ -112,6 +112,8 @@ const FORMS = [
 const CONFIG_FORMS = [
   'git -c trace2.eventTarget=%P% status',
   'git -c TRACE2.EVENTTARGET=%P% status',
+  'git config --global trace2.eventTarget %P%',
+  'git config --system trace2.eventTarget %P%',
   'git -ctrace2.perfTarget=%P% status',
   'git -c trace2.normalTarget=%P% status',
   'V=%P% git --config-env trace2.eventTarget=V status',
@@ -253,6 +255,8 @@ describe('illisible, donc refusé', () => {
     'declare -n R=GIT_TRACE; R=/tmp/t git status',
     'for GIT_TRACE in /tmp/t; do git status; done',
     'git -c trace2.eventTarget=$X status',
+    'git config --global trace2.eventTarget $X',
+    'git config --global trace2.eventTarget af_unix:/tmp/s',
     'git --config-env trace2.eventTarget=ABSENTE status',
     'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=trace2.eventTarget git status',
     'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=trace2.eventTarget GIT_CONFIG_VALUE_0=$X git status',

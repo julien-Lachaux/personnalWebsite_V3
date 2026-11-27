@@ -44,9 +44,22 @@ Branche `lot/48-traces-git`, depuis `develop` (24b9494). Rôle `lead-architecte`
   relancé) ; pas de contrôle automatique que la borne de `arret-premier-echec` reste au-dessus du
   délai de `pile-locale` (hors périmètre).
 
+## Suite (revue PR #44, VERDICT: BLOQUANT)
+
+La revue a relevé que `git config --global trace2.eventTarget <chemin>` n'était pas vérifié (le `case 'config'`
+ne traitait pas `TRACE_TARGET_KEY`). Corrections appliquées :
+
+- `.claude/hooks/lib/shell.mjs` : dans `case 'config'`, si `TRACE_TARGET_KEY.test(key)` et `write.values[0]`
+  est défini, appel de `traceTarget(env, write.values[0], …, gitBase)`.
+- `.claude/hooks/README.md` : la limite est précisée (une clé déjà posée dans un fichier de config ou une
+  variable d'environnement de l'hôte n'est pas vue ; la même clé posée par `git config --global` l'est).
+- `.claude/hooks/tests/git-trace.test.mjs` : ajout des cas `git config --global/system trace2.eventTarget`
+  (oracle refusé, socket et valeur calculée refusées, chemin hors oracle permis).
+- `pnpm hooks:test` : 1318 verts, 0 échec ; `pnpm integrity develop` : OK.
+
 ## Commits
 
 - `aab6a5f` fix(hooks): destinations des traces de git lues comme des cibles d'écriture
 - `f919509` fix(hooks): traces git lues comme des cibles d'écriture (shell.mjs +=, revue-securite.md,
   git-trace.test.mjs, avec `Justification-test: L48-01`/`L48-02`)
-- dernier commit : ce compte rendu.
+- dernier commit : ce compte rendu (complété après la revue PR #44).

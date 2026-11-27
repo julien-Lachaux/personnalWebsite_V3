@@ -466,7 +466,9 @@ Ce n'est pas un interpréteur : ce qu'un programme fait sans le nommer sur sa li
 - une clé qui lance une commande déjà posée dans un fichier de configuration (dépôt, global,
   système) avant la commande est lue par git sans paraître sur la ligne de commande, de même
   qu'une destination de traces (`trace2.*Target`) déjà écrite dans un tel fichier ou une variable
-  `GIT_TRACE*` déjà présente dans l'environnement de l'hôte.
+  `GIT_TRACE*` déjà présente dans l'environnement de l'hôte. En revanche, la même clé posée par
+  `git config --global` (ou `--system`) sur la ligne de commande est désormais vérifiée comme une
+  cible d'écriture.
 
 Le hook de fin (empreintes) et le script d'intégrité de la CI sont les filets. Les hooks ne sont pas
 un bac à sable : un agent déterminé peut écrire l'état local ; la CI ne dépend pas de cet état.
