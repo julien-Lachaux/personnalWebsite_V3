@@ -49,7 +49,7 @@ de revue de code en cours.
    ligne (carte d'import de Nuxt, script de thème) exactes, `connect-src`, `font-src` et `img-src`
    limités au site ; constat sur la sortie de `nuxt generate` et sur les en-têtes de la pile locale.
 2. Dépendances du front : `pnpm audit --prod`, scripts d'installation autorisés
-   (`onlyBuiltDependencies`), paquets embarqués dans le bundle (`.output/public/_nuxt/`).
+   (`allowBuilds`), paquets embarqués dans le bundle (`.output/public/_nuxt/`).
 3. Liens externes : `rel="noopener noreferrer"`, schémas d'URL des liens venus de l'API
    (`javascript:` refusé), `mailto:` construit depuis la configuration.
 4. Données personnelles et secrets dans le bundle et les pages générées : aucune adresse e-mail,
