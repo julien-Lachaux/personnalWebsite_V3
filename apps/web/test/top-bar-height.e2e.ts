@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { gotoMounted } from './support/e2e.js';
+
 // F12-BARRE : à partir de 1024 px, la barre du haut du bureau tient sur une ligne dans les deux
 // langues (« Start the interview » est plus large que son équivalent français ; le menu du CV, D44, a
 // le même libellé « CV PDF » dans les deux langues, sans mention de repli). Mesures dans le navigateur : hauteur de la barre, et ordonnée de chaque onglet, qui ne
@@ -9,8 +11,7 @@ import { expect, test, type Page } from '@playwright/test';
 const WIDTHS = [1024, 1280];
 
 async function measure(page: Page, path: string) {
-  await page.goto(path);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+  await gotoMounted(page, path);
   const bar = page.locator('.top-bar');
   await expect(bar).toBeVisible();
   const box = await bar.boundingBox();

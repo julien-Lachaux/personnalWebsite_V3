@@ -8,7 +8,7 @@
     "skipToContent": "Aller au contenu"
   },
   "seo": {
-    "description": "Site et CV de Julien Lachaux, développeur full-stack : expériences, technologies, recommandations et place de l’IA dans son travail."
+    "description": "Site et CV de {name}, {title} : expériences, technologies, recommandations et place de l’IA dans son travail."
   },
   "annex": {
     "home": "accueil"

@@ -28,7 +28,8 @@ du back qu'il implique sont demandées dans `docs/briefs/back-001-donnees-front.
 | « en ce moment » | `profile.currently` | `profile.currentActivity` (nouveau) |
 | « ce que je recherche » : format, lieu, disponibilité | `profile.lookingFor.*` | `profile.seekingFormat`, `seekingLocation`, `seekingAvailability` (nouveaux, remplacent `availability`) |
 | bouton CV PDF | `profile.links.cvPdf` | `profile.cvPath` (nouveau, par langue : `/cv/cv-fr.pdf`, `/cv/cv-en.pdf`, fichiers statiques du front, métadonnées nettoyées) |
-| non affichés | — | `firstName`, `lastName`, `location` (« Melun »), `picture` : conservés, pas utilisés par le design v6 |
+| titre et description de la page d'accueil (`<title>`, `og:title`, `meta description`), pas dans les sections | — | `firstName` et `lastName`, réunis en `CvView.name` (« Prénom Nom », `mapName`) ; titre « nom · `profile.title` », description `seo.description` paramétrée par le nom et l'intitulé (initiale en minuscule en cours de phrase, `inlineTitle`) : aucun nom écrit dans les libellés (lot F11, RC-5) |
+| non affichés | — | `location` (« Melun »), `picture` : conservés, pas utilisés par le design v6 |
 
 Les textes du handoff font foi sur ceux des seeds actuels.
 

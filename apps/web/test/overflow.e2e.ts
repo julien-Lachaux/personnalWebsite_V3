@@ -1,11 +1,16 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import {
+  gotoMounted,
+  storePreferences,
+  tabsMode,
+  waitForSettledAnimations,
+} from './support/e2e.js';
+
 // Texte agrandi à 130 % (SPEC § 10.1, WCAG 1.4.4 et 1.4.10) à chaque taille d'écran, en français et en
 // anglais : la page ne déborde pas horizontalement (`scrollWidth` de la page entière), sous 1024 px à
 // chaque onglet, au-delà dans la mosaïque puis dans chaque tuile agrandie. Le contenu rogné à l'intérieur
 // d'un conteneur (texte tronqué) a ses tests ciblés dans defects-f8.e2e.ts.
-
-const STORAGE_KEY = 'siteperso:preferences';
 
 const LOCALES = {
   fr: {
@@ -28,25 +33,9 @@ type LocaleCode = keyof typeof LOCALES;
 
 const SECTIONS = ['profile', 'experience', 'recommendations', 'ai'] as const;
 
-function tabsMode(page: Page): boolean {
-  return (page.viewportSize()?.width ?? 0) < 1024;
-}
-
-async function settled(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .every(
-        (animation) =>
-          animation.playState !== 'running' ||
-          animation.effect?.getComputedTiming().endTime === Infinity,
-      ),
-  );
-}
-
 /** Largeur de la page en trop par rapport à la fenêtre (`scrollWidth` de la page entière). */
 async function pageOverflow(page: Page): Promise<number> {
-  await settled(page);
+  await waitForSettledAnimations(page);
   return page.evaluate(() => {
     const root = document.documentElement;
     return Math.max(root.scrollWidth, document.body.scrollWidth) - root.clientWidth;
@@ -61,12 +50,8 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
   const locale = LOCALES[code];
 
   test(`${code} : texte à 130 %, la page ne déborde pas horizontalement`, async ({ page }) => {
-    await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-      key: STORAGE_KEY,
-      value: JSON.stringify({ version: 1, theme: 'clair', textSize: 130 }),
-    });
-    await page.goto(locale.path);
-    await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+    await storePreferences(page, { theme: 'clair', textSize: 130 });
+    await gotoMounted(page, locale.path);
     await expect(page.locator('html')).toHaveAttribute('data-text-size', '130');
 
     if (tabsMode(page)) {

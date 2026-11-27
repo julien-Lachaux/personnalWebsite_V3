@@ -63,14 +63,16 @@ supprimée : elle reste retrouvable.
    `lot/*` existantes) ; worktree et branche `lot/N-nom` depuis `develop` à jour ; `.env` d'isolation
    (section « Worktrees en parallèle » de `CLAUDE.md`). La carte passe **aussitôt** dans « En cours »
    avec, dans sa description ou un commentaire : branche, worktree, projet compose et ports.
-2. **Travail** (session de lot ou OpenCode) : commits sur la branche, vérifications ciblées (D26),
-   compte rendu. Une question pour Julien passe par lui avant d'implémenter.
+2. **Travail** (agents lancés dans herdr, `docs/agents-herdr.md`, ou OpenCode) : commits sur la branche,
+   vérifications ciblées (D26), compte rendu. Une question pour Julien passe par lui avant d'implémenter.
 3. **PR** (session principale) : push, `gh pr create --base develop --head lot/N-nom`, suivi de la CI
    et de la revue. Le numéro de PR est noté sur la carte.
 4. **Fusion** (session principale) : aux trois conditions de `CLAUDE.md` (« Flux git et
    interdictions ») — CI verte, revue `revue-pr` sans point bloquant (`VERDICT: OK`), recette
    acceptée. Puis `gh pr merge --merge`, et la carte passe dans « Fusionné dans develop » avec le
-   commit de merge.
+   commit de merge. Ensuite, nettoyage : conteneurs du worktree arrêtés (`pnpm db:down`,
+   `pnpm stack:down`), onglets herdr du lot fermés, worktree retiré (`git worktree remove`) et branche
+   locale supprimée (`git branch -d` ; la branche distante reste, sa suppression est réservée à Julien).
 5. **Release** : la PR `release/<version>` vers `main` n'est fusionnée qu'après l'accord explicite de
    Julien (`CLAUDE.md`, « Pull request vers `main` ») ; à cette fusion, les cartes passent dans
    « Released ».

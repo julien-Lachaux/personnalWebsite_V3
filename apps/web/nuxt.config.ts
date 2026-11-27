@@ -5,6 +5,9 @@
 import { readdirSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { addVitePlugin, defineNuxtModule } from 'nuxt/kit';
 
 import { isLocalizedErrorPage, LOCALIZED_ERROR_PAGES } from './app/domain/error-pages';
 import {
@@ -33,6 +36,36 @@ const cvFiles = readdirSync(new URL('./public/cv/', import.meta.url))
 // les deux fichiers en sont déduits à la fin (app/domain/sitemap.ts) et écrits à la racine du site.
 const prerenderedPages: string[] = [];
 
+// Source du CV hors du navigateur (lot F11, F11-01) : le CV est lu à la génération et le navigateur le
+// trouve dans la charge utile de chaque page, sans jamais appeler le gestionnaire de `useAsyncData`
+// (app/data/fetch-cv.ts). Le build client de `nuxt generate` remplace donc `select-cv-source.ts` (source
+// API, fixtures et schémas Zod des contrats) par `browser-cv-source.ts`, qui refuse toute lecture : rien
+// de la source n'est publié dans `_nuxt/` (vérifié par test/client-bundle.e2e.ts). Seule `nuxt generate`
+// pose `nitro.static` : le build serveur (le prérendu, qui lit l'API ou les fixtures), `nuxt dev` et
+// l'application des tests Vitest gardent le module réel.
+const CV_SOURCE_MODULE = fileURLToPath(new URL('./app/data/select-cv-source.ts', import.meta.url));
+const BROWSER_CV_SOURCE = fileURLToPath(
+  new URL('./app/data/browser-cv-source.ts', import.meta.url),
+);
+const browserCvSource = defineNuxtModule({
+  meta: { name: 'siteperso:browser-cv-source' },
+  setup(_options, nuxt) {
+    if (nuxt.options.nitro.static !== true) return;
+    addVitePlugin(
+      {
+        name: 'siteperso:browser-cv-source',
+        enforce: 'pre',
+        async resolveId(source, importer, options) {
+          if (!source.endsWith('/select-cv-source.js')) return null;
+          const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
+          return resolved?.id === CV_SOURCE_MODULE ? BROWSER_CV_SOURCE : null;
+        },
+      },
+      { server: false, prepend: true },
+    );
+  },
+});
+
 const strictCompilerOptions = {
   // Mêmes exigences que tsconfig.base.json du back, en plus du `strict` de Nuxt.
   noUncheckedIndexedAccess: true,
@@ -46,7 +79,7 @@ const strictCompilerOptions = {
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-11-19',
-  modules: ['@nuxtjs/i18n'],
+  modules: ['@nuxtjs/i18n', browserCvSource],
   // Aucune collecte (D8) et aucun appel réseau implicite au build.
   telemetry: false,
   devtools: { enabled: false },

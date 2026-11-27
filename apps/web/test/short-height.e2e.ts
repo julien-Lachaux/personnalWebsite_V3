@@ -1,12 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { storePreferences, waitForSettledAnimations } from './support/e2e.js';
+
 // Reflow à 400 % de zoom (WCAG 1.4.10, constat RA-1) : une fenêtre de 320 px de large et de 256 ou 200 px
 // de haut (zoom de 400 % d'un écran de 1280 × 1024) ne peut pas contenir l'en-tête, le filtre, la barre
 // d'actions et la navigation du bas en plus d'une liste lisible. Sous un seuil de hauteur la page défile :
 // l'en-tête, la barre d'actions et le filtre sont statiques, la navigation du bas reste seule fixe, la
 // liste de l'XP est visible et rien ne déborde horizontalement.
-
-const STORAGE_KEY = 'siteperso:preferences';
 
 /** Hauteur visible minimale de la liste de l'XP : trois lignes de texte d'au moins 20 px. */
 const MIN_VISIBLE_LIST = 60;
@@ -22,25 +22,10 @@ const SIZES = [
 ] as const;
 
 async function open(page: Page, path: string, textSize: number): Promise<void> {
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-    key: STORAGE_KEY,
-    value: JSON.stringify({ version: 1, theme: 'clair', textSize }),
-  });
+  await storePreferences(page, { theme: 'clair', textSize });
   await page.goto(path);
   await expect(page.locator('.app-shell[data-mode="tabs"]')).toHaveCount(1);
   await expect(page.locator('html')).toHaveAttribute('data-text-size', String(textSize));
-}
-
-async function settled(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .every(
-        (animation) =>
-          animation.playState !== 'running' ||
-          animation.effect?.getComputedTiming().endTime === Infinity,
-      ),
-  );
 }
 
 for (const code of Object.keys(LOCALES) as (keyof typeof LOCALES)[]) {
@@ -59,7 +44,7 @@ for (const code of Object.keys(LOCALES) as (keyof typeof LOCALES)[]) {
           const header = page.locator('.mobile-header');
           const actions = page.locator('.action-bar');
           const nav = page.getByRole('navigation', { name: locale.nav });
-          await settled(page);
+          await waitForSettledAnimations(page);
 
           const scrollable = await page.evaluate(
             () => document.documentElement.scrollHeight - window.innerHeight,
@@ -88,7 +73,7 @@ for (const code of Object.keys(LOCALES) as (keyof typeof LOCALES)[]) {
           await open(page, locale.path, textSize);
           const nav = page.getByRole('navigation', { name: locale.nav });
           await nav.getByRole('button', { name: locale.xp, exact: true }).click();
-          await settled(page);
+          await waitForSettledAnimations(page);
 
           // Le haut de la liste au haut de la fenêtre : la part visible, sous la navigation fixe.
           await page.evaluate(() => {

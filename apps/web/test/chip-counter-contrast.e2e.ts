@@ -1,18 +1,11 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
+
+import { PALETTES, storePreferences, waitForSettledAnimations } from './support/e2e.js';
 
 // Contraste du compteur des puces de techno (constat RA-6, WCAG 1.4.3) : le compteur gardait une opacité de
 // 0,75 qui, sur une puce active (ou survolée), le ramenait à 3,8:1 en thème clair. Mesure sur les couleurs
 // rendues (couleur du texte, opacité, fonds composés), dans les quatre palettes, puce active puis survolée :
 // au moins 4,5:1.
-
-const STORAGE_KEY = 'siteperso:preferences';
-
-const PALETTES = [
-  { name: 'sombre', theme: 'sombre', highContrast: false },
-  { name: 'clair', theme: 'clair', highContrast: false },
-  { name: 'sombre renforcé', theme: 'sombre', highContrast: true },
-  { name: 'clair renforcé', theme: 'clair', highContrast: true },
-] as const;
 
 const LOCALES = {
   fr: { path: '/', tabs: 'Sections', xp: 'XP', filter: 'filtrer par techno' },
@@ -69,18 +62,6 @@ async function counterContrast(counter: Locator): Promise<number> {
   });
 }
 
-async function settled(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .every(
-        (animation) =>
-          animation.playState !== 'running' ||
-          animation.effect?.getComputedTiming().endTime === Infinity,
-      ),
-  );
-}
-
 test.describe('390 px, compteur des puces', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
@@ -90,13 +71,9 @@ test.describe('390 px, compteur des puces', () => {
         page,
       }) => {
         const locale = LOCALES[code];
-        await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-          key: STORAGE_KEY,
-          value: JSON.stringify({
-            version: 1,
-            theme: palette.theme,
-            highContrast: palette.highContrast,
-          }),
+        await storePreferences(page, {
+          theme: palette.theme,
+          highContrast: palette.highContrast,
         });
         await page.goto(locale.path);
         await expect(page.locator('.app-shell[data-mode="tabs"]')).toHaveCount(1);
@@ -114,7 +91,7 @@ test.describe('390 px, compteur des puces', () => {
         await expect(docker).toHaveAttribute('aria-pressed', 'true');
         // Pointeur ailleurs : la puce est active sans être survolée.
         await page.mouse.move(0, 0);
-        await settled(page);
+        await waitForSettledAnimations(page);
         expect(
           await counterContrast(docker.locator('.tech-option__count')),
           'puce active',
@@ -122,7 +99,7 @@ test.describe('390 px, compteur des puces', () => {
 
         const typescript = quick.getByRole('button', { name: /^TypeScript/ });
         await typescript.hover();
-        await settled(page);
+        await waitForSettledAnimations(page);
         expect(
           await counterContrast(typescript.locator('.tech-option__count')),
           'puce survolée',

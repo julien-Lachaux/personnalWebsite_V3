@@ -46,6 +46,9 @@ const MEDIA: Record<string, (state: RootState) => boolean> = {
   '(prefers-color-scheme: dark)': (state) => state.systemDark,
   // Mouvement non réduit dans ces états : seules les durées en dépendent.
   '(prefers-reduced-motion: reduce)': () => false,
+  // Bureau (D51 (4)) : seules les piles de polices en dépendent, aucune couleur. Vrai, pour que
+  // la règle soit appliquée à la cascade et que toute couleur qu'elle poserait soit vue.
+  '(min-width: 1024px)': () => true,
 };
 
 function mediaMatches(media: string, state: RootState): boolean {

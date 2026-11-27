@@ -1,13 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { STORAGE_KEY } from './support/e2e.js';
+
 // Démarrage de la page générée (lot F3a), indépendant de son contenu :
 // - D5 : le script de thème en tête pose les attributs de <html> depuis le réglage enregistré et le
 //   système AVANT le premier affichage. Preuves : avec le JavaScript de l'application bloqué (seul le
 //   script en ligne s'exécute), les attributs et les couleurs sont déjà ceux du réglage ; avec
 //   l'application, chaque attribut est posé avant que <body> n'existe et ne change plus ensuite ;
 // - D15 : `/fr` renvoie vers `/` (page de redirection générée par Nitro).
-
-const STORAGE_KEY = 'siteperso:preferences';
 
 /** Fond et texte attendus de la racine (design-tokens.json du handoff). */
 const BACKGROUND = {

@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
+import { gotoMounted } from './support/e2e.js';
+
 // Puces de techno dans un vrai navigateur, à chaque taille d'écran des maquettes (lot F1 bis) :
 // - D17 : hauteur de la maquette (environ 28 px) sur mobile et tablette comme ailleurs, et non 44 px ;
 //   cible d'au moins 24 × 24 px (WCAG 2.2, 2.5.8), espacement compris, même collées les unes aux
@@ -31,16 +33,6 @@ interface Chip {
   label: string;
   count?: number;
   dashed?: boolean;
-}
-
-/**
- * Charge la page et attend son hydratation (la coquille a choisi son mode : `data-mode`). Avant
- * cela, le montage de l'application remet les attributs de <html> aux préférences (D5) et
- * écraserait ceux qu'un test poserait juste après `goto`.
- */
-async function open(page: Page, path: string): Promise<void> {
-  await page.goto(path);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
 }
 
 /** Pose (ou retire, valeur null) des attributs sur <html>, comme le feront les préférences. */
@@ -164,7 +156,10 @@ test('critère 2.5.8 : cibles assez grandes, ou assez espacées (témoins de la 
 test('puces des cartes : hauteur de la maquette, cible d’au moins 24 × 24 px, même collées (D17)', async ({
   page,
 }) => {
-  await open(page, '/');
+  // `gotoMounted` attend l'hydratation (la coquille a choisi son mode : `data-mode`). Avant cela, le
+  // montage de l'application remet les attributs de <html> aux préférences (D5) et écraserait ceux
+  // qu'un test poserait juste après `goto`.
+  await gotoMounted(page, '/');
   const boxes = await mountChips(page, LABELS);
 
   for (const box of boxes) {
@@ -184,7 +179,7 @@ for (const [name, value] of [
   test(`puces des cartes : cible d’au moins 24 × 24 px avec ${name}="${value}"`, async ({
     page,
   }) => {
-    await open(page, '/');
+    await gotoMounted(page, '/');
     await setRoot(page, { [name]: value });
     const boxes = await mountChips(page, LABELS);
 
@@ -199,7 +194,7 @@ for (const [name, value] of [
 test('puces du filtre : 40 px de haut comme la maquette, à toutes les largeurs', async ({
   page,
 }) => {
-  await open(page, '/');
+  await gotoMounted(page, '/');
   const boxes = await mountChips(page, LABELS, 'md');
 
   for (const box of boxes) {
@@ -216,7 +211,7 @@ for (const [theme, contrast, control, decorative] of [
   test(`contour : --line-control sur la puce cliquable, --line sur la puce pointillé (${theme}${contrast === null ? '' : ', renforcé'}, D12)`, async ({
     page,
   }) => {
-    await open(page, '/');
+    await gotoMounted(page, '/');
     await setRoot(page, { 'data-theme': theme, 'data-contrast': contrast });
     await mountChips(page, [{ label: 'Go' }, { label: 'COBOL', dashed: true }]);
 

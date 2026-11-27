@@ -36,9 +36,11 @@ export function cvAsyncDataKey(locale: Locale): string {
  * ici, pour que la génération statique échoue au lieu de produire des pages vides.
  *
  * Les sources (schémas Zod des contrats, fixtures) sont importées à la demande, dans le gestionnaire
- * (lot F9a) : le navigateur ne les télécharge ni ne les évalue. Zod 4 sonde `new Function` à la
- * construction de ses schémas d'objet (compilation à la volée) ; sous la CSP stricte du site
- * (`script-src` sans `'unsafe-eval'`), cette sonde est une violation sur chaque page.
+ * (lot F9a) : le navigateur ne les évalue pas. Zod 4 sonde `new Function` à la construction de ses
+ * schémas d'objet (compilation à la volée) ; sous la CSP stricte du site (`script-src` sans
+ * `'unsafe-eval'`), cette sonde est une violation sur chaque page. Dans le build client de
+ * `nuxt generate`, `select-cv-source.ts` est remplacé par `browser-cv-source.ts` (lot F11, greffon de
+ * `nuxt.config.ts`) : la source n'est pas non plus publiée dans les scripts du site.
  */
 export async function fetchCv(deps: FetchCvDeps, locale: Locale): Promise<Cv> {
   return read(deps, cvAsyncDataKey(locale), locale, (cv) => cv);

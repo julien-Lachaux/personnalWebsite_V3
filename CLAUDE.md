@@ -152,7 +152,11 @@ apps/web/
                           (app/i18n-messages.spec.ts)
   public/                 fonts/<police>/ (woff2 + OFL.txt, D6), cv/cv-<langue>.pdf (D22), favicon
   scripts/clean-cv-pdf.sh nettoyage des métadonnées d'un CV PDF (qpdf en conteneur)
-  test/                   parcours Playwright (*.e2e.ts), support et fixtures de test
+  test/                   parcours Playwright (*.e2e.ts), support et fixtures de test ;
+                          support/e2e.ts : assistants communs des parcours (axe WCAG 2.2 AA,
+                          préférences, palettes, tabsMode, gotoMounted, waitForHydration,
+                          waitForSettledAnimations), exercés par e2e-support.e2e.ts (lot F11) ;
+                          un nouveau parcours les importe au lieu d'en recopier une version
 ```
 
 - **Couches** : la logique décide dans `domain/`, le composable relie l'état, le composant affiche.
@@ -178,7 +182,9 @@ apps/web/
   `localePath('/chemin-fr')`. Pas de `definePageMeta` dans une page : il laisse une branche que les
   tests de composants n'exécutent pas (gabarit par `routeRules` `appLayout`).
 - **Référencement et pages annexes (lot F7)** : chaque page pose son titre et sa description par
-  `usePageSeo` (sinon la description par défaut de la langue, `seo.description`) ; `og:title` suit le
+  `usePageSeo` (pas de description par défaut : `useSiteSeo` n'en pose plus, lot F11) ; l'accueil tire les
+  siens de la vue du CV (`CvView.name`, `profile.title`, `seo.description` paramétrée, lot F11) :
+  aucun nom du titulaire écrit dans un libellé qu'une page peut lire au CV ; `og:title` suit le
   titre (`%s`), `og:url` et `og:locale` viennent de `useLocaleHead` ; pas d'`og:image`. `sitemap.xml`
   et `robots.txt` sont écrits à la fin du prérendu (`nuxt.config.ts`) depuis les canoniques et
   hreflang des pages générées (`domain/sitemap.ts`) : une page sans canonique (redirection, erreur)
@@ -211,6 +217,14 @@ apps/web/
   px (vérifié par `app/assets/css/tokens.spec.ts`, avec la fidélité au handoff et les contrastes des
   quatre palettes). Classes globales : `.skip-link` (lien d'évitement, visible au focus) et
   `.visually-hidden`. Polices dans `public/fonts/` (Fontsource 5.3.0, OFL), aucune requête tierce.
+  Polices de repli ajustées (D51 (4), lot F11) : faces `local()` de `fonts.css` (« Space Grotesk
+  Fallback », « … Fallback Roboto », « JetBrains Mono Fallback »), descripteurs calculés par capsize
+  et recalculés par `fonts-fallback.spec.ts` (jamais réglés à l'œil) ; citées par les piles
+  `--font-sans` et `--font-mono` au bureau seulement, dans l'unique règle
+  `@media (min-width: 1024px) { :root { … } }` de `tokens.css` (police du handoff, replis, générique
+  du handoff : `fonts-desktop-stack.spec.ts`) ; sous 1024 px et dans `:root`, la pile du handoff
+  reste (`tokens.spec.ts`). Une face de repli ajoutée à `fonts.css` se nomme « <police> Fallback… »
+  et entre dans la pile du bureau.
 - **Configuration et données personnelles** : valeurs publiques en `NUXT_PUBLIC_*`, figées au build,
   modèle `apps/web/.env.example` (à copier en `apps/web/.env`, jamais commité). L'adresse du bouton
   « Lancer l'entretien » est `NUXT_PUBLIC_CONTACT_EMAIL` (`useRuntimeConfig().public.contactEmail`) :
@@ -231,11 +245,26 @@ apps/web/
   unique de `app/domain/root-attributes.ts` (partagée avec `usePreferencesSync`). Toute modification
   du script change son empreinte `THEME_SCRIPT_SHA256` (vérifiée par un test) : à reporter dans la
   CSP (F9).
+- **Mosaïque avant le montage (D49, lot F11)** : tant que la coquille n'a pas de mode (page générée,
+  sans JavaScript), `AppShell` rend `TileGrid`, que sa CSS place en grille aux rectangles de la vue
+  d'ensemble de `computeLayout` (px, `round()`, requêtes média aux seuils de `BREAKPOINTS`) ; sous
+  1024 px elle n'en montre que le contenu du Profil, comme l'onglet Profil. Le montage ne déplace
+  rien au bureau (`tile-grid--placed`, positions calculées) et remplace la grille par les onglets
+  dessous. Toute modification de la géométrie de `computeLayout` (ou de cette CSS) se reporte dans
+  l'autre : `TileGrid-premount.spec.ts` évalue la CSS livrée et la compare à `computeLayout`,
+  `test/hydration-shift.e2e.ts` compare avant et après le montage. La page générée n'a aucun
+  attribut `style` (CSP). Un style de section qui surcharge celui d'un élément de base le fait par
+  un sélecteur plus fort, jamais à spécificité égale : l'ordre des styles diffère entre la page
+  générée (styles en ligne) et l'application chargée.
 - **CSP stricte (lot F9a)** : le site tourne sous `script-src 'self'` et `style-src 'self'` plus les
   empreintes des seuls éléments en ligne du HTML généré, sans `'unsafe-inline'` ni `'unsafe-eval'`.
   Donc rien dans le navigateur n'appelle `eval` ou `new Function` (Zod 4 le sonde à la construction de
   ses schémas : `@siteperso/contracts` n'est évalué qu'au build, source du CV importée à la demande
-  dans `data/fetch-cv.ts`), et aucun `<script>` ni `<style>` n'est injecté à l'exécution (`useHead`
+  dans `data/fetch-cv.ts` ; lot F11 : le build client de `nuxt generate` remplace
+  `data/select-cv-source.ts` par `data/browser-cv-source.ts`, greffon de `nuxt.config.ts`, donc ni
+  Zod, ni lecture de l'API, ni fixtures dans `_nuxt/`, vérifié par `test/client-bundle.e2e.ts` ; hors
+  de `select-cv-source.ts`, le code du navigateur n'importe de `@siteperso/contracts` que des types, et
+  n'importe ni `parse-cv.ts`, ni `api-cv-source.ts`, ni `fixture-cv-source.ts`), et aucun `<script>` ni `<style>` n'est injecté à l'exécution (`useHead`
   avec `innerHTML`, page d'erreur par défaut de Nuxt). Vérifié par `test/csp.e2e.ts` (politique
   recalculée sur les pages générées, document servi par `page.route`, témoin).
 - **Tests** : deux projets Vitest dans `apps/web/vitest.config.ts`, `unit` (`app/domain/`,
@@ -404,6 +433,11 @@ commandes des agents : un nom propre au lot (`check-<lot>.log`), jamais un nom g
   garde-fous » (lot 14) : règles et conduite face à un refus, jamais le fonctionnement des
   détections (fichiers destinés à devenir publics) ; `.claude/hooks/tests/agents-git-section.test.mjs`
   vérifie qu'elle est identique dans tous les fichiers et que ses refus sont effectifs.
+- Lancement des agents (décision de Julien des 26 et 27 nov. 2026, lot F11) : chaque agent tourne dans un
+  onglet de herdr Desktop (`herdr-app do tab.new`, `claude --agent <rôle>`, PATH avec node et pnpm),
+  visible et reprenable par Julien, pas en sous-agent invisible ; autorisations créées avec
+  `CLAUDE_PROJECT_DIR=<worktree>` ; pause de tout le travail à 90 % de la limite hebdomadaire d'usage.
+  Recette, suivi et pièges : `docs/agents-herdr.md`.
 - Un test se protège, il ne se négocie pas. Interdits à tout agent : modifier ou supprimer un test
   existant, ajouter un marqueur de saut ou de focus de Vitest ou de Playwright (dont `test.fixme`
   et `test.slow`) ou un commentaire d'ignore de couverture, désactiver une règle axe, régénérer une

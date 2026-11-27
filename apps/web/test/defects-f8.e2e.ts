@@ -1,11 +1,16 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+import {
+  gotoMounted,
+  storePreferences,
+  tabsMode,
+  waitForSettledAnimations,
+} from './support/e2e.js';
+
 // Défauts du lot F8 trouvés au texte agrandi à 130 % (WCAG 1.4.4 Redimensionnement du texte et 1.4.10
 // Redistribution), chacun par une assertion ciblée sur l'élément fautif. Mesure : `scrollWidth` d'un
 // conteneur qui rogne (`overflow-x` autre que `visible`) comparé à sa largeur visible, ou bord d'un
 // contrôle comparé à la fenêtre. Ces tests échouent tant que le défaut existe.
-
-const STORAGE_KEY = 'siteperso:preferences';
 
 const LOCALES = {
   fr: { path: '/', nav: 'Sections', recos: 'Recos', tabs: ['Profil', 'XP', 'Recos', 'IA'] },
@@ -14,31 +19,11 @@ const LOCALES = {
 
 type LocaleCode = keyof typeof LOCALES;
 
-function tabsMode(page: Page): boolean {
-  return (page.viewportSize()?.width ?? 0) < 1024;
-}
-
 /** Page à 130 % : hydratée, animations finies. */
 async function open130(page: Page, path: string): Promise<void> {
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-    key: STORAGE_KEY,
-    value: JSON.stringify({ version: 1, theme: 'clair', textSize: 130 }),
-  });
-  await page.goto(path);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+  await storePreferences(page, { theme: 'clair', textSize: 130 });
+  await gotoMounted(page, path);
   await expect(page.locator('html')).toHaveAttribute('data-text-size', '130');
-}
-
-async function settled(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .every(
-        (animation) =>
-          animation.playState !== 'running' ||
-          animation.effect?.getComputedTiming().endTime === Infinity,
-      ),
-  );
 }
 
 /** Contenu hors du conteneur qui rogne un élément : px de large en trop, 0 si tout est visible. */
@@ -75,7 +60,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         .getByRole('link', { name: /LinkedIn/ })
         .first();
       await expect(link).toBeVisible();
-      await settled(page);
+      await waitForSettledAnimations(page);
       expect(await clippedWidth(link)).toBe(0);
     });
 
@@ -87,7 +72,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         await expect(page.locator('.action-bar')).toHaveCount(0);
         return;
       }
-      await settled(page);
+      await waitForSettledAnimations(page);
       const width = page.viewportSize()?.width ?? 0;
       for (const button of await page.locator('.action-bar').getByRole('link').all()) {
         const box = await button.boundingBox();

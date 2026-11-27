@@ -842,6 +842,24 @@ Lot 22 : le run complet avec seuils ne dépend plus des étiquettes `v*` mais de
 (`MUTATION_FULL` dans `ci.yml`) ; vers `develop` il reste incrémental. Aucun push sur `develop` n'alimente plus le
 cache d'incrément : l'amorçage se fait par `workflow_dispatch` sur `develop`, puis les PR le restaurent depuis leur base.
 
+### Mesures et budget du JavaScript du front (lot F11, F11-06, D50)
+
+Le job `front-parcours` génère le site sur fixtures ; son étape « Mesures et budget du JavaScript du site
+généré » (entrée `desktop-1280` seulement : le site est le même pour les sept écrans) lance
+`node scripts/ci/front-bundle-budget.mjs` sur `apps/web/.output/public`, sans régénérer. Elle échoue si :
+
+- un script de `_nuxt/*.js` contient Zod (`._zod.`, `ZodError`), la lecture de l'API du CV ou un texte long des
+  fixtures (même méthode que le parcours `client-bundle.e2e.ts`) ;
+- le JS chargé par la page d'accueil (script d'entrée et `modulepreload`, chacun compté une fois, gzip niveau 9)
+  dépasse le budget `HOME_JS_BUDGET_GZIP` : **152 306 o**, soit la valeur mesurée à la fin du lot F11
+  (138 460 o gzip, 390 965 o bruts, 8 scripts, 26 nov. 2026) plus 10 %.
+
+Le poids total publié et le JS chargé par `/`, `/en` et `/accessibilite` (bruts et gzip) s'affichent dans le résumé
+du job (`$GITHUB_STEP_SUMMARY`). Relever le budget est une décision de Julien seule : on remesure la page d'accueil,
+on remplace la constante (valeur et date, commentaire du script) et on consigne la décision dans
+`docs/05-front-organisation.md`. Le script est testé par `scripts/ci/tests/front-bundle-budget.test.sh`
+(`pnpm integrity:test`, job `garde-fous`).
+
 ## Version et changelog
 
 Décisions de Julien du 21 nov. 2026 (lot 23). Une seule source de vérité : les Conventional Commits. Aucun

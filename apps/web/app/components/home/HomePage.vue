@@ -13,10 +13,12 @@
 // - IA : le placeholder terminal (D27) quand l'API ne sert pas de section IA (`view.ai` nul), jamais une
 //   tuile ou un onglet vide.
 import { computed, useTemplateRef } from 'vue';
-import { useHead, useI18n, useLocalePath } from '#imports';
+import { useI18n, useLocalePath } from '#imports';
 
+import { usePageSeo } from '../../composables/seo/useSeo.js';
 import { useCv } from '../../composables/use-cv.js';
 import { mapCv } from '../../data/map-cv.js';
+import { inlineTitle } from '../../domain/format.js';
 import AiPlaceholder from '../ai/AiPlaceholder.vue';
 import AiSection from '../ai/AiSection.vue';
 import ExperienceSection from '../experience/ExperienceSection.vue';
@@ -46,8 +48,14 @@ const experience = useTemplateRef<ExperienceSectionExposed>('experience');
 /** Zone qui défile de la section Expérience (nulle avant le montage). */
 const scrollers = computed(() => ({ experience: experience.value?.scroller ?? null }));
 
-useHead(() => ({
-  title: `${cv.profile.firstName} ${cv.profile.lastName} · ${view.value.profile.title}`,
+// Titre et description de la page, tirés de la vue (nom et intitulé du CV, lot F11, RC-5) : aucun nom
+// écrit dans les libellés.
+usePageSeo(() => ({
+  title: `${view.value.name} · ${view.value.profile.title}`,
+  description: t('seo.description', {
+    name: view.value.name,
+    title: inlineTitle(view.value.profile.title),
+  }),
 }));
 </script>
 

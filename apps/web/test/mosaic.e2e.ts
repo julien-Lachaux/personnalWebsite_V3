@@ -1,8 +1,14 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { computeLayout, EXPANDED_MAX_WIDTH, GAP } from '../app/domain/layout.js';
 import type { MosaicLayout, Rect, TileId } from '../app/domain/layout-types.js';
+import {
+  expectAxeClean,
+  gotoMounted,
+  storePreferences,
+  tabsMode,
+  waitForSettledAnimations,
+} from './support/e2e.js';
 
 // Mosaïque du bureau (lot F6, SPEC § 3.3 à § 4.2), à chaque taille d'écran des maquettes, en français et
 // en anglais, thèmes clair et sombre :
@@ -17,8 +23,6 @@ import type { MosaicLayout, Rect, TileId } from '../app/domain/layout-types.js';
 // - axe WCAG 2.2 AA dans la mosaïque et en tuile agrandie ; mouvement réduit.
 // Sous 1024 px, la vue par onglets est inchangée : chaque test le vérifie puis s'arrête.
 
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-const STORAGE_KEY = 'siteperso:preferences';
 const TILES: readonly TileId[] = ['profile', 'experience', 'recommendations', 'ai'];
 
 const LOCALES = {
@@ -40,18 +44,6 @@ type LocaleCode = keyof typeof LOCALES;
 
 const THEMES = ['clair', 'sombre'] as const;
 
-/** Sous 1024 px : onglets, pas de mosaïque. */
-function tabsMode(page: Page): boolean {
-  return (page.viewportSize()?.width ?? 0) < 1024;
-}
-
-async function storeTheme(page: Page, theme: (typeof THEMES)[number]): Promise<void> {
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-    key: STORAGE_KEY,
-    value: JSON.stringify({ version: 1, theme }),
-  });
-}
-
 function grid(page: Page): Locator {
   return page.locator('.tile-grid');
 }
@@ -60,20 +52,12 @@ function tile(page: Page, id: TileId): Locator {
   return page.locator(`[data-tile="${id}"]`);
 }
 
-/** Attend la fin de toutes les transitions des tuiles. */
-async function settled(page: Page): Promise<void> {
-  await grid(page).evaluate((element) =>
-    Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)),
-  );
-}
-
 /**
  * Page chargée et hydratée. Sous 1024 px, vérifie que la vue par onglets est là sans mosaïque et rend
  * `false` ; sinon attend le premier placement des tuiles.
  */
 async function open(page: Page, path: string): Promise<boolean> {
-  await page.goto(path);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+  await gotoMounted(page, path);
   if (tabsMode(page)) {
     await expect(page.locator('.app-shell')).toHaveAttribute('data-mode', 'tabs');
     await expect(grid(page)).toHaveCount(0);
@@ -82,7 +66,7 @@ async function open(page: Page, path: string): Promise<boolean> {
   }
   await expect(page.locator('.app-shell')).toHaveAttribute('data-mode', 'mosaic');
   await expect(page.locator('.tile-grid:not(.tile-grid--instant)')).toHaveCount(1);
-  await settled(page);
+  await waitForSettledAnimations(page, grid(page));
   return true;
 }
 
@@ -131,15 +115,6 @@ function expectRect(actual: Rect, expected: Rect, label: string): void {
   }
 }
 
-async function axe(page: Page, label: string): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
-  expect(results.violations, label).toEqual([]);
-  expect(
-    results.passes.map((rule) => rule.id),
-    label,
-  ).toContain('color-contrast');
-}
-
 for (const code of Object.keys(LOCALES) as LocaleCode[]) {
   const locale = LOCALES[code];
 
@@ -171,7 +146,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       for (const id of TILES) expectRect(actual[id], mosaic.tiles[id].rect, `mosaïque, ${id}`);
 
       await tile(page, 'experience').getByRole('button', { name: locale.expandXp }).click();
-      await settled(page);
+      await waitForSettledAnimations(page, grid(page));
       const expanded = await expectedLayout(page, 'experience');
       const after = await rects(page);
       for (const id of TILES) {
@@ -206,7 +181,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         expect([mosaic.profile.x, mosaic.profile.y, mosaic.profile.width]).toEqual([12, 12, 420]);
 
         await tile(page, 'experience').getByRole('button', { name: locale.expandXp }).click();
-        await settled(page);
+        await waitForSettledAnimations(page, grid(page));
         const expanded = await rects(page);
         // XP de 868 px à gauche ; colonne latérale de 376 px, D42 : le Profil en haut sur la hauteur
         // libérée, Recos et IA repliées en bas sur leur barre de titre (49 px, gouttière de 12 px).
@@ -225,7 +200,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       expectRect(mosaic.recommendations, { x: 704, y: 403, width: 308, height: 297 }, 'Recos');
 
       await tile(page, 'experience').getByRole('button', { name: locale.expandXp }).click();
-      await settled(page);
+      await waitForSettledAnimations(page, grid(page));
       const expanded = await rects(page);
       // Pas de place à côté : XP centrée (x = 78), les autres poussées hors de la zone : Profil à gauche,
       // Recos à droite, IA (même colonne que XP, en dessous) par le bas (D10).
@@ -246,7 +221,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       await expect(toggle).toBeFocused();
       await expect(nav.getByRole('button').nth(2)).toHaveAttribute('aria-current', 'true');
       await expect(tile(page, 'experience')).toHaveClass(/tile-grid__tile--expanded/);
-      await settled(page);
+      await waitForSettledAnimations(page, grid(page));
       const zoneWidth = (await zone(page)).width;
       const expandedWidth = Math.min(Math.min(zoneWidth, 1440) - 2 * GAP, EXPANDED_MAX_WIDTH);
       expect((await rects(page)).experience.width).toBeCloseTo(expandedWidth, 1);
@@ -258,7 +233,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         'aria-current',
         'true',
       );
-      await settled(page);
+      await waitForSettledAnimations(page, grid(page));
       const mosaic = await expectedLayout(page, null);
       expectRect((await rects(page)).experience, mosaic.tiles.experience.rect, 'XP réduite');
     });
@@ -287,7 +262,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       await page.keyboard.press('Enter');
       await expect(tabs.nth(0)).toHaveAttribute('aria-current', 'true');
       await expect(page.locator('.tile-grid__tile--expanded')).toHaveCount(0);
-      await settled(page);
+      await waitForSettledAnimations(page, grid(page));
       for (const id of TILES) await expect(tile(page, id)).toBeVisible();
     });
 
@@ -298,7 +273,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       const side = innerWidth - EXPANDED_MAX_WIDTH - GAP >= 340;
 
       await tile(page, 'experience').locator('.tile__toggle').click();
-      await settled(page);
+      await waitForSettledAnimations(page, grid(page));
 
       for (const id of ['profile', 'recommendations', 'ai'] as const) {
         const other = tile(page, id);
@@ -352,7 +327,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       const { width } = await zone(page);
       if (Math.min(width, 1440) - 2 * GAP - EXPANDED_MAX_WIDTH - GAP < 340) return;
       await tile(page, 'experience').locator('.tile__toggle').click();
-      await settled(page);
+      await waitForSettledAnimations(page, grid(page));
       await expect(content).toHaveCSS('transform', 'none');
       // D42 : XP agrandie, le Profil occupe la colonne latérale et défile comme d'habitude.
       await expect(body).toHaveAttribute('tabindex', '0');
@@ -381,7 +356,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       if (Math.min(width, 1440) - 2 * GAP - EXPANDED_MAX_WIDTH - GAP < 340) return;
 
       await tile(page, 'recommendations').locator('.tile__toggle').click();
-      await settled(page);
+      await waitForSettledAnimations(page, grid(page));
 
       const list = tile(page, 'experience').locator('.experience-section__list');
       await expect(tile(page, 'experience')).toBeVisible();
@@ -403,7 +378,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
 
       for (const id of TILES) {
         await tile(page, id).locator('.tile__toggle').click();
-        await settled(page);
+        await waitForSettledAnimations(page, grid(page));
         const end = await rects(page);
         await page.waitForTimeout(300);
         expect(await rects(page), `${id} agrandie`).toEqual(end);
@@ -411,7 +386,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
           await grid(page).evaluate((element) => element.getAnimations({ subtree: true }).length),
         ).toBe(0);
         await tile(page, id).locator('.tile__toggle').click();
-        await settled(page);
+        await waitForSettledAnimations(page, grid(page));
       }
     });
 
@@ -461,7 +436,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       for (const transition of transitions.filter(({ property }) => property === 'visibility')) {
         expect(transition).toMatchObject({ out: true, duration: 0, delay: 550 });
       }
-      await settled(page);
+      await waitForSettledAnimations(page, grid(page));
     });
 
     test('mouvement réduit : aucune transition, géométrie finale tout de suite', async ({
@@ -478,7 +453,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         }),
       );
       for (const duration of durations) expect(duration).toBeLessThan(1);
-      await settled(page);
+      await waitForSettledAnimations(page, grid(page));
       // Place et largeur de la tuile agrandie (sa hauteur est celle de son contenu, non lue ici).
       const expected = (await expectedLayout(page, 'ai')).tiles.ai.rect;
       const actual = (await rects(page)).ai;
@@ -489,17 +464,17 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
       test(`axe WCAG 2.2 AA, thème ${theme} : mosaïque, XP agrandie, Profil agrandi`, async ({
         page,
       }) => {
-        await storeTheme(page, theme);
+        await storePreferences(page, { theme });
         if (!(await open(page, locale.path))) return;
         await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 
-        await axe(page, `${theme}, mosaïque`);
+        await expectAxeClean(page, `${theme}, mosaïque`);
         for (const id of ['experience', 'profile'] as const) {
           await tile(page, id).locator('.tile__toggle').click();
-          await settled(page);
-          await axe(page, `${theme}, ${id} agrandie`);
+          await waitForSettledAnimations(page, grid(page));
+          await expectAxeClean(page, `${theme}, ${id} agrandie`);
           await tile(page, id).locator('.tile__toggle').click();
-          await settled(page);
+          await waitForSettledAnimations(page, grid(page));
         }
       });
     }

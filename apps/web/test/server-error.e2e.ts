@@ -1,9 +1,10 @@
-import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Request } from '@playwright/test';
+
+import { buildPolicy, collectHashes } from '../../../scripts/deploy/csp-hashes.mjs';
+import { analyzeWcag22AA } from './support/e2e.js';
 
 // Pages d'erreur serveur (lot 30), à chaque taille d'écran des maquettes, en fr et en, schémas clair et
 // sombre. Le proxy de production sert `50x.html` (ou `en/50x.html` sous /en) à l'adresse demandée, avec
@@ -13,7 +14,6 @@ import { expect, test, type Page, type Request } from '@playwright/test';
 // n'entre pas dans le plan du site.
 
 const PUBLIC_DIR = resolve(import.meta.dirname, '../.output/public');
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 /** Fond de la page (`--bg` de tokens.css) dans chaque schéma, sans réglage enregistré. */
 const BACKGROUND = { light: 'rgb(230, 235, 229)', dark: 'rgb(16, 26, 33)' } as const;
@@ -143,7 +143,7 @@ async function expectServerErrorPage(
     true,
   );
   if (!axe) return;
-  const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+  const results = await analyzeWcag22AA(page);
   expect(results.violations).toEqual([]);
   expect(results.passes.length).toBeGreaterThan(0);
 }
@@ -247,56 +247,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await expect(page.locator('html')).toHaveAttribute('data-contrast', 'renforce');
       await expect(page.locator('html')).toHaveAttribute('data-text-size', '130');
-      const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+      const results = await analyzeWcag22AA(page);
       expect(results.violations).toEqual([]);
     });
   });
 }
 
-// CSP stricte du déploiement (même politique que test/csp.e2e.ts et scripts/deploy/csp-hashes.mjs) :
+// CSP stricte du déploiement : la politique de scripts/deploy/csp-hashes.mjs (RC-8, D40), avec les
 // empreintes de tous les éléments en ligne des pages générées.
 
-function cspHash(content: string): string {
-  return `'sha256-${createHash('sha256').update(content, 'utf8').digest('base64')}'`;
-}
-
-function htmlFiles(directory: string): string[] {
-  return readdirSync(directory)
-    .sort()
-    .flatMap((name) => {
-      const path = join(directory, name);
-      if (statSync(path).isDirectory()) return htmlFiles(path);
-      return name.endsWith('.html') ? [path] : [];
-    });
-}
-
 function strictPolicy(): string {
-  const scripts = new Set<string>();
-  const styles = new Set<string>();
-  for (const file of htmlFiles(PUBLIC_DIR)) {
-    const html = readFileSync(file, 'utf8');
-    for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
-      const attributes = match[1] ?? '';
-      if (/\bsrc\s*=/i.test(attributes)) continue;
-      if (/\btype\s*=\s*["']?application\/(?:ld\+)?json/i.test(attributes)) continue;
-      scripts.add(cspHash(match[2] ?? ''));
-    }
-    for (const match of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
-      styles.add(cspHash(match[1] ?? ''));
-    }
-  }
-  return [
-    "default-src 'self'",
-    `script-src 'self' ${[...scripts].sort().join(' ')}`.trim(),
-    `style-src 'self' ${[...styles].sort().join(' ')}`.trim(),
-    "img-src 'self' data:",
-    "font-src 'self'",
-    "connect-src 'self'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "object-src 'none'",
-  ].join('; ');
+  return buildPolicy(collectHashes(PUBLIC_DIR));
 }
 
 test.describe('page d’erreur serveur sous la CSP stricte', () => {

@@ -2,8 +2,15 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+
+import {
+  analyzeWcag22AA,
+  gotoMounted,
+  storePreferences,
+  tabsMode,
+  waitForSettledAnimations,
+} from './support/e2e.js';
 
 // Section IA vide (lot F8, D27 et D28) : le site généré SANS section IA (`aiOverview` nul), par la
 // génération `pnpm run generate:without-ai` (`test/support/generate-without-ai.mjs`, une « API » locale qui sert les fixtures
@@ -17,8 +24,6 @@ import { expect, test, type Page } from '@playwright/test';
 // - captures (mobile 390 clair et sombre, tuile IA du 1280 sombre) dans `F8_CAPTURES_DIR`
 //   (défaut `test-results/f8-captures/`).
 
-const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-const STORAGE_KEY = 'siteperso:preferences';
 const SITE_DIR = resolve(import.meta.dirname, '../node_modules/.cache/site-sans-ia');
 const CAPTURES_DIR =
   process.env['F8_CAPTURES_DIR'] ?? resolve(import.meta.dirname, '../test-results/f8-captures');
@@ -108,34 +113,10 @@ const PALETTES = [
   { name: 'sombre renforcé', theme: 'sombre', highContrast: true },
 ] as const;
 
-function tabsMode(page: Page): boolean {
-  return (page.viewportSize()?.width ?? 0) < 1024;
-}
-
-async function storePreferences(page: Page, preferences: Record<string, unknown>): Promise<void> {
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-    key: STORAGE_KEY,
-    value: JSON.stringify({ version: 1, ...preferences }),
-  });
-}
-
-async function waitForSettledAnimations(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .every(
-        (animation) =>
-          animation.playState !== 'running' ||
-          animation.effect?.getComputedTiming().endTime === Infinity,
-      ),
-  );
-}
-
 /** Ouvre le site sans IA et rend la section IA affichée (onglet IA, ou tuile IA de la mosaïque). */
 async function openAi(page: Page, site: string, code: LocaleCode) {
   const locale = LOCALES[code];
-  await page.goto(`${site}${locale.path}`);
-  await expect(page.locator('.app-shell[data-mode]')).toHaveCount(1);
+  await gotoMounted(page, `${site}${locale.path}`);
   if (tabsMode(page)) {
     await page
       .getByRole('navigation', { name: locale.nav })
@@ -215,7 +196,7 @@ for (const code of Object.keys(LOCALES) as LocaleCode[]) {
         await openAi(page, siteWithoutAi, code);
         await expect(page.locator('html')).toHaveAttribute('data-theme', palette.theme);
 
-        const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze();
+        const results = await analyzeWcag22AA(page);
         expect(results.violations).toEqual([]);
         expect(results.passes.map((rule) => rule.id)).toContain('color-contrast');
         // Le contraste du placeholder est mesuré, pas « à vérifier » (fond translucide, image…).
